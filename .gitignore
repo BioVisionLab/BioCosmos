@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dataset
+public/dataset-tiles
+public/images
+*__pycache__
+clip_service/chroma_db/*
