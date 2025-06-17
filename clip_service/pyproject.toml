@@ -7,4 +7,13 @@ requires-python = ">=3.10"
 dependencies = [
     "chromadb>=0.6.3",
     "fastapi[standard]>=0.115.12",
+    "pillow>=11.2.1",
+    "pydantic>=2.11.7",
+    "torch>=2.7.1",
+    "transformers>=4.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.0",
 ]
