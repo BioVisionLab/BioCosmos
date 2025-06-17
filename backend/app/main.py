@@ -9,5 +9,4 @@ app.include_router(text_search.router)
 
 @app.get("/")
 async def root():
-    models.test()
     return {"message": "Welcome to the CLIP Service"}
