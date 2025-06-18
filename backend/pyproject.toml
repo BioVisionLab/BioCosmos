@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Backend service for image classification search"
+description = "Backend service for image classification"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,4 +15,4 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ruff>=0.12.0"]
+dev = ["pytest>=8.4.1", "ruff>=0.12.0"]

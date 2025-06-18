@@ -4,7 +4,9 @@ import logging
 
 router = APIRouter()
 
-@router.get("/image-search")
+logger = logging.getLogger(__name__)
+
+@router.get("/img-search")
 async def image_search(q: str):
     """
 
@@ -12,8 +14,7 @@ async def image_search(q: str):
     query: str = q.strip()
 
     if query is None or query == "":
-        return {"error": "Query parameter 'q' is required and cannot be empty."}
+        logger.exception("Query parameter 'q' is required and cannot be empty.")
+        return JSONResponse(content={"error": "Query parameter 'q' is required and cannot be empty."}, status_code=400)
     
-    return {"message": f"Image search results for query: {query}"}
-
-
+    return JSONResponse(content={"query": query, "results": []}, status_code=200)

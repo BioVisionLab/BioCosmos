@@ -1,9 +1,8 @@
-from services import image_services
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from ..services import clip_service
 
 import logging
-
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,8 +23,8 @@ async def search_text(q: str):
     if query is None or query == "":
         return JSONResponse(content={"error": "Query parameter is required"}, status_code=400)
     
-    text_embedder = image_services.ClipTextEmbedder()
-    text_embedding =text_embedder.get_embedding(query)
+    text_embedder = clip_service.ClipTextEmbedder()
+    text_embedding = text_embedder.get_embedding(query)
     if text_embedding is None:
         return JSONResponse(content={"error": "Failed to compute text embedding"}, status_code=500)
     
