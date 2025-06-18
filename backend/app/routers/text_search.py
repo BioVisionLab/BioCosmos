@@ -7,7 +7,7 @@ import logging
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/text-search/")
+@router.get("/text-search")
 async def search_text(q: str):
     """ Search for images based on a text query using CLIP embeddings.
     Args:
@@ -21,11 +21,11 @@ async def search_text(q: str):
     query = q.strip()
 
     if query is None or query == "":
-        return JSONResponse(content={"error": "Query parameter is required"}, status_code=400)
+        return JSONResponse(content={"error": "Query parameter 'q' is required and cannot be empty."}, status_code=400)
     
     text_embedder = clip_service.ClipTextEmbedder()
     text_embedding = text_embedder.get_embedding(query)
     if text_embedding is None:
         return JSONResponse(content={"error": "Failed to compute text embedding"}, status_code=500)
     
-    return JSONResponse(content={"query": query, "text_embedding": text_embedding}, status_code=200)
+    return JSONResponse(content={"query": query, "results": []}, status_code=200)
