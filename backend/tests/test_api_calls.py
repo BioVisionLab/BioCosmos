@@ -1,3 +1,5 @@
+# Test cases for API calls in a FastAPI application
+# To tes run: uv run -m pytest
 from fastapi.testclient import TestClient
 from app.main import app  # Adjust the import path to your FastAPI app
 
