@@ -8,7 +8,12 @@ CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+if torch.backends.mps.is_available():
+    DEVICE = "mps"
+elif torch.cuda.is_available():
+    DEVICE = "cuda"
+else:
+    DEVICE = "cpu"
 
 # --- Load CLIP Model and Processor (for text search) ---
 logger.info(f"Loading CLIP model: {CLIP_MODEL_NAME} for text processing...")

@@ -23,12 +23,10 @@ export async function GET(request: Request) {
     const clipResponse = await fetch(
       `${CLIP_SERVICE_URL}?q=${encodeURIComponent(query)}`,
       {
-        method: "GET", // Assuming the Python service uses GET
+        method: "GET",
         headers: {
           Accept: "application/json",
         },
-        // Add timeout if desired
-        // signal: AbortSignal.timeout(10000) // 10 second timeout
       }
     );
 

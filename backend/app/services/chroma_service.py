@@ -10,7 +10,7 @@ UNICOM_COLLECTION_NAME = "unicom_collection"
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-def init_db():
+async def init_db():
     logger.info(f"Initializing ChromaDB client with path: {CHROMA_DB_PATH}...")
     try:
         # Ensure the directory exists
