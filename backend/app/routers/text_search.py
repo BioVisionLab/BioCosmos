@@ -33,7 +33,7 @@ async def search_text(q: str):
     try:
         logger.info(f"Querying ChromaDB CLIP collection '{text_embedder.get_collection_name}'...")
         search_results = await text_embedder.query(
-            query_embedding=[text_embedding],
+            query_embedding=text_embedding,
             n_results=5
         )
         logger.info("ChromaDB CLIP query completed.")

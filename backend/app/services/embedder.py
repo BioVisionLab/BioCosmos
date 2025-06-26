@@ -65,7 +65,7 @@ class ImageEmbedder:
                 # We normalize the embedding to unit length
                 # which is useful for cosine similarity search
                 embedding /= embedding.norm(dim=-1, keepdim=True)
-                embeddings.append(embedding.cpu().numpy())
+                embeddings.append(embedding.cpu().numpy().flatten().tolist())
             except Exception as e:
                 logger.error(f"Error processing image {image_path}: {e}")
         return embeddings
@@ -84,8 +84,6 @@ class ImageEmbedder:
         all_metadata = []
         processed_image_count = 0
         skipped_image_count = 0
-
-        
 
         total_images = len(image_paths)
         with tqdm(total=total_images, desc="Embedding images") as pbar:
@@ -123,15 +121,6 @@ class ImageEmbedder:
         else:
             logger.info("No existing images found in ChromaDB, all images will be processed.")
         return new_ids[:1000]
-    
-    def flatten_embedding(self, embedding):
-        """Flatten the embedding to ensure it is a 1D list of floats."""
-        if hasattr(embedding, "flatten"):
-            return embedding.flatten().tolist()
-        while isinstance(embedding[0], (list, tuple)):
-            embedding = [item for sublist in embedding for item in sublist]
-        # return 2000 for test purposes
-        return embedding
 
     async def batch_embed_images(self, image_dir=IMAGE_BASE_DIR):
         """Main method to embed images in batches and store in ChromaDB."""
@@ -144,8 +133,6 @@ class ImageEmbedder:
         all_ids, all_embeddings, all_metadata = self.embed_images(image_paths)
 
         if all_ids:
-            # Ensure each embedding is a flat list of floats (1D)
-            all_embeddings =  [self.flatten_embedding(e) for e in all_embeddings]
             await upsert_to_chroma(all_ids, all_embeddings, all_metadata)
             logger.info("Embedding and upsert completed successfully.")
         else:

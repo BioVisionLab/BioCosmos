@@ -57,11 +57,8 @@ async def query_collection(query_embedding, n_results=5):
     collection = client.get_or_create_collection(CLIP_COLLECTION_NAME)
     
     try:
-        # Ensure query_embedding is a list of floats
-        if hasattr(query_embedding, "tolist"):
-            query_embedding = query_embedding.tolist()
         results = collection.query(
-            query_embeddings=[query_embedding],
+            query_embeddings=query_embedding,
             n_results=n_results,
             include=['metadata', 'distances']
         )
