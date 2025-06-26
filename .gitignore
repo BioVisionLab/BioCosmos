@@ -47,3 +47,4 @@ public/images
 clip_service/chroma_db/*
 
 target/
+chroma_db/
