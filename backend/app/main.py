@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .routers import image_search, text_search
-from .services.chroma_service import init_db
+from .services.chroma import init_db
 from .services.embedder import ImageEmbedder
 
 # Configure logging

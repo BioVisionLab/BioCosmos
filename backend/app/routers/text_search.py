@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from ..services import clip_service
+from ..services import clip
 
 import logging
 
@@ -25,16 +25,16 @@ async def search_text(q: str):
     if query is None or query == "":
         return JSONResponse(content={"error": "Query parameter 'q' is required and cannot be empty."}, status_code=400)
     
-    text_embedder = clip_service.ClipTextEmbedder()
+    text_embedder = clip.ClipTextEmbedder()
     text_embedding = text_embedder.get_embedding(query)
     if text_embedding is None:
         return JSONResponse(content={"error": "Failed to compute text embedding"}, status_code=500)
     
     try:
-        logger.info(f"Querying ChromaDB CLIP collection '{clip_service.CLIP_COLLECTION_NAME}'...")
-        search_results = clip_service.clip_collection.query(
+        logger.info(f"Querying ChromaDB CLIP collection '{clip.CLIP_COLLECTION_NAME}'...")
+        search_results = clip.clip_collection.query(
             query_embeddings=[text_embedding],
-            n_results=clip_service.TOP_K,
+            n_results=clip.TOP_K,
             include=['metadatas', 'distances']
         )
         logger.info("ChromaDB CLIP query completed.")
