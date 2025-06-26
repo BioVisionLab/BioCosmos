@@ -60,7 +60,7 @@ async def query_collection(query_embedding, n_results=5):
         results = collection.query(
             query_embeddings=query_embedding,
             n_results=n_results,
-            include=['metadata', 'distances']
+            include=['metadatas', 'distances']
         )
         logger.info("ChromaDB CLIP query completed.")
         return results

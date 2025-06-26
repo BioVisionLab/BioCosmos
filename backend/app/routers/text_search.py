@@ -37,7 +37,11 @@ async def search_text(q: str):
             n_results=5
         )
         logger.info("ChromaDB CLIP query completed.")
-
+        if search_results is None:
+            logger.error("ChromaDB query returned None, indicating a failure.")
+            return JSONResponse(content={"error": "Failed to retrieve search results from ChromaDB"}, status_code=500)
+        logger.info(f"ChromaDB CLIP query returned {len(search_results.get('ids', []))} results.")
+        logger.info(f"Search results: {search_results}")
         best_hits_per_species = {}
         if (
             search_results and search_results.get('ids') and search_results['ids'][0] and
@@ -47,7 +51,8 @@ async def search_text(q: str):
             ids = search_results['ids'][0]
             metadatas = search_results['metadatas'][0]
             distances = search_results['distances'][0]
-
+            logger.info(f"Found {len(ids)} results in CLIP text search.")
+            logger.debug(f"IDs: {ids}")
             for i in range(len(ids)):
                 metadata = metadatas[i]
                 distance = distances[i]
