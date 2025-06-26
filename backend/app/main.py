@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(image_search.router)
 app.include_router(text_search.router)

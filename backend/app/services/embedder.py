@@ -6,6 +6,7 @@ from PIL import Image
 from chromadb.utils.batch_utils import create_batches  # Utility for batching
 import os
 import glob
+from tqdm import tqdm
 
 IMAGE_BASE_DIR = "../public/images/nymphalidae_new" # Relative path from clip_service folder
 CHROMA_DB_PATH = "./chroma_db" # Directory to store Chroma data locally
@@ -87,25 +88,25 @@ class ImageEmbedder:
 
         
 
-        for batch in self.simple_batches(image_paths, BATCH_SIZE):
-            batch_embeddings = self.get_embeddings(batch)
-            for img_path, embedding in zip(batch, batch_embeddings):
-                if embedding is not None:
-                    all_embeddings.append(embedding)
-                    filename = os.path.basename(img_path)
-                    folder_name = os.path.basename(os.path.dirname(img_path))
-                    unique_id = f"{folder_name}_{filename}"
-                    all_ids.append(unique_id)
-                    all_metadata.append({
-                        "species_folder": folder_name,
-                        "image_filename": filename
-                    })
-                    processed_image_count += 1
-                else:
-                    skipped_image_count += 1
-
-            if (processed_image_count + skipped_image_count) % 100 == 0:
-                logger.info(f"Processed {(processed_image_count + skipped_image_count)} images for UNICOM...")
+        total_images = len(image_paths)
+        with tqdm(total=total_images, desc="Embedding images") as pbar:
+            for batch in self.simple_batches(image_paths, BATCH_SIZE):
+                embeddings = self.get_embeddings(batch)
+                for img_path, embedding in zip(batch, embeddings):
+                    if embedding is not None:
+                        all_embeddings.append(embedding)
+                        filename = os.path.basename(img_path)
+                        folder_name = os.path.basename(os.path.dirname(img_path))
+                        unique_id = f"{folder_name}_{filename}"
+                        all_ids.append(unique_id)
+                        all_metadata.append({
+                            "species_folder": folder_name,
+                            "image_filename": filename
+                        })
+                        processed_image_count += 1
+                    else:
+                        skipped_image_count += 1
+                    pbar.update(1)
 
         return all_ids, all_embeddings, all_metadata
     

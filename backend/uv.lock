@@ -55,6 +55,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "timm" },
     { name = "torch" },
+    { name = "tqdm" },
     { name = "transformers" },
     { name = "uvicorn" },
 ]
@@ -73,6 +74,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "timm", specifier = ">=1.0.15" },
     { name = "torch", specifier = ">=2.7.1" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "transformers", specifier = ">=4.52.4" },
     { name = "uvicorn", specifier = ">=0.34.3" },
 ]
