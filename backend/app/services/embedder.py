@@ -1,17 +1,15 @@
 import torch
 import logging
-import chromadb
 import unicom  # Assuming UNICOM is a library for the ViT-L model
-from PIL import Image
-from chromadb.utils.batch_utils import create_batches  # Utility for batching
+from PIL import Image  # Utility for batching
 import os
 import glob
 from tqdm import tqdm
+from .chroma import upsert_to_chroma  # Assuming chroma.py contains the ChromaDB initialization and upsert logic
 
 IMAGE_BASE_DIR = "../public/images/nymphalidae_new" # Relative path from clip_service folder
 CHROMA_DB_PATH = "./chroma_db" # Directory to store Chroma data locally
-# Use UNICOM specific names
-COLLECTION_NAME = "biocosmos_images_unicom"
+
 MODEL_NAME = "ViT-L/14@336px"
 if torch.backends.mps.is_available():
     DEVICE = "mps"
@@ -109,30 +107,25 @@ class ImageEmbedder:
                     pbar.update(1)
 
         return all_ids, all_embeddings, all_metadata
-    
-    def upsert_to_chroma(self, ids, embeddings, metadata):
-        """Upsert embeddings into ChromaDB."""
-        client = chromadb.Client(chromadb.PersistentClient(path=CHROMA_DB_PATH))
-        collection = client.get_or_create_collection(COLLECTION_NAME)
-        
-        # Upsert the embeddings
-        collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            metadatas=metadata
-        )
-        logger.info(f"Upserted {len(ids)} embeddings to ChromaDB collection '{COLLECTION_NAME}'.")
 
-    def batch_embed_images(self, image_dir=IMAGE_BASE_DIR):
+    async def batch_embed_images(self, image_dir=IMAGE_BASE_DIR):
         """Main method to embed images in batches and store in ChromaDB."""
-        logger.info(f"Starting UNICOM image embedding process from directory: {image_dir}")
+        logger.info(f"Starting Unicom image embedding process from directory: {image_dir}")
         image_paths = self.get_images(image_dir)
         logger.info(f"Found {len(image_paths)} images to process.")
-
+        # we only process first 50 for testing purposes
+        if len(image_paths) > 50:
+            logger.info("Limiting to first 50 images for testing.")
+            image_paths = image_paths[:50]
         all_ids, all_embeddings, all_metadata = self.embed_images(image_paths)
 
         if all_ids:
-            self.upsert_to_chroma(all_ids, all_embeddings, all_metadata)
+            # Ensure each embedding is a flat list of floats (1D)
+            all_embeddings = [
+                embedding.flatten().tolist() if hasattr(embedding, "flatten") else list(embedding)
+                for embedding in all_embeddings
+            ]
+            await upsert_to_chroma(all_ids, all_embeddings, all_metadata)
             logger.info("Embedding and upsert completed successfully.")
         else:
             logger.warning("No valid images found for embedding.")

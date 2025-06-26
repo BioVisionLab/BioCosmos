@@ -2,6 +2,8 @@
 import logging
 import torch
 from transformers import CLIPModel, CLIPProcessor
+from .chroma import CLIP_COLLECTION_NAME
+from .chroma import query_collection
 
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 
@@ -50,3 +52,11 @@ class ClipTextEmbedder:
             text_features = self.model.get_text_features(**inputs)
         text_features /= text_features.norm(dim=-1, keepdim=True)
         return text_features.cpu().numpy().tolist()
+
+    def get_collection_name(self):
+        """Get the name of the CLIP collection."""
+        return CLIP_COLLECTION_NAME
+    
+    async def query(self, query_embedding, n_results=5):
+        """Query the CLIP collection in ChromaDB."""
+        return await query_collection(query_embedding, n_results=n_results)

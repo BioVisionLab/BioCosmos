@@ -31,11 +31,10 @@ async def search_text(q: str):
         return JSONResponse(content={"error": "Failed to compute text embedding"}, status_code=500)
     
     try:
-        logger.info(f"Querying ChromaDB CLIP collection '{clip.CLIP_COLLECTION_NAME}'...")
-        search_results = clip.clip_collection.query(
-            query_embeddings=[text_embedding],
-            n_results=clip.TOP_K,
-            include=['metadatas', 'distances']
+        logger.info(f"Querying ChromaDB CLIP collection '{text_embedder.get_collection_name}'...")
+        search_results = await text_embedder.query(
+            query_embedding=[text_embedding],
+            n_results=5
         )
         logger.info("ChromaDB CLIP query completed.")
 
