@@ -5,7 +5,8 @@ from PIL import Image  # Utility for batching
 import os
 import glob
 from tqdm import tqdm
-from .chroma import upsert_to_chroma  # Assuming chroma.py contains the ChromaDB initialization and upsert logic
+from .chroma import upsert_to_chroma, get_client  # Assuming chroma.py contains the ChromaDB initialization and upsert logic
+import numpy as np
 
 IMAGE_BASE_DIR = "../public/images/nymphalidae_new" # Relative path from clip_service folder
 CHROMA_DB_PATH = "./chroma_db" # Directory to store Chroma data locally
@@ -107,24 +108,44 @@ class ImageEmbedder:
                     pbar.update(1)
 
         return all_ids, all_embeddings, all_metadata
+    
+    async def filter_new_images_from_db(self, all_ids):
+        """Filter out images that are already in the ChromaDB."""
+        client = await get_client()
+        if not client:
+            logger.error("ChromaDB client is not available.")
+            return all_ids
+        collection = client.get_or_create_collection(name="UNICOM_COLLECTION_NAME")
+        existing_ids = set(collection.get()['ids'])
+        new_ids = [img_id for img_id in all_ids if img_id not in existing_ids]
+        if len(new_ids) < len(all_ids):
+            logger.info(f"Filtered out {len(all_ids) - len(new_ids)} existing images from {len(all_ids)} total images.")
+        else:
+            logger.info("No existing images found in ChromaDB, all images will be processed.")
+        return new_ids[:1000]
+    
+    def flatten_embedding(self, embedding):
+        """Flatten the embedding to ensure it is a 1D list of floats."""
+        if hasattr(embedding, "flatten"):
+            return embedding.flatten().tolist()
+        while isinstance(embedding[0], (list, tuple)):
+            embedding = [item for sublist in embedding for item in sublist]
+        # return 2000 for test purposes
+        return embedding
 
     async def batch_embed_images(self, image_dir=IMAGE_BASE_DIR):
         """Main method to embed images in batches and store in ChromaDB."""
-        logger.info(f"Starting Unicom image embedding process from directory: {image_dir}")
+        logger.info(f"Starting UNICOM image embedding process from directory: {image_dir}")
         image_paths = self.get_images(image_dir)
         logger.info(f"Found {len(image_paths)} images to process.")
         # we only process first 50 for testing purposes
-        if len(image_paths) > 50:
-            logger.info("Limiting to first 50 images for testing.")
-            image_paths = image_paths[:50]
+        # filter  out images that are already in the database
+        image_paths = await self.filter_new_images_from_db(image_paths)
         all_ids, all_embeddings, all_metadata = self.embed_images(image_paths)
 
         if all_ids:
             # Ensure each embedding is a flat list of floats (1D)
-            all_embeddings = [
-                embedding.flatten().tolist() if hasattr(embedding, "flatten") else list(embedding)
-                for embedding in all_embeddings
-            ]
+            all_embeddings =  [self.flatten_embedding(e) for e in all_embeddings]
             await upsert_to_chroma(all_ids, all_embeddings, all_metadata)
             logger.info("Embedding and upsert completed successfully.")
         else:

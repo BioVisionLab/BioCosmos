@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("Database initialized successfully.")
         embedder = ImageEmbedder()
-        embedder.batch_embed_images()
+        await embedder.batch_embed_images()
         logger.info("Image embedding completed successfully.")
         yield
     except Exception as e:

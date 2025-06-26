@@ -48,9 +48,11 @@ class ClipTextEmbedder:
             self.logger.error("CLIP model not available for text embedding.")
             return None
         inputs = self.processor(text=text, return_tensors="pt", padding=True, truncation=True).to(self.device)
+        logger.info(f"Computing text embedding for: {text}")
         with torch.no_grad():
             text_features = self.model.get_text_features(**inputs)
         text_features /= text_features.norm(dim=-1, keepdim=True)
+        logger.info(f"Text embedding computed successfully for: {text}")
         return text_features.cpu().numpy().tolist()
 
     def get_collection_name(self):

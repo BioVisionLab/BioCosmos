@@ -57,10 +57,13 @@ async def query_collection(query_embedding, n_results=5):
     collection = client.get_or_create_collection(CLIP_COLLECTION_NAME)
     
     try:
+        # Ensure query_embedding is a list of floats
+        if hasattr(query_embedding, "tolist"):
+            query_embedding = query_embedding.tolist()
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
-            include=['metadatas', 'distances']
+            include=['metadata', 'distances']
         )
         logger.info("ChromaDB CLIP query completed.")
         return results
@@ -71,7 +74,10 @@ async def query_collection(query_embedding, n_results=5):
 async def upsert_to_chroma(ids, embeddings, metadata):
     """Upsert embeddings into ChromaDB."""
     logger.info(f"Upserting {len(ids)} embeddings to ChromaDB collection '{COLLECTION_NAME}'...")
-    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    client =  await get_client()
+    if not client:
+        logger.error("ChromaDB client is not available.")
+        return
     collection = client.get_or_create_collection(COLLECTION_NAME)
     
     # Use upsert=True to avoid errors if an ID already exists (e.g., re-running the script)
