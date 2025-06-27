@@ -20,7 +20,7 @@ async def search_text(q: str):
     To query this endpoint, use:
         /text-search/?q=your+search+terms
     """
-    query = q.strip()
+    query = q.strip() if q else None
 
     if query is None or query == "":
         return JSONResponse(content={"error": "Query parameter 'q' is required and cannot be empty."}, status_code=400)

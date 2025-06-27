@@ -120,7 +120,7 @@ class ImageEmbedder:
             logger.info(f"Filtered out {len(all_ids) - len(new_ids)} existing images from {len(all_ids)} total images.")
         else:
             logger.info("No existing images found in ChromaDB, all images will be processed.")
-        return new_ids[:1000]
+        return new_ids[500]
 
     async def batch_embed_images(self, image_dir=IMAGE_BASE_DIR):
         """Main method to embed images in batches and store in ChromaDB."""
