@@ -7,31 +7,33 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-
-UNICOM_COLLECTION_NAME = "biocosmos_images_unicom" # New collection for UNICOM
+UNICOM_COLLECTION_NAME = "unicom_collection"
+# UNICOM_COLLECTION_NAME = "biocosmos_images_unicom" # New collection for UNICOM
 UNICOM_MODEL_NAME = "ViT-L/14@336px" # UNICOM model
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# --- Load UNICOM Model and Transform (for image search) ---
-logger.info(f"Loading UNICOM model: {UNICOM_MODEL_NAME} for image processing...")
-try:
-    # Load UNICOM model (likely defaults to CPU) and transform
-    _model, unicom_transform = unicom.load(UNICOM_MODEL_NAME) # Load without specifying device initially
-    # Explicitly move the entire model to the target device
-    unicom_model = _model.to(DEVICE)
-    unicom_model.eval() # Set model to evaluation mode
-    logger.info(f"UNICOM model and transform loaded and moved to {DEVICE} successfully")
-except Exception as e:
-    logger.error(f"Error loading or moving UNICOM model: {e}", exc_info=True)
-    unicom_model = None # Indicate failure
 
 class UnicomImageEmbedder:
     def __init__(self):
-        self.model = unicom_model
-        self.transform = unicom_transform
+        """Initialize the UNICOM image embedder."""
         self.device = DEVICE
         self.logger = logger
-       
+        self.model, self.transform = self._load_model()
+    
+    def _load_model(self):
+        """Load the UNICOM model and its transform."""
+        logger.info(f"Loading UNICOM model: {self.model_name}...")
+        try:
+            # Load UNICOM model (likely defaults to CPU) and transform
+            _model, transform = unicom.load(UNICOM_MODEL_NAME)
+            # Explicitly move the entire model to the target device
+            model = _model.to(self.device)
+            model.eval()  # Set model to evaluation mode
+            logger.info(f"UNICOM model and transform loaded and moved to {self.device} successfully")
+            return model, transform
+        except Exception as e:
+            logger.error(f"Fatal error loading or moving UNICOM model: {e}", exc_info=True)
+            raise e
 
     def get_embedding(self, base64_str):
         if self.model is None:

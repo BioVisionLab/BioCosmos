@@ -4,10 +4,10 @@ import chromadb
 
 # --- Configuration ---
 CHROMA_DB_PATH = "./chroma_db" # Directory to store Chroma data locally
-CLIP_COLLECTION_NAME = "clip_collection"
-UNICOM_COLLECTION_NAME = "unicom_collection"
-# Use UNICOM specific names
-COLLECTION_NAME = "biocosmos_images_unicom"
+
+
+# # Use UNICOM specific names
+# COLLECTION_NAME = "biocosmos_images_unicom"
 BATCH_SIZE = 32
 
 logger = logging.getLogger(__name__)
@@ -24,16 +24,16 @@ async def init_db():
         # Initialize persistent client
         chroma_client = await get_client()
 
-        # Get or create the CLIP collection
-        # No embedding function needed here if we generate embeddings manually
-        clip_collection = chroma_client.get_or_create_collection(name=CLIP_COLLECTION_NAME)
-        logger.info(f"Successfully connected to ChromaDB and got collection '{CLIP_COLLECTION_NAME}'.")
-        logger.info(f"Collection '{CLIP_COLLECTION_NAME}' currently has {clip_collection.count()} items.")
+        # # Get or create the CLIP collection
+        # # No embedding function needed here if we generate embeddings manually
+        # clip_collection = chroma_client.get_or_create_collection(name=CLIP_COLLECTION_NAME)
+        # logger.info(f"Successfully connected to ChromaDB and got collection '{CLIP_COLLECTION_NAME}'.")
+        # logger.info(f"Collection '{CLIP_COLLECTION_NAME}' currently has {clip_collection.count()} items.")
 
-        # Get or create the UNICOM collection
-        unicom_collection = chroma_client.get_or_create_collection(name=UNICOM_COLLECTION_NAME)
-        logger.info(f"Successfully connected to ChromaDB and got collection '{UNICOM_COLLECTION_NAME}'.")
-        logger.info(f"Collection '{UNICOM_COLLECTION_NAME}' currently has {unicom_collection.count()} items.")
+        # # Get or create the UNICOM collection
+        # unicom_collection = chroma_client.get_or_create_collection(name=UNICOM_COLLECTION_NAME)
+        # logger.info(f"Successfully connected to ChromaDB and got collection '{UNICOM_COLLECTION_NAME}'.")
+        # logger.info(f"Collection '{UNICOM_COLLECTION_NAME}' currently has {unicom_collection.count()} items.")
     except Exception as e:
         logger.error(f"Error initializing ChromaDB: {e}")
 
@@ -46,15 +46,15 @@ async def get_client():
         logger.error(f"Error getting ChromaDB client: {e}")
         return None
 
-async def query_collection(query_embedding, n_results=5):
+async def query_collection(collection_name, query_embedding, n_results=5):
     """Query the CLIP collection in ChromaDB."""
-    logger.info(f"Querying ChromaDB CLIP collection '{CLIP_COLLECTION_NAME}'...")
+    logger.info(f"Querying ChromaDB CLIP collection '{collection_name}'...")
     client = await get_client()
     if not client:
         logger.error("ChromaDB client is not available.")
         return None
     
-    collection = client.get_or_create_collection(CLIP_COLLECTION_NAME)
+    collection = client.get_or_create_collection(name=collection_name)
     
     try:
         results = collection.query(
@@ -68,14 +68,14 @@ async def query_collection(query_embedding, n_results=5):
         logger.error(f"Error querying CLIP collection: {e}", exc_info=True)
         return None
    
-async def upsert_to_chroma(ids, embeddings, metadata):
+async def upsert_to_chroma(collection_name, ids, embeddings, metadata):
     """Upsert embeddings into ChromaDB."""
-    logger.info(f"Upserting {len(ids)} embeddings to ChromaDB collection '{COLLECTION_NAME}'...")
+    logger.info(f"Upserting {len(ids)} embeddings to ChromaDB collection '{collection_name}'...")
     client =  await get_client()
     if not client:
         logger.error("ChromaDB client is not available.")
         return
-    collection = client.get_or_create_collection(COLLECTION_NAME)
+    collection = client.get_or_create_collection(name=collection_name)
     
     # Use upsert=True to avoid errors if an ID already exists (e.g., re-running the script)
     num_batches = len(ids) // BATCH_SIZE + (1 if len(ids) % BATCH_SIZE > 0 else 0)
@@ -99,5 +99,5 @@ async def upsert_to_chroma(ids, embeddings, metadata):
             # continue 
 
     logger.info("Finished adding UNICOM embeddings to ChromaDB.")
-    logger.info(f"Final item count in UNICOM collection '{COLLECTION_NAME}': {collection.count()}")
+    logger.info(f"Final item count in UNICOM collection '{collection_name}': {collection.count()}")
     

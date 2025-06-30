@@ -24,12 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 class ImageEmbedder:
-    def __init__(self, model_name=MODEL_NAME, device=DEVICE):
+    def __init__(self, img_dir=IMAGE_BASE_DIR, model_name=MODEL_NAME):
+        """Initialize model and device for image embedding."""
+        self.img_dir = img_dir
         self.model_name = model_name
-        self.device = device
-        self.model, self.transform = self.load_model()
-    
-    def load_model(self):
+        self.model, self.transform = self._load_model()
+
+    def _load_model(self):
         """Load the UNICOM model and its transform."""
         logger.info(f"Loading UNICOM model: {self.model_name}...")
         try:
@@ -44,32 +45,33 @@ class ImageEmbedder:
             logger.error(f"Fatal error loading or moving UNICOM model: {e}", exc_info=True)
             raise e
 
-    def get_images(self, image_dir):
+    def get_images(self):
         """Get all image file paths from the specified directory."""
         exts = ('.jpg', '.jpeg', '.png', '.webp')
         return [
-            f for f in glob.glob(f"{image_dir}/**/*", recursive=True)
+            f for f in glob.glob(f"{self.image_dir}/**/*", recursive=True)
             if os.path.isfile(f) and f.lower().endswith(exts)
         ]
-
-    def get_embeddings(self, image_paths):
-        """Get embeddings for a list of image paths."""
-        embeddings = []
-        for image_path in image_paths:
-            try:
-                image = Image.open(image_path).convert("RGB")
-                image_tensor = self.transform(image).unsqueeze(0).to(self.device)
-                with torch.no_grad():
-                    # Use the correct method for UNICOM model inference
-                    embedding = self.model(image_tensor)
-                # We normalize the embedding to unit length
-                # which is useful for cosine similarity search
-                embedding /= embedding.norm(dim=-1, keepdim=True)
-                embeddings.append(embedding.cpu().numpy().flatten().tolist())
-            except Exception as e:
-                logger.error(f"Error processing image {image_path}: {e}")
-        return embeddings
     
+    def get_embeddings(self, image_path):
+        """Get embeddings for a list of image paths."""
+        try:
+            image = Image.open(image_path).convert("RGB")
+            # Apply UNICOM's transform and add batch dimension
+            image_tensor = self.transform(image).unsqueeze(0).to(DEVICE)
+            
+            with torch.no_grad():
+                # Get UNICOM embedding
+                image_features = self.model(image_tensor)
+            
+            # Normalize (important for cosine similarity)
+            image_features /= image_features.norm(dim=-1, keepdim=True) 
+            
+            # Return as flat list for ChromaDB
+            return image_features.cpu().numpy().flatten().tolist() 
+        except Exception as e:
+            logger.warning(f"Could not process image {image_path} with UNICOM: {e}")
+
     # Fallback batching if create_batches fails due to ChromaDB API dependency
     def simple_batches(self, lst, batch_size):
         for i in range(0, len(lst), batch_size):
@@ -122,10 +124,10 @@ class ImageEmbedder:
             logger.info("No existing images found in ChromaDB, all images will be processed.")
         return new_ids[500]
 
-    async def batch_embed_images(self, image_dir=IMAGE_BASE_DIR):
+    async def batch_embed_images(self):
         """Main method to embed images in batches and store in ChromaDB."""
-        logger.info(f"Starting UNICOM image embedding process from directory: {image_dir}")
-        image_paths = self.get_images(image_dir)
+        logger.info(f"Starting UNICOM image embedding process from directory: {self.image_dir}")
+        image_paths = self.get_images(self.image_dir)
         logger.info(f"Found {len(image_paths)} images to process.")
         # we only process first 50 for testing purposes
         # filter  out images that are already in the database

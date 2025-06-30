@@ -6,6 +6,7 @@ from .chroma import CLIP_COLLECTION_NAME
 from .chroma import query_collection
 
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
+CLIP_COLLECTION_NAME = "clip_collection"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,15 +18,7 @@ elif torch.cuda.is_available():
 else:
     DEVICE = "cpu"
 
-# --- Load CLIP Model and Processor (for text search) ---
-logger.info(f"Loading CLIP model: {CLIP_MODEL_NAME} for text processing...")
-try:
-    clip_model = CLIPModel.from_pretrained(CLIP_MODEL_NAME).to(DEVICE)
-    clip_processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
-    logger.info(f"CLIP model loaded successfully on device: {DEVICE}")
-except Exception as e:
-    logger.error(f"Error loading CLIP model: {e}", exc_info=True)
-    clip_model = None # Indicate failure
+
 
 class ClipTextEmbedder:
     """ Class to handle text embedding using CLIP model.
@@ -38,10 +31,24 @@ class ClipTextEmbedder:
         List[float]: The normalized text embedding vector.
     """
     def __init__(self):
-        self.model = clip_model
-        self.processor = clip_processor
+        
         self.device = DEVICE
         self.logger = logger
+        self.model, self.processor = self._load_model()
+    
+    def _load_model(self):
+        """Load the CLIP model and processor."""
+        logger.info(f"Loading CLIP model: {CLIP_MODEL_NAME} on device: {self.device}...")
+        try:
+            model = CLIPModel.from_pretrained(CLIP_MODEL_NAME).to(self.device)
+            processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
+            model.eval()  # Set model to evaluation mode
+            logger.info("CLIP model and processor loaded successfully.")
+            return model, processor
+        except Exception as e:
+            logger.error(f"Error loading CLIP model: {e}", exc_info=True)
+            return None, None
+        
 
     def get_embedding(self, text):
         if self.model is None:
@@ -53,7 +60,7 @@ class ClipTextEmbedder:
             text_features = self.model.get_text_features(**inputs)
         text_features /= text_features.norm(dim=-1, keepdim=True)
         logger.info(f"Text embedding computed successfully for: {text}")
-        return text_features.cpu().numpy().tolist()
+        return text_features.cpu().numpy()
 
     def get_collection_name(self):
         """Get the name of the CLIP collection."""
