@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .routers import image_search, text_search
 from .services.chroma import init_db
-from .services.embedder import ImageEmbedder
+from .services.embedder import ImageEmbeddingIngestor
 from .services.embedder import ModelType
 
 # Configure logging
@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         logger.info("Database initialized successfully.")
-        clip = ImageEmbedder(ModelType.CLIP)
+        clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)
         await clip.batch_embed_images()
         logger.info("Image embedding completed successfully.")
         yield
