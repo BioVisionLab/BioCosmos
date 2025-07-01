@@ -1,9 +1,10 @@
 
 import logging
 import torch
+import os
 from transformers import CLIPModel, CLIPProcessor
-from .chroma import CLIP_COLLECTION_NAME
 from .chroma import query_collection
+from PIL import Image
 
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 CLIP_COLLECTION_NAME = "clip_collection"
@@ -34,9 +35,9 @@ class ClipTextEmbedder:
         
         self.device = DEVICE
         self.logger = logger
-        self.model, self.processor = self._load_model()
+        self.model, self.processor = self.load_model()
     
-    def _load_model(self):
+    def load_model(self):
         """Load the CLIP model and processor."""
         logger.info(f"Loading CLIP model: {CLIP_MODEL_NAME} on device: {self.device}...")
         try:
@@ -48,7 +49,27 @@ class ClipTextEmbedder:
         except Exception as e:
             logger.error(f"Error loading CLIP model: {e}", exc_info=True)
             return None, None
-        
+
+    def get_image_embedding(self, image_paths):
+        """Get the image embedding from a given image path."""
+        if self.model is None:
+            self.logger.error("CLIP model not available for image embedding.")
+            return None
+        try:
+            images = [Image.open(path).convert("RGB") for path in image_paths]
+            inputs = self.processor(images=images, return_tensors="pt", padding=True).to(self.device)
+            logger.info(f"Computing image embeddings for {len(image_paths)} images.")
+            with torch.no_grad():
+                image_features = self.model.get_image_features(**inputs)
+            image_features = image_features / image_features.norm(dim=-1, keepdims=True)  # Normalize the embeddings
+            logger.info("Image embeddings computed successfully.")
+            return image_features.cpu().numpy()  # Return as numpy array
+        except FileNotFoundError as e:
+            self.logger.error(f"Image file not found: {e}", exc_info=True)
+            return None
+        except Exception as e:
+            self.logger.error(f"Error processing image {image_paths}: {e}", exc_info=True)
+            return None
 
     def get_embedding(self, text):
         if self.model is None:

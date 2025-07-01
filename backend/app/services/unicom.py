@@ -18,9 +18,8 @@ class UnicomImageEmbedder:
         """Initialize the UNICOM image embedder."""
         self.device = DEVICE
         self.logger = logger
-        self.model, self.transform = self._load_model()
     
-    def _load_model(self):
+    def load_model(self):
         """Load the UNICOM model and its transform."""
         logger.info(f"Loading UNICOM model: {self.model_name}...")
         try:
@@ -34,6 +33,29 @@ class UnicomImageEmbedder:
         except Exception as e:
             logger.error(f"Fatal error loading or moving UNICOM model: {e}", exc_info=True)
             raise e
+    
+    def get_image_embedding(self, image_path):
+        """Get the image embedding from a given image path."""
+        if self.model is None:
+            self.logger.error("UNICOM model not available for image embedding.")
+            return None
+        try:
+            image = Image.open(image_path).convert("RGB")
+            # Apply UNICOM's transform and add batch dimension
+            image_tensor = self.transform(image).unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                # Get UNICOM embedding
+                image_features = self.model(image_tensor)
+
+            # Normalize (important for cosine similarity)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+
+            # Return as flat list for ChromaDB
+            return image_features.cpu().numpy().flatten().tolist()
+        except Exception as e:
+            self.logger.error(f"Could not process image {image_path} with UNICOM: {e}", exc_info=True)
+            return None
 
     def get_embedding(self, base64_str):
         if self.model is None:

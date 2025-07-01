@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from .routers import image_search, text_search
 from .services.chroma import init_db
 from .services.embedder import ImageEmbedder
+from .services.embedder import ModelType
 
 # Configure logging
 logging.basicConfig(
@@ -19,8 +20,8 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         logger.info("Database initialized successfully.")
-        embedder = ImageEmbedder()
-        await embedder.batch_embed_images()
+        clip = ImageEmbedder(ModelType.CLIP)
+        await clip.batch_embed_images()
         logger.info("Image embedding completed successfully.")
         yield
     except Exception as e:
