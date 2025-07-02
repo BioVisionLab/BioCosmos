@@ -12,16 +12,16 @@ UNICOM_COLLECTION_NAME = "unicom_collection"
 UNICOM_MODEL_NAME = "ViT-L/14@336px" # UNICOM model
 DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
-
 class UnicomImageEmbedder:
     def __init__(self):
         """Initialize the UNICOM image embedder."""
         self.device = DEVICE
         self.logger = logger
+        self.model, self.transform = self._load_model()
     
-    def load_model(self):
+    def _load_model(self):
         """Load the UNICOM model and its transform."""
-        logger.info(f"Loading UNICOM model: {self.model_name}...")
+        logger.info(f"Loading UNICOM model: {UNICOM_MODEL_NAME}...")
         try:
             # Load UNICOM model (likely defaults to CPU) and transform
             _model, transform = unicom.load(UNICOM_MODEL_NAME)
@@ -34,7 +34,7 @@ class UnicomImageEmbedder:
             logger.error(f"Fatal error loading or moving UNICOM model: {e}", exc_info=True)
             raise e
     
-    def get_image_embedding(self, image_path):
+    def get_embedding_from_img(self, image_path):
         """Get the image embedding from a given image path."""
         if self.model is None:
             self.logger.error("UNICOM model not available for image embedding.")
@@ -52,7 +52,7 @@ class UnicomImageEmbedder:
             image_features /= image_features.norm(dim=-1, keepdim=True)
 
             # Return as flat list for ChromaDB
-            return image_features.cpu().numpy().flatten().tolist()
+            return image_features.cpu().numpy()
         except Exception as e:
             self.logger.error(f"Could not process image {image_path} with UNICOM: {e}", exc_info=True)
             return None

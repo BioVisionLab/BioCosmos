@@ -21,14 +21,14 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("Database initialized successfully.")
         clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)
-        await clip.batch_embed_images()
+        await clip.process()
+        unicom = ImageEmbeddingIngestor(model_type=ModelType.UNICOM)
+        await unicom.process()
         logger.info("Image embedding completed successfully.")
         yield
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         raise e
-    
-
 
 app = FastAPI(lifespan=lifespan)
 

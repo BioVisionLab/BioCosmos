@@ -28,9 +28,9 @@ class ClipTextEmbedder:
         
         self.device = DEVICE
         self.logger = logger
-        self.model, self.processor = self.load_model()
+        self.model, self.processor = self._load_model()
     
-    def load_model(self):
+    def _load_model(self):
         """Load the CLIP model and processor."""
         logger.info(f"Loading CLIP model: {CLIP_MODEL_NAME} on device: {self.device}...")
         try:
@@ -43,28 +43,26 @@ class ClipTextEmbedder:
             logger.error(f"Error loading CLIP model: {e}", exc_info=True)
             return None, None
 
-    def get_image_embedding(self, image_paths):
+    def get_embedding_from_img(self, img_path):
         """Get the image embedding from a given image path."""
         if self.model is None:
             self.logger.error("CLIP model not available for image embedding.")
             return None
         try:
-            images = [Image.open(path).convert("RGB") for path in image_paths]
+            images = Image.open(img_path).convert("RGB")
             inputs = self.processor(images=images, return_tensors="pt", padding=True).to(self.device)
-            logger.info(f"Computing image embeddings for {len(image_paths)} images.")
             with torch.no_grad():
                 image_features = self.model.get_image_features(**inputs)
-            image_features = image_features / image_features.norm(dim=-1, keepdims=True)  # Normalize the embeddings
-            logger.info("Image embeddings computed successfully.")
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)  # Normalize the embeddings
             return image_features.cpu().numpy()  # Return as numpy array
         except FileNotFoundError as e:
             self.logger.error(f"Image file not found: {e}", exc_info=True)
             return None
         except Exception as e:
-            self.logger.error(f"Error processing image {image_paths}: {e}", exc_info=True)
+            self.logger.error(f"Error processing image {img_path}: {e}", exc_info=True)
             return None
 
-    def get_embedding(self, text):
+    def get_embedding_from_text(self, text):
         if self.model is None:
             self.logger.error("CLIP model not available for text embedding.")
             return None
