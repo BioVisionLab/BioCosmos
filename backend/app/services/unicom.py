@@ -29,11 +29,9 @@ class UnicomImageEmbedder:
         """Load the UNICOM model and its transform."""
         logger.info(f"Loading UNICOM model: {UNICOM_MODEL_NAME}...")
         try:
-            # Load UNICOM model (likely defaults to CPU) and transform
             _model, transform = unicom.load(UNICOM_MODEL_NAME)
-            # Explicitly move the entire model to the target device
             model = _model.to(self.device)
-            model.eval()  # Set model to evaluation mode
+            model.eval()
             logger.info(
                 f"UNICOM model and transform loaded and moved to {self.device} successfully"
             )

@@ -43,7 +43,7 @@ class ClipTextEmbedder:
                 self.device
             )
             processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
-            model.eval()  # Set model to evaluation mode
+            model.eval()
             logger.info(
                 "CLIP model and processor loaded successfully."
             )
@@ -73,9 +73,7 @@ class ClipTextEmbedder:
             image_features = image_features / image_features.norm(
                 dim=-1, keepdim=True
             )  # Normalize the embeddings
-            return (
-                image_features.cpu().numpy()
-            )  # Return as numpy array
+            return image_features.cpu().numpy()
         except FileNotFoundError as e:
             self.logger.error(
                 f"Image file not found: {e}", exc_info=True
