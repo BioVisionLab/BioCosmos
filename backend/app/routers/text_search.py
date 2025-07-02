@@ -32,7 +32,7 @@ async def search_text(q: str):
         )
 
     text_embedder = clip.ClipTextEmbedder()
-    text_embedding = text_embedder.get_embedding(query)
+    text_embedding = text_embedder.get_embedding_from_text(query)
     if text_embedding is None:
         return JSONResponse(
             content={"error": "Failed to compute text embedding"},
