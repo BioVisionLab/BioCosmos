@@ -178,8 +178,8 @@ class ImageEmbeddingIngestor:
 
     async def process(self):
         """Main method to embed images in batches and store in ChromaDB."""
-        logger.info(f"Starting CLIP image embedding process from directory: {self.img_dir}")
         collection_name: str = self.model_type.collection_name()
+        logger.info(f"Starting {collection_name} image embedding process from directory: {self.img_dir}")
         image_paths = self.get_images()
         logger.info(f"Found {len(image_paths)} images to process.")
         # we only process first 50 for testing purposes
@@ -187,6 +187,7 @@ class ImageEmbeddingIngestor:
         image_paths = await self.filter_new_images_from_db(collection_name, image_paths)
         if not image_paths:
             logger.warning("No new images to process.")
+            logger.info("Exiting embedding process.")
             return
         img_data = self.get_embedding(image_paths)
 
