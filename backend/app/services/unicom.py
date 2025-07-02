@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 UNICOM_COLLECTION_NAME = "unicom_collection"
 # UNICOM_COLLECTION_NAME = "biocosmos_images_unicom" # New collection for UNICOM
 UNICOM_MODEL_NAME = "ViT-L/14@336px" # UNICOM model
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
 
 class UnicomImageEmbedder:

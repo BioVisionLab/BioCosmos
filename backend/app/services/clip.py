@@ -12,17 +12,10 @@ CLIP_COLLECTION_NAME = "clip_collection"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-if torch.backends.mps.is_available():
-    DEVICE = "mps"
-elif torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
-
-
+DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
 
 class ClipTextEmbedder:
-    """ Class to handle text embedding using CLIP model.
+    """Class to handle text embedding using CLIP model.
 
     Args:
         model (CLIPModel): The CLIP model for text embedding.

@@ -1,25 +1,13 @@
-import torch
 import logging
-from PIL import Image  # Utility for batching
 import os
-import glob
 from tqdm import tqdm
-from .chroma import upsert_to_chroma, get_client  # Assuming chroma.py contains the ChromaDB initialization and upsert logic
-import numpy as np
+from .chroma import upsert_to_chroma, get_client
 from enum import Enum
 from .unicom import UnicomImageEmbedder
 from .clip import ClipTextEmbedder
 
 IMAGE_BASE_DIR = "../public/images/nymphalidae_new" # Relative path from clip_service folder
 CHROMA_DB_PATH = "./chroma_db" # Directory to store Chroma data locally
-
-if torch.backends.mps.is_available():
-    DEVICE = "mps"
-elif torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
-BATCH_SIZE = 32 # UNICOM ViT-L is larger, might need smaller batch size
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +40,6 @@ class ImageEmbeddingIngestor:
         logger.info(f"Found {len(img_paths)} images to embed.")
 
         embeddings = []
-        all_ids = []
-        all_metadata = []
 
         processed_image_count = 0
         skipped_image_count = 0
