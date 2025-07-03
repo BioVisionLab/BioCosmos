@@ -77,29 +77,25 @@ A personalized, museum-quality biodiversity image platform that combines cutting
 biocosmos/
 ├── src/
 │   ├── app/                    # Next.js App Router pages
-│   │   ├── api/               # API routes
-│   │   ├── genus/             # Genus pages
-│   │   ├── species/           # Species detail pages
-│   │   ├── family/            # Family pages
-│   │   ├── search/            # Search results
-│   │   └── visualization/     # t-SNE map
-│   ├── components/            # React components
-│   │   ├── Layout.tsx         # Main app layout
-│   │   ├── HeaderClient.tsx   # Navigation header
-│   │   ├── ChatbotPanel.tsx   # AI assistant
-│   │   └── ...               # Other components
-│   └── lib/
-│       └── speciesData.ts     # Species data management
-├── clip_service/              # Python ML services
-│   ├── create_tiles.py        # Map tile generation
-│   ├── clip_search_service.py # Semantic search service
-│   ├── generate_tsne_coords.py # t-SNE visualization
-│   └── ...                   # Other ML scripts
+│   ├── components/             # React components
+│   └── lib/                    # Utilities and data management
+├── backend/
+│   ├── app/
+│   │   ├── main.py                 # FastAPI entrypoint
+│   │   ├── routers/                # API route handlers
+│   │   ├── search/                 # Search logic
+│   │   └── services/               # ML and database services
+│   ├── chroma_db/                  # Vector database files
+│   ├── tests/                      # Backend tests
+│   ├── tsne_outputs/               # t-SNE coordinate outputs
+│   ├── unicom/                     # UNICOM model code
+│   ├── Dockerfile
+│   └── pyproject.toml
 ├── public/
-│   ├── images/               # Species image dataset
-│   ├── dataset-tiles/        # Generated map tiles
-│   └── ...                  # Static assets
-└── unicom/                   # UNICOM model integration
+│   ├── images/                 # Species image dataset
+│   ├── dataset-tiles/          # Generated map tiles
+│   └── ...                     # Static assets
+└── unicom/                     # UNICOM model integration (frontend)
 ```
 
 ## 🚀 Local Development Setup
@@ -128,29 +124,25 @@ yarn install
 
 ### 3. Set Up Python Environment
 
-```bash
-cd clip_service
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt  # You may need to create this file
-```
-
-### 4. Install Python Dependencies
+We use [uv](https://docs.astral.sh/uv/) to manage the dependencies for the Python backend service. If you don't have `uv` installed, you can install it via pip:
 
 ```bash
-pip install pillow numpy scikit-learn chromadb openai clip-by-openai torch torchvision
+pip install uv
 ```
 
-### 5. Environment Configuration
+Other intallation methods are available in the [uv documentation](https://docs.astral.sh/uv/installation).
+
+### 4. Environment Configuration
 
 Create a `.env.local` file in the root directory:
 
-```env
+```bash
 OPENAI_API_KEY=your_openai_api_key_here
-CLIP_SERVICE_URL=http://localhost:5001
+# This is the API host for production, change it to development address if needed
+API_HOST=http://0.0.0.0:8000
 ```
 
-### 6. Prepare the Dataset
+### 5. Prepare the Dataset
 
 Ensure your butterfly images are organized in:
 
@@ -164,16 +156,7 @@ public/images/nymphalidae_new/
     └── image2.jpg
 ```
 
-### 7. Generate Embeddings and Tiles
-
-```bash
-cd clip_service
-python embed_images.py          # Generate CLIP embeddings
-python generate_tsne_coords.py  # Create t-SNE coordinates
-python create_tiles.py          # Generate map tiles
-```
-
-### 8. Start the Services
+### 6. Start the Services
 
 **Terminal 1 - Frontend:**
 
@@ -181,11 +164,21 @@ python create_tiles.py          # Generate map tiles
 npm run dev
 ```
 
-**Terminal 2 - CLIP Service:**
+or if you prefer Yarn:
 
 ```bash
-cd clip_service
-python clip_search_service.py
+yarn run dev
+```
+
+**Terminal 2 - Backend Service:**
+
+```bash
+cd backend
+
+uv run fastapi dev
+
+# for production environment, use:
+uv run fastapi run
 ```
 
 ### 9. Access the Application
