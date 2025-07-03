@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { API_HOST } from "@/lib/config";
 // Define the expected URL for the local Python CLIP service
-const CLIP_SERVICE_URL = "http://127.0.0.1:8000/text-search"; // Adjust port if needed
+const TEXT_SEARCH = `${API_HOST}/text-search`;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,13 +16,13 @@ export async function GET(request: Request) {
   }
 
   console.log(
-    `Forwarding semantic search query \"${query}\" to ${CLIP_SERVICE_URL}`
+    `Forwarding semantic search query \"${query}\" to ${TEXT_SEARCH}`
   );
 
   try {
     // Forward the request to the local Python service
     const clipResponse = await fetch(
-      `${CLIP_SERVICE_URL}?q=${encodeURIComponent(query)}`,
+      `${TEXT_SEARCH}?q=${encodeURIComponent(query)}`,
       {
         method: "GET",
         headers: {

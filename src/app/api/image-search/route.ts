@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { API_HOST } from "@/lib/config";
 // Define the expected URL for the image search endpoint on the Python service
-const CLIP_IMAGE_SEARCH_URL = "http://127.0.0.1:8000/img-search"; // Adjust if needed
+const IMAGE_SEARCH = `${API_HOST}/img-search`;
 
 export async function POST(request: Request) {
   let base64Image: string;
@@ -27,11 +28,11 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log(`Forwarding image search request to ${CLIP_IMAGE_SEARCH_URL}`);
+  console.log(`Forwarding image search request to ${IMAGE_SEARCH}`);
 
   try {
     // Forward the request to the local Python service
-    const clipResponse = await fetch(CLIP_IMAGE_SEARCH_URL, {
+    const clipResponse = await fetch(IMAGE_SEARCH, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
