@@ -2,7 +2,11 @@ import Image from "next/image";
 // Removed fs/path imports as data fetching is now in lib
 // import fs from 'fs';
 // import path from 'path';
-import { getSpeciesData, SpeciesData } from "@/lib/speciesData"; // Import the function and the type
+import {
+  getSpeciesData,
+  getTaxonomyData,
+  SpeciesData,
+} from "@/lib/speciesData"; // Import the function and the type
 import Link from "next/link"; // For breadcrumbs
 // Remove dynamic import
 // import dynamic from 'next/dynamic';
@@ -155,6 +159,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
     allImageUrls,
   } = details;
 
+  const taxonomyData = await getTaxonomyData(folderName);
   // Fetch GBIF data using the scientific name
   const gbifOccurrences = await fetchGbifOccurrences(name); // Use the fetched scientific name
 
@@ -231,15 +236,15 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
             <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
               <li>
                 <span className="font-medium w-20 inline-block">Kingdom:</span>{" "}
-                {taxonomy.kingdom}
+                {taxonomyData?.taxonomy?.kingdom ?? "Unknown"}
               </li>
               <li>
                 <span className="font-medium w-20 inline-block">Phylum:</span>{" "}
-                {taxonomy.phylum}
+                {taxonomyData?.taxonomy?.phylum ?? "Unknown"}
               </li>
               <li>
                 <span className="font-medium w-20 inline-block">Class:</span>{" "}
-                {taxonomy.class}
+                {taxonomyData?.taxonomy?.class ?? "Unknown"}
               </li>
               <li>
                 <span className="font-medium w-20 inline-block">Order:</span>{" "}

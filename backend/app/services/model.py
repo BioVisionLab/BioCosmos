@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 import os
+from pydantic import BaseModel, Field
 
 
 class ImageMetadata(BaseModel):
@@ -42,31 +43,23 @@ class ImageData(BaseModel):
         return f"ImageData(unique_id={self.metadata.unique_id}, embedding={self.embedding}, metadata={self.metadata})"
 
 
-class SpeciesTaxonomy:
-    def __init__(
-        self,
-        kingdom: str,
-        phylum: str,
-        class_: str,
-        order: str,
-        family: str,
-        genus: str,
-        species: str,
-        scientific_name,
-        vernacular_name: str = "",  # Optional vernacular name, defaults to species name
-    ):
-        self.kingdom = kingdom
-        self.phylum = phylum
-        self.class_ = class_
-        self.order = order
-        self.family = family
-        self.genus = genus
-        self.species = species
-        self.scientific_name = scientific_name
-        self.vernacular_name = vernacular_name
+class SpeciesTaxonomy(BaseModel):
+    gbif_key: int | None = Field(None, alias="key")
+    kingdom: str = Field(..., alias="kingdom")
+    phylum: str = Field(..., alias="phylum")
+    class_: str = Field("", alias="class")
+    order: str = Field(..., alias="order")
+    family: str = Field(..., alias="family")
+    genus: str = Field(..., alias="genus")
+    species: str = Field("", alias="species")
+    scientific_name: str = Field("", alias="scientificName")
+    vernacular_name: str = Field("", alias="vernacularName")
+    redlist_category: str = Field("Unknown", alias="redlistCategory")
 
-    def from_json(cls, data: dict):
+    @classmethod
+    def from_json(cls, data: dict, redlist_category: str = "Unknown"):
         return cls(
+            gbif_key=data.get("key", None),
             kingdom=data.get("kingdom", ""),
             phylum=data.get("phylum", ""),
             class_=data.get("class", ""),
@@ -76,7 +69,13 @@ class SpeciesTaxonomy:
             species=data.get("species", ""),
             scientific_name=data.get("scientificName", ""),
             vernacular_name=data.get("vernacularName", ""),
+            redlist_category=redlist_category,
         )
 
     def __repr__(self):
-        return f"SpeciesTaxonomy(name={self.name}, rank={self.rank}, kingdom={self.kingdom}, phylum={self.phylum}, class_={self.class_}, order={self.order}, family={self.family}, genus={self.genus})"
+        return (
+            f"SpeciesTaxonomy(kingdom={self.kingdom}, phylum={self.phylum}, "
+            f"class_={self.class_}, order={self.order}, family={self.family}, "
+            f"genus={self.genus}, species={self.species}, scientific_name={self.scientific_name}, "
+            f"vernacular_name={self.vernacular_name}, redlist_category={self.redlist_category})"
+        )

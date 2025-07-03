@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from .routers import image_search, text_search
+from .routers import image_search, text_search, taxon_search
 from .services.chroma import init_db
 from .services.embedder import ImageEmbeddingIngestor
 from .services.embedder import ModelType
@@ -9,9 +9,10 @@ from .services.embedder import ModelType
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,10 +31,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error initializing database: {e}")
         raise e
 
+
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(image_search.router)
 app.include_router(text_search.router)
+app.include_router(taxon_search.router)
 
 
 @app.get("/")

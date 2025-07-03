@@ -1,6 +1,11 @@
 from .model import SpeciesTaxonomy
+import logging
+import httpx
 
 GBIF_HOST = "https://api.gbif.org/v1/species"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class GbifTaxonSearch:
@@ -13,14 +18,17 @@ class GbifTaxonSearch:
         Initialize the GbifTaxonSearch service.
         """
         self.host = GBIF_HOST
+        self.client = httpx.AsyncClient()
 
-    async def search(self, query: str) -> SpeciesTaxonomy | None:
+    async def search(self, query: str) -> dict | None:
         """
         Search for taxon names in GBIF.
 
-        Check if the result is empty, and if so, return an empty dictionary.
+        Check if the result is empty, and if so, return None.
         """
         url = f"{self.host}?name={query}&offset=0&limit=1"
+        logger.info(f"Searching GBIF for query: {query}")
+        logger.info(f"Constructed URL: {url}")
         response = await self.client.get(url)
 
         if response.status_code != 200:
@@ -30,19 +38,21 @@ class GbifTaxonSearch:
 
         data = response.json()
         if not data.get("results"):
+            logger.info(f"No results found for query: {query}")
             return None
 
         # Extract the first result
-        first_result = data["results"][0]
+        first_result: dict = data["results"][0]
+        logger.info(f"Found result: {first_result}")
         gbif_key = first_result.get("key")
-        redlist_category = await self.get_redlist_status(gbif_key)
+        redlist_category = await self._get_redlist_status(gbif_key)
         taxon = SpeciesTaxonomy.from_json(
             first_result, redlist_category
         )
 
-        return taxon
+        return taxon.model_dump(by_alias=True, exclude_none=True)
 
-    async def get_redlist_status(
+    async def _get_redlist_status(
         self, gbif_key: int | None
     ) -> str | None:
         """
@@ -60,4 +70,30 @@ class GbifTaxonSearch:
             )
 
         data = response.json()
-        return data.get("status")
+        return data.get("category", None)
+
+    async def close(self):
+        """
+        Close the HTTP client connection.
+        """
+        await self.client.aclose()
+        logger.info("Closed GBIF client connection.")
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    async def main():
+        gbif_service = GbifTaxonSearch()
+        try:
+            result = await gbif_service.search("Danaus plexippus")
+            if result:
+                print(result)
+            else:
+                print("No results found.")
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            await gbif_service.close()
+
+    asyncio.run(main())
