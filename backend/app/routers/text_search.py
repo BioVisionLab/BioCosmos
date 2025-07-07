@@ -1,4 +1,3 @@
-from enum import unique
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from ..services import clip

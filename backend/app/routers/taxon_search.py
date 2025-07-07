@@ -1,5 +1,6 @@
 # Query taxonomy data based on the species name
 # Use GBIF Species Search API to find species taxonomy data
+from math import log
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 import logging
@@ -32,6 +33,9 @@ async def search_taxon(q: str):
             },
             status_code=400,
         )
+
+    if "_" in q:
+        q = q.replace("_", " ")
     logger.info(f"Searching for taxon: {q}")
     gbif_service = GbifTaxonSearch()
     try:
@@ -43,6 +47,8 @@ async def search_taxon(q: str):
                 content={"message": message},
                 status_code=404,
             )
+        logger.info(f"Taxon data found for: {q}")
+        logger.info(f"Taxon data: {taxon_data}")
         return JSONResponse(content=taxon_data, status_code=200)
     except Exception as e:
         logger.error(f"Error searching for taxon: {e}", exc_info=True)

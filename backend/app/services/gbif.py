@@ -1,3 +1,4 @@
+from math import log
 from .model import SpeciesTaxonomy
 import logging
 import httpx
@@ -42,15 +43,47 @@ class GbifTaxonSearch:
             return None
 
         # Extract the first result
-        first_result: dict = data["results"][0]
+        first_result: dict = self._clean_results(data["results"][0])
         logger.info(f"Found result: {first_result}")
         gbif_key = first_result.get("key")
         redlist_category = await self._get_redlist_status(gbif_key)
+        if redlist_category is None:
+            logger.info(
+                f"No Red List status found for GBIF key: {gbif_key}"
+            )
+            logger.info(
+                "Setting Red List category to 'Unknown' for this taxon."
+            )
+            redlist_category = "Unknown"
+        logger.info(
+            f"Red List category for GBIF key {gbif_key}: {redlist_category}"
+        )
         taxon = SpeciesTaxonomy.from_json(
             first_result, redlist_category
         )
+        taxon_dump = self._revert_clean_results(
+            taxon.model_dump(by_alias=True)
+        )
+        logger.info(f"Created SpeciesTaxonomy: {taxon}")
+        return taxon_dump
 
-        return taxon.model_dump(by_alias=True, exclude_none=True)
+    def _clean_results(self, data: dict) -> dict:
+        """
+        Clean the keys in the dictionary to avoid conflicts with Python reserved keywords.
+        This method also avoids pydantic issue with reserved keywords like 'class'.
+        """
+        if "class" in data:
+            data["taxonClass"] = data.pop("class")
+        return data
+
+    def _revert_clean_results(self, data: dict) -> dict:
+        """
+        Revert the cleaning done in _clean_results.
+        This is useful for debugging or if you need the original keys.
+        """
+        if "taxonClass" in data:
+            data["class"] = data.pop("taxonClass")
+        return data
 
     async def _get_redlist_status(
         self, gbif_key: int | None
@@ -65,12 +98,23 @@ class GbifTaxonSearch:
         response = await self.client.get(url)
 
         if response.status_code != 200:
+            logger.error(
+                f"Failed to fetch Red List status for GBIF key {gbif_key}: {response.text}"
+            )
             raise Exception(
                 f"Error fetching Red List status from GBIF: {response.text}"
             )
 
         data = response.json()
-        return data.get("category", None)
+        if not data:
+            logger.info(
+                f"No Red List status found for GBIF key: {gbif_key}"
+            )
+            return None
+        logger.info(
+            f"Red List status for GBIF key {gbif_key}: {data.get('code')}"
+        )
+        return data.get("code", None)
 
     async def close(self):
         """

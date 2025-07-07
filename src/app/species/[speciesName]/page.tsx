@@ -13,6 +13,7 @@ import Link from "next/link"; // For breadcrumbs
 // Import the new wrapper component
 import SpeciesDetailMapWrapper from "@/components/SpeciesDetailMapWrapper";
 import SpeciesImageGallery from "@/components/SpeciesImageGallery"; // Import the new gallery component
+import { de } from "zod/v4/locales";
 
 interface SpeciesPageProps {
   params: {
@@ -127,7 +128,8 @@ async function fetchGbifOccurrences(
 
 // --- End GBIF API Fetching Function ---
 export default async function SpeciesPage({ params }: SpeciesPageProps) {
-  const { speciesName: folderName } = params;
+  const resolvedParams = await params;
+  const { speciesName: folderName } = resolvedParams;
 
   // Fetch the single species data using the updated function
   const details = await getSpeciesData(folderName);
@@ -149,15 +151,8 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
   }
 
   // Now we know details is not null and has the SpeciesData type
-  const {
-    name,
-    commonName,
-    description,
-    taxonomy,
-    conservationStatus,
-    imageUrl,
-    allImageUrls,
-  } = details;
+  const { name, commonName, description, taxonomy, imageUrl, allImageUrls } =
+    details;
 
   const taxonomyData = await getTaxonomyData(folderName);
   // Fetch GBIF data using the scientific name
@@ -268,7 +263,10 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           {/* Conservation Status */}
           <div>
             <h2 className="text-2xl font-semibold mb-2">Status</h2>
-            {formatConservationStatus(conservationStatus)}
+            {formatConservationStatus(
+              taxonomyData?.conservationStatus ?? "Unknown"
+            )}
+            {/* Display conservation status with optional styling */}
           </div>
 
           {/* Map Section - Use Wrapper Component */}
