@@ -1,5 +1,5 @@
 from math import log
-from .model import SpeciesTaxonomy
+from ..database.model import SpeciesTaxonomy
 import logging
 import httpx
 

@@ -4,7 +4,7 @@ import unicom
 import base64
 import io
 from PIL import Image
-from .chroma import query_collection
+from ..database.chroma import query_collection
 
 logger = logging.getLogger(__name__)
 

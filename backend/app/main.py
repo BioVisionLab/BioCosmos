@@ -1,8 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
+from .database.duckdb import init_duckdb
 from fastapi import FastAPI
 from .routers import image_search, text_search, taxon_search
-from .services.chroma import init_db
+from .database.chroma import init_db
 from .services.embedder import ImageEmbeddingIngestor
 from .services.embedder import ModelType
 
@@ -19,6 +20,8 @@ async def lifespan(app: FastAPI):
     """Lifespan event to initialize the database."""
     logger.info("Starting up the application...")
     try:
+        init_duckdb()
+        logger.info("DuckDB initialized successfully.")
         await init_db()
         logger.info("Database initialized successfully.")
         clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)

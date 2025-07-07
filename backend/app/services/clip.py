@@ -1,7 +1,7 @@
 import logging
 import torch
 from transformers import CLIPModel, CLIPProcessor
-from .chroma import query_collection
+from ..database.chroma import query_collection
 from PIL import Image
 
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"

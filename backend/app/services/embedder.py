@@ -2,11 +2,11 @@ import logging
 import os
 import glob
 from tqdm import tqdm
-from .chroma import upsert_to_chroma, get_client
+from ..database.chroma import upsert_to_chroma, get_client
 from enum import Enum
 from .unicom import UnicomImageEmbedder, UNICOM_COLLECTION_NAME
 from .clip import ClipTextEmbedder, CLIP_COLLECTION_NAME
-from .model import ImageMetadata, ImageData
+from ..database.model import ImageMetadata, ImageData
 
 IMAGE_BASE_DIR = "../public/images/nymphalidae_new"  # Relative path from clip_service folder
 CHROMA_DB_PATH = (
