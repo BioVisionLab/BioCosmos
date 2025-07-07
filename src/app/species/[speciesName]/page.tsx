@@ -38,21 +38,55 @@ interface Occurrence {
 }
 
 // Helper function to format conservation status (optional styling)
-function formatConservationStatus(status: string) {
+function formatConservationStatus(statusCode: string) {
   let bgColor = "bg-gray-400";
   let textColor = "text-gray-900";
-  switch (status) {
-    case "Least Concern":
+  let label = statusCode;
+  switch (statusCode) {
+    case "NE": // Not Evaluated
+      bgColor = "bg-gray-300";
+      textColor = "text-gray-900";
+      label = "Not Evaluated";
+      break;
+    case "DD": // Data Deficient
+      bgColor = "bg-gray-200";
+      textColor = "text-gray-900";
+      label = "Data Deficient";
+      break;
+    case "LC": // Least Concern
       bgColor = "bg-green-200";
       textColor = "text-green-900";
+      label = "Least Concern";
       break;
-    case "Near Threatened":
+    case "NT": // Near Threatened
       bgColor = "bg-yellow-200";
       textColor = "text-yellow-900";
+      label = "Near Threatened";
       break;
-    case "Vulnerable":
+    case "VU": // Vulnerable
       bgColor = "bg-red-200";
       textColor = "text-red-900";
+      label = "Vulnerable";
+      break;
+    case "EN": // Endangered
+      bgColor = "bg-orange-200";
+      textColor = "text-orange-900";
+      label = "Endangered";
+      break;
+    case "CR": // Critically Endangered
+      bgColor = "bg-red-300";
+      textColor = "text-red-900";
+      label = "Critically Endangered";
+      break;
+    case "EX": // Extinct
+      bgColor = "bg-black";
+      textColor = "text-white";
+      label = "Extinct";
+      break;
+    case "EW": // Extinct in the Wild
+      bgColor = "bg-gray-500";
+      textColor = "text-white";
+      label = "Extinct in the Wild";
       break;
     // Add more cases as needed
   }
@@ -60,7 +94,7 @@ function formatConservationStatus(status: string) {
     <span
       className={`px-2 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}
     >
-      {status}
+      {label}
     </span>
   );
 }
@@ -221,7 +255,14 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           <div>
             <h2 className="text-2xl font-semibold mb-2">Description</h2>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              {description}
+              {taxonomyData?.description &&
+              taxonomyData.description.trim() !== "" ? (
+                taxonomyData.description
+              ) : (
+                <>
+                  No description available for <i>{name}</i>.
+                </>
+              )}
             </p>
           </div>
 

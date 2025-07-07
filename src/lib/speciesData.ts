@@ -244,17 +244,16 @@ export async function getTaxonomyData(
       allImageUrls: [], // This can be populated later if needed
       originalFolderName: folderName,
       taxonomy: {
-        kingdom: data.kingdom || "Animalia",
-        phylum: data.phylum || "Arthropoda",
-        class: data.class || "Insecta",
-        order: data.order || "Lepidoptera",
-        family: data.family || "Nymphalidae",
+        kingdom: data.kingdom || "",
+        phylum: data.phylum || "",
+        class: data.class || "",
+        order: data.order || "",
+        family: data.family || "",
         genus: genus,
         species: species,
       },
-      description:
-        data.description || `Description for ${formattedName} not available.`,
-      conservationStatus: data.conservationStatus || "Not Evaluated",
+      description: data.description || "",
+      conservationStatus: data.redlistCategory || "Unknown",
     };
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);

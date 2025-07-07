@@ -79,7 +79,8 @@ class GbifTaxonSearch:
     def _revert_clean_results(self, data: dict) -> dict:
         """
         Revert the cleaning done in _clean_results.
-        This is useful for debugging or if you need the original keys.
+        We need to restore the original key names for consistency with the frontend
+        and other platforms that expect the original GBIF data structure.
         """
         if "taxonClass" in data:
             data["class"] = data.pop("taxonClass")
