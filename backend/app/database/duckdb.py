@@ -9,8 +9,6 @@ logger = logging.getLogger(__name__)
 DB_DIR = "duck_db"
 DB_FILE = "data.db"
 LEP_TRAITS_DOWNLOAD = "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
-LEP_TRAITS_PATH = "lep_traits_consensus.csv"
-LEP_TRAITS_CONSENSUS = Path(DB_DIR).joinpath(LEP_TRAITS_PATH)
 
 
 def get_duckdb_connection():
