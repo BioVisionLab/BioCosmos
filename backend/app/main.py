@@ -35,7 +35,9 @@ async def lifespan(app: FastAPI):
         raise e
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan, title="BIOCOSMOS API", version="0.1.0"
+)
 
 app.include_router(image_search.router)
 app.include_router(text_search.router)
