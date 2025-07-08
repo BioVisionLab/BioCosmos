@@ -189,9 +189,11 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
     details;
 
   const taxonomyData = await getTaxonomyData(folderName);
-  // Fetch GBIF data using the scientific name
   const gbifOccurrences = await fetchGbifOccurrences(name); // Use the fetched scientific name
-
+  // We use the scientific name as a title if available, otherwise we use the name
+  // This ensures that when we have the scientific name matches in GBIF, we can display the
+  // author and year
+  const title = taxonomyData?.scientificName ?? name;
   return (
     <section>
       {" "}
@@ -232,7 +234,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       {/* Main Title Area */}
       <div className="mb-6">
         {/* Revert color classes on scientific name */}
-        <h1 className="text-4xl font-bold italic mb-1">{name}</h1>
+        <h1 className="text-4xl font-bold italic mb-1">{title}</h1>
         {/* Revert color classes on common name */}
         <p className="text-xl text-gray-700 dark:text-gray-300">
           {commonName}
@@ -272,15 +274,15 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
             <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
               <li>
                 <span className="font-medium w-20 inline-block">Kingdom:</span>{" "}
-                {taxonomyData?.taxonomy?.kingdom ?? "Unknown"}
+                {taxonomyData?.kingdom ?? "Unknown"}
               </li>
               <li>
                 <span className="font-medium w-20 inline-block">Phylum:</span>{" "}
-                {taxonomyData?.taxonomy?.phylum ?? "Unknown"}
+                {taxonomyData?.phylum ?? "Unknown"}
               </li>
               <li>
                 <span className="font-medium w-20 inline-block">Class:</span>{" "}
-                {taxonomyData?.taxonomy?.class ?? "Unknown"}
+                {taxonomyData?.class ?? "Unknown"}
               </li>
               <li>
                 <span className="font-medium w-20 inline-block">Order:</span>{" "}
@@ -305,7 +307,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           <div>
             <h2 className="text-2xl font-semibold mb-2">Status</h2>
             {formatConservationStatus(
-              taxonomyData?.conservationStatus ?? "Unknown"
+              taxonomyData?.redlistCategory ?? "Unknown"
             )}
             {/* Display conservation status with optional styling */}
           </div>

@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 
 import { API_HOST } from "./config";
+import { int } from "zod/v4";
 
 const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
 
@@ -24,6 +25,20 @@ export interface SpeciesData {
   };
   description: string; // Placeholder description
   conservationStatus: string; // Placeholder status
+}
+
+export interface TaxonomyData {
+  kingdom: string;
+  phylum: string;
+  class: string;
+  order: string;
+  family: string;
+  genus: string;
+  species: string;
+  scientificName: string; // Full scientific name including author and year
+  commonName: string; // Common name if available
+  description: string; // Detailed description
+  redlistCategory: string; // Conservation status from IUCN or similar
 }
 
 // --- Static Data Store ---
@@ -210,7 +225,7 @@ export async function getSpeciesByGenus(
 
 export async function getTaxonomyData(
   folderName: string
-): Promise<SpeciesData | null> {
+): Promise<TaxonomyData | null> {
   // We will capture the species name from the folder name by splitting on underscores
   let genus = "Unknown";
   let species = "sp.";
@@ -236,24 +251,17 @@ export async function getTaxonomyData(
     console.log(`Fetched taxonomy data for ${formattedName}:`, data);
     // Map the response to our SpeciesData format
     return {
-      name: formattedName,
-      commonName: data.commonName || "Unknown",
-      imageUrl: `/images/nymphalidae_new/${folderName}/${
-        data.imageFile || "default.jpg"
-      }`, // Fallback to default image
-      allImageUrls: [], // This can be populated later if needed
-      originalFolderName: folderName,
-      taxonomy: {
-        kingdom: data.kingdom || "",
-        phylum: data.phylum || "",
-        class: data.class || "",
-        order: data.order || "",
-        family: data.family || "",
-        genus: genus,
-        species: species,
-      },
-      description: data.description || "",
-      conservationStatus: data.redlistCategory || "Unknown",
+      kingdom: data.kingdom || "Animalia",
+      phylum: data.phylum || "Arthropoda",
+      class: data.class || "Insecta",
+      order: data.order || "Lepidoptera",
+      family: data.family || "Nymphalidae", // Default to Nymphalidae
+      genus: data.genus || genus,
+      species: data.species || species,
+      scientificName: data.scientificName || formattedName,
+      commonName: data.commonName || formattedName, // Fallback to formatted name
+      description: data.description || `Description for ${formattedName}.`,
+      redlistCategory: data.redlistCategory || "Not Evaluated", // Default status
     };
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);
