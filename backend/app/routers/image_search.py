@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
 from ..services import unicom
-from ..search.query import SearchResults
+from ..searches.query import SearchResults
 
 router = APIRouter()
 

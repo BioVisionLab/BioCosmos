@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from ..services import clip
-from ..search.query import SearchResults
+from ..searches.query import SearchResults
 
 import logging
 
