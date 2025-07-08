@@ -381,7 +381,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
               </table>
             </div>
             {/* GBIF attribution */}
-            <p className="text-xs text-gray-500 mt-4">
+            <p className="text-xs text-gray-500 mt-2">
               Source:{" "}
               <a
                 href={gbifURL}
