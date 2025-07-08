@@ -1,6 +1,6 @@
-import { getSpeciesByGenus, SpeciesData } from '@/lib/speciesData';
-import GenusSpeciesClient from '@/components/GenusSpeciesClient'; // We will create this next
-import Link from 'next/link';
+import { getSpeciesByGenus, SpeciesData } from "@/lib/speciesData";
+import GenusSpeciesClient from "@/components/GenusSpeciesClient"; // We will create this next
+import Link from "next/link";
 
 interface GenusPageProps {
   params: {
@@ -9,7 +9,8 @@ interface GenusPageProps {
 }
 
 export default async function GenusPage({ params }: GenusPageProps) {
-  const { genusName } = params;
+  const resolvedParams = await params; // Ensure params are resolved if using Next.js 13+ with async components
+  const { genusName } = resolvedParams;
   // Decode the genus name in case it contains URL-encoded characters (like spaces if they ever occur)
   const decodedGenusName = decodeURIComponent(genusName);
 
@@ -17,20 +18,27 @@ export default async function GenusPage({ params }: GenusPageProps) {
   const speciesList = await getSpeciesByGenus(decodedGenusName);
 
   // Determine family from the first species (if any)
-  // In a real app, you might fetch genus details separately 
+  // In a real app, you might fetch genus details separately
   // or pass family info differently.
-  const familyName = speciesList.length > 0 ? speciesList[0].taxonomy.family : "Nymphalidae"; // Fallback
+  const familyName =
+    speciesList.length > 0 ? speciesList[0].taxonomy.family : "Nymphalidae"; // Fallback
 
   return (
     <section>
       {/* Updated Breadcrumbs */}
       <nav className="text-sm mb-4 text-gray-600 dark:text-gray-400 flex items-center gap-2">
-        <Link href="/" className="hover:underline">Home</Link>
+        <Link href="/" className="hover:underline">
+          Home
+        </Link>
         <span>&gt;</span>
-        {/* Link to the Family page */} 
-        <Link href={`/family/${familyName}`} className="hover:underline">{familyName}</Link>
+        {/* Link to the Family page */}
+        <Link href={`/family/${familyName}`} className="hover:underline">
+          {familyName}
+        </Link>
         <span>&gt;</span>
-        <span className="italic font-semibold text-gray-800 dark:text-gray-200">{decodedGenusName}</span>
+        <span className="italic font-semibold text-gray-800 dark:text-gray-200">
+          {decodedGenusName}
+        </span>
       </nav>
 
       {/* Revert color classes on the genus name in the title */}
@@ -41,7 +49,6 @@ export default async function GenusPage({ params }: GenusPageProps) {
       {/* Render the client component to display the species grid */}
       {/* Pass the fetched species list to the client component */}
       <GenusSpeciesClient initialSpeciesList={speciesList} />
-
     </section>
   );
-} 
+}

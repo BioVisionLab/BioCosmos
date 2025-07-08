@@ -45,3 +45,7 @@ public/dataset-tiles
 public/images
 *__pycache__
 clip_service/chroma_db/*
+
+target/
+chroma_db/
+duck_db/
