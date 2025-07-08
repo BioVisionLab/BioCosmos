@@ -6,6 +6,7 @@ import {
   getSpeciesData,
   getTaxonomyData,
   SpeciesData,
+  TaxonomyData,
 } from "@/lib/speciesData"; // Import the function and the type
 import Link from "next/link"; // For breadcrumbs
 // Remove dynamic import
@@ -98,6 +99,41 @@ function formatConservationStatus(statusCode: string) {
       {label}
     </span>
   );
+}
+
+// Title component: italicizes species name, not authorship
+function SpeciesTitle({
+  taxonomy,
+  name,
+}: {
+  taxonomy: TaxonomyData | null;
+  name: string;
+}) {
+  if (taxonomy === null) {
+    return <span className="italic">{name}</span>;
+  }
+
+  const authorship = taxonomy.authorship ? taxonomy.authorship.trim() : "";
+  const species = taxonomy.species ? taxonomy.species.trim() : "";
+
+  return (
+    <span>
+      <span className="italic">{species}</span>
+      {authorship && <> {authorship}</>}
+    </span>
+  );
+}
+
+function CommonName({
+  vernacularName,
+  commonName,
+}: {
+  vernacularName: string | null;
+  commonName: string;
+}) {
+  const name = vernacularName ?? commonName;
+
+  return <p className="text-xl text-gray-700 dark:text-gray-300">{name}</p>;
 }
 
 // --- GBIF API Fetching Function ---
@@ -194,7 +230,6 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
   // We use the scientific name as a title if available, otherwise we use the name
   // This ensures that when we have the scientific name matches in GBIF, we can display the
   // author and year
-  const title = taxonomyData?.scientificName ?? name;
   return (
     <section>
       {" "}
@@ -235,11 +270,14 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       {/* Main Title Area */}
       <div className="mb-6">
         {/* Revert color classes on scientific name */}
-        <h1 className="text-4xl font-bold italic mb-1">{title}</h1>
+        <h1 className="text-4xl font-bold mb-1">
+          <SpeciesTitle taxonomy={taxonomyData} name={name} />
+        </h1>
         {/* Revert color classes on common name */}
-        <p className="text-xl text-gray-700 dark:text-gray-300">
-          {commonName}
-        </p>{" "}
+        <CommonName
+          vernacularName={taxonomyData?.vernacularName ?? null}
+          commonName={commonName}
+        />
         {/* Reverted to original gray colors */}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -272,36 +310,76 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           {/* Taxonomy Section */}
           <div>
             <h2 className="text-2xl font-semibold mb-2">Classification</h2>
-            <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-              <li>
-                <span className="font-medium w-20 inline-block">Kingdom:</span>{" "}
-                {taxonomyData?.kingdom ?? "Unknown"}
-              </li>
-              <li>
-                <span className="font-medium w-20 inline-block">Phylum:</span>{" "}
-                {taxonomyData?.phylum ?? "Unknown"}
-              </li>
-              <li>
-                <span className="font-medium w-20 inline-block">Class:</span>{" "}
-                {taxonomyData?.class ?? "Unknown"}
-              </li>
-              <li>
-                <span className="font-medium w-20 inline-block">Order:</span>{" "}
-                {taxonomy.order}
-              </li>
-              <li>
-                <span className="font-medium w-20 inline-block">Family:</span>{" "}
-                {taxonomy.family}
-              </li>
-              <li>
-                <span className="font-medium w-20 inline-block">Genus:</span>{" "}
-                <i className="italic">{taxonomy.genus}</i>
-              </li>
-              <li>
-                <span className="font-medium w-20 inline-block">Species:</span>{" "}
-                <i className="italic">{taxonomy.species}</i>
-              </li>
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="text-sm text-gray-700 dark:text-gray-300 w-full table-auto min-w-[350px]">
+                <tbody>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Kingdom</td>
+                    <td className="break-all">
+                      : {taxonomyData?.kingdom ?? "Unknown"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Phylum</td>
+                    <td className="break-all">
+                      : {taxonomyData?.phylum ?? "Unknown"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Class</td>
+                    <td className="break-all">
+                      : {taxonomyData?.class ?? "Unknown"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Order</td>
+                    <td className="break-all">
+                      : {taxonomyData?.order ?? "Unknown"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Family</td>
+                    <td className="break-all">
+                      : {taxonomyData?.family ?? "Unknown"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Genus</td>
+                    <td className="break-all">
+                      :{" "}
+                      <i className="italic">
+                        {taxonomyData?.genus ?? "Unknown"}
+                      </i>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">Species</td>
+                    <td className="break-all">
+                      :{" "}
+                      <i className="italic">
+                        {taxonomyData?.species ?? "Unknown"}
+                      </i>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top">
+                      Authorship
+                    </td>
+                    <td className="break-all">
+                      : {taxonomyData?.authorship ?? "Unknown"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-medium w-36 pr-2 align-top mt-2">
+                      Taxonomic Status
+                    </td>
+                    <td className="break-all">
+                      : {taxonomyData?.taxonomicStatus ?? "Unknown"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             {/* GBIF attribution */}
             <p className="text-xs text-gray-500 mt-4">
               Source:{" "}

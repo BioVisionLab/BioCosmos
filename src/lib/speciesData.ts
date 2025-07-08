@@ -35,10 +35,11 @@ export interface TaxonomyData {
   family: string;
   genus: string;
   species: string;
-  scientificName: string; // Full scientific name including author and year
-  commonName: string; // Common name if available
+  authorship: string; // Full scientific name including author and year
+  vernacularName: string; // Common name if available
   description: string; // Detailed description
   redlistCategory: string; // Conservation status from IUCN or similar
+  taxonomicStatus: string; // Accepted, Synonym, etc.
 }
 
 // --- Static Data Store ---
@@ -258,10 +259,11 @@ export async function getTaxonomyData(
       family: data.family || "Nymphalidae", // Default to Nymphalidae
       genus: data.genus || genus,
       species: data.species || species,
-      scientificName: data.scientificName || formattedName,
-      commonName: data.commonName || formattedName, // Fallback to formatted name
+      authorship: data.authorship || formattedName,
+      vernacularName: data.vernacularName || formattedName, // Fallback to formatted name
       description: data.description || `Description for ${formattedName}.`,
       redlistCategory: data.redlistCategory || "Not Evaluated", // Default status
+      taxonomicStatus: data.taxonomicStatus || "Accepted", // Default status
     };
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);

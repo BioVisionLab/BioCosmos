@@ -55,9 +55,10 @@ class SpeciesTaxonomy(BaseModel):
     family: str = Field("", alias="family")
     genus: str = Field("", alias="genus")
     species: str = Field("", alias="species")
-    scientificName: str = Field("", alias="scientificName")
+    authorship: str = Field("", alias="authorship")
     vernacularName: str = Field("", alias="vernacularName")
     redlistCategory: str = Field("Unknown", alias="redlistCategory")
+    taxonomicStatus: str = Field("Accepted", alias="taxonomicStatus")
 
     @classmethod
     def from_json(cls, data: dict, redlistCategory: str = "Unknown"):
@@ -70,9 +71,10 @@ class SpeciesTaxonomy(BaseModel):
             family=data.get("family", ""),
             genus=data.get("genus", ""),
             species=data.get("species", ""),
-            scientificName=data.get("scientificName", ""),
+            authorship=data.get("authorship", ""),
             vernacularName=data.get("vernacularName", ""),
             redlistCategory=redlistCategory,
+            taxonomicStatus=data.get("taxonomicStatus", "Unknown"),
         )
 
     def __repr__(self):
