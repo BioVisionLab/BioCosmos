@@ -2,7 +2,6 @@ from pathlib import Path
 import duckdb
 import logging
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -59,6 +58,7 @@ def init_duckdb():
         else:
             logger.info("DuckDB database initialized successfully.")
         # Show all header of lep_traits_consensus table
+        # to verify the table structure
         headers = conn.execute(
             "PRAGMA table_info(lep_traits_consensus)"
         ).fetchall()

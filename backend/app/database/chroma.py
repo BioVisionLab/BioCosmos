@@ -1,17 +1,10 @@
 import os
 import logging
-from tkinter import Image
 import chromadb
 from .model import ImageData
 
-# --- Configuration ---
-CHROMA_DB_PATH = (
-    "./chroma_db"  # Directory to store Chroma data locally
-)
+CHROMA_DB_PATH = "./chroma_db"
 
-
-# # Use UNICOM specific names
-# COLLECTION_NAME = "biocosmos_images_unicom"
 BATCH_SIZE = 32
 
 logger = logging.getLogger(__name__)
@@ -23,23 +16,12 @@ async def init_db():
         f"Initializing ChromaDB client with path: {CHROMA_DB_PATH}..."
     )
     try:
-        # Ensure the directory exists
         if not os.path.exists(CHROMA_DB_PATH):
             os.makedirs(CHROMA_DB_PATH)
             logger.info(
                 f"Created ChromaDB directory: {CHROMA_DB_PATH}"
             )
-
-        # Initialize persistent client (client can be used here if needed in the future)
         await get_client()
-
-        # # Get or create the CLIP collection
-        # # No embedding function needed here if we generate embeddings manually
-        # clip_collection = chroma_client.get_or_create_collection(name=CLIP_COLLECTION_NAME)
-        # logger.info(f"Successfully connected to ChromaDB and got collection '{CLIP_COLLECTION_NAME}'.")
-        # logger.info(f"Collection '{CLIP_COLLECTION_NAME}' currently has {clip_collection.count()} items.")
-
-        # Removed UNICOM collection code due to undefined identifiers.
     except Exception as e:
         logger.error(f"Error initializing ChromaDB: {e}")
 
@@ -97,7 +79,6 @@ async def upsert_to_chroma(
         return
     collection = client.get_or_create_collection(name=collection_name)
 
-    # Use upsert=True to avoid errors if an ID already exists (e.g., re-running the script)
     num_batches = data_size // BATCH_SIZE + (
         1 if data_size % BATCH_SIZE > 0 else 0
     )
@@ -127,8 +108,6 @@ async def upsert_to_chroma(
                 f"Error adding batch {i + 1} to ChromaDB: {e}",
                 exc_info=True,
             )
-            # Consider stopping or continuing on batch error
-            # continue
 
     logger.info("Finished adding embeddings to ChromaDB.")
     logger.info(
