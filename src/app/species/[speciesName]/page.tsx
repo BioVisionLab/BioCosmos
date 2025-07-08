@@ -13,7 +13,8 @@ import Link from "next/link"; // For breadcrumbs
 // Import the new wrapper component
 import SpeciesDetailMapWrapper from "@/components/SpeciesDetailMapWrapper";
 import SpeciesImageGallery from "@/components/SpeciesImageGallery"; // Import the new gallery component
-import { de } from "zod/v4/locales";
+
+const gbifURL = "https://www.gbif.org/";
 
 interface SpeciesPageProps {
   params: {
@@ -301,11 +302,23 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
                 <i className="italic">{taxonomy.species}</i>
               </li>
             </ul>
+            {/* GBIF attribution */}
+            <p className="text-xs text-gray-500 mt-4">
+              Source:{" "}
+              <a
+                href={gbifURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-blue-700"
+              >
+                GBIF
+              </a>
+            </p>
           </div>
 
           {/* Conservation Status */}
           <div>
-            <h2 className="text-2xl font-semibold mb-2">Status</h2>
+            <h2 className="text-2xl font-semibold mb-2">IUCN RedList Status</h2>
             {formatConservationStatus(
               taxonomyData?.redlistCategory ?? "Unknown"
             )}
