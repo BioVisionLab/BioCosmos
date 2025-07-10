@@ -248,7 +248,8 @@ export async function getTaxonomyData(
       );
       return null; // Return null if the request fails
     }
-    const data = await response.json();
+    const dataRaw = await response.json();
+    const data = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
     console.log(`Fetched taxonomy data for ${formattedName}:`, data);
     // Map the response to our SpeciesData format
     return {
