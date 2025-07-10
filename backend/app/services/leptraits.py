@@ -24,10 +24,8 @@ class LepTraits:
         :return: The traits data for the species.
         """
         query = "SELECT * FROM lep_traits_consensus WHERE LOWER(Species) = LOWER(?)"
-        result = self.db_client.execute(
-            query, (species_name,)
-        ).fetchall()
-        if not result:
+        result = self.db_client.execute(query, [species_name]).pl()
+        if result.is_empty():
             logger.warning(
                 f"No traits found for species '{species_name}'."
             )
@@ -36,8 +34,10 @@ class LepTraits:
             logger.warning(
                 f"Multiple entries found for species '{species_name}'. Returning the first entry."
             )
-
-        return result[0]
+        # logger.info(
+        #     f"Traits found for species '{species_name}': {result[0]}"
+        # )
+        return result.to_dicts()[0]
 
     def close(self):
         """

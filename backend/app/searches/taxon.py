@@ -72,10 +72,15 @@ class TaxonSearch:
                 return None
             logger.info(f"Taxon data found for: {self.species}")
             trait_data = self.get_traits()
+            if trait_data is None:
+                logger.info(
+                    f"No traits data found for species: {self.species}"
+                )
+                return None
             payload = SpeciesPayload.from_data(
                 species_id=self.species,
                 taxonomy=taxon_data,
-                traits=trait_data if trait_data is not None else {},
+                traits=trait_data,
             )
             return payload.model_dump()
 
@@ -98,7 +103,7 @@ class TaxonSearch:
         try:
             leptraits = LepTraits()
             leptraits_data = leptraits.get(self.species)
-            if not leptraits_data:
+            if leptraits_data is None:
                 logger.info(
                     f"No traits data found for species: {self.species}"
                 )
@@ -106,7 +111,6 @@ class TaxonSearch:
             logger.info(
                 f"Found traits data for species: {self.species}. Data: {leptraits_data}"
             )
-            leptraits.close()
             return leptraits_data
         except Exception as e:
             logger.error(
@@ -116,5 +120,4 @@ class TaxonSearch:
             return None
         finally:
             leptraits.close()
-            logger.info("Closed LepTraits client connection")
-            return None
+            logger.info("LepTraits client connection closed")

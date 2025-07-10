@@ -1,6 +1,7 @@
 from pathlib import Path
 import duckdb
 import logging
+import polars as pl
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,6 +35,28 @@ def get_duckdb_client():
         return None
 
 
+def read_csv() -> pl.DataFrame:
+    """
+    Read CSV file from the given URL and return as a Polars DataFrame.
+
+    We use Polars to parse the CSV to ensure the data type is consistent
+    throughout the processing pipeline.
+
+    Returns:
+        pl.DataFrame: A Polars DataFrame containing the CSV data.
+    """
+    try:
+        df = pl.read_csv(LEP_TRAITS_DOWNLOAD)
+        logger.info(
+            f"CSV file read successfully with {df.height} rows and {df.width} columns."
+        )
+
+        return df
+    except Exception as e:
+        logger.error(f"Error reading CSV file: {e}")
+        return pl.DataFrame()
+
+
 def init_duckdb():
     """
     Initialize DuckDB database and create necessary tables.
@@ -46,8 +69,12 @@ def init_duckdb():
         return
 
     try:
+        df = read_csv()
+        if df.is_empty():
+            logger.error("No data found in the CSV file.")
+            return
         conn.execute(
-            f"CREATE OR REPLACE TABLE lep_traits_consensus AS SELECT * FROM '{LEP_TRAITS_DOWNLOAD}';"
+            "CREATE OR REPLACE TABLE lep_traits_consensus AS SELECT * FROM df"
         )
         logger.info("LepTraits consensus table created successfully.")
 
@@ -57,16 +84,18 @@ def init_duckdb():
             logger.warning("No tables found in DuckDB database.")
         else:
             logger.info("DuckDB database initialized successfully.")
-        # Show all header of lep_traits_consensus table
+        # Show all headers of lep_traits_consensus table
         # to verify the table structure
         headers = conn.execute(
-            "PRAGMA table_info(lep_traits_consensus)"
+            "PRAGMA table_info('lep_traits_consensus')"
         ).fetchall()
         logger.info(f"LepTraits consensus table headers:\n{headers}")
-        df = conn.execute(
+        df_preview = conn.execute(
             "SELECT * FROM lep_traits_consensus LIMIT 5"
-        ).pl()
-        logger.info(f"LepTraits consensus table preview:\n{df}")
+        ).fetchdf()
+        logger.info(
+            f"LepTraits consensus table preview:\n{df_preview}"
+        )
     except Exception as e:
         logger.error(f"Error initializing DuckDB: {e}")
     finally:
