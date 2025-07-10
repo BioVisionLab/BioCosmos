@@ -1,9 +1,24 @@
 from pydantic import BaseModel
 import os
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+MONTHS = [
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+]
 
 
 class ImageMetadata(BaseModel):
@@ -84,3 +99,153 @@ class SpeciesTaxonomy(BaseModel):
             f"genus={self.genus}, species={self.species}, scientificName={self.scientificName}, "
             f"vernacularName={self.vernacularName}, redlistCategory={self.redlistCategory})"
         )
+
+
+class LepTraitModel(BaseModel):
+    wingspan_lower_female: Optional[float]
+    wingspan_upper_female: Optional[float]
+    wingspan_lower_male: Optional[float]
+    wingspan_upper_male: Optional[float]
+    wingspan_lower_unspecified: Optional[float]
+    wingspan_upper_unspecified: Optional[float]
+    forewing_lower_female: Optional[float]
+    forewing_upper_female: Optional[float]
+    forewing_lower_male: Optional[float]
+    forewing_upper_male: Optional[float]
+    forewing_lower_unspecified: Optional[float]
+    forewing_upper_unspecified: Optional[float]
+    jan_adult_presence: Optional[int]
+    feb_adult_presence: Optional[int]
+    mar_adult_presence: Optional[int]
+    apr_adult_presence: Optional[int]
+    may_adult_presence: Optional[int]
+    jun_adult_presence: Optional[int]
+    jul_adult_presence: Optional[int]
+    aug_adult_presence: Optional[int]
+    sep_adult_presence: Optional[int]
+    oct_adult_presence: Optional[int]
+    nov_adult_presence: Optional[int]
+    dec_adult_presence: Optional[int]
+    flight_duration: Optional[int]
+    diapause_stage: Optional[str]
+    voltinism: Optional[str]
+    oviposition_style: Optional[str]
+    canopy_affinity: Optional[str]
+    edge_affinity: Optional[str]
+    moisture_affinity: Optional[str]
+    disturbance_affinity: Optional[str]
+    number_of_hostplant_families: Optional[int]
+    sole_hostplant_family: Optional[str]
+    primary_hostplant_family: Optional[str]
+    secondary_hostplant_family: Optional[str]
+    equal_hostplant_family: Optional[str]
+    number_of_hostplant_accounts: Optional[int]
+    date_created: Optional[str]
+
+    @classmethod
+    def from_csv_row(cls, row: dict):
+        # Convert and map CSV header keys to descriptive variable names
+        mapping = {
+            "WS_L_Fem": "wingspan_lower_female",
+            "WS_U_Fem": "wingspan_upper_female",
+            "WS_L_Mal": "wingspan_lower_male",
+            "WS_U_Mal": "wingspan_upper_male",
+            "WS_L": "wingspan_lower_unspecified",
+            "WS_U": "wingspan_upper_unspecified",
+            "FW_L_Fem": "forewing_lower_female",
+            "FW_U_Fem": "forewing_upper_female",
+            "FW_L_Mal": "forewing_lower_male",
+            "FW_U_Mal": "forewing_upper_male",
+            "FW_L": "forewing_lower_unspecified",
+            "FW_U": "forewing_upper_unspecified",
+            "Jan": "jan_adult_presence",
+            "Feb": "feb_adult_presence",
+            "Mar": "mar_adult_presence",
+            "Apr": "apr_adult_presence",
+            "May": "may_adult_presence",
+            "Jun": "jun_adult_presence",
+            "Jul": "jul_adult_presence",
+            "Aug": "aug_adult_presence",
+            "Sep": "sep_adult_presence",
+            "Oct": "oct_adult_presence",
+            "Nov": "nov_adult_presence",
+            "Dec": "dec_adult_presence",
+            "FlightDuration": "flight_duration",
+            "DiapauseStage": "diapause_stage",
+            "Voltinism": "voltinism",
+            "OvipositionStyle": "oviposition_style",
+            "CanopyAffinity": "canopy_affinity",
+            "EdgeAffinity": "edge_affinity",
+            "MoistureAffinity": "moisture_affinity",
+            "DisturbanceAffinity": "disturbance_affinity",
+            "NumberOfHostplantFamilies": "number_of_hostplant_families",
+            "SoleHostplantFamily": "sole_hostplant_family",
+            "PrimaryHostplantFamily": "primary_hostplant_family",
+            "SecondaryHostplantFamily": "secondary_hostplant_family",
+            "EqualHostplantFamily": "equal_hostplant_family",
+            "NumberOfHostplantAccounts": "number_of_hostplant_accounts",
+            "DateCreated": "date_created",
+        }
+        # Prepare kwargs for model
+        kwargs = {}
+        for k_csv, k_model in mapping.items():
+            val = row.get(k_csv)
+            # Convert types if needed
+            if k_model.startswith("wingspan") or k_model.startswith(
+                "forewing"
+            ):
+                try:
+                    kwargs[k_model] = (
+                        float(val)
+                        if val not in [None, "NA", "null", ""]
+                        else None
+                    )
+                except Exception:
+                    kwargs[k_model] = None
+            elif k_model.endswith("_presence") or k_model in [
+                "flight_duration",
+                "number_of_hostplant_families",
+                "number_of_hostplant_accounts",
+            ]:
+                try:
+                    kwargs[k_model] = (
+                        int(val)
+                        if val not in [None, "NA", "null", ""]
+                        else None
+                    )
+                except Exception:
+                    kwargs[k_model] = None
+            else:
+                kwargs[k_model] = (
+                    val if val not in ["NA", "null", ""] else None
+                )
+        # Decode presence values
+        for month in MONTHS:
+            presence_key = f"{month}_adult_presence"
+            kwargs[presence_key] = cls._decode_presence(
+                kwargs.get(presence_key)
+            )
+        return cls(**kwargs)
+
+    def _decode_presence(self, value: Optional[int]) -> Optional[str]:
+        """
+        Decode presence integer to a descriptive string.
+        """
+        if value is None:
+            return None
+        elif value == 0:
+            return "Absent"
+        elif value == 1:
+            return "Present"
+        else:
+            return "Unknown"
+
+    def summarize(self):
+        """
+        Merge data into a single text removing None values.
+        """
+        summary = []
+        for key, value in vars(self).items():
+            if value is not None:
+                summary.append(f"{key}: {value}")
+        return "\n".join(summary)
