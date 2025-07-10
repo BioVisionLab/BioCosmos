@@ -1,14 +1,22 @@
 import logging
 from venv import logger
 
+from ..database.duckdb import get_duckdb_client
+
 logger = logging.getLogger(__name__)
 
 
-class LepTraitService:
-    def __init__(self, db_client):
-        self.db_client = db_client
+class LepTraits:
+    def __init__(self, ):
+        """
+        Initializes the LepTraits service.
+        This service connects to the DuckDB database to fetch traits for lepidopteran species.
+        The caller is responsible for managing the database connection lifecycle. 
+        """
+        self.db_client = get_duckdb_client()
 
-    def get_traits(self, species_name: str) -> dict:
+
+    def get(self, species_name: str) -> dict:
         """
         Fetches traits for a given species from the lep_traits_consensus table.
         :param species_name: The name of the species to fetch traits for.
@@ -29,3 +37,13 @@ class LepTraitService:
             )
 
         return result[0]
+    
+    def close(self):
+        """
+        Closes the database client connection.
+        """
+        if self.db_client:
+            self.db_client.close()
+            logger.info("LepTraits database client connection closed.")
+        else:
+            logger.warning("LepTraits database client was not initialized.")
