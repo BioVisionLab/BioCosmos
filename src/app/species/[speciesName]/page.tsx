@@ -119,7 +119,7 @@ function SpeciesTitle({
   return (
     <span>
       <span className="italic">{species}</span>
-      {authorship && <> {authorship}</>}
+      {authorship !== null && authorship !== "" ? " " + authorship : null}
     </span>
   );
 }
