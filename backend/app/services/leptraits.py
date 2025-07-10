@@ -7,14 +7,15 @@ logger = logging.getLogger(__name__)
 
 
 class LepTraits:
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         """
         Initializes the LepTraits service.
         This service connects to the DuckDB database to fetch traits for lepidopteran species.
-        The caller is responsible for managing the database connection lifecycle. 
+        The caller is responsible for managing the database connection lifecycle.
         """
         self.db_client = get_duckdb_client()
-
 
     def get(self, species_name: str) -> dict:
         """
@@ -22,7 +23,7 @@ class LepTraits:
         :param species_name: The name of the species to fetch traits for.
         :return: The traits data for the species.
         """
-        query = "SELECT * FROM lep_traits_consensus WHERE species_name = %s"
+        query = "SELECT * FROM lep_traits_consensus WHERE LOWER(Species) = LOWER(?)"
         result = self.db_client.execute(
             query, (species_name,)
         ).fetchall()
@@ -37,13 +38,17 @@ class LepTraits:
             )
 
         return result[0]
-    
+
     def close(self):
         """
         Closes the database client connection.
         """
         if self.db_client:
             self.db_client.close()
-            logger.info("LepTraits database client connection closed.")
+            logger.info(
+                "LepTraits database client connection closed."
+            )
         else:
-            logger.warning("LepTraits database client was not initialized.")
+            logger.warning(
+                "LepTraits database client was not initialized."
+            )

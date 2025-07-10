@@ -11,6 +11,7 @@ class SpeciesPayload(BaseModel):
     A class to represent a species payload for search operations.
     It includes the species taxonomy and traits data.
     """
+
     speciesId: str
     taxonomy: dict
     traits: dict
@@ -19,7 +20,7 @@ class SpeciesPayload(BaseModel):
     def from_data(cls, species_id: str, taxonomy: dict, traits: dict):
         """
         Create a SpeciesPayload instance from the provided data.
-        
+
         Args:
             species_id (str): The species ID.
             taxonomy (dict): The taxonomy data for the species.
@@ -29,11 +30,10 @@ class SpeciesPayload(BaseModel):
             SpeciesPayload: An instance of SpeciesPayload.
         """
         return cls(
-            speciesId=species_id,
-            taxonomy=taxonomy,
-            traits=traits
+            speciesId=species_id, taxonomy=taxonomy, traits=traits
         )
-    
+
+
 class TaxonSearch:
     """
     A class to handle taxon search operations using the GBIF API.
@@ -72,36 +72,49 @@ class TaxonSearch:
                 return None
             logger.info(f"Taxon data found for: {self.species}")
             trait_data = self.get_traits()
-            return SpeciesPayload.from_data(
-                id=self.species,
+            payload = SpeciesPayload.from_data(
+                species_id=self.species,
                 taxonomy=taxon_data,
-                traits=trait_data
+                traits=trait_data if trait_data is not None else {},
             )
-        
+            return payload.model_dump()
+
         except Exception as e:
             logger.error(
                 f"Error searching for taxon: {e}", exc_info=True
             )
             return None
         finally:
-
             await gbif_service.close()
             logger.info("Closed GBIF client connection")
 
-    def get_traits(self):
+    def get_traits(self) -> dict | None:
         """
         Fetch traits for the species using the LepTraits service.
 
         Returns:
             dict: A dictionary containing the species traits data or None if not found.
         """
-        leptraits = LepTraits()
-        leptraits_data = leptraits.get(self.species)
-        if not leptraits_data:
+        try:
+            leptraits = LepTraits()
+            leptraits_data = leptraits.get(self.species)
+            if not leptraits_data:
+                logger.info(
+                    f"No traits data found for species: {self.species}"
+                )
+                return None
             logger.info(
-                f"No traits data found for species: {self.species}"
+                f"Found traits data for species: {self.species}. Data: {leptraits_data}"
+            )
+            leptraits.close()
+            return leptraits_data
+        except Exception as e:
+            logger.error(
+                f"Error fetching traits for species {self.species}: {e}",
+                exc_info=True,
             )
             return None
-        logger.info(f"Found traits data for species: {self.species}")
-        leptraits.close()
-        return leptraits_data
+        finally:
+            leptraits.close()
+            logger.info("Closed LepTraits client connection")
+            return None
