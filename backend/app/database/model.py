@@ -21,6 +21,48 @@ MONTHS = [
     "dec",
 ]
 
+LEPTRAIT_MAPPING = {
+    "WS_L_Fem": "wingspan_lower_female",
+    "WS_U_Fem": "wingspan_upper_female",
+    "WS_L_Mal": "wingspan_lower_male",
+    "WS_U_Mal": "wingspan_upper_male",
+    "WS_L": "wingspan_lower_unspecified",
+    "WS_U": "wingspan_upper_unspecified",
+    "FW_L_Fem": "forewing_lower_female",
+    "FW_U_Fem": "forewing_upper_female",
+    "FW_L_Mal": "forewing_lower_male",
+    "FW_U_Mal": "forewing_upper_male",
+    "FW_L": "forewing_lower_unspecified",
+    "FW_U": "forewing_upper_unspecified",
+    "Jan": "jan_adult_presence",
+    "Feb": "feb_adult_presence",
+    "Mar": "mar_adult_presence",
+    "Apr": "apr_adult_presence",
+    "May": "may_adult_presence",
+    "Jun": "jun_adult_presence",
+    "Jul": "jul_adult_presence",
+    "Aug": "aug_adult_presence",
+    "Sep": "sep_adult_presence",
+    "Oct": "oct_adult_presence",
+    "Nov": "nov_adult_presence",
+    "Dec": "dec_adult_presence",
+    "FlightDuration": "flight_duration",
+    "DiapauseStage": "diapause_stage",
+    "Voltinism": "voltinism",
+    "OvipositionStyle": "oviposition_style",
+    "CanopyAffinity": "canopy_affinity",
+    "EdgeAffinity": "edge_affinity",
+    "MoistureAffinity": "moisture_affinity",
+    "DisturbanceAffinity": "disturbance_affinity",
+    "NumberOfHostplantFamilies": "number_of_hostplant_families",
+    "SoleHostplantFamily": "sole_hostplant_family",
+    "PrimaryHostplantFamily": "primary_hostplant_family",
+    "SecondaryHostplantFamily": "secondary_hostplant_family",
+    "EqualHostplantFamily": "equal_hostplant_family",
+    "NumberOfHostplantAccounts": "number_of_hostplant_accounts",
+    "DateCreated": "date_created",
+}
+
 
 class ImageMetadata(BaseModel):
     path: str
@@ -145,77 +187,20 @@ class LepTraitModel(BaseModel):
 
     @classmethod
     def from_csv_row(cls, row: dict):
-        # Convert and map CSV header keys to descriptive variable names
-        mapping = {
-            "WS_L_Fem": "wingspan_lower_female",
-            "WS_U_Fem": "wingspan_upper_female",
-            "WS_L_Mal": "wingspan_lower_male",
-            "WS_U_Mal": "wingspan_upper_male",
-            "WS_L": "wingspan_lower_unspecified",
-            "WS_U": "wingspan_upper_unspecified",
-            "FW_L_Fem": "forewing_lower_female",
-            "FW_U_Fem": "forewing_upper_female",
-            "FW_L_Mal": "forewing_lower_male",
-            "FW_U_Mal": "forewing_upper_male",
-            "FW_L": "forewing_lower_unspecified",
-            "FW_U": "forewing_upper_unspecified",
-            "Jan": "jan_adult_presence",
-            "Feb": "feb_adult_presence",
-            "Mar": "mar_adult_presence",
-            "Apr": "apr_adult_presence",
-            "May": "may_adult_presence",
-            "Jun": "jun_adult_presence",
-            "Jul": "jul_adult_presence",
-            "Aug": "aug_adult_presence",
-            "Sep": "sep_adult_presence",
-            "Oct": "oct_adult_presence",
-            "Nov": "nov_adult_presence",
-            "Dec": "dec_adult_presence",
-            "FlightDuration": "flight_duration",
-            "DiapauseStage": "diapause_stage",
-            "Voltinism": "voltinism",
-            "OvipositionStyle": "oviposition_style",
-            "CanopyAffinity": "canopy_affinity",
-            "EdgeAffinity": "edge_affinity",
-            "MoistureAffinity": "moisture_affinity",
-            "DisturbanceAffinity": "disturbance_affinity",
-            "NumberOfHostplantFamilies": "number_of_hostplant_families",
-            "SoleHostplantFamily": "sole_hostplant_family",
-            "PrimaryHostplantFamily": "primary_hostplant_family",
-            "SecondaryHostplantFamily": "secondary_hostplant_family",
-            "EqualHostplantFamily": "equal_hostplant_family",
-            "NumberOfHostplantAccounts": "number_of_hostplant_accounts",
-            "DateCreated": "date_created",
-        }
-        # Prepare kwargs for model
         kwargs = {}
-        for k_csv, k_model in mapping.items():
+        for k_csv, k_model in LEPTRAIT_MAPPING.items():
             val = row.get(k_csv)
             # Convert types if needed
             if k_model.startswith("wingspan") or k_model.startswith(
                 "forewing"
             ):
-                try:
-                    kwargs[k_model] = (
-                        float(val)
-                        if val not in [None, "NA", "null", ""]
-                        else None
-                    )
-                except Exception:
-                    kwargs[k_model] = None
+                kwargs[k_model] = cls._to_float(val)
             elif k_model.endswith("_presence") or k_model in [
                 "flight_duration",
                 "number_of_hostplant_families",
                 "number_of_hostplant_accounts",
             ]:
-                try:
-                    kwargs[k_model] = (
-                        int(val)
-                        if val not in [None, "NA", "null", ""]
-                        else None
-                    )
-                except Exception:
-                    kwargs[k_model] = None
+                kwargs[k_model] = cls._to_int(val)
             else:
                 kwargs[k_model] = (
                     val if val not in ["NA", "null", ""] else None
@@ -227,6 +212,40 @@ class LepTraitModel(BaseModel):
                 kwargs.get(presence_key)
             )
         return cls(**kwargs)
+
+    def summarize(self):
+        """
+        Merge data into a single text removing None values.
+        """
+        summary = []
+        for key, value in vars(self).items():
+            if value is not None:
+                summary.append(f"{key}: {value}")
+        return "\n".join(summary)
+
+    def _to_float(self, value: Optional[str]) -> Optional[float]:
+        """
+        Convert string to float, handling None and empty strings.
+        """
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            logger.error(f"Failed to convert {value} to float")
+            return None
+
+    def _to_int(self, value: Optional[str]) -> Optional[int]:
+        """
+        Convert string to integer, handling None and empty strings.
+        """
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            logger.error(f"Failed to convert {value} to int")
+            return None
 
     def _decode_presence(self, value: Optional[int]) -> Optional[str]:
         """
@@ -240,13 +259,3 @@ class LepTraitModel(BaseModel):
             return "Present"
         else:
             return "Unknown"
-
-    def summarize(self):
-        """
-        Merge data into a single text removing None values.
-        """
-        summary = []
-        for key, value in vars(self).items():
-            if value is not None:
-                summary.append(f"{key}: {value}")
-        return "\n".join(summary)
