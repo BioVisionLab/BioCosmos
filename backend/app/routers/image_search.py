@@ -30,7 +30,6 @@ async def image_search(request: Request):
 
         base64_image = data["image"]
 
-        # 1. Get image embedding from base64 using UNICOM
         logger.info(
             "Generating UNICOM image embedding from base64 data..."
         )
@@ -47,7 +46,6 @@ async def image_search(request: Request):
             )
         query_embeddings = embedder.get_embedding(base64_image)
         if query_embeddings is None:
-            # Error logged in helper function
             return JSONResponse(
                 content={
                     "error": "Failed to process uploaded image using UNICOM."
@@ -56,7 +54,6 @@ async def image_search(request: Request):
             )
         logger.info("UNICOM image embedding generated.")
 
-        # 2. Search UNICOM ChromaDB collection
         logger.info(
             f"Querying ChromaDB UNICOM collection '{embedder.get_collection_name}' with image embedding..."
         )

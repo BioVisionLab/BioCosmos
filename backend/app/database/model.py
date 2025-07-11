@@ -21,6 +21,10 @@ MONTHS = [
     "dec",
 ]
 
+# Mapping from CSV column names to model attributes
+# It is more descriptive than the original column names
+# in the consensus LepTrait dataset.
+# The mapping is sourced from the records.csv file in the LepTrait dataset.
 LEPTRAIT_MAPPING = {
     "WS_L_Fem": "wingspan_lower_female",
     "WS_U_Fem": "wingspan_upper_female",
@@ -187,6 +191,16 @@ class LepTraitModel(BaseModel):
 
     @classmethod
     def from_csv_row(cls, row: dict):
+        """
+        Create a LepTraitModel instance from a CSV row.
+        The row should contain keys that match the LEPTRAIT_MAPPING.
+        The values will be converted to the appropriate types based on the mapping.
+        If a value is "NA", "null", or an empty string, it will be set to None.
+        The presence values will be decoded to descriptive strings: Absent, Present, Unknown
+
+        :param row: A dictionary representing a row from the LepTrait CSV file.
+        :return: An instance of LepTraitModel with the mapped values.
+        """
         kwargs = {}
         for k_csv, k_model in LEPTRAIT_MAPPING.items():
             val = row.get(k_csv)
