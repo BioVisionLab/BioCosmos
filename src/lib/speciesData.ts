@@ -249,6 +249,10 @@ export async function getTaxonomyData(
     const dataRaw = await response.json();
     const data = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
     console.log(`Fetched taxonomy data for ${formattedName}:`, data);
+    if (!data) {
+      console.warn(`No taxonomy data found for ${formattedName}`);
+      return null; // Return null if no data is found
+    }
     // Map the response to our SpeciesData format
     return {
       kingdom: data.kingdom || "Animalia",
