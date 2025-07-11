@@ -132,7 +132,7 @@ function SpeciesDescriptionText({
 }) {
   if (!description || description.trim() === "") {
     return (
-      <p className="text-gray-500 dark:text-gray-400">
+      <p className="text-gray-500 dark:text-gray-400 mt-2">
         No description available for <i>{species}</i>.
       </p>
     );
@@ -153,7 +153,7 @@ function SpeciesDescription({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-2">Description</h2>
+      <h2 className="text-2xl font-semibold mt-4">Description</h2>
       <SpeciesDescriptionText description={description} species={species} />
     </div>
   );
