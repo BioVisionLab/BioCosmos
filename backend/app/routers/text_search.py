@@ -11,16 +11,14 @@ logger = logging.getLogger(__name__)
 
 @router.get("/text-search")
 async def search_text(q: str):
-    """Search for images based on a text query using CLIP embeddings.
+    """Endpoint for text to image search.
 
+    Expects a query parameter 'q' for the search term.
+    Returns a list of search results based on the text embedding.
     Args:
-        q (str): The text query to search for.
-
+        q (str): The search query string.
     Returns:
-        JSONResponse: A JSON response containing the search results or an error message.
-
-    To query this endpoint, use:
-        /text-search/?q=your+search+terms
+        JSONResponse: A response containing the search results or an error message.
     """
     query = q.strip() if q else None
 

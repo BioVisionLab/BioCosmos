@@ -1,4 +1,3 @@
-from enum import unique
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
@@ -10,9 +9,13 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/img-search")
+@router.post("/img-search")
 async def image_search(request: Request):
-    """ """
+    """
+    Endpoint for image to image search.
+    Expects a base64 encoded image in the JSON body under the key 'image'.
+    Returns a list of search results based on the image embedding.
+    """
 
     logger.info("Received image search request (UNICOM).")
     try:
@@ -29,6 +32,16 @@ async def image_search(request: Request):
             )
 
         base64_image = data["image"]
+        if not base64_image or not str(base64_image).strip():
+            logger.warning(
+                "Image search request contains empty 'image' field."
+            )
+            return JSONResponse(
+                content={
+                    "error": "Missing 'image' field in JSON body"
+                },
+                status_code=400,
+            )
 
         logger.info(
             "Generating UNICOM image embedding from base64 data..."

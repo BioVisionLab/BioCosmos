@@ -27,7 +27,7 @@ async def search_taxon(q: str):
         logger.warning("Taxon search query is empty")
         return JSONResponse(
             content={
-                "message": "Query parameter 'q' is required and cannot be empty."
+                "error": "Query parameter 'q' is required and cannot be empty."
             },
             status_code=400,
         )
