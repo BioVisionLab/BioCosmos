@@ -124,6 +124,10 @@ class SpeciesTaxonomy(BaseModel):
 
     @classmethod
     def from_json(cls, data: dict, redlistCategory: str = "Unknown"):
+        taxonomic_status: str = data.get(
+            "taxonomicStatus", ""
+        ).capitalize()
+
         return cls(
             key=data.get("key", None),
             kingdom=data.get("kingdom", ""),
@@ -136,7 +140,7 @@ class SpeciesTaxonomy(BaseModel):
             authorship=data.get("authorship", ""),
             vernacularName=data.get("vernacularName", ""),
             redlistCategory=redlistCategory,
-            taxonomicStatus=data.get("taxonomicStatus", "Unknown"),
+            taxonomicStatus=taxonomic_status,
         )
 
     def __repr__(self):
