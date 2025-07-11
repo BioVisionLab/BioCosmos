@@ -35,11 +35,11 @@ export interface TaxonomyData {
   family: string;
   genus: string;
   species: string;
-  authorship: string; // Full scientific name including author and year
-  vernacularName: string; // Common name if available
-  description: string; // Detailed description
-  redlistCategory: string; // Conservation status from IUCN or similar
-  taxonomicStatus: string; // Accepted, Synonym, etc.
+  authorship: string;
+  vernacularName: string;
+  description: string;
+  redlistCategory: string;
+  taxonomicStatus: string;
 }
 
 // --- Static Data Store ---
@@ -132,9 +132,7 @@ function processSpeciesFolder(
     formattedName
       .replace(/^[A-Z]+\s/, "")
       .replace(/^\w/, (c) => c.toUpperCase()) + " Butterfly";
-  const description =
-    staticData?.description ??
-    `Detailed placeholder description for ${formattedName}. This section will later include information about its physical characteristics, lifecycle, unique markings, and how to distinguish it from similar species. Habitat preferences and behavioral patterns observed in the wild will also be documented here.`;
+  const description = staticData?.description ?? "";
   const conservationStatus =
     staticData?.conservationStatus ??
     ["Least Concern", "Near Threatened", "Vulnerable"][
@@ -262,8 +260,8 @@ export async function getTaxonomyData(
       species: data.species || species,
       authorship: data.authorship || formattedName,
       vernacularName: data.vernacularName || formattedName, // Fallback to formatted name
-      description: data.description || `Description for ${formattedName}.`,
-      redlistCategory: data.redlistCategory || "Not Evaluated", // Default status
+      description: data.description,
+      redlistCategory: data.redlistCategory || "Unknown", // Default status
       taxonomicStatus: data.taxonomicStatus || "Accepted", // Default status
     };
   } catch (error) {

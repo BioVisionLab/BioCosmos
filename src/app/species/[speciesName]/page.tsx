@@ -136,6 +136,42 @@ function CommonName({
   return <p className="text-xl text-gray-700 dark:text-gray-300">{name}</p>;
 }
 
+function SpeciesDescriptionText({
+  description,
+  species,
+}: {
+  description: string | null;
+  species: string;
+}) {
+  if (!description || description.trim() === "") {
+    return (
+      <p className="text-gray-500 dark:text-gray-400">
+        No description available for <i>{species}</i>.
+      </p>
+    );
+  }
+  return (
+    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+      {description}
+    </p>
+  );
+}
+
+function SpeciesDescription({
+  description,
+  species,
+}: {
+  description: string | null;
+  species: string;
+}) {
+  return (
+    <div>
+      <h2 className="text-2xl font-semibold mb-2">Description</h2>
+      <SpeciesDescriptionText description={description} species={species} />
+    </div>
+  );
+}
+
 // --- GBIF API Fetching Function ---
 async function fetchGbifOccurrences(
   scientificName: string
@@ -292,20 +328,10 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
 
         {/* Right Column: Details */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Description Section */}
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">Description</h2>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              {taxonomyData?.description &&
-              taxonomyData.description.trim() !== "" ? (
-                taxonomyData.description
-              ) : (
-                <>
-                  No description available for <i>{name}</i>.
-                </>
-              )}
-            </p>
-          </div>
+          <SpeciesDescription
+            description={description}
+            species={taxonomyData?.species ?? name} // Use species from taxonomy or fallback to name
+          />
 
           {/* Taxonomy Section */}
           <div>
