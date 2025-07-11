@@ -1,7 +1,7 @@
 const gbifURL = "https://www.gbif.org/";
 
 export function GbifAttribution({
-  leadingText = "Data provided by",
+  leadingText = "Source: ",
 }: {
   leadingText?: string;
 }) {

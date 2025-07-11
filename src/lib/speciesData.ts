@@ -159,6 +159,14 @@ function processSpeciesFolder(
   };
 }
 
+function parseTraitData(traits: Record<string, string | null>): string {
+  // Convert the traits object to a readable key-value string, skipping nulls
+  return Object.entries(traits)
+    .filter(([_, value]) => value !== null && value !== "")
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n");
+}
+
 // --- New Function: Get List of Genera ---
 export interface GenusSummary {
   name: string;
@@ -247,26 +255,28 @@ export async function getTaxonomyData(
       return null; // Return null if the request fails
     }
     const dataRaw = await response.json();
-    const data = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
-    console.log(`Fetched taxonomy data for ${formattedName}:`, data);
-    if (!data) {
+    const traits: string = parseTraitData(dataRaw["traits"] || {});
+    let description = "";
+    const taxonomy = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
+    console.log(`Fetched taxonomy data for ${formattedName}:`, taxonomy);
+    if (!taxonomy) {
       console.warn(`No taxonomy data found for ${formattedName}`);
       return null; // Return null if no data is found
     }
     // Map the response to our SpeciesData format
     return {
-      kingdom: data.kingdom || "Animalia",
-      phylum: data.phylum || "Arthropoda",
-      class: data.class || "Insecta",
-      order: data.order || "Lepidoptera",
-      family: data.family || "Nymphalidae", // Default to Nymphalidae
-      genus: data.genus || genus,
-      species: data.species || species,
-      authorship: data.authorship || formattedName,
-      vernacularName: data.vernacularName || formattedName, // Fallback to formatted name
-      description: data.description,
-      redlistCategory: data.redlistCategory || "Unknown", // Default status
-      taxonomicStatus: data.taxonomicStatus || "Accepted", // Default status
+      kingdom: taxonomy.kingdom || "Animalia",
+      phylum: taxonomy.phylum || "Arthropoda",
+      class: taxonomy.class || "Insecta",
+      order: taxonomy.order || "Lepidoptera",
+      family: taxonomy.family || "Nymphalidae", // Default to Nymphalidae
+      genus: taxonomy.genus || genus,
+      species: taxonomy.species || species,
+      authorship: taxonomy.authorship || formattedName,
+      vernacularName: taxonomy.vernacularName || formattedName, // Fallback to formatted name
+      description: traits !== "" ? traits : "", // Use traits if available
+      redlistCategory: taxonomy.redlistCategory || "Unknown", // Default status
+      taxonomicStatus: taxonomy.taxonomicStatus || "Accepted", // Default status
     };
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);

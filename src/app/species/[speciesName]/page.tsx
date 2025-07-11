@@ -382,7 +382,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
             allImageUrls={allImageUrls}
           />
           <SpeciesDescription
-            description={description}
+            description={taxonomyData?.description ?? description}
             species={taxonomyData?.species ?? name} // Use species from taxonomy or fallback to name
           />
         </div>
