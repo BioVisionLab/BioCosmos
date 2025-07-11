@@ -152,7 +152,7 @@ class SpeciesTaxonomy(BaseModel):
         )
 
 
-class LepTraitModel(BaseModel):
+class LepTraitData(BaseModel):
     wingspan_lower_female: Optional[float]
     wingspan_upper_female: Optional[float]
     wingspan_lower_male: Optional[float]
@@ -165,18 +165,18 @@ class LepTraitModel(BaseModel):
     forewing_upper_male: Optional[float]
     forewing_lower_unspecified: Optional[float]
     forewing_upper_unspecified: Optional[float]
-    jan_adult_presence: Optional[int]
-    feb_adult_presence: Optional[int]
-    mar_adult_presence: Optional[int]
-    apr_adult_presence: Optional[int]
-    may_adult_presence: Optional[int]
-    jun_adult_presence: Optional[int]
-    jul_adult_presence: Optional[int]
-    aug_adult_presence: Optional[int]
-    sep_adult_presence: Optional[int]
-    oct_adult_presence: Optional[int]
-    nov_adult_presence: Optional[int]
-    dec_adult_presence: Optional[int]
+    jan_adult_presence: Optional[str]
+    feb_adult_presence: Optional[str]
+    mar_adult_presence: Optional[str]
+    apr_adult_presence: Optional[str]
+    may_adult_presence: Optional[str]
+    jun_adult_presence: Optional[str]
+    jul_adult_presence: Optional[str]
+    aug_adult_presence: Optional[str]
+    sep_adult_presence: Optional[str]
+    oct_adult_presence: Optional[str]
+    nov_adult_presence: Optional[str]
+    dec_adult_presence: Optional[str]
     flight_duration: Optional[int]
     diapause_stage: Optional[str]
     voltinism: Optional[str]
@@ -194,7 +194,7 @@ class LepTraitModel(BaseModel):
     date_created: Optional[str]
 
     @classmethod
-    def from_csv_row(cls, row: dict):
+    def from_data(cls, row: dict):
         """
         Create a LepTraitModel instance from a CSV row.
         The row should contain keys that match the LEPTRAIT_MAPPING.
@@ -206,6 +206,7 @@ class LepTraitModel(BaseModel):
         :return: An instance of LepTraitModel with the mapped values.
         """
         kwargs = {}
+
         for k_csv, k_model in LEPTRAIT_MAPPING.items():
             val = row.get(k_csv)
             # Convert types if needed
@@ -226,7 +227,7 @@ class LepTraitModel(BaseModel):
         # Decode presence values
         for month in MONTHS:
             presence_key = f"{month}_adult_presence"
-            kwargs[presence_key] = cls._decode_presence(
+            kwargs[presence_key] = cls._to_present_absent(
                 kwargs.get(presence_key)
             )
         return cls(**kwargs)
@@ -241,31 +242,8 @@ class LepTraitModel(BaseModel):
                 summary.append(f"{key}: {value}")
         return "\n".join(summary)
 
-    def _to_float(self, value: Optional[str]) -> Optional[float]:
-        """
-        Convert string to float, handling None and empty strings.
-        """
-        if value is None or value == "":
-            return None
-        try:
-            return float(value)
-        except ValueError:
-            logger.error(f"Failed to convert {value} to float")
-            return None
-
-    def _to_int(self, value: Optional[str]) -> Optional[int]:
-        """
-        Convert string to integer, handling None and empty strings.
-        """
-        if value is None or value == "":
-            return None
-        try:
-            return int(value)
-        except ValueError:
-            logger.error(f"Failed to convert {value} to int")
-            return None
-
-    def _decode_presence(self, value: Optional[int]) -> Optional[str]:
+    @staticmethod
+    def _to_present_absent(value: Optional[int]) -> Optional[str]:
         """
         Decode presence integer to a descriptive string.
         """
@@ -277,3 +255,29 @@ class LepTraitModel(BaseModel):
             return "Present"
         else:
             return "Unknown"
+
+    @staticmethod
+    def _to_float(value: Optional[str]) -> Optional[float]:
+        """
+        Convert string to float, handling None and empty strings.
+        """
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            logger.error(f"Failed to convert {value} to float")
+            return None
+
+    @staticmethod
+    def _to_int(value: Optional[str]) -> Optional[int]:
+        """
+        Convert string to integer, handling None and empty strings.
+        """
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            logger.error(f"Failed to convert {value} to int")
+            return None

@@ -2,6 +2,7 @@ import logging
 from venv import logger
 
 from ..database.duckdb import get_duckdb_client
+from ..database.model import LepTraitData
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +35,8 @@ class LepTraits:
             logger.warning(
                 f"Multiple entries found for species '{species_name}'. Returning the first entry."
             )
-        # logger.info(
-        #     f"Traits found for species '{species_name}': {result[0]}"
-        # )
-        return result.to_dicts()[0]
+        traits_data = LepTraitData.from_data(result.to_dicts()[0])
+        return traits_data.model_dump()
 
     def close(self):
         """
