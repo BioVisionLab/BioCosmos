@@ -1,23 +1,18 @@
 import logging
 import torch
 from transformers import CLIPModel, CLIPProcessor
-from ..database.chroma import query_collection
 from PIL import Image
+import os
 
-CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
-CLIP_COLLECTION_NAME = "clip_collection"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DEVICE = (
-    torch.accelerator.current_accelerator().type
-    if torch.accelerator.is_available()
-    else "cpu"
-)
+CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 
 
-class ClipTextEmbedder:
+class ClipEmbedder:
     """Class to handle text embedding using CLIP model.
 
     Args:
@@ -29,20 +24,42 @@ class ClipTextEmbedder:
     """
 
     def __init__(self):
-        self.device = DEVICE
-        self.logger = logger
+        self.device = (
+            torch.accelerator.current_accelerator().type
+            if torch.accelerator.is_available()
+            else "cpu"
+        )
+        self.logger: logging.Logger = logger
         self.model, self.processor = self._load_model()
 
     def _load_model(self):
         """Load the CLIP model and processor."""
-        logger.info(
-            f"Loading CLIP model: {CLIP_MODEL_NAME} on device: {self.device}..."
-        )
         try:
             model = CLIPModel.from_pretrained(CLIP_MODEL_NAME).to(
                 self.device
             )
             processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
+            model.eval()
+            logger.info(
+                f"CLIP model {CLIP_MODEL_NAME} loaded successfully."
+            )
+            return model, processor
+        except Exception as e:
+            self.logger.error(
+                f"Error loading CLIP model: {e}", exc_info=True
+            )
+            return None, None
+
+    def from_pretrained(self) -> tuple[CLIPModel, CLIPProcessor]:
+        """Load the CLIP model and processor."""
+        logger.info(
+            f"Loading CLIP model: {self.model} on device: {self.device}..."
+        )
+        try:
+            model = CLIPModel.from_pretrained(self.model).to(
+                self.device
+            )
+            processor = CLIPProcessor.from_pretrained(self.model)
             model.eval()
             logger.info(
                 "CLIP model and processor loaded successfully."
@@ -54,7 +71,27 @@ class ClipTextEmbedder:
             )
             return None, None
 
-    def get_embedding_from_img(self, img_path):
+    def get_dimensions(self) -> int:
+        """Get the dimensions of the CLIP model's text embeddings."""
+        if self.model is None:
+            self.logger.error(
+                "CLIP model not available for getting dimensions."
+            )
+            return None
+        try:
+            dimensions = self.get_embedding_from_text("test")[0]
+            logger.info(
+                f"CLIP model text embedding dimensions: {len(dimensions)}"
+            )
+            return len(dimensions)
+        except Exception as e:
+            self.logger.error(
+                f"Error getting CLIP model dimensions: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def get_embedding_from_img(self, img_path) -> list[float]:
         """Get the image embedding from a given image path."""
         if self.model is None:
             self.logger.error(
@@ -86,7 +123,7 @@ class ClipTextEmbedder:
             )
             return None
 
-    def get_embedding_from_text(self, text):
+    def get_embedding_from_text(self, text) -> list[float]:
         if self.model is None:
             self.logger.error(
                 "CLIP model not available for text embedding."
@@ -106,15 +143,3 @@ class ClipTextEmbedder:
             f"Text embedding computed successfully for: {text}"
         )
         return text_features.cpu().numpy()
-
-    def get_collection_name(self):
-        """Get the name of the CLIP collection."""
-        return CLIP_COLLECTION_NAME
-
-    async def query(self, query_embedding, n_results=5):
-        """Query the CLIP collection in ChromaDB."""
-        return await query_collection(
-            collection_name=self.get_collection_name(),
-            query_embedding=query_embedding,
-            n_results=n_results,
-        )

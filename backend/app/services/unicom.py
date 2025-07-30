@@ -43,6 +43,32 @@ class UnicomImageEmbedder:
             )
             raise e
 
+    @property
+    def dimensions(self):
+        """Get the dimensions of the UNICOM model's image embeddings."""
+        if self.model is None:
+            self.logger.error(
+                "UNICOM model not available for getting dimensions."
+            )
+            return None
+        try:
+            # Get a dummy embedding to determine dimensions
+            dummy_image = Image.new("RGB", (224, 224), color="white")
+            dummy_tensor = (
+                self.transform(dummy_image)
+                .unsqueeze(0)
+                .to(self.device)
+            )
+            with torch.no_grad():
+                embedding = self.model(dummy_tensor)
+            return embedding.shape[-1]
+        except Exception as e:
+            self.logger.error(
+                f"Error getting UNICOM model dimensions: {e}",
+                exc_info=True,
+            )
+            return None
+
     def get_embedding_from_img(self, image_path):
         """Get the image embedding from a given image path."""
         if self.model is None:

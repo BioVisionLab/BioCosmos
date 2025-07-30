@@ -1,8 +1,13 @@
+from re import U
 from pydantic import BaseModel
 import os
 from pydantic import BaseModel, Field
 from typing import Optional
 import logging
+from PIL import Image
+from io import BytesIO
+from lancedb.pydantic import LanceModel, Vector
+from ..services.unicom import UnicomImageEmbedder
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +71,40 @@ LEPTRAIT_MAPPING = {
     "NumberOfHostplantAccounts": "number_of_hostplant_accounts",
     "DateCreated": "date_created",
 }
+
+
+class LanceSchema(LanceModel):
+    """Custom schema for the CLIP collection."""
+
+    img_id: str
+    species: str
+    img_bytes: bytes
+    clip_embeddings: Vector(ndims)
+    unicom_embeddings: Vector(UnicomImageEmbedder.dimensions)
+
+    @property
+    def image(self):
+        """Load the image from img_bytes."""
+        return (
+            Image.open(BytesIO(self.img_bytes))
+            if self.img_bytes
+            else None
+        )
+
+    @property
+    def thumbnail(self):
+        """Load the image from img_bytes and resize it to a thumbnail."""
+        if self.img_bytes:
+            img = Image.open(BytesIO(self.img_bytes))
+            img.thumbnail((128, 128), resample=Image.LANCZOS)
+            return img
+        return None
+
+    def show_image(self):
+        """Load the image from img_bytes."""
+        if self.img_bytes:
+            return Image.open(BytesIO(self.img_bytes)).show()
+        return None
 
 
 class ImageMetadata(BaseModel):
