@@ -1,7 +1,5 @@
 # Test cases for API calls in a FastAPI application
 # To test run: `uv run pytest tests` from the backend directory
-from sympy import jscode
-from fastapi import Request
 from fastapi.testclient import TestClient
 from app.main import app
 import base64
