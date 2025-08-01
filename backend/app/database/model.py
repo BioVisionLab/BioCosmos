@@ -4,6 +4,8 @@ import os
 from pydantic import BaseModel, Field
 from typing import Optional
 import logging
+
+from torch import clip_
 from PIL import Image
 from io import BytesIO
 from ..services.clip import ClipEmbedder
@@ -80,11 +82,11 @@ unicom_ndims = UnicomImageEmbedder().ndims()
 class LanceSchema(LanceModel):
     """Custom schema for the CLIP collection."""
 
+    clip_embeddings: Vector(clip_ndims)
+    unicom_embeddings: Vector(unicom_ndims)
     img_id: str
     species: str
     img_bytes: bytes
-    clip_embeddings: Vector(clip_ndims)
-    unicom_embeddings: Vector(unicom_ndims)
 
     @property
     def image(self):

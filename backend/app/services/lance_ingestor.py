@@ -7,18 +7,19 @@ from tqdm import tqdm
 from .clip import ClipEmbedder
 import logging
 import os
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
 
-class LanceDbIngestor:
+class DbIngestor:
     """Class to handle database operations for CLIP embeddings."""
 
     def __init__(self, table):
         self.clip = ClipEmbedder()
-        self.unicom = UnicomImageEmbedder()
+        self.intern_vl = UnicomImageEmbedder()
         self.logger = logger
-        self.table = table
+        self.db_table = table
 
     def get_species_name_from_path(
         self, img_paths: list[str]
@@ -29,6 +30,31 @@ class LanceDbIngestor:
         ]
 
     def batch_add_embeddings(self, img_paths: list[str]):
+        batches = self.split_batch(img_paths)
+        if not batches:
+            self.logger.error("No batches to process.")
+            return
+
+        self.logger.info(
+            f"Starting concurrent batch addition of {len(img_paths)} images."
+        )
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self._add_batch_to_db, batch, self.db_table
+                )
+                for batch in batches
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    self.logger.error(
+                        f"Error in concurrent batch addition: {e}",
+                        exc_info=True,
+                    )
+
+    def _add_batch_to_db(self, img_paths: list[str], db_table):
         """Batch add image embeddings to the database."""
         if img_paths is None or len(img_paths) == 0:
             self.logger.error(
@@ -62,7 +88,7 @@ class LanceDbIngestor:
             }
         )
         try:
-            self.table.add(data)
+            db_table.add(data)
             self.logger.info(
                 f"Batch added {len(img_paths)} embeddings to the database."
             )
@@ -92,7 +118,6 @@ class LanceDbIngestor:
 
     def get_all_clip_embeddings(self, img_paths: list[str]):
         embeddings: list[np.ndarray] = []
-        # We track progress using tqdm
         for img_path in tqdm(
             img_paths, desc="Computing CLIP embeddings"
         ):
@@ -113,7 +138,6 @@ class LanceDbIngestor:
 
     def get_all_intern_embeddings(self, img_paths: list[str]):
         embeddings: list[np.ndarray] = []
-        # We track progress using tqdm
         for img_path in tqdm(
             img_paths, desc="Computing Intern-VL embeddings"
         ):

@@ -1,3 +1,5 @@
+from ..services.clip import ClipEmbedder
+from ..services.unicom import UnicomImageEmbedder
 from httpx import delete
 from .model import LanceSchema
 from lancedb.embeddings import get_registry
@@ -19,6 +21,8 @@ class LanceDB:
     def __init__(self, db_path: str = os.path.join(DB_DIR, DB_FNAME)):
         self.db_path = db_path
         self.db = lancedb.connect(self.db_path)
+        self.clip_embedder = ClipEmbedder()
+        self.unicom_embedder = UnicomImageEmbedder()
         logger.info(f"LanceDB connected at {self.db_path}")
 
     def get_db(self) -> DBConnection:
@@ -28,8 +32,12 @@ class LanceDB:
     def create_or_get_collection(self, collection_name: str):
         """Create or get the CLIP collection in the LanceDB."""
         try:
+            schema = LanceSchema(
+                clip_ndims=self.clip_embedder.ndims(),
+                unicom_ndims=self.unicom_embedder.ndims(),
+            )
             collection = self.db.create_table(
-                collection_name, schema=LanceSchema
+                collection_name, schema=schema
             )
             logger.info(f"Created CLIP collection: {collection_name}")
             return collection
