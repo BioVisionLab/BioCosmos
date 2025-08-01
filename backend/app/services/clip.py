@@ -1,3 +1,5 @@
+# Pretrained shared embedder for CLIP model
+# Handle text and image embeddings using CLIP model
 import logging
 import torch
 from transformers import CLIPModel, CLIPProcessor
@@ -50,28 +52,7 @@ class ClipEmbedder:
             )
             return None, None
 
-    def from_pretrained(self) -> tuple[CLIPModel, CLIPProcessor]:
-        """Load the CLIP model and processor."""
-        logger.info(
-            f"Loading CLIP model: {self.model} on device: {self.device}..."
-        )
-        try:
-            model = CLIPModel.from_pretrained(self.model).to(
-                self.device
-            )
-            processor = CLIPProcessor.from_pretrained(self.model)
-            model.eval()
-            logger.info(
-                "CLIP model and processor loaded successfully."
-            )
-            return model, processor
-        except Exception as e:
-            logger.error(
-                f"Error loading CLIP model: {e}", exc_info=True
-            )
-            return None, None
-
-    def get_dimensions(self) -> int:
+    def ndims(self) -> int:
         """Get the dimensions of the CLIP model's text embeddings."""
         if self.model is None:
             self.logger.error(
@@ -79,7 +60,7 @@ class ClipEmbedder:
             )
             return None
         try:
-            dimensions = self.get_embedding_from_text("test")[0]
+            dimensions = self.get_embedding_from_text("test")
             logger.info(
                 f"CLIP model text embedding dimensions: {len(dimensions)}"
             )
@@ -110,7 +91,7 @@ class ClipEmbedder:
             image_features = image_features / image_features.norm(
                 dim=-1, keepdim=True
             )  # Normalize the embeddings
-            return image_features.cpu().numpy()
+            return image_features.cpu().numpy().squeeze()
         except FileNotFoundError as e:
             self.logger.error(
                 f"Image file not found: {e}", exc_info=True
@@ -142,4 +123,4 @@ class ClipEmbedder:
         logger.info(
             f"Text embedding computed successfully for: {text}"
         )
-        return text_features.cpu().numpy()
+        return text_features.cpu().numpy().squeeze()

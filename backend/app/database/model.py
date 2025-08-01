@@ -6,6 +6,7 @@ from typing import Optional
 import logging
 from PIL import Image
 from io import BytesIO
+from ..services.clip import ClipEmbedder
 from lancedb.pydantic import LanceModel, Vector
 from ..services.unicom import UnicomImageEmbedder
 
@@ -72,6 +73,9 @@ LEPTRAIT_MAPPING = {
     "DateCreated": "date_created",
 }
 
+clip_ndims = ClipEmbedder().ndims()
+unicom_ndims = UnicomImageEmbedder().ndims()
+
 
 class LanceSchema(LanceModel):
     """Custom schema for the CLIP collection."""
@@ -79,8 +83,8 @@ class LanceSchema(LanceModel):
     img_id: str
     species: str
     img_bytes: bytes
-    clip_embeddings: Vector(ndims)
-    unicom_embeddings: Vector(UnicomImageEmbedder.dimensions)
+    clip_embeddings: Vector(clip_ndims)
+    unicom_embeddings: Vector(unicom_ndims)
 
     @property
     def image(self):
