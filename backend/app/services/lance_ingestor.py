@@ -1,7 +1,7 @@
 import numpy as np
 
 # We experiment with polars for better performance instead of pandas
-from .services.unicom import UnicomImageEmbedder
+from .unicom import UnicomImageEmbedder
 import polars as pl
 from tqdm import tqdm
 from .clip import ClipEmbedder

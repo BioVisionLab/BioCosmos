@@ -1,8 +1,6 @@
-from ..services.clip import ClipEmbedder
-from ..services.unicom import UnicomImageEmbedder
-from httpx import delete
+from ..services.clip import clip
+from ..services import unicom
 from .model import LanceSchema
-from lancedb.embeddings import get_registry
 from lancedb import DBConnection
 import logging
 import lancedb
@@ -21,8 +19,8 @@ class LanceDB:
     def __init__(self, db_path: str = os.path.join(DB_DIR, DB_FNAME)):
         self.db_path = db_path
         self.db = lancedb.connect(self.db_path)
-        self.clip_embedder = ClipEmbedder()
-        self.unicom_embedder = UnicomImageEmbedder()
+        self.clip_embedder = clip.ClipEmbedder()
+        self.unicom_embedder = unicom.UnicomImageEmbedder()
         logger.info(f"LanceDB connected at {self.db_path}")
 
     def get_db(self) -> DBConnection:

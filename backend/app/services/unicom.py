@@ -1,10 +1,10 @@
+from email.mime import base
 import logging
 import torch
 import unicom
 import base64
 import io
 from PIL import Image
-from ..database.chroma import query_collection
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,7 @@ class UnicomImageEmbedder:
             )
             raise e
 
-    @property
-    def dimensions(self):
+    def ndims(self):
         """Get the dimensions of the UNICOM model's image embeddings."""
         if self.model is None:
             self.logger.error(
@@ -78,25 +77,13 @@ class UnicomImageEmbedder:
             return None
         try:
             image = Image.open(image_path).convert("RGB")
-            # Apply UNICOM's transform and add batch dimension
-            image_tensor = (
-                self.transform(image).unsqueeze(0).to(self.device)
-            )
-
-            with torch.no_grad():
-                # Get UNICOM embedding
-                image_features = self.model(image_tensor)
-
-            # Normalize (important for cosine similarity)
-            image_features /= image_features.norm(
-                dim=-1, keepdim=True
-            )
-
-            # Return as flat list for ChromaDB
-            return image_features.cpu().numpy()
+            base64_str = base64.b64encode(
+                io.BytesIO(image.tobytes())
+            ).decode("utf-8")
+            return self.get_embedding(base64_str)
         except Exception as e:
             self.logger.error(
-                f"Could not process image {image_path} with UNICOM: {e}",
+                f"Error processing image {image_path} with UNICOM: {e}",
                 exc_info=True,
             )
             return None
@@ -140,10 +127,10 @@ class UnicomImageEmbedder:
         """Get the name of the UNICOM collection."""
         return UNICOM_COLLECTION_NAME
 
-    async def query(self, query_embedding, n_results=5):
-        """Query the CLIP collection in ChromaDB."""
-        return await query_collection(
-            collection_name=self.get_collection_name(),
-            query_embedding=query_embedding,
-            n_results=n_results,
-        )
+    # async def query(self, query_embedding, n_results=5):
+    #     """Query the CLIP collection in ChromaDB."""
+    #     return await query_collection(
+    #         collection_name=self.get_collection_name(),
+    #         query_embedding=query_embedding,
+    #         n_results=n_results,
+    #     )
