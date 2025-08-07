@@ -1,5 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
+
+from backend.app.services.leptraits import LepTraits
 from .database.duckdb import init_duckdb
 from fastapi import FastAPI
 from .routers import image_search, text_search, taxon_search
@@ -20,7 +22,8 @@ async def lifespan(app: FastAPI):
     """Lifespan event to initialize the database."""
     logger.info("Starting up the application...")
     try:
-        init_duckdb()
+        LepTraits().ingest()
+        logger.info("LepTraits data ingested successfully.")
         logger.info("DuckDB initialized successfully.")
         await init_db()
         logger.info("Database initialized successfully.")
