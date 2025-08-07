@@ -1,12 +1,68 @@
 from math import log
+
+from backend.app.database.duckdb import DuckDBClient
 from ..database.model import SpeciesTaxonomy
 import logging
 import httpx
 
 GBIF_HOST = "https://api.gbif.org/v1/species"
 
+GBIF_META_TSV = "../../../python/biocosmos-exploration/data/lep-meta/gbif-lepi-2024-occurrence.tsv"
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class GbifPersistData:
+    """
+    GBIF persistence data model.
+    Allowing to ingest, store, and query GBIF species data.
+    """
+
+    def __init__(self):
+        """
+        Initialize the GbifPersistData from DuckDB.
+        """
+        self.db_client = DuckDBClient()
+
+    def ingest(self, tsv_path: str = GBIF_META_TSV):
+        """
+        Ingest GBIF data from a TSV file into DuckDB.
+        """
+        try:
+            self.db_client.execute(
+                f"CREATE TABLE IF NOT EXISTS gbif_meta AS SELECT * FROM read_csv_auto('{tsv_path}', delim='\t', types={{'georeferencedDate': 'VARCHAR'}})"
+            )
+            logger.info(
+                f"GBIF data ingested successfully from '{tsv_path}'."
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to ingest GBIF data from '{tsv_path}': {e}"
+            )
+            raise e
+
+    def get(self, species_name: str) -> dict | None:
+        """
+        Fetch GBIF data for a given species name.
+        :param species_name: The name of the species to fetch data for.
+        :return: The GBIF data for the species or None if not found.
+        """
+        query = (
+            "SELECT * FROM gbif_meta WHERE LOWER(species) = LOWER(?)"
+        )
+        result = self.db_client.execute(query, [species_name]).pl()
+        if result.is_empty():
+            logger.warning(
+                f"No GBIF data found for species '{species_name}'."
+            )
+            return None
+        if len(result) > 1:
+            logger.warning(
+                f"Multiple entries found for species '{species_name}'. Returning the first entry."
+            )
+        gbif_data = result.to_dicts()[0]
+        return gbif_data
 
 
 class GbifTaxonSearch:
