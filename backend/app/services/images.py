@@ -1,3 +1,4 @@
+import glob
 import numpy as np
 
 # We experiment with polars for better performance instead of pandas
@@ -11,6 +12,8 @@ import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
+IMG_DIR = "../../../python/biocosmos-exploration/data/images"
+
 
 class ImagePersistData:
     """Class to handle image persistence operations.
@@ -19,9 +22,19 @@ class ImagePersistData:
 
     def __init__(self, table):
         self.clip = ClipEmbedder()
-        self.intern_vl = UnicomImageEmbedder()
+        self.unicom = UnicomImageEmbedder()
         self.logger = logger
         self.db_table = table
+
+    def ingest(self, img_paths: list[str]):
+        """Ingest images into the database."""
+        if not img_paths:
+            self.logger.error(
+                "No image paths provided for ingestion."
+            )
+            return
+        self.logger.info(f"Ingesting {len(img_paths)} images.")
+        self.batch_add_embeddings(img_paths)
 
     def get_species_name_from_path(
         self, img_paths: list[str]
@@ -30,6 +43,25 @@ class ImagePersistData:
             os.path.basename(os.path.dirname(path))
             for path in img_paths
         ]
+
+    def get_images_from_path(self, img_dir: str) -> list[str]:
+        """Get a list of image paths from the specified directory."""
+        if not os.path.isdir(img_dir):
+            self.logger.error(f"Invalid image directory: {img_dir}")
+            return []
+        pattern = os.path.join(img_dir, "**") + "/*"
+        img_paths = [
+            f
+            for f in glob.glob(pattern, recursive=True)
+            if f.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+            )
+            and os.path.isfile(f)
+        ]
+        self.logger.info(
+            f"Found {len(img_paths)} images in {img_dir}."
+        )
+        return img_paths
 
     def batch_add_embeddings(self, img_paths: list[str]):
         batches = self.split_batch(img_paths)
@@ -141,11 +173,9 @@ class ImagePersistData:
     def get_all_intern_embeddings(self, img_paths: list[str]):
         embeddings: list[np.ndarray] = []
         for img_path in tqdm(
-            img_paths, desc="Computing Intern-VL embeddings"
+            img_paths, desc="Computing Unicom embeddings"
         ):
-            embedding = self.intern_vl.get_embedding_from_path(
-                img_path
-            )
+            embedding = self.unicom.get_embedding_from_path(img_path)
             if embedding is not None:
                 embeddings.append(embedding)
             else:
