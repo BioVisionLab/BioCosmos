@@ -1,4 +1,4 @@
-from ..services.clip import clip
+from ..services import clip
 from ..services import unicom
 from .model import LanceSchema
 from lancedb import DBConnection
@@ -9,7 +9,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-DB_DIR = "../db"
+DB_DIR = "lance_db"
 DB_FNAME = "biocosmos.lance"
 
 
@@ -30,12 +30,8 @@ class LanceDB:
     def create_or_get_collection(self, collection_name: str):
         """Create or get the CLIP collection in the LanceDB."""
         try:
-            schema = LanceSchema(
-                clip_ndims=self.clip_embedder.ndims(),
-                unicom_ndims=self.unicom_embedder.ndims(),
-            )
             collection = self.db.create_table(
-                collection_name, schema=schema
+                collection_name, schema=LanceSchema
             )
             logger.info(f"Created CLIP collection: {collection_name}")
             return collection

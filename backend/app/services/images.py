@@ -1,6 +1,8 @@
 import glob
 import numpy as np
 
+from ..database.lance import LanceDB
+
 # We experiment with polars for better performance instead of pandas
 from .unicom import UnicomImageEmbedder
 import polars as pl
@@ -13,6 +15,7 @@ import concurrent.futures
 logger = logging.getLogger(__name__)
 
 IMG_DIR = "../../../python/biocosmos-exploration/data/images"
+COLLECTION_NAME = "biocosmos_images"
 
 
 class ImagePersistData:
@@ -20,14 +23,17 @@ class ImagePersistData:
     Include methods for adding, updating, and deleting image data, metadata, and embeddings.
     """
 
-    def __init__(self, table):
+    def __init__(self):
         self.clip = ClipEmbedder()
         self.unicom = UnicomImageEmbedder()
         self.logger = logger
-        self.db_table = table
+        self.db_table = LanceDB().create_or_get_collection(
+            COLLECTION_NAME
+        )
 
-    def ingest(self, img_paths: list[str]):
+    def ingest(self, img_dir: str = IMG_DIR):
         """Ingest images into the database."""
+        img_paths = self.get_images_from_path(img_dir)
         if not img_paths:
             self.logger.error(
                 "No image paths provided for ingestion."
@@ -74,9 +80,7 @@ class ImagePersistData:
         )
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
-                executor.submit(
-                    self._add_batch_to_db, batch, self.db_table
-                )
+                executor.submit(self._add_batch_to_db, batch)
                 for batch in batches
             ]
             for future in concurrent.futures.as_completed(futures):
@@ -88,7 +92,7 @@ class ImagePersistData:
                         exc_info=True,
                     )
 
-    def _add_batch_to_db(self, img_paths: list[str], db_table):
+    def _add_batch_to_db(self, img_paths: list[str]):
         """Batch add image embeddings to the database."""
         if img_paths is None or len(img_paths) == 0:
             self.logger.error(
@@ -100,8 +104,8 @@ class ImagePersistData:
         clip_embeddings: list[np.ndarray] = (
             self.get_all_clip_embeddings(img_paths)
         )
-        intern_embeddings: list[np.ndarray] = (
-            self.get_all_intern_embeddings(img_paths)
+        unicom_embeddings: list[np.ndarray] = (
+            self.get_all_unicom_embeddings(img_paths)
         )
         # Fix: Use explicit check for None in list of arrays
         if any(e is None for e in clip_embeddings):
@@ -117,12 +121,14 @@ class ImagePersistData:
                 ],
                 "species": species,
                 "img_bytes": image_bytes,
+                "source": "gbif",
+                "collection_id": "gbif",
                 "clip_embeddings": clip_embeddings,
-                "intern_embeddings": intern_embeddings,
+                "unicom_embeddings": unicom_embeddings,
             }
         )
         try:
-            db_table.add(data)
+            self.db_table.add(data)
             self.logger.info(
                 f"Batch added {len(img_paths)} embeddings to the database."
             )
@@ -170,12 +176,12 @@ class ImagePersistData:
             return
         return embeddings
 
-    def get_all_intern_embeddings(self, img_paths: list[str]):
+    def get_all_unicom_embeddings(self, img_paths: list[str]):
         embeddings: list[np.ndarray] = []
         for img_path in tqdm(
             img_paths, desc="Computing Unicom embeddings"
         ):
-            embedding = self.unicom.get_embedding_from_path(img_path)
+            embedding = self.unicom.get_embedding_from_img(img_path)
             if embedding is not None:
                 embeddings.append(embedding)
             else:

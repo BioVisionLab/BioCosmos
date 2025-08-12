@@ -85,21 +85,13 @@ class LanceSchema(LanceModel):
         img_bytes: Raw image bytes.
     """
 
-    clip_embeddings: Vector(self.clip_dim())
-    unicom_embeddings: Vector(self.unicom_dim())
-    img_filename: str
+    img_id: str
     species: str
+    img_bytes: bytes
     source: str
     collection_id: str
-    img_bytes: bytes
-
-    @staticmethod
-    def clip_dim():
-        return clip.ClipEmbedder().ndims()
-
-    @staticmethod
-    def unicom_dim():
-        return unicom.UnicomImageEmbedder().ndims()
+    clip_embeddings: Vector(clip.ClipEmbedder().ndims())
+    unicom_embeddings: Vector(unicom.UnicomImageEmbedder().ndims())
 
     @property
     def image(self):

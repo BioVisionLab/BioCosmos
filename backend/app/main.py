@@ -1,6 +1,8 @@
 import logging
 from contextlib import asynccontextmanager
 
+from .services.images import ImagePersistData
+
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
 
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI):
         logger.info("LepTraits data ingested successfully.")
         GbifPersistData().ingest()
         logger.info("GBIF data ingested successfully.")
+        ImagePersistData().ingest()
         # await init_chroma()
         # logger.info("ChromaDB initialized successfully.")
         # clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)
@@ -45,8 +48,8 @@ app = FastAPI(
     lifespan=lifespan, title="BIOCOSMOS API", version="0.1.0"
 )
 
-# app.include_router(image_search.router)
-# app.include_router(text_search.router)
+app.include_router(image_search.router)
+app.include_router(text_search.router)
 app.include_router(taxon_search.router)
 
 

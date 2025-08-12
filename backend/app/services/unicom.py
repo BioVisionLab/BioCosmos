@@ -77,18 +77,30 @@ class UnicomImageEmbedder:
             return None
         try:
             image = Image.open(image_path).convert("RGB")
-            base64_str = base64.b64encode(
-                io.BytesIO(image.tobytes())
-            ).decode("utf-8")
-            return self.get_embedding(base64_str)
+            # Apply UNICOM's transform and add batch dimension
+            image_tensor = (
+                self.transform(image).unsqueeze(0).to(self.device)
+            )
+
+            with torch.no_grad():
+                # Get UNICOM embedding
+                image_features = self.model(image_tensor)
+
+            # Normalize (important for cosine similarity)
+            image_features /= image_features.norm(
+                dim=-1, keepdim=True
+            )
+
+            # Return as flat list for ChromaDB
+            return image_features.cpu().numpy().squeeze()
         except Exception as e:
             self.logger.error(
-                f"Error processing image {image_path} with UNICOM: {e}",
+                f"Could not process image {image_path} with UNICOM: {e}",
                 exc_info=True,
             )
             return None
 
-    def get_embedding(self, base64_str):
+    def get_embedding_from_base64(self, base64_str):
         if self.model is None:
             self.logger.error(
                 "UNICOM model not available for image embedding."
@@ -115,7 +127,7 @@ class UnicomImageEmbedder:
                 dim=-1, keepdim=True
             )
 
-            return image_features.cpu().numpy().tolist()
+            return image_features.cpu().numpy().squeeze()
         except Exception as e:
             self.logger.error(
                 f"Could not process base64 image with UNICOM: {e}",
