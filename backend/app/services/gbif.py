@@ -1,6 +1,5 @@
 from math import log
-
-from backend.app.database.duckdb import DuckDBClient
+from ..database.duckdb import DuckDBClient
 from ..database.model import SpeciesTaxonomy
 import logging
 import httpx
@@ -11,6 +10,8 @@ GBIF_META_TSV = "../../../python/biocosmos-exploration/data/lep-meta/gbif-lepi-2
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+GBIF_TABLE_NAME = "gbif_meta"
 
 
 class GbifPersistData:
@@ -30,8 +31,11 @@ class GbifPersistData:
         Ingest GBIF data from a TSV file into DuckDB.
         """
         try:
+            # We use custom execution instead of the wrapper function
+            # for table creation in the DuckDb module to avoid
+            # issues with type inference.
             self.db_client.execute(
-                f"CREATE TABLE IF NOT EXISTS gbif_meta AS SELECT * FROM read_csv_auto('{tsv_path}', delim='\t', types={{'georeferencedDate': 'VARCHAR'}})"
+                f"CREATE TABLE IF NOT EXISTS {GBIF_TABLE_NAME} AS SELECT * FROM read_csv_auto('{tsv_path}', delim='\t', types={{'georeferencedDate': 'VARCHAR'}})"
             )
             logger.info(
                 f"GBIF data ingested successfully from '{tsv_path}'."
@@ -41,6 +45,23 @@ class GbifPersistData:
                 f"Failed to ingest GBIF data from '{tsv_path}': {e}"
             )
             raise e
+
+    def count_entries(self) -> int | None:
+        """
+        Count the number of entries in the GBIF metadata table.
+        """
+        try:
+            query = f"SELECT COUNT(*) AS total_rows FROM {GBIF_TABLE_NAME}"
+            result = self.db_client.execute(query).fetchall()
+            logger.info(
+                f"Counted {result[0][0]} entries in GBIF metadata table."
+            )
+            return result[0][0] if result else None
+        except Exception as e:
+            logger.error(
+                f"Failed to count entries in GBIF metadata table: {e}"
+            )
+            return None
 
     def get(self, species_name: str) -> dict | None:
         """

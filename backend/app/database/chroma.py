@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-async def init_db():
+async def init_chroma():
     logger.info(
         f"Initializing ChromaDB client with path: {CHROMA_DB_PATH}..."
     )

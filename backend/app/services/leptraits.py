@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 LEP_TRAITS_DOWNLOAD = "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
 
+LEP_TRAITS_TABLE = "lep_traits_consensus"
+
 
 class LepTraits:
     def __init__(self):
@@ -26,7 +28,7 @@ class LepTraits:
         """
         try:
             self.db_client.create_if_not_exists_csv(
-                table_name="lep_traits_consensus", csv_path=csv_path
+                table_name=LEP_TRAITS_TABLE, csv_path=csv_path
             )
             logger.info(
                 f"LepTraits data ingested successfully from '{csv_path}'."
@@ -36,6 +38,23 @@ class LepTraits:
                 f"Failed to ingest LepTraits data from '{csv_path}': {e}"
             )
             raise e
+
+    def count_entries(self) -> int | None:
+        """
+        Count the number of entries in the lep_traits_consensus table.
+        """
+        try:
+            query = "SELECT COUNT(*) AS total_rows FROM lep_traits_consensus"
+            result = self.db_client.execute(query).fetchall()
+            logger.info(
+                f"Counted {result[0][0]} entries in lep_traits_consensus table."
+            )
+            return result[0][0] if result else None
+        except Exception as e:
+            logger.error(
+                f"Failed to count entries in lep_traits_consensus table: {e}"
+            )
+            return None
 
     def get(self, species_name: str) -> dict:
         """

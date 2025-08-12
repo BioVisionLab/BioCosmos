@@ -1,13 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 
-from backend.app.services.leptraits import LepTraits
-from .database.duckdb import init_duckdb
+from .services.gbif import GbifPersistData
+from .services.leptraits import LepTraits
+
+# from .database.duckdb import init_duckdb
 from fastapi import FastAPI
 from .routers import image_search, text_search, taxon_search
-from .database.chroma import init_db
-from .services.embedder import ImageEmbeddingIngestor
-from .services.embedder import ModelType
+# from .database.chroma import init_chroma, init_db
+# from .services.embedder import ImageEmbeddingIngestor
+# from .services.embedder import ModelType
 
 # Configure logging
 logging.basicConfig(
@@ -24,14 +26,15 @@ async def lifespan(app: FastAPI):
     try:
         LepTraits().ingest()
         logger.info("LepTraits data ingested successfully.")
-        logger.info("DuckDB initialized successfully.")
-        await init_db()
-        logger.info("Database initialized successfully.")
-        clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)
-        await clip.process()
-        unicom = ImageEmbeddingIngestor(model_type=ModelType.UNICOM)
-        await unicom.process()
-        logger.info("Image embedding completed successfully.")
+        GbifPersistData().ingest()
+        logger.info("GBIF data ingested successfully.")
+        # await init_chroma()
+        # logger.info("ChromaDB initialized successfully.")
+        # clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)
+        # await clip.process()
+        # unicom = ImageEmbeddingIngestor(model_type=ModelType.UNICOM)
+        # await unicom.process()
+        # logger.info("Image embedding completed successfully.")
         yield
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
@@ -42,8 +45,8 @@ app = FastAPI(
     lifespan=lifespan, title="BIOCOSMOS API", version="0.1.0"
 )
 
-app.include_router(image_search.router)
-app.include_router(text_search.router)
+# app.include_router(image_search.router)
+# app.include_router(text_search.router)
 app.include_router(taxon_search.router)
 
 

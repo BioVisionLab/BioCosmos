@@ -1,4 +1,4 @@
-from app.services.gbif import GbifTaxonSearch
+from app.services.gbif import GbifTaxonSearch, GbifPersistData
 import pytest
 
 
@@ -10,3 +10,10 @@ async def test_gbif_search():
     assert result.get("species") == "Danaus plexippus"
     assert result.get("redlistCategory") == "LC"
     await service.close()
+
+
+def test_gbif_entries():
+    service = GbifPersistData()
+    result = service.count_entries()
+    assert result is not None
+    assert isinstance(result, int)

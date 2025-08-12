@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from ..services.leptraits import LepTraits
-from ..services.gbif import GbifTaxonSearch
+from ..services.gbif import GbifTaxonSearch, GbifPersistData
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class TaxonSearch:
     A class to handle taxon search operations using the GBIF API.
     """
 
-    def __init__(self, query: str):
+    def __init__(self, query: str = ""):
         """
         Initialize the TaxonSearch class.
         Args:
@@ -47,7 +47,32 @@ class TaxonSearch:
         """
         self.species = query.strip().lower()
 
-    async def search(self):
+    def get_counts(self) -> dict | None:
+        """
+        Get the counts of species in each taxon.
+        """
+        gbif_service = GbifPersistData()
+        leptraits_service = LepTraits()
+        try:
+            counts_gbif: int | None = gbif_service.count_entries()
+            count_leptrait: int | None = (
+                leptraits_service.count_entries()
+            )
+            if counts_gbif is None and count_leptrait is None:
+                logger.info("No counts data found.")
+                return None
+            logger.info(
+                f"Counts data found: {counts_gbif}, {count_leptrait}"
+            )
+            return {
+                "GBIF entries": counts_gbif,
+                "LepTraits entries": count_leptrait,
+            }
+        except Exception as e:
+            logger.error(f"Error fetching counts: {e}", exc_info=True)
+            return None
+
+    async def search(self) -> dict | None:
         """
         Search for species taxonomy data using the GBIF API.
 

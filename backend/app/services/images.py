@@ -12,8 +12,10 @@ import concurrent.futures
 logger = logging.getLogger(__name__)
 
 
-class DbIngestor:
-    """Class to handle database operations for CLIP embeddings."""
+class ImagePersistData:
+    """Class to handle image persistence operations.
+    Include methods for adding, updating, and deleting image data, metadata, and embeddings.
+    """
 
     def __init__(self, table):
         self.clip = ClipEmbedder()

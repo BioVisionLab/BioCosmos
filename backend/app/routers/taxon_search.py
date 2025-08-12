@@ -52,3 +52,25 @@ async def search_taxon(q: str):
             },
             status_code=500,
         )
+
+
+@router.get("/taxon/counts")
+async def get_taxon_counts():
+    """
+    Get the counts of species in each taxon.
+    """
+    logger.info("Received taxon counts request")
+    try:
+        counts = TaxonSearch().get_counts()
+        logger.info(f"Taxon counts found: {counts}")
+        return JSONResponse(content=counts, status_code=200)
+    except Exception as e:
+        logger.error(
+            f"Error fetching taxon counts: {e}", exc_info=True
+        )
+        return JSONResponse(
+            content={
+                "message": f"An error occurred while fetching taxon counts: {str(e)}"
+            },
+            status_code=500,
+        )
