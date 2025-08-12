@@ -73,13 +73,33 @@ LEPTRAIT_MAPPING = {
 
 
 class LanceSchema(LanceModel):
-    """Custom schema for the CLIP collection."""
+    """Schema for images with CLIP/UNICOM embeddings and metadata.
 
-    clip_embeddings: Vector(clip.ClipEmbedder().ndims())
-    unicom_embeddings: Vector(unicom.UnicomImageEmbedder().ndims())
-    img_id: str
+    Fields:
+        clip_embeddings: CLIP embedding vector.
+        unicom_embeddings: UNICOM embedding vector.
+        img_filename: Image filename.
+        species: Species name.
+        source: Image source (e.g., GBIF, iDigBio).
+        collection_id: Source collection or occurrenceID for GBIF images.
+        img_bytes: Raw image bytes.
+    """
+
+    clip_embeddings: Vector(self.clip_dim())
+    unicom_embeddings: Vector(self.unicom_dim())
+    img_filename: str
     species: str
+    source: str
+    collection_id: str
     img_bytes: bytes
+
+    @staticmethod
+    def clip_dim():
+        return clip.ClipEmbedder().ndims()
+
+    @staticmethod
+    def unicom_dim():
+        return unicom.UnicomImageEmbedder().ndims()
 
     @property
     def image(self):
