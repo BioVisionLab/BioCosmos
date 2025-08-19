@@ -31,13 +31,6 @@ async def lifespan(app: FastAPI):
         GbifPersistData().ingest()
         logger.info("GBIF data ingested successfully.")
         ImagePersistData().ingest()
-        # await init_chroma()
-        # logger.info("ChromaDB initialized successfully.")
-        # clip = ImageEmbeddingIngestor(model_type=ModelType.CLIP)
-        # await clip.process()
-        # unicom = ImageEmbeddingIngestor(model_type=ModelType.UNICOM)
-        # await unicom.process()
-        # logger.info("Image embedding completed successfully.")
         yield
     except Exception as e:
         logger.error(f"Error initializing database: {e}")

@@ -1,5 +1,7 @@
+from asyncio import protocols
 import glob
 import numpy as np
+import io
 
 from ..database.lance import LanceDB
 
@@ -19,17 +21,38 @@ COLLECTION_NAME = "biocosmos_images"
 
 
 class ImagePersistData:
-    """Class to handle image persistence operations.
-    Include methods for adding, updating, and deleting image data, metadata, and embeddings.
-    """
+    """Class to handle image persistence operations."""
 
     def __init__(self):
-        self.clip = ClipEmbedder()
-        self.unicom = UnicomImageEmbedder()
         self.logger = logger
         self.db_table = LanceDB().create_or_get_collection(
             COLLECTION_NAME
         )
+
+    def entries(self) -> int | None:
+        """Count the number of entries in the image collection."""
+        result = LanceDB().count_entries(COLLECTION_NAME)
+        if result is None:
+            logger.warning(
+                "No entries found in the image collection."
+            )
+            return None
+        return result
+
+    def fetch(
+        self, species_name: str, limit: int = 5
+    ) -> list[io.BytesIO]:
+        """Fetch images for a specific species."""
+        query = f"SELECT * FROM {COLLECTION_NAME} WHERE species_name = ? LIMIT ?"
+        result = self.db_table.execute_prepared(
+            query, [species_name, limit]
+        ).pl()
+        if result.is_empty():
+            self.logger.warning(
+                f"No images found for species '{species_name}'."
+            )
+            return []
+        return result.to_dicts()
 
     def ingest(self, img_dir: str = IMG_DIR):
         """Ingest images into the database."""
@@ -40,15 +63,7 @@ class ImagePersistData:
             )
             return
         self.logger.info(f"Ingesting {len(img_paths)} images.")
-        self.batch_add_embeddings(img_paths)
-
-    def get_species_name_from_path(
-        self, img_paths: list[str]
-    ) -> list[str]:
-        return [
-            os.path.basename(os.path.dirname(path))
-            for path in img_paths
-        ]
+        ImageEmbedder().batch_add_embeddings(img_paths)
 
     def get_images_from_path(self, img_dir: str) -> list[str]:
         """Get a list of image paths from the specified directory."""
@@ -68,6 +83,25 @@ class ImagePersistData:
             f"Found {len(img_paths)} images in {img_dir}."
         )
         return img_paths
+
+
+class ImageEmbedder(ImagePersistData):
+    """Class to handle image embedding operations.
+    Include methods for adding, updating, and deleting image data, metadata, and embeddings.
+    """
+
+    def __init__(self):
+        self.clip = ClipEmbedder()
+        self.unicom = UnicomImageEmbedder()
+        super().__init__()
+
+    def get_species_name_from_path(
+        self, img_paths: list[str]
+    ) -> list[str]:
+        return [
+            os.path.basename(os.path.dirname(path))
+            for path in img_paths
+        ]
 
     def batch_add_embeddings(self, img_paths: list[str]):
         batches = self.split_batch(img_paths)

@@ -31,6 +31,16 @@ class DuckDBClient:
         """
         return self.conn.execute(query)
 
+    def execute_prepared(self, query: str, params: list):
+        """Execute a prepared SQL query with parameters.
+        Args:
+            query (str): The SQL query to execute.
+            params (list): The list of parameters to bind to the query.
+        Returns:
+            duckdb.DuckDBPyRelation: The result of the query.
+        """
+        return self.conn.execute(query, params)
+
     def create_if_not_exists_csv(
         self, table_name: str, csv_path: str
     ):

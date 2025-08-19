@@ -9,7 +9,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/img-search")
+@router.get("/img-search")
 async def image_search(request: Request):
     """
     Endpoint for image to image search.

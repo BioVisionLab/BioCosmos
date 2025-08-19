@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+
+from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
 import logging
@@ -53,12 +55,19 @@ class TaxonSearch:
         """
         gbif_service = GbifPersistData()
         leptraits_service = LepTraits()
+        img_service = ImagePersistData()
         try:
             counts_gbif: int | None = gbif_service.count_entries()
             count_leptrait: int | None = (
                 leptraits_service.count_entries()
             )
-            if counts_gbif is None and count_leptrait is None:
+            count_img: int | None = img_service.entries()
+
+            if (
+                counts_gbif is None
+                and count_leptrait is None
+                and count_img is None
+            ):
                 logger.info("No counts data found.")
                 return None
             logger.info(
@@ -67,6 +76,7 @@ class TaxonSearch:
             return {
                 "GBIF entries": counts_gbif,
                 "LepTraits entries": count_leptrait,
+                "Image entries": count_img,
             }
         except Exception as e:
             logger.error(f"Error fetching counts: {e}", exc_info=True)

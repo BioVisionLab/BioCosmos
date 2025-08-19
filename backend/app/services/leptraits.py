@@ -62,8 +62,8 @@ class LepTraits:
         :param species_name: The name of the species to fetch traits for.
         :return: The traits data for the species.
         """
-        query = "SELECT * FROM lep_traits_consensus WHERE LOWER(Species) = LOWER(?)"
-        result = self.db_client.execute(query, [species_name]).pl()
+        query = f"SELECT * FROM {LEP_TRAITS_TABLE} WHERE LOWER(Species) = LOWER('{species_name}')"
+        result = self.db_client.execute(query).pl()
         if result.is_empty():
             logger.warning(
                 f"No traits found for species '{species_name}'."
