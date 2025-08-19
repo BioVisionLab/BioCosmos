@@ -58,40 +58,34 @@ A personalized, museum-quality biodiversity image platform that combines cutting
 
 ### Backend Services
 
-- **Python**: Machine learning and data processing
-- **FastAPI**: High-performance web framework for APIs
-- **ChromaDB**: Vector database for embeddings
-- **DuckDB**: In-process SQL OLAP database
-- **UNICOM**: Advanced computer vision for semantic search
-- **Pillow**: Image processing and tile generation
+- **Python**: The core language for the backend.
+- **FastAPI**: A modern, fast (high-performance) web framework for building APIs.
+- **DuckDB**: An in-process SQL OLAP database management system.
+- **UNICOM**: A model for advanced computer vision tasks, including semantic search.
+- **Pillow**: A powerful image processing library for Python.
 
 ## 📁 Project Structure
 
 ```bash
 biocosmos/
-├── src/
-│   ├── app/                    # Next.js App Router pages
-│   ├── components/             # React components
-│   └── lib/                    # Utilities and data management
-├── backend/
-│   ├── app/
+├── backend/                  # Python backend (FastAPI)
+│   ├── app/                    # Core application code
 │   │   ├── main.py             # FastAPI entrypoint
-│   │   ├── routers/            # API route handlers
 │   │   ├── database/           # Database models and connections
+│   │   ├── routers/            # API endpoints
 │   │   ├── searches/           # Search logic
 │   │   └── services/           # ML and external services
-│   ├── chroma_db/              # Vector database files
-│   ├── duck_db/                # DuckDB database files
-│   ├── tests/                  # Backend tests
-│   ├── tsne_outputs/           # t-SNE coordinate outputs
-│   ├── unicom/                 # UNICOM model code
-│   ├── Dockerfile
-│   └── pyproject.toml
-├── public/
-│   ├── images/                 # Species image dataset
-│   ├── dataset-metadata/       # Dataset metadata
-│   └── ...                     # Static assets
-└── tools/                      # Helper scripts
+│   ├── Dockerfile              # Backend Dockerfile
+│   └── pyproject.toml          # Python dependencies
+├── src/                      # Next.js frontend
+│   ├── app/                    # App Router pages and layouts
+│   ├── components/             # React components
+│   └── lib/                    # Helper functions and utilities
+├── public/                   # Static assets (images, etc.)
+├── tools/                    # Helper scripts for data processing
+├── docker-compose.yml        # Docker Compose configuration
+├── Dockerfile.frontend       # Frontend Dockerfile
+└── package.json              # Frontend dependencies
 ```
 
 ## 🚀 Local Development Setup
@@ -101,63 +95,99 @@ biocosmos/
 - **Node.js** (v18 or higher)
 - **Python** (v3.10 or higher)
 - **Git**
+- **Docker** and **Docker Compose**
 - **OpenAI API Key** (for chatbot functionality)
 
-### 1. Clone the Repository
+### Running with Docker (Recommended)
 
-```bash
-git clone <repository-url>
-cd biocosmos
-```
+This is the easiest way to get started with BioCosmos. With Docker and Docker Compose, you can spin up the entire application with a single command.
 
-### 2. Install Frontend Dependencies
+1.  **Clone the Repository**
 
-```bash
-yarn install
-```
+    ```bash
+    git clone <repository-url>
+    cd biocosmos
+    ```
 
-### 3. Set Up Python Environment
+2.  **Environment Configuration**
 
-We use [uv](https://docs.astral.sh/uv/) to manage the dependencies for the Python backend service. If you don't have `uv` installed, you can install it via pip:
+    Create a `.env.local` file in the root directory:
 
-```bash
-pip install uv
-```
+    ```bash
+    OPENAI_API_KEY=your_openai_api_key_here
+    # This is the API host for production, change it to development address if needed
+    API_HOST=http://0.0.0.0:8000
+    ```
 
-Other intallation methods are available in the [uv documentation](https://docs.astral.sh/uv/installation).
+3.  **Build and Run with Docker Compose**
 
-### 4. Environment Configuration
+    ```bash
+    docker-compose up --build
+    ```
 
-Create a `.env.local` file in the root directory:
+4.  **Access the Application**
 
-```bash
-OPENAI_API_KEY=your_openai_api_key_here
-# This is the API host for production, change it to development address if needed
-API_HOST=http://0.0.0.0:8000
-```
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 5. Prepare the Dataset
+### Manual Setup
 
-Ensure your butterfly images are organized in `public/images/`.
+If you prefer to run the services manually without Docker, follow these steps:
 
-### 6. Start the Services
+1.  **Clone the Repository**
 
-**Terminal 1 - Frontend:**
+    ```bash
+    git clone <repository-url>
+    cd biocosmos
+    ```
 
-```bash
-yarn dev
-```
+2.  **Install Frontend Dependencies**
 
-**Terminal 2 - Backend Service:**
+    ```bash
+    yarn install
+    ```
 
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
+3.  **Set Up Python Environment**
 
-### 7. Access the Application
+    We use [uv](https://docs.astral.sh/uv/) to manage the dependencies for the Python backend service. If you don't have `uv` installed, you can install it via pip:
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+    ```bash
+    pip install uv
+    ```
+
+    Other intallation methods are available in the [uv documentation](https://docs.astral.sh/uv/installation).
+
+4.  **Environment Configuration**
+
+    Create a `.env.local` file in the root directory:
+
+    ```bash
+    OPENAI_API_KEY=your_openai_api_key_here
+    # This is the API host for production, change it to development address if needed
+    API_HOST=http://0.0.0.0:8000
+    ```
+
+5.  **Prepare the Dataset**
+
+    Ensure your butterfly images are organized in `public/images/`.
+
+6.  **Start the Services**
+
+    **Terminal 1 - Frontend:**
+
+    ```bash
+    yarn dev
+    ```
+
+    **Terminal 2 - Backend Service:**
+
+    ```bash
+    cd backend
+    uvicorn app.main:app --reload
+    ```
+
+7.  **Access the Application**
+
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🤝 Contributing
 
