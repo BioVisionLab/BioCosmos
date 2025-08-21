@@ -167,7 +167,7 @@ function SearchResults() {
       {error && <p className="text-red-500">{error}</p>}
 
       {!isLoading && !error && results.length === 0 && (mode === 'text' && query) && (
-        <p>No species found matching text query "{query}".</p>
+        <p>No species found matching text query `{query}`.</p>
       )}
        {!isLoading && !error && results.length === 0 && (mode === 'semantic') && (
         <p>No species found for the provided semantic search results.</p>

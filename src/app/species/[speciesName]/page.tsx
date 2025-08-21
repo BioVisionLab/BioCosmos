@@ -266,8 +266,14 @@ async function fetchGbifOccurrences(
     const data = await response.json();
 
     // Process results: Filter out occurrences without valid lat/lon
+    interface GbifRawOccurrence {
+      key: string | number;
+      decimalLatitude: number;
+      decimalLongitude: number;
+    }
+
     const occurrences = data.results
-      .map((occ: any) => ({
+      .map((occ: GbifRawOccurrence) => ({
         key: occ.key, // GBIF unique key for the occurrence
         decimalLatitude: occ.decimalLatitude,
         decimalLongitude: occ.decimalLongitude,

@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OpenAI } from 'openai';
 import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';

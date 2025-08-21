@@ -1,4 +1,5 @@
-import { getGenusList, GenusSummary } from '@/lib/speciesData';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { getGenusList, type GenusSummary } from '@/lib/speciesData';
 import HomeClient from '@/components/HomeClient'; // Reuse HomeClient for genus grid
 import Link from 'next/link';
 

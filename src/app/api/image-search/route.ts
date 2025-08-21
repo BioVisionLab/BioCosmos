@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       );
     }
     base64Image = body.image;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return NextResponse.json(
       { error: "Invalid JSON request body." },
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       let errorBody = "Unknown error from CLIP service (image search)";
       try {
         errorBody = await clipResponse.text();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* Ignore parsing errors */
       }

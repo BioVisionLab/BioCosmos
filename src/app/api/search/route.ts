@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSpeciesData, SpeciesData } from '@/lib/speciesData';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { getSpeciesData, type SpeciesData } from '@/lib/speciesData';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

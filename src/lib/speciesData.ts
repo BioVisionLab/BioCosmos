@@ -2,9 +2,20 @@ import fs from "fs";
 import path from "path";
 
 import { API_HOST } from "./config";
-import { int } from "zod/v4";
+
 
 const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
+
+const INITIAL_SPECIES = [
+  "zeuxidia_doubledaii",
+  "abananote_erinome",
+  "abrota_ganga",
+  "zeuxidia_luxerii",
+  "zipaetis_saitis",
+  "acidalia_adela",
+  "zipaetis_scylax",
+  "zischkaia_pacarus",
+];
 
 // Define the richer return type for clarity
 export interface SpeciesData {
@@ -159,10 +170,14 @@ function processSpeciesFolder(
   };
 }
 
+export function getInitialSpecies(): string[] {
+  return INITIAL_SPECIES;
+}
+
 function parseTraitData(traits: Record<string, string | null>): string {
   // Convert the traits object to a readable key-value string, skipping nulls
   return Object.entries(traits)
-    .filter(([_, value]) => value !== null && value !== "")
+    .filter(([_key, value]) => value !== null && value !== "")
     .map(([key, value]) => `${key}: ${value}`)
     .join("\n");
 }
@@ -256,7 +271,6 @@ export async function getTaxonomyData(
     }
     const dataRaw = await response.json();
     const traits: string = parseTraitData(dataRaw["traits"] || {});
-    let description = "";
     const taxonomy = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
     console.log(`Fetched taxonomy data for ${formattedName}:`, taxonomy);
     if (!taxonomy) {

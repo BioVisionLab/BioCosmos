@@ -1,4 +1,5 @@
-import { getSpeciesByGenus, SpeciesData } from "@/lib/speciesData";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { getSpeciesByGenus, type SpeciesData } from "@/lib/speciesData";
 import GenusSpeciesClient from "@/components/GenusSpeciesClient"; // We will create this next
 import Link from "next/link";
 

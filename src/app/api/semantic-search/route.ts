@@ -36,6 +36,7 @@ export async function GET(request: Request) {
       let errorBody = "Unknown error from CLIP service";
       try {
         errorBody = await clipResponse.text(); // Try to get error text
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* Ignore parsing errors */
       }

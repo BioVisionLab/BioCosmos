@@ -1,8 +1,8 @@
-from asyncio import protocols
 import glob
 import numpy as np
 import io
 
+from ..database.model import LanceSchema
 from ..database.lance import LanceDB
 
 # We experiment with polars for better performance instead of pandas
@@ -39,20 +39,34 @@ class ImagePersistData:
             return None
         return result
 
-    def fetch(
+    def fetch_thumbnail(
         self, species_name: str, limit: int = 5
-    ) -> list[io.BytesIO]:
-        """Fetch images for a specific species."""
-        query = f"SELECT * FROM {COLLECTION_NAME} WHERE species_name = ? LIMIT ?"
-        result = self.db_table.execute_prepared(
-            query, [species_name, limit]
-        ).pl()
-        if result.is_empty():
-            self.logger.warning(
-                f"No images found for species '{species_name}'."
+    ) -> io.BytesIO | None:
+        """Fetch thumbnails for a specific species."""
+        species = species_name.lower().replace(" ", "_")
+        query = f"species == '{species}'"
+        try:
+            img: list[LanceSchema] = (
+                self.db_table.search()
+                .where(query)
+                .limit(limit)
+                .to_pydantic(LanceSchema)
             )
-            return []
-        return result.to_dicts()
+            if not img:
+                self.logger.warning(
+                    f"No images found for species '{species_name}'."
+                )
+                return None
+            thumbnails = [img.thumbnail_bytes_png for img in img]
+            return thumbnails[0] if thumbnails else None
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching images for species '{species_name}': {e}"
+            )
+        finally:
+            self.logger.info(
+                f"Finished fetching images for species: {species_name}"
+            )
 
     def ingest(self, img_dir: str = IMG_DIR):
         """Ingest images into the database."""
