@@ -17,12 +17,9 @@ export default function HomeClient() {
   useEffect(() => {
     const fetchSpeciesThumbnails = async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:8000/taxon/zischkaia_pacarus/thumbnail"
-        );
-        const data = await res.blob();
-        const imageUrl = URL.createObjectURL(data);
-        setSpeciesThumbnails(imageUrl);
+        const res = await fetch("http://127.0.0.1:8000/taxon/counts");
+        const data = await res.json();
+        setSpeciesThumbnails(data);
       } catch (error) {
         console.error("Failed to fetch species thumbnails:", error);
       } finally {
@@ -39,14 +36,15 @@ export default function HomeClient() {
       {loading ? (
         <p>Loading species thumbnails...</p>
       ) : speciesThumbnails ? (
-        <Image
-          src={speciesThumbnails}
-          alt="Species Thumbnail"
-          width={300}
-          height={300}
-          className="rounded-lg shadow-lg"
-        />
+        <pre>{JSON.stringify(speciesThumbnails, null, 2)}</pre>
       ) : (
+        // <Image
+        //   src={speciesThumbnails}
+        //   alt="Species Thumbnail"
+        //   width={300}
+        //   height={300}
+        //   className="rounded-lg shadow-lg"
+        // />
         <p>No species thumbnails available.</p>
       )}
     </div>

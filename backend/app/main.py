@@ -7,6 +7,7 @@ from .services.leptraits import LepTraits
 
 # from .database.duckdb import init_duckdb
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
     image_search,
     text_search,
@@ -43,6 +44,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan, title="BIOCOSMOS API", version="0.1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(image_search.router)
