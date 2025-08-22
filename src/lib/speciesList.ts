@@ -9,8 +9,6 @@ const INITIAL_SPECIES = [
   "zeuxidia_luxerii",
   "zipaetis_saitis",
   "acidalia_adela",
-  "zipaetis_scylax",
-  "zischkaia_pacarus",
 ];
 
 export interface SpeciesThumbnails {
@@ -21,8 +19,19 @@ export interface SpeciesThumbnails {
 // Get an initial list of species.
 // Request image thumbnails from API/taxon/${speciesName}/thumbnail
 
-export function getSpeciesList(): string[] {
-  return INITIAL_SPECIES;
+function getSpeciesList(): string[] {
+  return INITIAL_SPECIES.sort();
+}
+
+/**
+ * Cleans the species name by replacing underscores with spaces.
+ * Make it in sentence case.
+ * @param name - The species name to clean.
+ * @returns The cleaned species name.
+ */
+function clean_species_name(name: string): string {
+  const [genus, ...rest] = name.replace(/_/g, " ").split(" ");
+  return [genus.charAt(0).toUpperCase() + genus.slice(1), ...rest].join(" ");
 }
 
 /**
@@ -31,9 +40,7 @@ export function getSpeciesList(): string[] {
  * @returns A promise that resolves to a local blob URL for the image.
  * @throws An error if the network response is not ok.
  */
-export const fetchSpeciesImage = async (
-  speciesName: string
-): Promise<string> => {
+async function fetchSpeciesImage(speciesName: string): Promise<string> {
   // Construct the API endpoint URL
   const response = await fetch(`${API_SERVICE_URL}/${speciesName}/thumbnail`);
 
@@ -49,4 +56,15 @@ export const fetchSpeciesImage = async (
   const localUrl = URL.createObjectURL(imageBlob);
 
   return localUrl;
-};
+}
+
+export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
+  const speciesList = getSpeciesList();
+  const thumbnails = await Promise.all(
+    speciesList.map(async (species) => {
+      const imageUrl = await fetchSpeciesImage(species);
+      return { name: clean_species_name(species), imageUrl };
+    })
+  );
+  return thumbnails;
+}
