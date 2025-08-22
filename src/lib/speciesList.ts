@@ -14,6 +14,7 @@ const INITIAL_SPECIES = [
 export interface SpeciesThumbnails {
   name: string;
   imageUrl: string;
+  folderName: string;
 }
 
 // Get an initial list of species.
@@ -40,7 +41,7 @@ function clean_species_name(name: string): string {
  * @returns A promise that resolves to a local blob URL for the image.
  * @throws An error if the network response is not ok.
  */
-async function fetchSpeciesImage(speciesName: string): Promise<string> {
+export async function fetchSpeciesImage(speciesName: string): Promise<string> {
   // Construct the API endpoint URL
   const response = await fetch(`${API_SERVICE_URL}/${speciesName}/thumbnail`);
 
@@ -63,7 +64,11 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
   const thumbnails = await Promise.all(
     speciesList.map(async (species) => {
       const imageUrl = await fetchSpeciesImage(species);
-      return { name: clean_species_name(species), imageUrl };
+      return {
+        name: clean_species_name(species),
+        imageUrl,
+        folderName: species,
+      };
     })
   );
   return thumbnails;

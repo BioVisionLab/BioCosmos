@@ -3,19 +3,7 @@ import path from "path";
 
 import { API_HOST } from "./config";
 
-
 const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
-
-const INITIAL_SPECIES = [
-  "zeuxidia_doubledaii",
-  "abananote_erinome",
-  "abrota_ganga",
-  "zeuxidia_luxerii",
-  "zipaetis_saitis",
-  "acidalia_adela",
-  "zipaetis_scylax",
-  "zischkaia_pacarus",
-];
 
 // Define the richer return type for clarity
 export interface SpeciesData {
@@ -168,10 +156,6 @@ function processSpeciesFolder(
     description: description, // Use determined description
     conservationStatus: conservationStatus, // Use determined status
   };
-}
-
-export function getInitialSpecies(): string[] {
-  return INITIAL_SPECIES;
 }
 
 function parseTraitData(traits: Record<string, string | null>): string {

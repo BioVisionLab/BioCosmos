@@ -7,6 +7,8 @@ import Link from "next/link"; // For breadcrumbs
 import SpeciesDetailMapWrapper from "@/components/SpeciesDetailMapWrapper";
 import SpeciesImageGallery from "@/components/SpeciesImageGallery"; // Import the new gallery component
 import { GbifAttribution } from "@/components/Attribution";
+import { fetchSpeciesImage } from "@/lib/speciesList";
+import Image from "next/image";
 
 interface SpeciesPageProps {
   params: {
@@ -304,11 +306,10 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
   const resolvedParams = await params;
   const { speciesName: folderName } = resolvedParams;
 
-  // Fetch the single species data using the updated function
-  const details = await getSpeciesData(folderName);
+  const taxonomyData = await getTaxonomyData(folderName);
 
   // Handle case where species data might not be found
-  if (!details) {
+  if (!taxonomyData) {
     return (
       <section className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-6">Species Not Found</h1>
@@ -323,12 +324,9 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
     );
   }
 
-  // Now we know details is not null and has the SpeciesData type
-  const { name, commonName, description, taxonomy, imageUrl, allImageUrls } =
-    details;
+  const thumbnail: string = await fetchSpeciesImage(taxonomyData.species);
+  const gbifOccurrences = await fetchGbifOccurrences(taxonomyData.species);
 
-  const taxonomyData = await getTaxonomyData(folderName);
-  const gbifOccurrences = await fetchGbifOccurrences(name);
   return (
     <section>
       {" "}
@@ -340,29 +338,32 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
         </Link>
         <span>&gt;</span>
         {/* Link to Family (assuming Nymphalidae for now) */}
-        <Link href={`/family/${taxonomy.family}`} className="hover:underline">
-          {taxonomy.family}
+        <Link
+          href={`/family/${taxonomyData.family}`}
+          className="hover:underline"
+        >
+          {taxonomyData.family}
         </Link>
         <span>&gt;</span>
         {/* Link to the Genus page */}
         <Link
-          href={`/genus/${taxonomy.genus}`}
+          href={`/genus/${taxonomyData.genus}`}
           className="hover:underline italic"
         >
-          {taxonomy.genus}
+          {taxonomyData.genus}
         </Link>
         <span>&gt;</span>
         <span className="italic text-gray-800 dark:text-gray-200">
-          {taxonomy.species}
+          {taxonomyData.species}
         </span>
       </nav>
       {/* Optional: Add explicit "Back to Genus" link */}
       <div className="mb-4">
         <Link
-          href={`/genus/${taxonomy.genus}`}
+          href={`/genus/${taxonomyData.genus}`}
           className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
-          &larr; Back to <span className="italic">{taxonomy.genus}</span>{" "}
+          &larr; Back to <span className="italic">{taxonomyData.genus}</span>{" "}
           species
         </Link>
       </div>
@@ -370,27 +371,34 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       <div className="mb-6">
         {/* Revert color classes on scientific name */}
         <h1 className="text-4xl font-bold mb-1">
-          <SpeciesTitle taxonomy={taxonomyData} name={name} />
+          <SpeciesTitle taxonomy={taxonomyData} name={taxonomyData.species} />
         </h1>
         {/* Revert color classes on common name */}
         <CommonName
-          vernacularName={taxonomyData?.vernacularName ?? null}
-          commonName={commonName}
+          vernacularName={taxonomyData.vernacularName ?? null}
+          commonName={taxonomyData.vernacularName ?? "Unknown Species"}
         />
         {/* Reverted to original gray colors */}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Use SpeciesImageGallery Component */}
         <div className="lg:col-span-2">
-          <SpeciesImageGallery
-            speciesName={name}
-            mainImageUrl={imageUrl}
-            allImageUrls={allImageUrls}
+          <Image
+            src={thumbnail}
+            alt={`Species Thumbnail`}
+            width={150}
+            height={150}
+            className="m-2"
+          />
+          {/* <SpeciesImageGallery
+            speciesName={taxonomyData.species}
+            mainImageUrl={thumbnails}
+            allImageUrls={thumbnails}
           />
           <SpeciesDescription
             description={taxonomyData?.description ?? description}
             species={taxonomyData?.species ?? name} // Use species from taxonomy or fallback to name
-          />
+          /> */}
         </div>
 
         {/* Right Column: Details */}
