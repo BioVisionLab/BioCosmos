@@ -270,7 +270,7 @@ export async function getTaxonomyData(
       family: taxonomy.family || "Nymphalidae", // Default to Nymphalidae
       genus: taxonomy.genus || genus,
       species: taxonomy.species || species,
-      authorship: taxonomy.authorship || formattedName,
+      authorship: taxonomy.authorship || "",
       vernacularName: taxonomy.vernacularName || formattedName, // Fallback to formatted name
       description: traits !== "" ? traits : "", // Use traits if available
       redlistCategory: taxonomy.redlistCategory || "Unknown", // Default status

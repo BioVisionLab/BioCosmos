@@ -9,6 +9,8 @@ import SpeciesImageGallery from "@/components/SpeciesImageGallery"; // Import th
 import { GbifAttribution } from "@/components/Attribution";
 import { fetchSpeciesImage } from "@/lib/speciesList";
 import Image from "next/image";
+import { SpeciesTitle } from "./components/species_title";
+import { RedListStatus } from "./components/redlist_status";
 
 interface SpeciesPageProps {
   params: {
@@ -22,95 +24,6 @@ interface Occurrence {
   decimalLatitude: number;
   decimalLongitude: number;
   // Add other fields as needed when fetching from GBIF
-}
-
-function RedListStatus({ statusCode }: { statusCode: string }) {
-  let bgColor = "bg-gray-400";
-  let textColor = "text-gray-900";
-  let label = statusCode;
-  switch (statusCode) {
-    case "NE":
-      bgColor = "bg-gray-300";
-      textColor = "text-gray-900";
-      label = "Not Evaluated";
-      break;
-    case "DD":
-      bgColor = "bg-gray-200";
-      textColor = "text-gray-900";
-      label = "Data Deficient";
-      break;
-    case "LC":
-      bgColor = "bg-green-200";
-      textColor = "text-green-900";
-      label = "Least Concern";
-      break;
-    case "NT":
-      bgColor = "bg-yellow-200";
-      textColor = "text-yellow-900";
-      label = "Near Threatened";
-      break;
-    case "VU":
-      bgColor = "bg-red-200";
-      textColor = "text-red-900";
-      label = "Vulnerable";
-      break;
-    case "EN":
-      bgColor = "bg-orange-200";
-      textColor = "text-orange-900";
-      label = "Endangered";
-      break;
-    case "CR":
-      bgColor = "bg-red-300";
-      textColor = "text-red-900";
-      label = "Critically Endangered";
-      break;
-    case "EX":
-      bgColor = "bg-black";
-      textColor = "text-white";
-      label = "Extinct";
-      break;
-    case "EW":
-      bgColor = "bg-gray-500";
-      textColor = "text-white";
-      label = "Extinct in the Wild";
-      break;
-  }
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-2">IUCN RedList Status</h2>
-      <span
-        className={`px-2 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-// Whenever available, we use the combination
-// of species name and authorship for the title
-// If taxonomy data is not available, we fall back to the species name only
-// We used the name from the images
-function SpeciesTitle({
-  taxonomy,
-  name,
-}: {
-  taxonomy: TaxonomyData | null;
-  name: string;
-}) {
-  if (taxonomy === null) {
-    return <span className="italic">{name}</span>;
-  }
-
-  const authorship = taxonomy.authorship ? taxonomy.authorship.trim() : "";
-  const species = taxonomy.species ? taxonomy.species.trim() : "";
-
-  return (
-    <span>
-      <span className="italic">{species}</span>
-      {authorship !== null && authorship !== "" ? " " + authorship : null}
-    </span>
-  );
 }
 
 function CommonName({
