@@ -1,7 +1,10 @@
+"use client";
+
 import { getTaxonomyData } from "@/lib/speciesData"; // Import the function and the type
 import Link from "next/link";
 import { CommonName, SpeciesTitle } from "./components/title";
 import { SpeciesOverview } from "./components/overview";
+import { useState } from "react";
 
 interface SpeciesPageProps {
   params: {
@@ -11,6 +14,7 @@ interface SpeciesPageProps {
 
 // --- End GBIF API Fetching Function ---
 export default async function SpeciesPage({ params }: SpeciesPageProps) {
+  const [activeTab, setActiveTab] = useState("overview");
   const resolvedParams = await params;
   const { speciesName: folderName } = resolvedParams;
 
@@ -85,7 +89,22 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
         />
         {/* Reverted to original gray colors */}
       </div>
-      <SpeciesOverview speciesName={folderName} />
+      <div>
+        <button type="button" onClick={() => setActiveTab("overview")}>
+          Overview
+        </button>
+        <button type="button" onClick={() => setActiveTab("habitat")}>
+          Habitat
+        </button>
+        {activeTab === "overview" && (
+          <SpeciesOverview speciesName={folderName} />
+        )}
+        {activeTab === "habitat" && (
+          <div>
+            <p>Habitat information coming soon.</p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

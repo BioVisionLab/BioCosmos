@@ -1,4 +1,4 @@
-import fs from "fs";
+// import fs from "fs";
 import path from "path";
 
 import { API_HOST } from "./config";
@@ -85,9 +85,9 @@ function processSpeciesFolder(
   let imageFiles: string[] = [];
 
   try {
-    imageFiles = fs
-      .readdirSync(speciesFolderPath)
-      .filter((file) => /\.jpe?g|\.png|\.webp$/i.test(file));
+    // imageFiles = fs
+    //   .readdirSync(speciesFolderPath)
+    //   .filter((file) => /\.jpe?g|\.png|\.webp$/i.test(file));
   } catch (err) {
     // Gracefully handle cases where the directory might not exist or is unreadable
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -305,14 +305,13 @@ export async function getSpeciesData(
     // Request for all species
     let allSpeciesData: SpeciesData[] = [];
     try {
-      const speciesFolders = fs
-        .readdirSync(baseImageDir, { withFileTypes: true })
-        .filter((dirent) => dirent.isDirectory())
-        .map((dirent) => dirent.name);
-
-      allSpeciesData = speciesFolders
-        .map((folder) => processSpeciesFolder(folder, baseImageDir))
-        .filter((data): data is SpeciesData => data !== null); // Type guard to filter out nulls
+      // const speciesFolders = fs
+      //   .readdirSync(baseImageDir, { withFileTypes: true })
+      //   .filter((dirent) => dirent.isDirectory())
+      //   .map((dirent) => dirent.name);
+      // allSpeciesData = speciesFolders
+      //   .map((folder) => processSpeciesFolder(folder, baseImageDir))
+      //   .filter((data): data is SpeciesData => data !== null); // Type guard to filter out nulls
     } catch (err) {
       console.error("Error reading base species directory:", err);
       return []; // Return empty array on error
