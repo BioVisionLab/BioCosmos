@@ -1,217 +1,12 @@
-import {
-  getSpeciesData,
-  getTaxonomyData,
-  TaxonomyData,
-} from "@/lib/speciesData"; // Import the function and the type
-import Link from "next/link"; // For breadcrumbs
-import SpeciesDetailMapWrapper from "@/components/SpeciesDetailMapWrapper";
-import SpeciesImageGallery from "@/components/SpeciesImageGallery"; // Import the new gallery component
-import { GbifAttribution } from "@/components/Attribution";
-import { fetchSpeciesImage } from "@/lib/speciesList";
-import Image from "next/image";
-import { SpeciesTitle } from "./components/species_title";
-import { RedListStatus } from "./components/redlist_status";
+import { getTaxonomyData } from "@/lib/speciesData"; // Import the function and the type
+import Link from "next/link";
+import { CommonName, SpeciesTitle } from "./components/title";
+import { SpeciesOverview } from "./components/overview";
 
 interface SpeciesPageProps {
   params: {
     speciesName: string; // This comes from the folder name [speciesName]
   };
-}
-
-// Define Occurrence type to match SpeciesMap component's expectation
-interface Occurrence {
-  key: string | number;
-  decimalLatitude: number;
-  decimalLongitude: number;
-  // Add other fields as needed when fetching from GBIF
-}
-
-function CommonName({
-  vernacularName,
-  commonName,
-}: {
-  vernacularName: string | null;
-  commonName: string;
-}) {
-  const name = vernacularName ?? commonName;
-
-  return <p className="text-xl text-gray-700 dark:text-gray-300">{name}</p>;
-}
-
-function SpeciesDescriptionText({
-  description,
-  species,
-}: {
-  description: string | null;
-  species: string;
-}) {
-  if (!description || description.trim() === "") {
-    return (
-      <p className="text-gray-500 dark:text-gray-400 mt-2">
-        No description available for <i>{species}</i>.
-      </p>
-    );
-  }
-  return (
-    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-      {description}
-    </p>
-  );
-}
-
-function SpeciesDescription({
-  description,
-  species,
-}: {
-  description: string | null;
-  species: string;
-}) {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mt-4">Description</h2>
-      <SpeciesDescriptionText description={description} species={species} />
-    </div>
-  );
-}
-
-function SpeciesClassification({
-  taxonomyData,
-}: {
-  taxonomyData: TaxonomyData | null;
-}) {
-  if (!taxonomyData) {
-    return (
-      <p className="text-gray-500 dark:text-gray-400">
-        No classification data available.
-      </p>
-    );
-  }
-
-  return (
-    <div className="-mt-1">
-      <h2 className="text-2xl font-semibold mb-2">Classification</h2>
-      <table className="text-sm text-gray-700 dark:text-gray-300 w-full min-w-[350px]">
-        <tbody>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Kingdom</td>
-            <td className="break-all">
-              : {taxonomyData?.kingdom ?? "Unknown"}
-            </td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Phylum</td>
-            <td className="break-all">: {taxonomyData?.phylum ?? "Unknown"}</td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Class</td>
-            <td className="break-all">: {taxonomyData?.class ?? "Unknown"}</td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Order</td>
-            <td className="break-all">: {taxonomyData?.order ?? "Unknown"}</td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Family</td>
-            <td className="break-all">: {taxonomyData?.family ?? "Unknown"}</td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Genus</td>
-            <td className="break-all">
-              : <i className="italic">{taxonomyData?.genus ?? "Unknown"}</i>
-            </td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Species</td>
-            <td className="break-all">
-              : <i className="italic">{taxonomyData?.species ?? "Unknown"}</i>
-            </td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top">Authorship</td>
-            <td className="break-all">
-              : {taxonomyData?.authorship ?? "Unknown"}
-            </td>
-          </tr>
-          <tr>
-            <td className="font-medium w-36 pr-2 align-top my-2">
-              Taxonomic Status
-            </td>
-            <td className="break-all">
-              : {taxonomyData?.taxonomicStatus ?? "Unknown"}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <GbifAttribution />
-    </div>
-  );
-}
-
-// --- GBIF API Fetching Function ---
-async function fetchGbifOccurrences(
-  scientificName: string
-): Promise<Occurrence[]> {
-  // Basic check for valid name format
-  if (!scientificName || !scientificName.includes(" ")) {
-    console.warn(`Invalid scientific name for GBIF lookup: ${scientificName}`);
-    return [];
-  }
-
-  // Construct the GBIF API URL (limit to 200 results for performance)
-  // Using hasCoordinate=true and hasGeospatialIssue=false for cleaner data
-  const gbifLimit = 200;
-  const gbifApiUrl = `https://api.gbif.org/v1/occurrence/search?scientificName=${encodeURIComponent(
-    scientificName
-  )}&limit=${gbifLimit}&hasCoordinate=true&hasGeospatialIssue=false`;
-
-  console.log(`Fetching GBIF data from: ${gbifApiUrl}`); // Log the URL for debugging
-
-  try {
-    const response = await fetch(gbifApiUrl, {
-      // Optional: Add cache control if needed, but default Next.js fetch caching is usually sufficient
-      // next: { revalidate: 3600 * 24 } // Example: revalidate once per day
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `GBIF API error: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const data = await response.json();
-
-    // Process results: Filter out occurrences without valid lat/lon
-    interface GbifRawOccurrence {
-      key: string | number;
-      decimalLatitude: number;
-      decimalLongitude: number;
-    }
-
-    const occurrences = data.results
-      .map((occ: GbifRawOccurrence) => ({
-        key: occ.key, // GBIF unique key for the occurrence
-        decimalLatitude: occ.decimalLatitude,
-        decimalLongitude: occ.decimalLongitude,
-      }))
-      .filter(
-        (occ: Occurrence) =>
-          typeof occ.decimalLatitude === "number" &&
-          typeof occ.decimalLongitude === "number" &&
-          !isNaN(occ.decimalLatitude) &&
-          !isNaN(occ.decimalLongitude)
-      );
-
-    console.log(
-      `Fetched ${occurrences.length} valid GBIF occurrences for ${scientificName}`
-    );
-    return occurrences;
-  } catch (error) {
-    console.error(
-      `Error fetching GBIF occurrences for ${scientificName}:`,
-      error
-    );
-    return []; // Return empty array on error
-  }
 }
 
 // --- End GBIF API Fetching Function ---
@@ -236,9 +31,6 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       </section>
     );
   }
-
-  const thumbnail: string = await fetchSpeciesImage(taxonomyData.species);
-  const gbifOccurrences = await fetchGbifOccurrences(taxonomyData.species);
 
   return (
     <section>
@@ -293,44 +85,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
         />
         {/* Reverted to original gray colors */}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Use SpeciesImageGallery Component */}
-        <div className="lg:col-span-2">
-          <Image
-            src={thumbnail}
-            alt={`Species Thumbnail`}
-            width={150}
-            height={150}
-            className="m-2"
-          />
-          {/* <SpeciesImageGallery
-            speciesName={taxonomyData.species}
-            mainImageUrl={thumbnails}
-            allImageUrls={thumbnails}
-          />
-          <SpeciesDescription
-            description={taxonomyData?.description ?? description}
-            species={taxonomyData?.species ?? name} // Use species from taxonomy or fallback to name
-          /> */}
-        </div>
-
-        {/* Right Column: Details */}
-        <div className="lg:col-span-1 space-y-6">
-          <SpeciesClassification taxonomyData={taxonomyData} />
-          <RedListStatus
-            statusCode={taxonomyData?.redlistCategory ?? "Unknown"}
-          />
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">Distribution Map</h2>
-            <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
-              {gbifOccurrences.length > 0
-                ? `Showing ${gbifOccurrences.length} occurrences. Use the zoom and pan controls to explore the map.`
-                : "No occurrence data found."}
-            </p>
-            <SpeciesDetailMapWrapper occurrences={gbifOccurrences} />
-          </div>
-        </div>
-      </div>
+      <SpeciesOverview speciesName={folderName} />
     </section>
   );
 }

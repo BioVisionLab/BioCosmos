@@ -26,3 +26,15 @@ export function SpeciesTitle({
     </span>
   );
 }
+
+export function CommonName({
+  vernacularName,
+  commonName,
+}: {
+  vernacularName: string | null;
+  commonName: string;
+}) {
+  const name = vernacularName ?? commonName;
+
+  return <p className="text-xl text-gray-700 dark:text-gray-300">{name}</p>;
+}
