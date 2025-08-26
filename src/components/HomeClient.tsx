@@ -4,8 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { SpeciesThumbnails, getInitialSpeciesList } from "@/lib/speciesList";
 import Link from "next/link";
-import SearchBar from "./TextSearch";
-import ImageSearch from "./ImageSearch";
+import SearchSwitcher from "./SearchSwitcher";
 
 export default function HomeClient() {
   const [speciesList, setSpeciesList] = useState<SpeciesThumbnails[]>([]);
@@ -53,18 +52,24 @@ export default function HomeClient() {
           </span>
         </div>
       </div>
-      <SearchBar />
-      {/* Add vertical line break */}
-      <div className="my-2 w-px h-8 bg-gray-300 dark:bg-gray-600" />
-      <p className="text-lg text-gray-600 dark:text-gray-400">Or</p>
-      <ImageSearch />
+      <SearchSwitcher />
       {loading ? (
         <p>Loading sample species...</p>
       ) : speciesList.length > 0 ? (
         <>
-          <p className="text-lg text-gray-600 dark:text-gray-400 mb-2 mt-8">
-            🦋 Curious? Explore these cool butterflies:
-          </p>
+          <div className="w-full max-w-5xl mt-10 mb-4">
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-gradient-to-r from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
+              <h2 className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-300 flex items-center gap-2">
+                <span className="text-lg">🦋</span>
+                Featured Butterflies
+              </h2>
+              <span className="h-px flex-1 bg-gradient-to-r from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
+            </div>
+            <p className="mt-3 text-center text-sm sm:text-base text-gray-600 dark:text-gray-400">
+              Explore a few sample species to get started
+            </p>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mx-auto">
             {speciesList.map((thumbnail, index) => (
               <Link key={index} href={`/species/${thumbnail.folderName}`}>
