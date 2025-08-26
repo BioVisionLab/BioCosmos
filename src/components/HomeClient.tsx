@@ -85,7 +85,7 @@ export default function HomeClient() {
                   </div>
                   <div className="mt-2 text-center">
                     <h2
-                      className="text-base font-semibold truncate italic text-center"
+                      className="text-base truncate italic text-center text-gray-400"
                       title={thumbnail.name}
                     >
                       {thumbnail.name}
