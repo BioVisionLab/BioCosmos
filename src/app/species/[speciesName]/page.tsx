@@ -1,8 +1,8 @@
-import { getTaxonomyData, TaxonomyData } from "@/lib/speciesData"; // Import the function and the type
+import { getTaxonomyData } from "@/lib/speciesData"; // Import the function and the type
 import Link from "next/link";
-import { CommonName, SpeciesTitle } from "./components/title";
 import TabsComponent from "./components/tabs";
 import { Occurrence } from "@/lib/types";
+import SpeciesHeader from "./components/title";
 
 interface SpeciesPageProps {
   params: {
@@ -141,21 +141,13 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           species
         </Link>
       </div>
-      {/* Main Title Area */}
-      <div className="mb-6">
-        {/* Revert color classes on scientific name */}
-        <h1 className="text-4xl font-bold mb-1">
-          <SpeciesTitle taxonomy={taxonomyData} name={taxonomyData.species} />
-        </h1>
-        {/* Revert color classes on common name */}
-        <CommonName
-          vernacularName={taxonomyData.vernacularName ?? null}
-          commonName={taxonomyData.vernacularName ?? "Unknown Species"}
-        />
-        {/* Reverted to original gray colors */}
-      </div>
+      <SpeciesHeader taxonomy={taxonomyData} name={taxonomyData.species} />
       <div>
-        <TabsComponent speciesName={folderName} taxonomyData={taxonomyData} gbifOccurrences={gbifOccurrences} />
+        <TabsComponent
+          speciesName={folderName}
+          taxonomyData={taxonomyData}
+          gbifOccurrences={gbifOccurrences}
+        />
       </div>
     </section>
   );
