@@ -46,8 +46,8 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
       content: (
         <div className="space-y-4">
           <p className="text-gray-700">
-            This section will list museum and herbarium specimens, including
-            collection data and images.
+            This section will list museum specimens, including collection data
+            and images.
           </p>
         </div>
       ),
@@ -56,29 +56,40 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
 
   const [activeTab, setActiveTab] = useState(tabsData[0].id);
 
+  const baseBtn =
+    "px-4 py-1.5 rounded-full text-sm font-medium transition-colors";
+  const active =
+    "bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white shadow";
+  const inactive =
+    "text-gray-600 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700/70";
+
   return (
-    <div className="mx-auto">
-      <div className="flex" role="tablist" aria-label="Tabs">
-        {tabsData.map((tab) => (
-          <button
-            id={`tab-${tab.id}`}
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`py-2 px-4 text-sm font-medium transition-colors duration-300 focus:outline-none ${
-              activeTab === tab.id
-                ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            role="tab"
-            tabIndex={activeTab === tab.id ? 0 : -1}
-          >
-            {tab.label}
-          </button>
-        ))}
+    <div className="flex flex-col items-center w-full">
+      <div className="flex items-center gap-3 mt-2">
+        <div
+          className="flex rounded-full border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur"
+          role="tablist"
+        >
+          {tabsData.map((tab) => (
+            <button
+              id={`tab-${tab.id}`}
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`${baseBtn} ${
+                activeTab === tab.id ? active : inactive
+              }`}
+              role="tab"
+              aria-controls={`tabpanel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="p-4 mt-2 rounded-lg shadow-md">
+      <div className="p-4 mt-2 rounded-lg w-full">
         {tabsData.map((tab) => (
           <div
             key={tab.id}

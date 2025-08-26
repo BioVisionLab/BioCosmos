@@ -20,18 +20,14 @@ const SearchSwitcher = () => {
           <button
             type="button"
             onClick={() => setMode("text")}
-            className={`${baseBtn} ${
-              mode === "text" ? active : inactive
-            }`}
+            className={`${baseBtn} ${mode === "text" ? active : inactive}`}
           >
             Text Search
           </button>
           <button
             type="button"
             onClick={() => setMode("image")}
-            className={`${baseBtn} ${
-              mode === "image" ? active : inactive
-            }`}
+            className={`${baseBtn} ${mode === "image" ? active : inactive}`}
           >
             Image Search
           </button>
@@ -48,21 +44,6 @@ const SearchSwitcher = () => {
           </div>
         )}
       </div>
-      <style jsx global>{`
-        .animate-fade-in {
-          animation: fadeIn 220ms ease-out;
-        }
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(4px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 };
