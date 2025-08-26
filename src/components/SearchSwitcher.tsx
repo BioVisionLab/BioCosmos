@@ -14,7 +14,7 @@ const SearchSwitcher = () => {
     "text-gray-600 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700/70";
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-center w-full my-8">
       <div className="flex items-center gap-3 mt-2">
         <div className="flex rounded-full border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur">
           <button
