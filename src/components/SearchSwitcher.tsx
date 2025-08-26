@@ -33,7 +33,7 @@ const SearchSwitcher = () => {
           </button>
         </div>
       </div>
-      <div className="mt-5 w-full max-w-xl">
+      <div className="mt-5 w-full max-w-2xl">
         {mode === "text" ? (
           <div className="animate-fade-in">
             <SearchBar />

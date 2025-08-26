@@ -134,77 +134,79 @@ export default function ImageSearch() {
     }
   }, []);
 
-  // <<< Add console log here >>>
-  console.log(
-    `ImageSearchWidget render: isSearching=${isSearching}, previewUrl=${previewUrl}, selectedFile=${selectedFile?.name}`
-  );
-
   return (
-    <div
-      className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow sticky top-[calc(6rem+6rem)] mt-6" // Adjust top/mt as needed
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div className="flex flex-col items-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 text-center mb-3">
-        {previewUrl ? (
-          <div className="relative w-full aspect-square mb-2">
-            <Image
-              src={previewUrl}
-              alt="Selected preview"
-              layout="fill"
-              objectFit="contain"
-              className="rounded"
-            />
-          </div>
-        ) : (
-          <UploadCloud className="h-10 w-10 text-gray-400 mb-2" />
-        )}
-
-        <input
-          type="file"
-          id="imageUpload"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden" // Hide default input
-          disabled={isSearching}
-        />
-        <label
-          htmlFor="imageUpload"
-          className={`text-sm font-medium cursor-pointer px-3 py-1 rounded ${
-            isSearching
-              ? "text-gray-400 cursor-not-allowed"
-              : "text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900"
-          }`}
+    <div className="w-full max-w-2xl mx-auto mb-6">
+      <div className="flex flex-col gap-3">
+        <div
+          className="relative flex flex-col items-center justify-center w-full p-4 rounded-2xl bg-white/70 dark:bg-gray-800/60 backdrop-blur ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm hover:shadow-md transition-all"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
-          {selectedFile ? "Change Image" : "Upload Image"}
-        </label>
-        {!selectedFile && (
-          <p className="text-xs text-gray-500 mt-1">or drag & drop</p>
+          <div className="flex flex-col items-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 text-center mb-3 w-full">
+            {previewUrl ? (
+              <div className="relative w-full aspect-square mb-2">
+                <Image
+                  src={previewUrl}
+                  alt="Selected preview"
+                  layout="fill"
+                  objectFit="contain"
+                  className="rounded"
+                />
+              </div>
+            ) : (
+              <UploadCloud className="h-10 w-10 text-gray-400 mb-2" />
+            )}
+
+            <input
+              type="file"
+              id="imageUpload"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={isSearching}
+            />
+            <label
+              htmlFor="imageUpload"
+              className={`text-sm font-medium cursor-pointer px-3 py-1 rounded ${
+                isSearching
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900"
+              }`}
+            >
+              {selectedFile ? "Change Image" : "Upload Image"}
+            </label>
+            {!selectedFile && (
+              <p className="text-xs text-gray-500 mt-1">or drag & drop</p>
+            )}
+          </div>
+
+          <button
+            onClick={handleImageSearch}
+            disabled={!selectedFile || isSearching}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-md hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:from-gray-600 dark:disabled:to-gray-600 dark:disabled:text-gray-400 transition-all"
+          >
+            {isSearching ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" /> Searching...
+              </>
+            ) : (
+              <>
+                <Search size={18} /> Search by Image
+              </>
+            )}
+          </button>
+        </div>
+
+        {searchError && (
+          <p
+            role="alert"
+            className="text-xs text-red-500 mt-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md px-3 py-2"
+          >
+            {searchError}
+          </p>
         )}
       </div>
-
-      <button
-        onClick={handleImageSearch}
-        disabled={!selectedFile || isSearching}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isSearching ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" /> Searching...
-          </>
-        ) : (
-          <>
-            <Search size={18} /> Search by Image
-          </>
-        )}
-      </button>
-
-      {searchError && (
-        <p className="text-xs text-red-500 mt-2 text-center">
-          Error: {searchError}
-        </p>
-      )}
     </div>
   );
 }
