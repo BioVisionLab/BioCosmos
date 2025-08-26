@@ -52,6 +52,17 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
         </div>
       ),
     },
+    {
+      id: "Wikipedia",
+      label: "Wikipedia",
+      content: (
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            This section will display images related to the species.
+          </p>
+        </div>
+      ),
+    },
   ];
 
   const [activeTab, setActiveTab] = useState(tabsData[0].id);
