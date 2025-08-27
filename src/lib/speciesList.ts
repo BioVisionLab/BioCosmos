@@ -41,7 +41,9 @@ function clean_species_name(name: string): string {
  * @returns A promise that resolves to a local blob URL for the image.
  * @throws An error if the network response is not ok.
  */
-export async function fetchSpeciesImage(speciesName: string): Promise<string> {
+export async function fetchSpeciesThumbnail(
+  speciesName: string
+): Promise<string> {
   // Force species name snake case
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
   // Construct the API endpoint URL
@@ -65,7 +67,7 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
   const speciesList = getSpeciesList();
   const thumbnails = await Promise.all(
     speciesList.map(async (species) => {
-      const imageUrl = await fetchSpeciesImage(species);
+      const imageUrl = await fetchSpeciesThumbnail(species);
       return {
         name: clean_species_name(species),
         imageUrl,
@@ -74,4 +76,24 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
     })
   );
   return thumbnails;
+}
+
+export async function fetchSpeciesImage(speciesName: string): Promise<string> {
+  // Force species name snake case
+  const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
+  // Construct the API endpoint URL
+  const response = await fetch(`${API_SERVICE_URL}/${cleanName}/image`);
+
+  // Check if the request was successful
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image. Status: ${response.status}`);
+  }
+
+  // The response is the image itself, so we read it as a blob
+  const imageBlob = await response.blob();
+
+  // Create a temporary URL from the blob to display the image
+  const localUrl = URL.createObjectURL(imageBlob);
+
+  return localUrl;
 }

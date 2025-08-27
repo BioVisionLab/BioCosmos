@@ -39,8 +39,10 @@ class ImagePersistData:
             return None
         return result
 
-    def fetch_image(self, species_name: str) -> io.BytesIO | None:
-        """Fetch a high-resolution image for a specific species."""
+    def _query_image(
+        self, species_name: str
+    ) -> list[LanceSchema] | None:
+        """Construct a query string for fetching images."""
         species = species_name.lower().replace(" ", "_")
         query = f"species == '{species}'"
         try:
@@ -55,44 +57,27 @@ class ImagePersistData:
                     f"No images found for species '{species_name}'."
                 )
                 return None
-            return img[0].image_bytes_png
+            return img
         except Exception as e:
             self.logger.error(
                 f"Error fetching images for species '{species_name}': {e}"
             )
-        finally:
-            self.logger.info(
-                f"Finished fetching images for species: {species_name}"
-            )
+
+    def fetch_image(self, species_name: str) -> io.BytesIO | None:
+        """Fetch a high-resolution image for a specific species."""
+        query = self._query_image(species_name)
+        if query is None:
+            return None
+        return query[0].image_bytes_png
 
     def fetch_thumbnail(
         self, species_name: str, limit: int = 5
     ) -> io.BytesIO | None:
         """Fetch thumbnails for a specific species."""
-        species = species_name.lower().replace(" ", "_")
-        query = f"species == '{species}'"
-        try:
-            img: list[LanceSchema] = (
-                self.db_table.search()
-                .where(query)
-                .limit(limit)
-                .to_pydantic(LanceSchema)
-            )
-            if not img:
-                self.logger.warning(
-                    f"No images found for species '{species_name}'."
-                )
-                return None
-            thumbnails = [img.thumbnail_bytes_png for img in img]
-            return thumbnails[0] if thumbnails else None
-        except Exception as e:
-            self.logger.error(
-                f"Error fetching images for species '{species_name}': {e}"
-            )
-        finally:
-            self.logger.info(
-                f"Finished fetching images for species: {species_name}"
-            )
+        query = self._query_image(species_name)
+        if query is None:
+            return None
+        return query[0].thumbnail_bytes_png
 
     def ingest(self, img_dir: str = IMG_DIR):
         """Ingest images into the database."""

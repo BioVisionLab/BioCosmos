@@ -112,6 +112,15 @@ class LanceSchema(LanceModel):
         return None
 
     @property
+    def image_bytes_png(self):
+        """Get the image as PNG bytes."""
+        if self.image:
+            with BytesIO() as output:
+                self.image.save(output, format="PNG")
+                return output.getvalue()
+        return None
+
+    @property
     def thumbnail_bytes_png(self):
         """Get the thumbnail image as PNG bytes."""
         if self.thumbnail:
