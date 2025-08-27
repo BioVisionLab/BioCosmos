@@ -42,8 +42,10 @@ function clean_species_name(name: string): string {
  * @throws An error if the network response is not ok.
  */
 export async function fetchSpeciesImage(speciesName: string): Promise<string> {
+  // Force species name snake case
+  const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
   // Construct the API endpoint URL
-  const response = await fetch(`${API_SERVICE_URL}/${speciesName}/thumbnail`);
+  const response = await fetch(`${API_SERVICE_URL}/${cleanName}/thumbnail`);
 
   // Check if the request was successful
   if (!response.ok) {

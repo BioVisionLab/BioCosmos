@@ -3,8 +3,8 @@
 import React, { useState } from "react";
 import { SpeciesOverview } from "./overview";
 import { TaxonomyData } from "@/lib/speciesData";
-import { Occurrence } from "@/lib/types";
 import SpeciesTraits from "./traits";
+import SpeciesDensityMap from "./distribution";
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
@@ -27,6 +27,11 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
           taxonomyData={taxonomyData}
         />
       ),
+    },
+    {
+      id: "distribution",
+      label: "Distribution",
+      content: <SpeciesDensityMap />,
     },
     {
       id: "traits",
