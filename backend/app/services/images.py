@@ -39,6 +39,32 @@ class ImagePersistData:
             return None
         return result
 
+    def fetch_image(self, species_name: str) -> io.BytesIO | None:
+        """Fetch a high-resolution image for a specific species."""
+        species = species_name.lower().replace(" ", "_")
+        query = f"species == '{species}'"
+        try:
+            img: list[LanceSchema] = (
+                self.db_table.search()
+                .where(query)
+                .limit(1)
+                .to_pydantic(LanceSchema)
+            )
+            if not img:
+                self.logger.warning(
+                    f"No images found for species '{species_name}'."
+                )
+                return None
+            return img[0].image_bytes_png
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching images for species '{species_name}': {e}"
+            )
+        finally:
+            self.logger.info(
+                f"Finished fetching images for species: {species_name}"
+            )
+
     def fetch_thumbnail(
         self, species_name: str, limit: int = 5
     ) -> io.BytesIO | None:

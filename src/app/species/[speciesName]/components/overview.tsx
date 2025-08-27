@@ -1,24 +1,31 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { SpeciesImages } from "./image_gallery";
 import { SpeciesDescription } from "./description";
 import { SpeciesClassification } from "./classification";
 import { RedListStatus } from "./redlist_status";
-import SpeciesDetailMapWrapper from "@/components/SpeciesDetailMapWrapper";
 import { TaxonomyData } from "@/lib/speciesData";
 
-// Define Occurrence type to match SpeciesMap component's expectation
-import { Occurrence } from "@/lib/types";
+const SpeciesDistribution = dynamic(
+  () => import("@/app/species/[speciesName]/components/SpeciesMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+        <span className="text-gray-500">Loading map...</span>
+      </div>
+    ),
+  }
+);
 
 interface SpeciesOverviewProps {
   speciesName: string;
   taxonomyData: TaxonomyData | null;
-  gbifOccurrences: Occurrence[];
 }
 
 export function SpeciesOverview({
   speciesName,
   taxonomyData,
-  gbifOccurrences,
 }: SpeciesOverviewProps) {
   if (!taxonomyData) {
     return (
@@ -51,15 +58,7 @@ export function SpeciesOverview({
         <RedListStatus
           statusCode={taxonomyData?.redlistCategory ?? "Unknown"}
         />
-        <div>
-          <h2 className="text-2xl font-semibold mb-2">Distribution Map</h2>
-          <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
-            {gbifOccurrences.length > 0
-              ? `Showing ${gbifOccurrences.length} occurrences. Use the zoom and pan controls to explore the map.`
-              : "No occurrence data found."}
-          </p>
-          <SpeciesDetailMapWrapper occurrences={gbifOccurrences} />
-        </div>
+        <SpeciesDistribution speciesName={speciesName} />
       </div>
     </div>
   );

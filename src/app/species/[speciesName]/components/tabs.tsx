@@ -10,13 +10,11 @@ import SpeciesTraits from "./traits";
 interface TabsComponentProps {
   speciesName: string;
   taxonomyData: TaxonomyData | null;
-  gbifOccurrences: Occurrence[];
 }
 
 const TabsComponent: React.FC<TabsComponentProps> = ({
   speciesName,
   taxonomyData,
-  gbifOccurrences,
 }) => {
   // Tab data with placeholders for Traits and Specimens
   const tabsData = [
@@ -27,7 +25,6 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
         <SpeciesOverview
           speciesName={speciesName}
           taxonomyData={taxonomyData}
-          gbifOccurrences={gbifOccurrences}
         />
       ),
     },
