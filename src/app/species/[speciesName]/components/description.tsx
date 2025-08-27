@@ -7,7 +7,7 @@ export function SpeciesDescription({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mt-4">Description</h2>
+      <h2 className="text-2xl font-semibold mt-4">Key Traits</h2>
       <SpeciesDescriptionText description={description} species={species} />
     </div>
   );
