@@ -23,7 +23,6 @@ interface WikipediaApiParseResponse {
   };
 }
 
-// ---------- API HELPER FUNCTION ----------
 /**
  * Fetches and processes a Wikipedia page's HTML content.
  * @param title The title of the Wikipedia page to fetch.
@@ -93,7 +92,6 @@ function WikipediaAttribution({ speciesName }: { speciesName: string }) {
   );
 }
 
-// ---------- REACT COMPONENT ----------
 function WikipediaPage({ speciesName }: { speciesName: string }) {
   const [parsedContent, setParsedContent] = useState<ParsedContent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);

@@ -25,10 +25,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* Tailwind v4: base/components/utilities directives removed; main import at top handles everything. */
 /* :root, @theme, and body blocks removed */
 
 .dynamic-content a {
@@ -39,4 +36,3 @@ body {
 .dynamic-content a:hover {
   color: #0077cc;
 }
-
