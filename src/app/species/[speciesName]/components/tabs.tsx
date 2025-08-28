@@ -5,6 +5,7 @@ import { SpeciesOverview } from "./overview";
 import { TaxonomyData } from "@/lib/speciesData";
 import SpeciesTraits from "./traits";
 import SpeciesDensityMap from "./distribution";
+import WikipediaPage from "./wikipedia";
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
@@ -57,13 +58,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     {
       id: "Wikipedia",
       label: "Wikipedia",
-      content: (
-        <div className="space-y-4">
-          <p className="text-gray-700">
-            This section will display images related to the species.
-          </p>
-        </div>
-      ),
+      content: <WikipediaPage speciesName={speciesName} />,
     },
   ];
 
