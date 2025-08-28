@@ -73,12 +73,12 @@ function WikipediaAttribution({ speciesName }: { speciesName: string }) {
     <div className="space-y-2 text-xs text-gray-600">
       <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700">
         <p>
-          This section is rendered directly from Wikipedia (en.wikipedia.org).
-          It may include community-edited or unverified information. Verify with
-          primary sources.
+          Content adapted from English Wikipedia (en.wikipedia.org) and lightly
+          cleaned for readability. It may contain community-edited or unverified
+          information. Verify with primary sources.
         </p>
         <p>
-          Source:{" "}
+          Source URL:{" "}
           <a
             href={`https://en.wikipedia.org/wiki/${speciesName}`}
             target="_blank"
@@ -145,10 +145,10 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
 
         {!isLoading && !error && parsedContent.length > 0 && (
           <>
-            <div className="min-h-screen font-sans text-gray-900 rounded-2xl bg-gradient-to-tr from-gray-200 to-gray-50 p-6">
+            <div className="font-sans text-gray-900 rounded-2xl bg-gradient-to-tr from-gray-200 to-gray-50 p-6">
               <WikipediaAttribution speciesName={speciesName} />
               <div className="rounded-xl overflow-hidden">
-                <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="p-4 md:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2 space-y-8">
                     {mainContent.map((item, index) => (
                       <div key={index}>
@@ -164,9 +164,21 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                           </section>
                         )}
                         {item.type === "table" && (
-                          <div className="overflow-x-auto">
+                          // Full-bleed (viewport-wide) table container
+                          <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border bg-white">
                             <div
-                              className="w-full"
+                              className="border border-gray-200 inline-block min-w-full"
+                              dangerouslySetInnerHTML={{ __html: item.html }}
+                            />
+                          </div>
+                        )}
+                        {item.type === "taxonIdentifier" && (
+                          <div className="rounded-2xl">
+                            <h3 className="text-lg font-semibold mb-2">
+                              Taxon Identifier
+                            </h3>
+                            <div
+                              className="dynamic-content pl-2"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </div>
@@ -178,7 +190,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                     {infobox && (
                       <div className="sticky top-8 mx-auto flex justify-center items-center">
                         <div
-                          className="border rounded-lg overflow-hidden shadow w-[22em] max-w-full p-4"
+                          className="border rounded-lg overflow-hidden shadow w-[22em] max-w-full p-4 md:p-8"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
                         />
                       </div>

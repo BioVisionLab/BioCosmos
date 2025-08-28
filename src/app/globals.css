@@ -30,3 +30,13 @@ body {
 @tailwind utilities;
 
 /* :root, @theme, and body blocks removed */
+
+.dynamic-content a {
+  text-decoration: underline;
+  color: #005b99;
+}
+
+.dynamic-content a:hover {
+  color: #0077cc;
+}
+
