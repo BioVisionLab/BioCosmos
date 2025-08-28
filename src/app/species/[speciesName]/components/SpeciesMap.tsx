@@ -91,7 +91,9 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
       <h2 className="text-2xl font-semibold mb-2">Distribution Map</h2>
       {loading ? (
         <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-          <span className="text-gray-500">Loading occurrences...</span>
+          <span className="text-gray-500">
+            Fetching GBIF occurrence data...
+          </span>
         </div>
       ) : (
         <>
