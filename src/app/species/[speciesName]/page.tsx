@@ -37,7 +37,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       {" "}
       {/* Removed container from here, relies on Layout's container */}
       {/* Updated Breadcrumbs including Genus */}
-      <nav className="text-sm mb-4 text-gray-600 dark:text-gray-400 flex items-center gap-2">
+      <nav className="text-sm mb-1 text-gray-600 dark:text-gray-400 flex items-center gap-2 border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur w-fit py-1 px-4 rounded-full shadow">
         <Link href="/" className="hover:underline">
           Home
         </Link>
@@ -74,7 +74,10 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       </div>
       <SpeciesHeader taxonomy={taxonomyData} name={taxonomyData.species} />
       <div>
-        <TabsComponent speciesName={taxonomyData.species} taxonomyData={taxonomyData} />
+        <TabsComponent
+          speciesName={taxonomyData.species}
+          taxonomyData={taxonomyData}
+        />
       </div>
     </section>
   );

@@ -15,7 +15,7 @@ export function SpeciesClassification({
   }
 
   return (
-    <div className="-mt-1 bg-gradient-to-b from-white/50 to-white/30 dark:from-gray-800/50 dark:to-gray-800/30 p-4 rounded-xl shadow">
+    <div className="-mt-1 bg-gradient-to-r from-white/50 to-white/30 dark:from-teal-900/30 dark:to-gray-800/50 p-4 rounded-xl backdrop-blur-lg shadow">
       <h2 className="text-2xl font-semibold mb-2">Classification</h2>
       <table className="text-sm text-gray-700 dark:text-gray-300 w-full min-w-[350px]">
         <tbody>

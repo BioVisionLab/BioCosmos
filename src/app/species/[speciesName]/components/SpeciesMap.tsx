@@ -91,19 +91,19 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
       <h2 className="text-2xl font-semibold mb-2">Distribution Map</h2>
       {loading ? (
         <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-          <span className="text-gray-500">
+          <span className="text-gray-500 text-sm">
             Fetching GBIF occurrence data...
           </span>
         </div>
       ) : (
         <>
           {occurrences.length > 0 ? (
-            <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
+            <p className="text-xs mb-2 text-gray-700 dark:text-gray-300">
               Showing {occurrences.length} occurrences. Use the zoom and pan
               controls to explore the map.
             </p>
           ) : (
-            <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
+            <p className="text-xs mb-2 text-gray-700 dark:text-gray-300">
               No GBIF occurrences found. Showing map without points.
             </p>
           )}

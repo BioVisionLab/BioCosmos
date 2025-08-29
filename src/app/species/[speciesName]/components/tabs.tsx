@@ -75,7 +75,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     <div className="flex flex-col items-center w-full">
       <div className="flex items-center gap-3 mt-2">
         <div
-          className="flex rounded-full border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur"
+          className="flex rounded-full border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur-lg"
           role="tablist"
         >
           {tabsData.map((tab) => (

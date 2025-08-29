@@ -25,7 +25,7 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
       {thumbnail && thumbnail.length > 0 && (
         <div className="flex flex-col gap-4">
           {/* Main image */}
-          <div className="relative w-full aspect-video overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+          <div className="relative w-full aspect-video overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 backdrop-blur-lg shadow">
             <Image
               src={thumbnail[0]}
               alt={`Image of ${speciesName}`}
