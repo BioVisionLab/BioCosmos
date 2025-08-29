@@ -110,7 +110,7 @@ export default function SearchBar() {
         aria-label="Species search form"
       >
         {/* Input + Actions */}
-        <div className="flex items-center gap-1 w-full h-12">
+        <div className="flex items-center gap-2 w-full h-12">
           <div
             className={`
         relative flex items-stretch gap-2 rounded-l-2xl px-4 py-2
@@ -215,9 +215,9 @@ export default function SearchBar() {
               flex items-center justify-center 
               px-5 text-sm font-medium rounded-r-2xl
               bg-green-600 text-white hover:bg-green-700
-              ring-1 ring-gray-200 dark:ring-gray-700
+              ring-1 ring-emerald-200 dark:ring-emerald-600
               disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors h-full
+              transition-colors h-full backdrop-blur
               `}
               aria-label="Submit species search"
             >
