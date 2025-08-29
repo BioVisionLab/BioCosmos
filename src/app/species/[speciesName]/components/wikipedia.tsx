@@ -143,7 +143,9 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
 
         {!isLoading && !error && parsedContent.length > 0 && (
           <>
-            <div className="font-sans text-gray-900 rounded-2xl bg-gradient-to-tr from-gray-200 to-gray-50 p-6">
+            <div
+              className={`font-sans text-gray-900 rounded-2xl bg-gradient-to-tr from-white to-green-50 p-6 backdrop-blur-lg shadow border border-gray-300 dark:border-gray-600`}
+            >
               <WikipediaAttribution speciesName={speciesName} />
               <div className="rounded-xl overflow-hidden">
                 <div className="p-4 md:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
