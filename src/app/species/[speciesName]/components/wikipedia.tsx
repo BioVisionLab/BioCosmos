@@ -128,7 +128,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
 
   return (
     <>
-      <div className="rounded-2xl p-6 mb-8">
+      <div className="rounded-2xl p-6">
         {isLoading && (
           <div className="text-center p-10 rounded-xl">
             <p className="text-xl text-gray-600">Loading content...</p>
