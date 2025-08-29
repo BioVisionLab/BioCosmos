@@ -6,7 +6,7 @@ export function GbifAttribution({
   leadingText?: string;
 }) {
   return (
-    <p className="text-sm text-gray-500 mt-2">
+    <p className="text-xs text-gray-500 mt-2">
       {leadingText}{" "}
       <a
         href={gbifURL}
