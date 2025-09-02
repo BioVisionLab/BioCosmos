@@ -44,7 +44,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
       <div className="lg:col-span-2">
         <SpeciesImages speciesName={taxonomy?.species ?? ""} />
         <SpeciesDescription
-          description={"No description available."}
+          traits={traits}
           species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
         />
       </div>
