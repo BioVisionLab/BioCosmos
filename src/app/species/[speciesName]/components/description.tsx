@@ -59,14 +59,21 @@ function SpeciesDescriptionText({
       </div>
 
       {/* Each small card is its own grid item (no wrapping flex) */}
-      <div className={boxClasses}>
-        <h3 className="text-xl m-2">Flight Duration</h3>
-        <FlightDuration duration={traits.flight_duration} />
-      </div>
-      <div className={boxClasses}>
-        <h3 className="text-xl m-2">Canopy Affinity</h3>
-        <CanopyAffinity affinity={traits.canopy_affinity} />
-      </div>
+      {typeof traits.flight_duration === "number" &&
+        !Number.isNaN(traits.flight_duration) && (
+          <div className={boxClasses}>
+            <h3 className="text-xl m-2">Flight Duration</h3>
+            <FlightDuration duration={traits.flight_duration} />
+          </div>
+        )}
+
+      {typeof traits.canopy_affinity === "string" &&
+        traits.canopy_affinity.trim() !== "" && (
+          <div className={boxClasses}>
+            <h3 className="text-xl m-2">Canopy Affinity</h3>
+            <CanopyAffinity affinity={traits.canopy_affinity} />
+          </div>
+        )}
     </section>
   );
 }
