@@ -12,7 +12,7 @@ export function SpeciesDescription({
   species: string;
 }) {
   return (
-    <div className="mt-8 rounded-2xl bg-gradient-to-b from-emerald-500/5 to-transparent">
+    <div className="mt-8 rounded-2xl bg-gradient-to-t from-emerald-500/5 to-transparent">
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
         <h2 className="text-2xl font-semibold">Key Traits</h2>
       </div>
