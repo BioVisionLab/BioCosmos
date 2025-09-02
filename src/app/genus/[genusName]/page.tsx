@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { getSpeciesByGenus, type SpeciesData } from "@/lib/speciesData";
 import GenusSpeciesClient from "@/components/GenusSpeciesClient"; // We will create this next
 import Link from "next/link";
 
@@ -15,15 +13,6 @@ export default async function GenusPage({ params }: GenusPageProps) {
   // Decode the genus name in case it contains URL-encoded characters (like spaces if they ever occur)
   const decodedGenusName = decodeURIComponent(genusName);
 
-  // Fetch species for this specific genus
-  const speciesList = await getSpeciesByGenus(decodedGenusName);
-
-  // Determine family from the first species (if any)
-  // In a real app, you might fetch genus details separately
-  // or pass family info differently.
-  const familyName =
-    speciesList.length > 0 ? speciesList[0].taxonomy.family : "Nymphalidae"; // Fallback
-
   return (
     <section>
       {/* Updated Breadcrumbs */}
@@ -33,9 +22,7 @@ export default async function GenusPage({ params }: GenusPageProps) {
         </Link>
         <span>&gt;</span>
         {/* Link to the Family page */}
-        <Link href={`/family/${familyName}`} className="hover:underline">
-          {familyName}
-        </Link>
+        <span className="text-gray-400 italic">Family Name</span>
         <span>&gt;</span>
         <span className="italic font-semibold text-gray-800 dark:text-gray-200">
           {decodedGenusName}
@@ -49,7 +36,7 @@ export default async function GenusPage({ params }: GenusPageProps) {
 
       {/* Render the client component to display the species grid */}
       {/* Pass the fetched species list to the client component */}
-      <GenusSpeciesClient initialSpeciesList={speciesList} />
+      {/* <GenusSpeciesClient initialSpeciesList={speciesList} /> */}
     </section>
   );
 }

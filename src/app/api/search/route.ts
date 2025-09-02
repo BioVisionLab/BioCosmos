@@ -1,28 +1,36 @@
-import { NextResponse } from 'next/server';
+import { SpeciesData } from "@/lib/speciesData";
+import { NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { getSpeciesData, type SpeciesData } from '@/lib/speciesData';
+// import { getSpeciesData, type SpeciesData } from '@/lib/speciesData';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q');
+  const query = searchParams.get("q");
 
   if (!query) {
-    return NextResponse.json({ error: 'Query parameter \'q\' is required' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Query parameter 'q' is required" },
+      { status: 400 }
+    );
   }
 
   try {
-    const allSpecies = await getSpeciesData(); // Fetch all species
+    // const allSpecies = await getSpeciesData(); // Fetch all species
     const lowerCaseQuery = query.toLowerCase();
 
-    const filteredSpecies = allSpecies.filter(species => 
-      species.name.toLowerCase().includes(lowerCaseQuery) || 
-      species.commonName.toLowerCase().includes(lowerCaseQuery)
-      // Add more fields to search here if needed (e.g., description)
-    );
-
+    // const filteredSpecies = allSpecies.filter(
+    //   (species) =>
+    //     species.name.toLowerCase().includes(lowerCaseQuery) ||
+    //     species.commonName.toLowerCase().includes(lowerCaseQuery)
+    //   // Add more fields to search here if needed (e.g., description)
+    // );
+    const filteredSpecies: SpeciesData[] = []; // Placeholder until getSpeciesData is implemented
     return NextResponse.json(filteredSpecies);
   } catch (error) {
     console.error("Search API error:", error);
-    return NextResponse.json({ error: 'Failed to fetch species data' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch species data" },
+      { status: 500 }
+    );
   }
-} 
+}

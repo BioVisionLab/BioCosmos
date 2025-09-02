@@ -2,21 +2,17 @@
 
 import React, { useState } from "react";
 import { SpeciesOverview } from "./overview";
-import { TaxonomyData } from "@/lib/speciesData";
+import { SpeciesData, TaxonomyData } from "@/lib/speciesData";
 import SpeciesTraits from "./traits";
 import SpeciesDensityMap from "./distribution";
 import WikipediaPage from "./wikipedia";
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
-  speciesName: string;
-  taxonomyData: TaxonomyData | null;
+  speciesData: SpeciesData;
 }
 
-const TabsComponent: React.FC<TabsComponentProps> = ({
-  speciesName,
-  taxonomyData,
-}) => {
+const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
   // Tab data with placeholders for Traits and Specimens
   const tabsData = [
     {
@@ -24,8 +20,8 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
       label: "Overview",
       content: (
         <SpeciesOverview
-          speciesName={speciesName}
-          taxonomyData={taxonomyData}
+          taxonomy={speciesData.taxonomy}
+          traits={speciesData.traits}
         />
       ),
     },
@@ -37,11 +33,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     {
       id: "traits",
       label: "Traits",
-      content: (
-        <SpeciesTraits
-          description={taxonomyData?.description || "No description available."}
-        />
-      ),
+      content: <SpeciesTraits traits={speciesData.traits} />,
     },
     {
       id: "specimens",
@@ -58,7 +50,9 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     {
       id: "Wikipedia",
       label: "Wikipedia",
-      content: <WikipediaPage speciesName={speciesName} />,
+      content: (
+        <WikipediaPage speciesName={speciesData.taxonomy?.species ?? ""} />
+      ),
     },
   ];
 

@@ -1,4 +1,4 @@
-import { getTaxonomyData } from "@/lib/speciesData"; // Import the function and the type
+import { getSpeciesData } from "@/lib/speciesData"; // Import the function and the type
 import Link from "next/link";
 import TabsComponent from "./components/tabs";
 import SpeciesHeader from "./components/title";
@@ -14,10 +14,10 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
   const resolvedParams = await params;
   const { speciesName: folderName } = resolvedParams;
 
-  const taxonomyData = await getTaxonomyData(folderName);
+  const speciesData = await getSpeciesData(folderName);
 
   // Handle case where species data might not be found
-  if (!taxonomyData) {
+  if (!speciesData) {
     return (
       <section className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-6">Species Not Found</h1>
@@ -44,40 +44,40 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
         <span>&gt;</span>
         {/* Link to Family (assuming Nymphalidae for now) */}
         <Link
-          href={`/family/${taxonomyData.family}`}
+          href={`/family/${speciesData.taxonomy.family}`}
           className="hover:underline"
         >
-          {taxonomyData.family}
+          {speciesData.taxonomy.family}
         </Link>
         <span>&gt;</span>
         {/* Link to the Genus page */}
         <Link
-          href={`/genus/${taxonomyData.genus}`}
+          href={`/genus/${speciesData.taxonomy.genus}`}
           className="hover:underline italic"
         >
-          {taxonomyData.genus}
+          {speciesData.taxonomy.genus}
         </Link>
         <span>&gt;</span>
         <span className="italic text-gray-800 dark:text-gray-200">
-          {taxonomyData.species}
+          {speciesData.taxonomy.species}
         </span>
       </nav>
       {/* Optional: Add explicit "Back to Genus" link */}
       <div className="mb-4">
         <Link
-          href={`/genus/${taxonomyData.genus}`}
+          href={`/genus/${speciesData.taxonomy.genus}`}
           className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
-          &larr; Back to <span className="italic">{taxonomyData.genus}</span>{" "}
-          species
+          &larr; Back to{" "}
+          <span className="italic">{speciesData.taxonomy.genus}</span> species
         </Link>
       </div>
-      <SpeciesHeader taxonomy={taxonomyData} name={taxonomyData.species} />
+      <SpeciesHeader
+        taxonomy={speciesData.taxonomy}
+        name={speciesData.taxonomy.species}
+      />
       <div>
-        <TabsComponent
-          speciesName={taxonomyData.species}
-          taxonomyData={taxonomyData}
-        />
+        <TabsComponent speciesData={speciesData} />
       </div>
     </section>
   );

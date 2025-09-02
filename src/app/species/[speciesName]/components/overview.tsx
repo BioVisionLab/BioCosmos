@@ -4,7 +4,7 @@ import { SpeciesImages } from "./image_gallery";
 import { SpeciesDescription } from "./description";
 import { SpeciesClassification } from "./classification";
 import { RedListStatus } from "./redlist_status";
-import { TaxonomyData } from "@/lib/speciesData";
+import { LepTraits, TaxonomyData } from "@/lib/speciesData";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
@@ -19,19 +19,16 @@ const SpeciesDistribution = dynamic(
 );
 
 interface SpeciesOverviewProps {
-  speciesName: string;
-  taxonomyData: TaxonomyData | null;
+  taxonomy: TaxonomyData | null;
+  traits: LepTraits | null;
 }
 
-export function SpeciesOverview({
-  speciesName,
-  taxonomyData,
-}: SpeciesOverviewProps) {
-  if (!taxonomyData) {
+export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
+  if (!taxonomy) {
     return (
       <section className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-6">Species Not Found</h1>
-        <p>The requested species ({speciesName}) could not be found.</p>
+        <p>The requested species could not be found.</p>
         <Link
           href="/"
           className="text-blue-600 hover:underline mt-4 inline-block"
@@ -45,20 +42,18 @@ export function SpeciesOverview({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2">
-        <SpeciesImages speciesName={speciesName} />
+        <SpeciesImages speciesName={taxonomy?.species ?? ""} />
         <SpeciesDescription
-          description={taxonomyData?.description ?? "No description available."}
-          species={taxonomyData?.species ?? ""} // Use species from taxonomy or fallback to name
+          description={"No description available."}
+          species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
         />
       </div>
 
       {/* Right Column: Details */}
       <div className="lg:col-span-1 space-y-6">
-        <SpeciesClassification taxonomyData={taxonomyData} />
-        <RedListStatus
-          statusCode={taxonomyData?.redlistCategory ?? "Unknown"}
-        />
-        <SpeciesDistribution speciesName={speciesName} />
+        <SpeciesClassification taxonomyData={taxonomy} />
+        <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} />
+        <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
       </div>
     </div>
   );
