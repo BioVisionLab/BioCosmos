@@ -1,3 +1,4 @@
+import { LepTraitsAttribution } from "@/components/Attribution";
 import { LepTraits } from "@/lib/speciesData";
 import { Plane, Target, Trees } from "lucide-react";
 
@@ -16,7 +17,10 @@ export function SpeciesDescription({
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
         <h2 className="text-2xl font-semibold">Key Traits</h2>
       </div>
-      <SpeciesDescriptionText traits={traits} species={species} />
+      <div className="p-4">
+        <SpeciesDescriptionText traits={traits} species={species} />
+        <LepTraitsAttribution />
+      </div>
     </div>
   );
 }

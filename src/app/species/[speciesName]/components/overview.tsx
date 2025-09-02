@@ -4,6 +4,8 @@ import { SpeciesImages } from "./image_gallery";
 import { SpeciesDescription } from "./description";
 import { SpeciesClassification } from "./classification";
 import { RedListStatus } from "./redlist_status";
+
+import SimilarSpecies from "./similar_species";
 import { LepTraits, TaxonomyData } from "@/lib/speciesData";
 
 const SpeciesDistribution = dynamic(
@@ -40,20 +42,25 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2">
-        <SpeciesImages speciesName={taxonomy?.species ?? ""} />
-        <SpeciesDescription
-          traits={traits}
-          species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
-        />
-      </div>
+    <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <SpeciesImages speciesName={taxonomy?.species ?? ""} />
+          <SpeciesDescription
+            traits={traits}
+            species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
+          />
+        </div>
 
-      {/* Right Column: Details */}
-      <div className="lg:col-span-1 space-y-6">
-        <SpeciesClassification taxonomyData={taxonomy} />
-        <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} />
-        <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
+        {/* Right Column: Details */}
+        <div className="lg:col-span-1 space-y-6">
+          <SpeciesClassification taxonomyData={taxonomy} />
+          <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} />
+          <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
+        </div>
+      </div>
+      <div className="mt-6">
+        <SimilarSpecies species={taxonomy?.species ?? ""} />
       </div>
     </div>
   );
