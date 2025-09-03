@@ -2,6 +2,7 @@ import glob
 import numpy as np
 import io
 
+from ..configs.config import ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
 
@@ -16,22 +17,22 @@ import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
-IMG_DIR = "../../../python/biocosmos-exploration/data/images"
-COLLECTION_NAME = "biocosmos_images"
-
 
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
     def __init__(self):
+        config = ImageConfig()
         self.logger = logger
+        self.table = config.table
+        self.dir = config.dir
         self.db_table = LanceDB().create_or_get_collection(
-            COLLECTION_NAME
+            config.table
         )
 
     def entries(self) -> int | None:
         """Count the number of entries in the image collection."""
-        result = LanceDB().count_entries(COLLECTION_NAME)
+        result = LanceDB().count_entries(self.table)
         if result is None:
             logger.warning(
                 "No entries found in the image collection."
@@ -79,9 +80,9 @@ class ImagePersistData:
             return None
         return query[0].thumbnail_bytes_png
 
-    def ingest(self, img_dir: str = IMG_DIR):
+    def ingest(self):
         """Ingest images into the database."""
-        img_paths = self.get_images_from_path(img_dir)
+        img_paths = self.get_images_from_path(self.dir)
         if not img_paths:
             self.logger.error(
                 "No image paths provided for ingestion."

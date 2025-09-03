@@ -2,16 +2,13 @@ import logging
 import os
 import glob
 from tqdm import tqdm
+
+from ..configs.config import get_image_path
 from ..database.chroma import upsert_to_chroma, get_client
 from enum import Enum
 from .unicom import UnicomImageEmbedder, UNICOM_COLLECTION_NAME
 from .clip import ClipTextEmbedder, CLIP_COLLECTION_NAME
 from ..database.model import ImageMetadata, ImageData
-
-IMAGE_BASE_DIR = "../public/images/nymphalidae_new"  # Relative path from clip_service folder
-CHROMA_DB_PATH = (
-    "./chroma_db"  # Directory to store Chroma data locally
-)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +28,9 @@ class ModelType(Enum):
 
 
 class ImageEmbeddingIngestor:
-    def __init__(self, model_type, img_dir=IMAGE_BASE_DIR):
+    def __init__(self, model_type):
         """Initialize model and device for image embedding."""
-        self.img_dir = img_dir
+        self.img_dir = get_image_path()
         self.model_type = model_type
 
     def get_images(self) -> list[str]:

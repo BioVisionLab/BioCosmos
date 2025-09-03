@@ -1,4 +1,4 @@
-from math import log
+from ..configs.config import GbifConfig
 from ..database.duckdb import DuckDBClient
 from ..database.model import SpeciesTaxonomy
 import logging
@@ -6,12 +6,9 @@ import httpx
 
 GBIF_HOST = "https://api.gbif.org/v1/species"
 
-GBIF_META_TSV = "../../../python/biocosmos-exploration/data/lep-meta/gbif-lepi-2024-occurrence.tsv"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-GBIF_TABLE_NAME = "gbif_meta"
 
 
 class GbifPersistData:
@@ -24,9 +21,12 @@ class GbifPersistData:
         """
         Initialize the GbifPersistData from DuckDB.
         """
+        config = GbifConfig()
+        self.tsv_path = config.path
+        self.table_name = config.table
         self.db_client = DuckDBClient()
 
-    def ingest(self, tsv_path: str = GBIF_META_TSV):
+    def ingest(self):
         """
         Ingest GBIF data from a TSV file into DuckDB.
         """
@@ -35,14 +35,16 @@ class GbifPersistData:
             # for table creation in the DuckDb module to avoid
             # issues with type inference.
             self.db_client.execute(
-                f"CREATE TABLE IF NOT EXISTS {GBIF_TABLE_NAME} AS SELECT * FROM read_csv_auto('{tsv_path}', delim='\t', types={{'georeferencedDate': 'VARCHAR'}})"
+                f"CREATE TABLE IF NOT EXISTS {self.table_name} AS SELECT * FROM read_csv_auto('{self.tsv_path}', delim='\t', types={{'georeferencedDate': 'VARCHAR'}})"
             )
             logger.info(
-                f"GBIF data ingested successfully from '{tsv_path}'."
+                f"GBIF data ingested successfully from '{self.tsv_path}'."
             )
+            entries: int | None = self.count_entries()
+            logger.info(f"Total entries after ingestion: {entries}")
         except Exception as e:
             logger.error(
-                f"Failed to ingest GBIF data from '{tsv_path}': {e}"
+                f"Failed to ingest GBIF data from '{self.tsv_path}': {e}"
             )
             raise e
 
@@ -51,7 +53,7 @@ class GbifPersistData:
         Count the number of entries in the GBIF metadata table.
         """
         try:
-            query = f"SELECT COUNT(*) AS total_rows FROM {GBIF_TABLE_NAME}"
+            query = f"SELECT COUNT(*) AS total_rows FROM {self.table_name}"
             result = self.db_client.execute(query).fetchall()
             logger.info(
                 f"Counted {result[0][0]} entries in GBIF metadata table."

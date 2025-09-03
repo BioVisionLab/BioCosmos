@@ -1,13 +1,10 @@
-from pathlib import Path
+from ..configs.config import get_duck_db_path
 import duckdb
 import logging
 import polars as pl
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-DB_DIR = "duck_db"
-DB_FILE = "data.db"
 
 
 class DuckDBClient:
@@ -16,10 +13,7 @@ class DuckDBClient:
     """
 
     def __init__(self, db_path: str = None):
-        if db_path is None:
-            db_dir = Path(DB_DIR)
-            db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = db_dir / DB_FILE
+        db_path = get_duck_db_path()
         self.conn = duckdb.connect(database=str(db_path))
 
     def execute(self, query: str):

@@ -1,25 +1,17 @@
-from calendar import c
-from ..services import clip
-from ..services import unicom
+from ..configs.config import get_lance_db_path
 from .model import LanceSchema
 from lancedb import DBConnection
 import logging
 import lancedb
-import os
-
 
 logger = logging.getLogger(__name__)
-
-DB_DIR = "lance_db"
-DB_FNAME = "biocosmos.lance"
-DB_PATH = os.path.join(DB_DIR, DB_FNAME)
 
 
 class LanceDB:
     """LanceDB wrapper for CLIP model storage."""
 
-    def __init__(self, db_path: str = DB_PATH):
-        self.db_path = db_path
+    def __init__(self):
+        self.db_path = get_lance_db_path()
         self.db = lancedb.connect(self.db_path)
         logger.info(f"LanceDB connected at {self.db_path}")
 

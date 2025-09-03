@@ -14,9 +14,6 @@ from .routers import (
     taxon_search,
     taxon_fetch,
 )
-# from .database.chroma import init_chroma, init_db
-# from .services.embedder import ImageEmbeddingIngestor
-# from .services.embedder import ModelType
 
 # Configure logging
 logging.basicConfig(

@@ -1,15 +1,11 @@
 import logging
+from math import log
 from venv import logger
-
+from ..configs.config import LepTraitConfig
 from ..database.duckdb import DuckDBClient
 from ..database.model import LepTraitData
 
 logger = logging.getLogger(__name__)
-
-
-LEP_TRAITS_DOWNLOAD = "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
-
-LEP_TRAITS_TABLE = "lep_traits_consensus"
 
 
 class LepTraits:
@@ -19,23 +15,30 @@ class LepTraits:
         This service connects to the DuckDB database to fetch traits for lepidopteran species.
         The caller is responsible for managing the database connection lifecycle.
         """
+        config = LepTraitConfig()
+        self.path = config.path
+        self.table = config.table
         self.db_client = DuckDBClient()
 
-    def ingest(self, csv_path: str = LEP_TRAITS_DOWNLOAD):
+    def ingest(self):
         """
         Ingests the LepTraits consensus CSV data into the DuckDB database.
-        :param csv_path: The path to the LepTraits consensus CSV file.
         """
         try:
             self.db_client.create_if_not_exists_csv(
-                table_name=LEP_TRAITS_TABLE, csv_path=csv_path
+                table_name=self.table, csv_path=self.path
             )
-            logger.info(
-                f"LepTraits data ingested successfully from '{csv_path}'."
-            )
+            entries: int | None = self.count_entries()
+            if entries is not None:
+                logger.info(
+                    f"LepTraits data ingested successfully from '{self.path}'."
+                )
+                logger.info(
+                    f"Total entries after ingestion: {entries}"
+                )
         except Exception as e:
             logger.error(
-                f"Failed to ingest LepTraits data from '{csv_path}': {e}"
+                f"Failed to ingest LepTraits data from '{self.path}': {e}"
             )
             raise e
 
@@ -62,7 +65,7 @@ class LepTraits:
         :param species_name: The name of the species to fetch traits for.
         :return: The traits data for the species.
         """
-        query = f"SELECT * FROM {LEP_TRAITS_TABLE} WHERE LOWER(Species) = LOWER('{species_name}')"
+        query = f"SELECT * FROM {self.table} WHERE LOWER(Species) = LOWER('{species_name}')"
         result = self.db_client.execute(query).pl()
         if result.is_empty():
             logger.warning(
