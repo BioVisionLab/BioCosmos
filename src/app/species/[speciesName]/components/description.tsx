@@ -156,7 +156,7 @@ function Wingspan({
     <ul className="space-y-1 text-gray-700 dark:text-gray-300">
       {hasValue(male) && (
         <li>
-          <span className={valueClass}>{male} mm</span>
+          <span className={valueClass}>{male} cm</span>
           <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mr-1">
             {" (♂)"}
           </span>
@@ -164,7 +164,7 @@ function Wingspan({
       )}
       {hasValue(female) && (
         <li>
-          <span className={valueClass}>{female} mm</span>
+          <span className={valueClass}>{female} cm</span>
           <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mr-1">
             {" (♀)"}
           </span>
@@ -172,7 +172,7 @@ function Wingspan({
       )}
       {hasValue(unspecified) && (
         <li>
-          <span className={valueClass}>{unspecified} mm</span>
+          <span className={valueClass}>{unspecified} cm</span>
           <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mr-1">
             {" (Unspecified)"}
           </span>

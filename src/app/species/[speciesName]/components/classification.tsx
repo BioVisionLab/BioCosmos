@@ -19,7 +19,7 @@ export function SpeciesClassification({
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
         <h2 className="text-2xl font-semibold">Classification</h2>
       </div>
-      <div className="p-4">
+      <div className="p-4 ml-4">
         <table className="text-sm text-gray-700 dark:text-gray-300 w-full min-w-[350px]">
           <tbody>
             <tr>
