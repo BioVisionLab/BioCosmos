@@ -26,11 +26,6 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
       ),
     },
     {
-      id: "distribution",
-      label: "Distribution",
-      content: <SpeciesDensityMap />,
-    },
-    {
       id: "traits",
       label: "Traits",
       content: <SpeciesTraits traits={speciesData.traits} />,
