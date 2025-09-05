@@ -1,8 +1,9 @@
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useMemo } from "react";
-
 // --- Remove Icon Imports ---
 /*
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -10,9 +11,12 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 */
 
-const TILE_LAYER_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_LAYER_URL =
+  "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";
+
 const TILE_LAYER_ATTRIBUTION_URL =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &amp; GBIF';
+  '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
 interface Occurrence {
   key: string | number;
   decimalLatitude: number;
@@ -62,7 +66,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
       center={mapCenter}
       zoom={mapZoom}
       scrollWheelZoom={true}
-      style={{ height: "400px", width: "100%", borderRadius: "8px" }}
+      style={{ height: "400px", width: "100%", borderRadius: "12px" }}
     >
       <TileLayer
         attribution={TILE_LAYER_ATTRIBUTION_URL}
@@ -86,7 +90,6 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
           );
           return null; // Skip rendering this marker if coordinates are invalid
         }
-        // --- End Logging ---
 
         return (
           <Marker
