@@ -4,9 +4,8 @@ import { SpeciesImages } from "./image_gallery";
 import { SpeciesDescription } from "./description";
 import { SpeciesClassification } from "./classification";
 import { RedListStatus } from "./redlist_status";
-
+import { LepTraits, SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
 import SimilarSpecies from "./similar_species";
-import { LepTraits, TaxonomyData } from "@/lib/speciesData";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
@@ -23,7 +22,7 @@ const SpeciesDistribution = dynamic(
 interface SpeciesOverviewProps {
   taxonomy: TaxonomyData | null;
   traits: LepTraits | null;
-  similarSpecies: string[];
+  similarSpecies: SimilarSpeciesMeta[];
 }
 
 export function SpeciesOverview({
@@ -67,7 +66,7 @@ export function SpeciesOverview({
       <div className="mt-6">
         <SimilarSpecies
           species={taxonomy?.species ?? ""}
-          imgIds={similarSpecies}
+          meta={similarSpecies}
         />
       </div>
     </div>

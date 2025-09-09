@@ -1,3 +1,5 @@
+import { cleanSpeciesName } from "./names";
+
 const API_SERVICE_URL = `http://127.0.0.1:8000/taxon`;
 
 const INITIAL_SPECIES = [
@@ -20,17 +22,6 @@ export interface SpeciesThumbnails {
 
 function getSpeciesList(): string[] {
   return INITIAL_SPECIES.sort();
-}
-
-/**
- * Cleans the species name by replacing underscores with spaces.
- * Make it in sentence case.
- * @param name - The species name to clean.
- * @returns The cleaned species name.
- */
-function clean_species_name(name: string): string {
-  const [genus, ...rest] = name.replace(/_/g, " ").split(" ");
-  return [genus.charAt(0).toUpperCase() + genus.slice(1), ...rest].join(" ");
 }
 
 /**
@@ -67,7 +58,7 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
     speciesList.map(async (species) => {
       const imageUrl = await fetchSpeciesThumbnail(species);
       return {
-        name: clean_species_name(species),
+        name: cleanSpeciesName(species),
         imageUrl,
         folderName: species,
       };

@@ -1,6 +1,9 @@
 import glob
+from re import S
 import numpy as np
 import io
+
+from pydantic import BaseModel
 
 from ..configs.config import ImageConfig
 from ..database.model import LanceSchema
@@ -16,6 +19,21 @@ import os
 import concurrent.futures
 
 logger = logging.getLogger(__name__)
+
+
+class SimilarImageResult(BaseModel):
+    """Class to represent similar image search results."""
+
+    img_id: str
+    species: str
+    distance: float
+
+    def to_dict(self) -> dict:
+        return {
+            "imgId": self.img_id,
+            "species": self.species,
+            "distance": self.distance,
+        }
 
 
 class ImagePersistData:
@@ -78,7 +96,7 @@ class ImagePersistData:
 
     def fetch_id_similar_images(
         self, species_name: str, limit: int = 20
-    ) -> list[str] | None:
+    ) -> list[dict] | None:
         """Fetch similar images for a specific species."""
         # We get unicom embeddings for similarity search
         query = self._query_image(species_name)
@@ -106,9 +124,7 @@ class ImagePersistData:
             filtered_imgs = self._filter_images_by_species(
                 similar_images, query_vector=centroid
             )
-            return [
-                img.img_id for img in filtered_imgs
-            ]  # Return list of image IDs
+            return [img.to_dict() for img in filtered_imgs]
         except Exception as e:
             self.logger.error(
                 f"Error fetching similar images for species '{species_name}': {e}"
@@ -139,7 +155,7 @@ class ImagePersistData:
         self,
         images: list[LanceSchema],
         query_vector: np.ndarray | None = None,
-    ) -> list[LanceSchema]:
+    ) -> list[SimilarImageResult]:
         """Filter images to ensure only one image per species.
         We keep the first occurrence of the nearest image.
         """
@@ -155,7 +171,15 @@ class ImagePersistData:
         filtered_images = []
         for img in images:
             if img.species not in seen_species:
-                filtered_images.append(img)
+                filtered_images.append(
+                    SimilarImageResult(
+                        img_id=img.img_id,
+                        species=img.species,
+                        distance=np.linalg.norm(
+                            img.unicom_embeddings - query_vector
+                        ),
+                    )
+                )
                 seen_species.add(img.species)
             if len(filtered_images) >= 5:
                 break

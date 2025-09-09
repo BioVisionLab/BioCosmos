@@ -1,15 +1,16 @@
+import { SimilarSpeciesMeta } from "@/lib/speciesData";
 import { fetchSimilarImg } from "@/lib/speciesList";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
 function SimilarSpecies({
   species,
-  imgIds,
+  meta,
 }: {
   species: string;
-  imgIds: string[];
+  meta: SimilarSpeciesMeta[];
 }) {
-  if (imgIds.length === 0) {
+  if (meta.length === 0) {
     return null; // Don't render anything if there are no similar species
   }
   return (
@@ -22,45 +23,52 @@ function SimilarSpecies({
         </p>
       </div>
 
-      <SimilarSpeciesImageGallery imgIds={imgIds} />
+      <SimilarSpeciesImageGallery meta={meta} />
     </div>
   );
 }
 
-function SimilarSpeciesImageGallery({ imgIds }: { imgIds: string[] }) {
+function SimilarSpeciesImageGallery({ meta }: { meta: SimilarSpeciesMeta[] }) {
   return (
     <div className="overflow-x-auto rounded-xl px-2">
-      {imgIds.map((imgId) => (
-        <SimilarSpeciesImage key={imgId} imgId={imgId} />
+      {meta.map((item) => (
+        <div key={item.imgId}>
+          <SimilarSpeciesImage meta={item} />
+        </div>
       ))}
     </div>
   );
 }
 
-function SimilarSpeciesImage({ imgId }: { imgId: string }) {
+function SimilarSpeciesImage({ meta }: { meta: SimilarSpeciesMeta }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchImage = async () => {
       try {
-        const response = await fetchSimilarImg(imgId);
+        const response = await fetchSimilarImg(meta.imgId);
         setImageUrl(response);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
       }
     };
     fetchImage();
-  }, [imgId]);
+  }, [meta.imgId]);
 
   return (
     imageUrl && (
-      <div className="relative w-32 h-32 inline-block m-2 overflow-hidden">
-        <Image
-          src={imageUrl}
-          alt={`Similar species image ${imgId}`}
-          fill
-          className="object-fill"
-        />
+      <div className="inline-block m-4 text-center">
+        <div className="relative w-32 h-32 inline-block overflow-hidden">
+          <Image
+            src={imageUrl}
+            alt={`Similar species image ${meta.imgId}`}
+            fill
+            className="object-fill"
+          />
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+          {meta.species}
+        </p>
       </div>
     )
   );
