@@ -4,12 +4,6 @@ import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useMemo } from "react";
-// --- Remove Icon Imports ---
-/*
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-*/
 
 const TILE_LAYER_URL =
   "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";
@@ -29,20 +23,25 @@ interface SpeciesMapProps {
 }
 
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
-  // --- Create Icon Instance using Static Paths ---
   const customIcon = useMemo(() => {
-    // console.log('Creating customIcon with static paths'); // Optional logging
-    return L.icon({
-      iconUrl: "/leaflet/images/marker-icon.png", // Path relative to public folder
-      iconRetinaUrl: "/leaflet/images/marker-icon-2x.png", // Path relative to public folder
-      shadowUrl: "/leaflet/images/marker-shadow.png", // Path relative to public folder
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
+    const size = 8;
+    const html = `<div style="
+      width:${size}px;
+      height:${size}px;
+      background:#009688;
+      opacity:0.8;
+      border-radius:50%;
+      border:2px solid #009688;
+    "></div>`;
+
+    return L.divIcon({
+      html,
+      className: "",
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2],
     });
-  }, []); // Empty dependency array ensures it's created only once
-  // --- End Icon Instance Creation ---
+  }, []);
 
   // Prevent server-side rendering for MapContainer
   if (typeof window === "undefined") {
