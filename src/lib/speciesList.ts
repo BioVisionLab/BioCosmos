@@ -1,5 +1,3 @@
-import { API_HOST } from "./config";
-
 const API_SERVICE_URL = `http://127.0.0.1:8000/taxon`;
 
 const INITIAL_SPECIES = [
@@ -94,6 +92,26 @@ export async function fetchSpeciesImage(speciesName: string): Promise<string> {
 
   // Create a temporary URL from the blob to display the image
   const localUrl = URL.createObjectURL(imageBlob);
+
+  return localUrl;
+}
+
+export async function fetchSimilarImg(imageId: string): Promise<string> {
+  // Construct the API endpoint URL
+  const response = await fetch(
+    `http://127.0.0.1:8000/img-search/id/${imageId}`
+  );
+
+  // Check if the request was successful
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch similar images. Status: ${response.status}`
+    );
+  }
+
+  // The response is expected to be a JSON array of image IDs
+  const img_blob = await response.blob();
+  const localUrl = URL.createObjectURL(img_blob);
 
   return localUrl;
 }

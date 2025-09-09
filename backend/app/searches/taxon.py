@@ -17,7 +17,7 @@ class SpeciesPayload(BaseModel):
     speciesId: str
     taxonomy: dict
     traits: dict
-    similar_images: list[str] = []
+    similarSpecies: list[str] = []
 
     @classmethod
     def from_data(
@@ -25,7 +25,7 @@ class SpeciesPayload(BaseModel):
         species_id: str,
         taxonomy: dict,
         traits: dict,
-        similar_images: list[str],
+        similarSpecies: list[str],
     ):
         """
         Create a SpeciesPayload instance from the provided data.
@@ -42,7 +42,7 @@ class SpeciesPayload(BaseModel):
             speciesId=species_id,
             taxonomy=taxonomy,
             traits=traits,
-            similar_images=similar_images,
+            similarSpecies=similarSpecies,
         )
 
 
@@ -132,7 +132,7 @@ class TaxonSearch:
                 species_id=self.species,
                 taxonomy=taxon_data,
                 traits=trait_data,
-                similar_images=similar_images,
+                similarSpecies=similar_images,
             )
             return payload.model_dump()
 

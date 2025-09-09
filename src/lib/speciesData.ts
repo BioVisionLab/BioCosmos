@@ -1,6 +1,4 @@
 // import fs from "fs";
-import path from "path";
-
 import { API_HOST } from "./config";
 
 const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
@@ -22,6 +20,7 @@ export interface TaxonomyData {
 export interface SpeciesData {
   taxonomy: TaxonomyData;
   traits: LepTraits;
+  similarSpecies: string[];
 }
 
 export interface LepTraits {
@@ -102,6 +101,7 @@ export async function getSpeciesData(
     return {
       taxonomy,
       traits,
+      similarSpecies: dataRaw["similarSpecies"] || [],
     };
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);

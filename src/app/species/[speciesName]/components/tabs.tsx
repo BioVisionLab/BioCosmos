@@ -22,6 +22,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
         <SpeciesOverview
           taxonomy={speciesData.taxonomy}
           traits={speciesData.traits}
+          similarSpecies={speciesData.similarSpecies}
         />
       ),
     },
