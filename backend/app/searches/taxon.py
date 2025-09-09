@@ -17,9 +17,16 @@ class SpeciesPayload(BaseModel):
     speciesId: str
     taxonomy: dict
     traits: dict
+    similar_images: list[str] = []
 
     @classmethod
-    def from_data(cls, species_id: str, taxonomy: dict, traits: dict):
+    def from_data(
+        cls,
+        species_id: str,
+        taxonomy: dict,
+        traits: dict,
+        similar_images: list[str],
+    ):
         """
         Create a SpeciesPayload instance from the provided data.
 
@@ -32,7 +39,10 @@ class SpeciesPayload(BaseModel):
             SpeciesPayload: An instance of SpeciesPayload.
         """
         return cls(
-            speciesId=species_id, taxonomy=taxonomy, traits=traits
+            speciesId=species_id,
+            taxonomy=taxonomy,
+            traits=traits,
+            similar_images=similar_images,
         )
 
 
@@ -112,10 +122,17 @@ class TaxonSearch:
                     f"No traits data found for species: {self.species}"
                 )
                 return None
+            similar_images = (
+                ImagePersistData().fetch_id_similar_images(
+                    species_name=self.species, limit=20
+                )
+                or []
+            )
             payload = SpeciesPayload.from_data(
                 species_id=self.species,
                 taxonomy=taxon_data,
                 traits=trait_data,
+                similar_images=similar_images,
             )
             return payload.model_dump()
 

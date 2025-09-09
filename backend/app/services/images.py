@@ -40,6 +40,125 @@ class ImagePersistData:
             return None
         return result
 
+    def fetch_image(self, species_name: str) -> io.BytesIO | None:
+        """Fetch a high-resolution image for a specific species.
+
+        How it works:
+        1. Query the database for images matching the species name.
+        2. Compute the centroid of the embeddings.
+        3. Select the image closest to the centroid.
+        4. If not found, return None.
+        :param species_name: The name of the species to fetch the image for.
+        :return: The image bytes in PNG format or None if not found."""
+        query = self._query_image(species_name)
+        if query is None:
+            return None
+        return query[0].image_bytes_png
+
+    def fetch_id_similar_images(
+        self, species_name: str, limit: int = 20
+    ) -> list[str] | None:
+        """Fetch similar images for a specific species."""
+        # We get unicom embeddings for similarity search
+        query = self._query_image(species_name)
+        if query is None:
+            return None
+        # Compute the centroid of the embeddings
+        centroid: np.ndarray = np.mean(
+            [img.unicom_embeddings for img in query], axis=0
+        )
+        # Perform similarity search based on the centroid
+        try:
+            similar_images = (
+                self.db_table.search(
+                    centroid, vector_column_name="unicom_embeddings"
+                )
+                .limit(limit)
+                .to_pydantic(LanceSchema)
+            )
+            if not similar_images:
+                self.logger.warning(
+                    f"No similar images found for species '{species_name}'."
+                )
+                return None
+            # We filter only one image per species to ensure diversity
+            filtered_imgs = self._filter_images_by_species(
+                similar_images, query_vector=centroid
+            )
+            return [
+                img.img_id for img in filtered_imgs
+            ]  # Return list of image IDs
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching similar images for species '{species_name}': {e}"
+            )
+            return None
+
+    def fetch_thumbnail(
+        self, species_name: str, limit: int = 5
+    ) -> io.BytesIO | None:
+        """Fetch thumbnails for a specific species."""
+        query = self._query_image(species_name)
+        if query is None:
+            return None
+        return query[0].thumbnail_bytes_png
+
+    def ingest(self):
+        """Ingest images into the database."""
+        img_paths = self._get_images_from_path(self.dir)
+        if not img_paths:
+            self.logger.error(
+                "No image paths provided for ingestion."
+            )
+            return
+        self.logger.info(f"Ingesting {len(img_paths)} images.")
+        ImageEmbedder().batch_add_embeddings(img_paths)
+
+    def _filter_images_by_species(
+        self,
+        images: list[LanceSchema],
+        query_vector: np.ndarray | None = None,
+    ) -> list[LanceSchema]:
+        """Filter images to ensure only one image per species.
+        We keep the first occurrence of the nearest image.
+        """
+        if query_vector is None:
+            return images
+        # Sort images by distance to the query vector
+        images.sort(
+            key=lambda img: np.linalg.norm(
+                img.unicom_embeddings - query_vector
+            )
+        )
+        seen_species = set()
+        filtered_images = []
+        for img in images:
+            if img.species not in seen_species:
+                filtered_images.append(img)
+                seen_species.add(img.species)
+            if len(filtered_images) >= 5:
+                break
+        return filtered_images
+
+    def _get_images_from_path(self, img_dir: str) -> list[str]:
+        """Get a list of image paths from the specified directory."""
+        if not os.path.isdir(img_dir):
+            self.logger.error(f"Invalid image directory: {img_dir}")
+            return []
+        pattern = os.path.join(img_dir, "**") + "/*"
+        img_paths = [
+            f
+            for f in glob.glob(pattern, recursive=True)
+            if f.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+            )
+            and os.path.isfile(f)
+        ]
+        self.logger.info(
+            f"Found {len(img_paths)} images in {img_dir}."
+        )
+        return img_paths
+
     def _query_image(
         self, species_name: str
     ) -> list[LanceSchema] | None:
@@ -63,52 +182,6 @@ class ImagePersistData:
             self.logger.error(
                 f"Error fetching images for species '{species_name}': {e}"
             )
-
-    def fetch_image(self, species_name: str) -> io.BytesIO | None:
-        """Fetch a high-resolution image for a specific species."""
-        query = self._query_image(species_name)
-        if query is None:
-            return None
-        return query[0].image_bytes_png
-
-    def fetch_thumbnail(
-        self, species_name: str, limit: int = 5
-    ) -> io.BytesIO | None:
-        """Fetch thumbnails for a specific species."""
-        query = self._query_image(species_name)
-        if query is None:
-            return None
-        return query[0].thumbnail_bytes_png
-
-    def ingest(self):
-        """Ingest images into the database."""
-        img_paths = self.get_images_from_path(self.dir)
-        if not img_paths:
-            self.logger.error(
-                "No image paths provided for ingestion."
-            )
-            return
-        self.logger.info(f"Ingesting {len(img_paths)} images.")
-        ImageEmbedder().batch_add_embeddings(img_paths)
-
-    def get_images_from_path(self, img_dir: str) -> list[str]:
-        """Get a list of image paths from the specified directory."""
-        if not os.path.isdir(img_dir):
-            self.logger.error(f"Invalid image directory: {img_dir}")
-            return []
-        pattern = os.path.join(img_dir, "**") + "/*"
-        img_paths = [
-            f
-            for f in glob.glob(pattern, recursive=True)
-            if f.lower().endswith(
-                (".png", ".jpg", ".jpeg", ".webp", ".bmp")
-            )
-            and os.path.isfile(f)
-        ]
-        self.logger.info(
-            f"Found {len(img_paths)} images in {img_dir}."
-        )
-        return img_paths
 
 
 class ImageEmbedder(ImagePersistData):

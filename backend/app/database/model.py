@@ -327,9 +327,9 @@ class LepTraitData(BaseModel):
     @staticmethod
     def _to_float(value: Optional[str]) -> Optional[float]:
         """
-        Convert string to float, handling None and empty strings.
+        Convert string to float, handling None, empty strings, and 'NA'/'null'.
         """
-        if value is None or value == "":
+        if value is None or value == "" or value in ["NA", "null"]:
             return None
         try:
             return float(value)
