@@ -13,6 +13,7 @@
     "@fontsource/poppins": "^5.2.5",
     "@types/leaflet": "^1.9.17",
     "ai": "^4.3.2",
+    "chart.js": "^4.5.0",
     "cntl": "^1.0.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
