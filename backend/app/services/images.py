@@ -20,6 +20,9 @@ import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
+# Similarity search is based on LanceDB options:
+# https://lancedb.github.io/lancedb/search
+
 
 class SimilarImageResult(BaseModel):
     """Class to represent similar image search results."""
