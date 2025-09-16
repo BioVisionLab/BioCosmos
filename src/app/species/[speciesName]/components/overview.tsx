@@ -1,11 +1,11 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { SpeciesImages } from "./image_gallery";
-import { SpeciesDescription } from "./description";
-import { SpeciesClassification } from "./classification";
-import { RedListStatus } from "./redlist_status";
+import { SpeciesImages } from "./ImageGallery";
+import { SpeciesDescription } from "./Description";
+import { SpeciesClassification } from "./Classification";
+import { RedListStatus } from "./RedlistStatus";
 import { LepTraits, SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
-import SimilarSpecies from "./similar_species";
+import VisuallySimilarSpecies from "./SimilarSpecies";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
@@ -64,7 +64,7 @@ export function SpeciesOverview({
         </div>
       </div>
       <div className="mt-6">
-        <SimilarSpecies
+        <VisuallySimilarSpecies
           species={taxonomy?.species ?? ""}
           meta={similarSpecies}
         />

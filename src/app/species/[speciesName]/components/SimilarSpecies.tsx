@@ -3,7 +3,7 @@ import { fetchSimilarImg } from "@/lib/speciesList";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-function SimilarSpecies({
+function VisuallySimilarSpecies({
   species,
   meta,
 }: {
@@ -74,4 +74,4 @@ function SimilarSpeciesImage({ meta }: { meta: SimilarSpeciesMeta }) {
   );
 }
 
-export default SimilarSpecies;
+export default VisuallySimilarSpecies;
