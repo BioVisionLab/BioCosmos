@@ -3,8 +3,8 @@
 import React, { useState } from "react";
 import { SpeciesOverview } from "./Overview";
 import { SpeciesData } from "@/lib/speciesData";
-import SpeciesTraits from "./Traits";
 import WikipediaPage from "./Wikipedia";
+import { SpeciesTraits } from "./Traits";
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
