@@ -7,10 +7,12 @@ db:
     dir: "lance_db"
     file: "biocosmos.lance"
 images:
-  dir: "../../../python/biocosmos-exploration/data/images"
+  # dir: "../../../python/biocosmos-exploration/data/images"
+  dir: "/data/projects/2024_nymphalidae/data_raw/segmentation_masks/"
   table: "nymphalidae"
 gbif:
-  dir: "../../../python/biocosmos-exploration/data/lep-meta/"
+  # dir: "../../../python/biocosmos-exploration/data/lep-meta/"
+  dir: "/home/hhandika/Codes/"
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"
 leptrait:
