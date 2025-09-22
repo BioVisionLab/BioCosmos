@@ -97,6 +97,51 @@ class ImagePersistData:
             return None
         return query[0].image_bytes_png
 
+    def get_matches_from_text(
+        self, text: str, limit: int = 20
+    ) -> list[SimilarImageResult] | None:
+        """Fetch images similar to the given text."""
+        try:
+            text_embedder = ClipEmbedder()
+            text_embedding = text_embedder.get_embedding_from_text(
+                text
+            )
+            if text_embedding is None:
+                self.logger.warning(
+                    "Failed to compute text embedding."
+                )
+                return None
+
+            similar_images = (
+                self.db_table.search(
+                    text_embedding,
+                    vector_column_name="clip_embeddings",
+                )
+                .limit(limit)
+                .to_pydantic(LanceSchema)
+            )
+            if not similar_images:
+                self.logger.warning(
+                    "No similar images found for the given text."
+                )
+                return None
+            filtered_imgs = self._filter_images_by_species(
+                similar_images, query_vector=text_embedding
+            )
+            return [
+                SimilarImageResult(
+                    img_id=img.img_id,
+                    species=img.species,
+                    distance=self._compute_distance(
+                        img.clip_embeddings, text_embedding
+                    ),
+                )
+                for img in filtered_imgs
+            ]
+        except Exception as e:
+            self.logger.error(f"Error fetching similar images: {e}")
+            return None
+
     def fetch_id_similar_images(
         self, species_name: str, limit: int = 20
     ) -> list[dict] | None:
@@ -178,8 +223,8 @@ class ImagePersistData:
                     SimilarImageResult(
                         img_id=img.img_id,
                         species=img.species,
-                        distance=np.linalg.norm(
-                            img.unicom_embeddings - query_vector
+                        distance=self._compute_distance(
+                            img.unicom_embeddings, query_vector
                         ),
                     )
                 )
@@ -187,6 +232,12 @@ class ImagePersistData:
             if len(filtered_images) >= 5:
                 break
         return filtered_images
+
+    def _compute_distance(
+        self, source_emb: np.ndarray, target_emb: np.ndarray
+    ) -> float:
+        """Compute the Euclidean distance between two embeddings."""
+        return np.linalg.norm(source_emb - target_emb)
 
     def _get_images_from_path(self, img_dir: str) -> list[str]:
         """Get a list of image paths from the specified directory."""

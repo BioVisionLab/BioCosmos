@@ -3,10 +3,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
 from ..services import unicom
-from ..searches.query import SearchResults
 import io
 from fastapi.responses import StreamingResponse
-from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -79,8 +77,7 @@ async def image_search(request: Request):
         )
         logger.info("ChromaDB UNICOM query completed.")
 
-        unique_results = SearchResults(search_results).find_best_hit()
-        return JSONResponse(content=unique_results, status_code=200)
+        return JSONResponse(content=search_results, status_code=200)
 
     except Exception as e:
         logger.error(
