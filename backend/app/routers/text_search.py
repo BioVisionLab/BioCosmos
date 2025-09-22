@@ -1,5 +1,5 @@
 from ..searches.images import TextToImageSearch
-from ..services.images import ImagePersistData
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
