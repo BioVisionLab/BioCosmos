@@ -1,3 +1,4 @@
+import base64
 import logging
 from unittest.mock import Base
 
@@ -46,5 +47,40 @@ class TextToImageSearch:
         search_img = ImagePersistData()
         results = search_img.fetch_similar_images_from_text(
             self.query
+        )
+        return results
+
+
+class ImageToImageSearch:
+    """
+    A class to handle image to image search operations.
+    """
+
+    def __init__(self, query: str = ""):
+        """
+        Initialize the ImageToImageSearch class.
+        The query is base64 encoded image string.
+        """
+        self.query = query.strip()
+
+    def search(self, limit: int = 10) -> dict | None:
+        """
+        Perform an image to image search.
+        """
+        if not self.query:
+            logger.warning(
+                "Empty query provided for image to image search."
+            )
+            return None
+        # Placeholder for actual search logic
+        logger.info(f"Performing image to image search for query.")
+        if "," in self.query:
+            _, encoded = self.query.split(",", 1)
+        else:
+            encoded = self.query
+        query_img: bytes = base64.b64decode(encoded)
+        search_img = ImagePersistData()
+        results = search_img.fetch_similar_images_from_bytes(
+            query_img, limit=limit
         )
         return results

@@ -1,3 +1,4 @@
+from backend.app.searches.images import ImageToImageSearch
 from ..services.images import ImagePersistData
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -48,34 +49,14 @@ async def image_search(request: Request):
         logger.info(
             "Generating UNICOM image embedding from base64 data..."
         )
-        embedder = unicom.UnicomImageEmbedder()
-        if embedder.model is None:
-            logger.error(
-                "UNICOM model is not available for image embedding."
-            )
+        img_service = ImageToImageSearch(base64_image)
+        search_results = img_service.search()
+        if search_results is None:
+            logger.warning("No results found for the given image.")
             return JSONResponse(
-                content={
-                    "error": "UNICOM model is not available for image embedding."
-                },
-                status_code=500,
+                content={"results": []},
+                status_code=200,
             )
-        query_embeddings = embedder.get_embedding(base64_image)
-        if query_embeddings is None:
-            return JSONResponse(
-                content={
-                    "error": "Failed to process uploaded image using UNICOM."
-                },
-                status_code=400,
-            )
-        logger.info("UNICOM image embedding generated.")
-
-        logger.info(
-            f"Querying ChromaDB UNICOM collection '{embedder.get_collection_name}' with image embedding..."
-        )
-        search_results = await embedder.query(
-            query_embedding=query_embeddings, n_results=100
-        )
-        logger.info("ChromaDB UNICOM query completed.")
 
         return JSONResponse(content=search_results, status_code=200)
 

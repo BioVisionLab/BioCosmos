@@ -139,6 +139,50 @@ class ImagePersistData:
             self.logger.error(f"Error fetching similar images: {e}")
             return None
 
+    def fetch_similar_images_from_bytes(
+        self, image_bytes: bytes, limit: int = 20
+    ) -> list[dict] | None:
+        """Fetch images similar to the given image bytes.
+        We use UNICOM embeddings for image similarity search.
+        We then filter the results to ensure it contains only one image per species.
+
+        :param image_bytes: The input image bytes to search for similar images.
+        :param limit: The maximum number of similar images to return.
+        :return: A list of dictionaries containing similar image details or None if no matches found.
+        """
+        try:
+            unicom_embedder = UnicomImageEmbedder()
+            query_embedding = (
+                unicom_embedder.get_embedding_from_bytes(image_bytes)
+            )
+            if query_embedding is None:
+                self.logger.warning(
+                    "Failed to compute image embedding."
+                )
+                return None
+
+            similar_images = (
+                self.db_table.search(
+                    query_embedding,
+                    vector_column_name="unicom_embeddings",
+                )
+                .distance_range(upper_bound=10.0)
+                .limit(limit)
+                .to_pydantic(LanceSchema)
+            )
+            if not similar_images:
+                self.logger.warning(
+                    "No similar images found for the given image."
+                )
+                return None
+            similar_imgs = self._filter_by_species_unicom(
+                similar_images, query_vector=query_embedding
+            )
+            return [img.to_dict() for img in similar_imgs]
+        except Exception as e:
+            self.logger.error(f"Error fetching similar images: {e}")
+            return None
+
     def fetch_id_similar_images(
         self, species_name: str, limit: int = 20
     ) -> list[dict] | None:
