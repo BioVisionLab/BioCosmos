@@ -10,6 +10,10 @@ images:
   dir: "../../../python/biocosmos-exploration/data/images"
   # dir: "/data/projects/2024_nymphalidae/data_raw/segmentation_masks/"
   table: "nymphalidae"
+  # Limit number of images to ingest into the database, set to null for no
+  limit: null
+  # Reset the inserted images, set to true to re-insert all images
+  reset: false
 gbif:
   dir: "../../../python/biocosmos-exploration/data/lep-meta/"
   # dir: "/home/hhandika/Codes/"

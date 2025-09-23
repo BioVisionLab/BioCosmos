@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from .services.images import ImagePersistData
+from .services.images import ImageEmbedder
 
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
         logger.info("LepTraits data ingested successfully.")
         GbifPersistData().ingest()
         logger.info("GBIF data ingested successfully.")
-        ImagePersistData().ingest()
+        ImageEmbedder().ingest()
         yield
     except Exception as e:
         logger.error(f"Error initializing database: {e}")

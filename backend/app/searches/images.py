@@ -2,8 +2,21 @@ import logging
 from unittest.mock import Base
 
 from pydantic import BaseModel
+from ..services.images import ImagePersistData
 
 logger = logging.getLogger(__name__)
+
+
+class SearchPayload(BaseModel):
+    """ """
+
+    query: str
+    results: list[dict]
+
+    @classmethod
+    def from_data(cls, query: str, resuls: list[dict]):
+        """ """
+        return cls(query=query, results=resuls)
 
 
 class TextToImageSearch:
@@ -18,7 +31,7 @@ class TextToImageSearch:
         self.query = query.strip().lower()
 
     def search(self) -> dict | None:
-        """
+        """cle
         Perform a text to image search.
         """
         if not self.query:
@@ -30,12 +43,8 @@ class TextToImageSearch:
         logger.info(
             f"Performing text to image search for query: {self.query}"
         )
-        # Simulate search results
-        results = {
-            "query": self.query,
-            "results": [
-                {"image_id": "img1", "similarity": 0.95},
-                {"image_id": "img2", "similarity": 0.90},
-            ],
-        }
+        search_img = ImagePersistData()
+        results = search_img.fetch_similar_images_from_text(
+            self.query
+        )
         return results
