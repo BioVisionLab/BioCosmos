@@ -25,14 +25,15 @@ class TextToImageSearch:
     A class to handle image search operations.
     """
 
-    def __init__(self, query: str = ""):
+    def __init__(self, query: str = "", limit: int = 50):
         """
         Initialize the TextToImageSearch class.
         """
         self.query = query.strip().lower()
+        self.limit = limit
 
-    def search(self) -> dict | None:
-        """cle
+    def search(self) -> list[dict] | None:
+        """
         Perform a text to image search.
         """
         if not self.query:
@@ -46,7 +47,7 @@ class TextToImageSearch:
         )
         search_img = ImagePersistData()
         results = search_img.fetch_similar_images_from_text(
-            self.query
+            self.query, limit=self.limit
         )
         return results
 
@@ -56,14 +57,15 @@ class ImageToImageSearch:
     A class to handle image to image search operations.
     """
 
-    def __init__(self, query: str = ""):
+    def __init__(self, query: str = "", limit: int = 50):
         """
         Initialize the ImageToImageSearch class.
         The query is base64 encoded image string.
         """
         self.query = query.strip()
+        self.limit = limit
 
-    def search(self, limit: int = 10) -> dict | None:
+    def search(self) -> list[dict] | None:
         """
         Perform an image to image search.
         """
@@ -81,6 +83,6 @@ class ImageToImageSearch:
         query_img: bytes = base64.b64decode(encoded)
         search_img = ImagePersistData()
         results = search_img.fetch_similar_images_from_bytes(
-            query_img, limit=limit
+            query_img, limit=self.limit
         )
         return results

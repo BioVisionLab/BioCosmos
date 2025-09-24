@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/text-search")
-async def search_text(q: str):
+async def search_text(q: str, limit: int = 50):
     """Endpoint for text to image search.
 
     Expects a query parameter 'q' for the search term.
@@ -30,9 +30,9 @@ async def search_text(q: str):
             status_code=400,
         )
     try:
-        search = TextToImageSearch(query=query)
+        search = TextToImageSearch(query=query, limit=limit)
         search_results = search.search()
-        if search_results is None:
+        if not search_results:
             logger.error(
                 f"No search results returned from '{query}'."
             )
