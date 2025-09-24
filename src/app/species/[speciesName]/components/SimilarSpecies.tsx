@@ -1,5 +1,5 @@
 import { SimilarSpeciesMeta } from "@/lib/speciesData";
-import { fetchSimilarImg } from "@/lib/speciesList";
+import { fetchImgById } from "@/lib/speciesList";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -46,7 +46,7 @@ function SimilarSpeciesImage({ meta }: { meta: SimilarSpeciesMeta }) {
   useEffect(() => {
     const fetchImage = async () => {
       try {
-        const response = await fetchSimilarImg(meta.imgId);
+        const response = await fetchImgById(meta.imgId);
         setImageUrl(response);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
