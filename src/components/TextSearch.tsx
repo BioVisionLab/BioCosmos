@@ -11,15 +11,15 @@ interface SemanticResultItem {
 }
 
 const LOCAL_STORAGE_KEY = "searchMode"; // Key for localStorage
-
 export default function SearchBar() {
+  const router = useRouter();
+
   // Initialize state to default (false) to match server render
   const [isSemantic, setIsSemantic] = useState(false);
-  const [isMounted, setIsMounted] = useState(false); // Track client mount status
   const [searchTerm, setSearchTerm] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
+  const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
   const [searchError, setSearchError] = useState<string | null>(null);
-  const router = useRouter();
+  const [isSearching] = useState(false); // No actual search; keep false
 
   // Effect runs only on the client after mount
   useEffect(() => {
@@ -38,68 +38,22 @@ export default function SearchBar() {
     }
   }, [isSemantic, isMounted]);
 
-  const handleSearchSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const toggleSearchMode = () => {
+    setIsSemantic((prev) => !prev);
+    setSearchTerm(""); // Clear search term on mode switch
+    setSearchError(null); // Clear errors
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = searchTerm.trim();
     if (!query) return;
 
-    setIsSearching(true);
     setSearchError(null);
 
-    if (isSemantic) {
-      try {
-        // Call the new backend route for semantic search
-        const response = await fetch(
-          `/api/semantic-search?q=${encodeURIComponent(query)}`
-        );
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error ||
-              `Semantic search failed with status ${response.status}`
-          );
-        }
-        const results: SemanticResultItem[] = await response.json(); // Type the result correctly
-
-        // Navigate to search page with identifiers
-        // Pass the *JSON stringified* array as the query param
-        if (results.length > 0) {
-          router.push(
-            `/search?ids=${encodeURIComponent(
-              JSON.stringify(results)
-            )}&mode=semantic`
-          );
-        } else {
-          // Handle case where semantic search returns no results
-          setSearchError("No similar species found for the semantic query.");
-          console.log("Semantic search returned empty results.");
-        }
-      } catch (err) {
-        console.error("Semantic search error:", err);
-        setSearchError(
-          err instanceof Error
-            ? err.message
-            : "An unknown semantic search error occurred."
-        );
-      } finally {
-        setIsSearching(false);
-      }
-    } else {
-      // Standard text search navigation
-      router.push(`/search?q=${encodeURIComponent(query)}&mode=text`);
-      // No need for loading state here as navigation is immediate
-      // If we wanted loading, we'd need to handle it on the results page
-      setIsSearching(false);
-    }
-  };
-
-  const toggleSearchMode = () => {
-    // State update will trigger the useEffect to save to localStorage
-    setIsSemantic(!isSemantic);
-    setSearchTerm(""); // Clear search term on mode switch
-    setSearchError(null); // Clear errors
+    // Navigate to the search page with query and mode
+    const mode = isSemantic ? "semantic" : "text";
+    router.push(`/search?q=${encodeURIComponent(query)}&mode=${mode}`);
   };
 
   return (
@@ -145,7 +99,6 @@ export default function SearchBar() {
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              disabled={isSearching}
               className={`
           flex-1 bg-transparent border-0 focus:outline-none
           placeholder:text-gray-400 dark:placeholder:text-gray-500
@@ -157,7 +110,7 @@ export default function SearchBar() {
             <button
               type="button"
               onClick={toggleSearchMode}
-              disabled={isSearching || !isMounted}
+              disabled={!isMounted}
               className={`
           relative inline-flex items-center rounded-full p-1 transition-colors
           focus:outline-none focus:ring-2 focus:ring-green-500/70
@@ -203,11 +156,11 @@ export default function SearchBar() {
           {/* Submit button */}
           {/* Loading spinner */}
           <div className="col-span-2 flex items-center h-full">
-            {isSearching && (
+            {/* {isSearching && (
               <div className="flex items-center pr-1">
                 <Loader2 className="w-6 animate-spin text-green-500" />
               </div>
-            )}
+            )} */}
             <button
               type="submit"
               disabled={isSearching || !searchTerm.trim()}

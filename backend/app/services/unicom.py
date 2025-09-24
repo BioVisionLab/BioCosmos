@@ -1,9 +1,8 @@
-from email.mime import base
 import logging
 import torch
 import unicom
-import base64
 import io
+import numpy as np
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -76,7 +75,39 @@ class UnicomImageEmbedder:
             )
             return None
         try:
-            image = Image.open(image_path).convert("RGB")
+            image: Image = Image.open(image_path).convert("RGB")
+            return self._get_embedding(image)
+        except Exception as e:
+            self.logger.error(
+                f"Could not process image {image_path} with UNICOM: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def get_embedding_from_bytes(self, image_bytes: bytes):
+        if self.model is None:
+            self.logger.error(
+                "UNICOM model not available for image embedding."
+            )
+            return None
+        try:
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            return self._get_embedding(image)
+        except Exception as e:
+            self.logger.error(
+                f"Could not process base64 image with UNICOM: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def _get_embedding(self, image: Image) -> np.ndarray | None:
+        """Get the image embedding from a given PIL Image."""
+        if self.model is None:
+            self.logger.error(
+                "UNICOM model not available for image embedding."
+            )
+            return None
+        try:
             # Apply UNICOM's transform and add batch dimension
             image_tensor = (
                 self.transform(image).unsqueeze(0).to(self.device)
@@ -90,47 +121,10 @@ class UnicomImageEmbedder:
             image_features /= image_features.norm(
                 dim=-1, keepdim=True
             )
-
-            # Return as flat list for ChromaDB
             return image_features.cpu().numpy().squeeze()
         except Exception as e:
             self.logger.error(
-                f"Could not process image {image_path} with UNICOM: {e}",
-                exc_info=True,
-            )
-            return None
-
-    def get_embedding_from_base64(self, base64_str):
-        if self.model is None:
-            self.logger.error(
-                "UNICOM model not available for image embedding."
-            )
-            return None
-        try:
-            # Decode base64
-            if "," in base64_str:
-                _, encoded = base64_str.split(",", 1)
-            else:
-                encoded = base64_str
-            image_data = base64.b64decode(encoded)
-            image = Image.open(io.BytesIO(image_data)).convert("RGB")
-
-            # Apply transform and add batch dimension
-            image_tensor = (
-                self.transform(image).unsqueeze(0).to(self.device)
-            )
-
-            # Get embedding
-            with torch.no_grad():
-                image_features = self.model(image_tensor)
-            image_features /= image_features.norm(
-                dim=-1, keepdim=True
-            )
-
-            return image_features.cpu().numpy().squeeze()
-        except Exception as e:
-            self.logger.error(
-                f"Could not process base64 image with UNICOM: {e}",
+                f"Could not process image with UNICOM: {e}",
                 exc_info=True,
             )
             return None
@@ -138,11 +132,3 @@ class UnicomImageEmbedder:
     def get_collection_name(self):
         """Get the name of the UNICOM collection."""
         return UNICOM_COLLECTION_NAME
-
-    # async def query(self, query_embedding, n_results=5):
-    #     """Query the CLIP collection in ChromaDB."""
-    #     return await query_collection(
-    #         collection_name=self.get_collection_name(),
-    #         query_embedding=query_embedding,
-    #         n_results=n_results,
-    #     )

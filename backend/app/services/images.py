@@ -1,5 +1,4 @@
 import glob
-from re import S
 import numpy as np
 import io
 
@@ -43,17 +42,15 @@ class ImagePersistData:
     """Class to handle image persistence operations."""
 
     def __init__(self):
-        config = ImageConfig()
-        self.logger = logger
-        self.table = config.table
-        self.dir = config.dir
+        self.config = ImageConfig()
+        self.logger = logging.getLogger(__name__)
         self.db_table = LanceDB().create_or_get_collection(
-            config.table
+            self.config.table
         )
 
     def entries(self) -> int | None:
         """Count the number of entries in the image collection."""
-        result = LanceDB().count_entries(self.table)
+        result = LanceDB().count_entries(self.config.table)
         if result is None:
             logger.warning(
                 "No entries found in the image collection."
@@ -61,7 +58,9 @@ class ImagePersistData:
             return None
         return result
 
-    def get_img_by_id(self, img_id: str) -> io.BytesIO | None:
+    def get_img_by_id(
+        self, img_id: str, is_thumbnail: bool = False
+    ) -> io.BytesIO | None:
         """Fetch an image by its ID."""
         try:
             img: list[LanceSchema] = (
@@ -75,7 +74,11 @@ class ImagePersistData:
                     f"No image found with ID '{img_id}'."
                 )
                 return None
-            return img[0].image_bytes_png
+            return (
+                img[0].thumbnail_bytes_png
+                if is_thumbnail
+                else img[0].image_bytes_png
+            )
         except Exception as e:
             self.logger.error(
                 f"Error fetching image with ID '{img_id}': {e}"
@@ -97,10 +100,102 @@ class ImagePersistData:
             return None
         return query[0].image_bytes_png
 
+    def fetch_similar_images_from_text(
+        self, text: str, limit: int = 50
+    ) -> list[dict] | None:
+        """Fetch images similar to the given text.
+        We use CLIP embeddings for text similarity search.
+        We then filter the results to ensure it contains only one image per species.
+
+        :param text: The input text to search for similar images.
+        :param limit: The maximum number of similar images to return.
+        :return: A list of dictionaries containing similar image details or None if no matches found.
+        """
+        try:
+            text_embedder = ClipEmbedder()
+            query_embedding = text_embedder.get_embedding_from_text(
+                text
+            )
+            if query_embedding is None:
+                self.logger.warning(
+                    "Failed to compute text embedding."
+                )
+                return None
+
+            similar_images = self._query_embedding(
+                query_vector=query_embedding,
+                vector_column_name="clip_embeddings",
+                limit=limit,
+            )
+            if similar_images is None or similar_images.is_empty():
+                self.logger.warning(
+                    "No similar images found for the given text."
+                )
+                return None
+            self.logger.info(
+                f"Found {len(similar_images)} similar images for the text '{text}'."
+            )
+            # Filter to unique species and remove binary/embedding columns before JSON
+            similar_images = self._filter_by_species(
+                similar_images, limit=limit
+            )
+            return similar_images.to_dicts()
+
+        except Exception as e:
+            self.logger.error(f"Error fetching similar images: {e}")
+            return None
+
+    def fetch_similar_images_from_bytes(
+        self, image_bytes: bytes, limit: int = 20
+    ) -> list[dict] | None:
+        """Fetch images similar to the given image bytes.
+        We use UNICOM embeddings for image similarity search.
+        We then filter the results to ensure it contains only one image per species.
+
+        :param image_bytes: The input image bytes to search for similar images.
+        :param limit: The maximum number of similar images to return.
+        :return: A list of dictionaries containing similar image details or None if no matches found.
+        """
+        try:
+            unicom_embedder = UnicomImageEmbedder()
+            query_embedding = (
+                unicom_embedder.get_embedding_from_bytes(image_bytes)
+            )
+            if query_embedding is None:
+                self.logger.warning(
+                    "Failed to compute image embedding."
+                )
+                return None
+
+            similar_images = self._query_embedding(
+                query_vector=query_embedding,
+                vector_column_name="unicom_embeddings",
+                limit=limit,
+            )
+            if similar_images is None or similar_images.is_empty():
+                self.logger.warning(
+                    "No similar images found for the given image."
+                )
+                return None
+            self.logger.info(
+                f"Found {len(similar_images)} similar images for the provided image."
+            )
+            # return polars DataFrame as list of dicts
+            return similar_images.write_json()
+
+        except Exception as e:
+            self.logger.error(f"Error fetching similar images: {e}")
+            return None
+
     def fetch_id_similar_images(
         self, species_name: str, limit: int = 20
     ) -> list[dict] | None:
-        """Fetch similar images for a specific species."""
+        """Fetch similar images for a specific species.
+        We use UNICOM embeddings for similarity search.
+        We then filter the results to ensure it contains only one image per species.
+        :param species_name: The name of the species to search for similar images.
+        :param limit: The maximum number of similar images to return.
+        :return: A list of dictionaries containing similar image details or None if no matches found."""
         # We get unicom embeddings for similarity search
         query = self._query_image(species_name)
         if query is None:
@@ -124,7 +219,7 @@ class ImagePersistData:
                 )
                 return None
             # We filter only one image per species to ensure diversity
-            filtered_imgs = self._filter_images_by_species(
+            filtered_imgs = self._filter_by_species_unicom(
                 similar_images, query_vector=centroid
             )
             return [img.to_dict() for img in filtered_imgs]
@@ -143,69 +238,62 @@ class ImagePersistData:
             return None
         return query[0].thumbnail_bytes_png
 
-    def ingest(self):
-        """Ingest images into the database."""
-        img_paths = self._get_images_from_path(self.dir)
-        if not img_paths:
-            self.logger.error(
-                "No image paths provided for ingestion."
-            )
-            return
-        self.logger.info(f"Ingesting {len(img_paths)} images.")
-        ImageEmbedder().batch_add_embeddings(img_paths)
-
-    def _filter_images_by_species(
+    def _query_embedding(
         self,
-        images: list[LanceSchema],
-        query_vector: np.ndarray | None = None,
-    ) -> list[SimilarImageResult]:
-        """Filter images to ensure only one image per species.
-        We keep the first occurrence of the nearest image.
-        """
-        if query_vector is None:
-            return images
-        # Sort images by distance to the query vector
-        images.sort(
-            key=lambda img: np.linalg.norm(
-                img.unicom_embeddings - query_vector
-            )
-        )
-        seen_species = set()
-        filtered_images = []
-        for img in images:
-            if img.species not in seen_species:
-                filtered_images.append(
-                    SimilarImageResult(
-                        img_id=img.img_id,
-                        species=img.species,
-                        distance=np.linalg.norm(
-                            img.unicom_embeddings - query_vector
-                        ),
-                    )
+        query_vector: np.ndarray,
+        vector_column_name: str,
+        limit: int = 5,
+    ) -> pl.DataFrame | None:
+        """Query the database for similar images based on the embedding vector."""
+        try:
+            results = (
+                self.db_table.search(
+                    query_vector,
+                    vector_column_name=vector_column_name,
                 )
-                seen_species.add(img.species)
-            if len(filtered_images) >= 5:
-                break
-        return filtered_images
-
-    def _get_images_from_path(self, img_dir: str) -> list[str]:
-        """Get a list of image paths from the specified directory."""
-        if not os.path.isdir(img_dir):
-            self.logger.error(f"Invalid image directory: {img_dir}")
-            return []
-        pattern = os.path.join(img_dir, "**") + "/*"
-        img_paths = [
-            f
-            for f in glob.glob(pattern, recursive=True)
-            if f.lower().endswith(
-                (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+                .distance_type("cosine")
+                .limit(limit)
+                .to_polars()
             )
-            and os.path.isfile(f)
-        ]
+            safe_cols = [
+                c
+                for c in ("img_id", "species", "_distance")
+                if c in results.columns
+            ]
+            if not safe_cols:
+                return None
+            cleaned_results = results.select(safe_cols).rename(
+                {"img_id": "imgId", "_distance": "distance"}
+            )
+            return cleaned_results
+        except Exception as e:
+            self.logger.error(f"Error querying embeddings: {e}")
+            return None
+
+    def _filter_by_species(
+        self, df: pl.DataFrame, limit: int = 5
+    ) -> pl.DataFrame:
+        """Filter the DataFrame to ensure only one image per species.
+        We sort by distance and keep the first occurrence of each species.
+        """
+        if df is None or df.is_empty():
+            return df
+        # Sort by distance
+        df = df.sort("distance")
+        # Keep only the first occurrence of each species
+        filtered_df = df.unique(subset=["species"])
+        if len(filtered_df) > limit:
+            filtered_df = filtered_df.head(limit)
         self.logger.info(
-            f"Found {len(img_paths)} images in {img_dir}."
+            f"Filtered to {len(df)} of {len(filtered_df)} species."
         )
-        return img_paths
+        return filtered_df
+
+    def _compute_distance(
+        self, source_emb: np.ndarray, target_emb: np.ndarray
+    ) -> float:
+        """Compute the Euclidean distance between two embeddings."""
+        return np.linalg.norm(source_emb - target_emb)
 
     def _query_image(
         self, species_name: str
@@ -232,15 +320,38 @@ class ImagePersistData:
             )
 
 
-class ImageEmbedder(ImagePersistData):
+class ImageEmbedder:
     """Class to handle image embedding operations.
     Include methods for adding, updating, and deleting image data, metadata, and embeddings.
     """
 
     def __init__(self):
+        self.config = ImageConfig()
         self.clip = ClipEmbedder()
         self.unicom = UnicomImageEmbedder()
-        super().__init__()
+        self.logger = logging.getLogger(__name__)
+        self.db_table = LanceDB().create_or_get_collection(
+            self.config.table
+        )
+
+    def ingest(self):
+        """Ingest images into the database."""
+
+        img_paths = self._get_images_from_path(self.config.dir)
+        if not img_paths:
+            self.logger.error(
+                "No image paths provided for ingestion."
+            )
+            return
+        if not self.config.reset:
+            entries = LanceDB().count_entries(self.config.table)
+            if entries == len(img_paths):
+                self.logger.info(
+                    "Image entries already exist in the database. Skipping ingestion."
+                )
+                return
+        self.logger.info(f"Ingesting {len(img_paths)} images.")
+        self.batch_add_embeddings(img_paths)
 
     def get_species_name_from_path(
         self, img_paths: list[str]
@@ -273,6 +384,25 @@ class ImageEmbedder(ImagePersistData):
                         exc_info=True,
                     )
 
+    def _get_images_from_path(self, img_dir: str) -> list[str]:
+        """Get a list of image paths from the specified directory."""
+        if not os.path.isdir(img_dir):
+            self.logger.error(f"Invalid image directory: {img_dir}")
+            return []
+        pattern = os.path.join(img_dir, "**") + "/*"
+        img_paths = [
+            f
+            for f in glob.glob(pattern, recursive=True)
+            if f.lower().endswith(
+                (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+            )
+            and os.path.isfile(f)
+        ]
+        self.logger.info(
+            f"Found {len(img_paths)} images in {img_dir}."
+        )
+        return img_paths
+
     def _add_batch_to_db(self, img_paths: list[str]):
         """Batch add image embeddings to the database."""
         if img_paths is None or len(img_paths) == 0:
@@ -302,8 +432,6 @@ class ImageEmbedder(ImagePersistData):
                 ],
                 "species": species,
                 "img_bytes": image_bytes,
-                "source": "gbif",
-                "collection_id": "gbif",
                 "clip_embeddings": clip_embeddings,
                 "unicom_embeddings": unicom_embeddings,
             }

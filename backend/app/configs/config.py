@@ -98,3 +98,26 @@ class ImageConfig:
     @property
     def table(self) -> str:
         return self._image_config.get("table", "nymphalidae")
+
+    @property
+    def limit(self) -> int | None:
+        limit = self._image_config.get("limit", None)
+        if limit is not None:
+            try:
+                limit = int(limit)
+                if limit <= 0:
+                    logger.info(
+                        f"Image limit must be positive, got: {limit}. Ignoring limit."
+                    )
+                    return None
+                return limit
+            except ValueError:
+                logger.info(
+                    f"Image limit is not a valid integer: {limit}. Ignoring limit."
+                )
+                return None
+        return None
+
+    @property
+    def reset(self) -> bool:
+        return self._image_config.get("reset", False)

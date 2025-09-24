@@ -1,7 +1,7 @@
+from ..searches.images import TextToImageSearch
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from ..services import clip
-from ..searches.query import SearchResults
 
 import logging
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/text-search")
-async def search_text(q: str):
+async def search_text(q: str, limit: int = 50):
     """Endpoint for text to image search.
 
     Expects a query parameter 'q' for the search term.
@@ -29,38 +29,20 @@ async def search_text(q: str):
             },
             status_code=400,
         )
-
-    text_embedder = clip.ClipTextEmbedder()
-    text_embedding = text_embedder.get_embedding_from_text(query)
-    if text_embedding is None:
-        return JSONResponse(
-            content={"error": "Failed to compute text embedding"},
-            status_code=500,
-        )
-
     try:
-        logger.info(
-            f"Querying ChromaDB CLIP collection '{text_embedder.get_collection_name}'..."
-        )
-        search_results = await text_embedder.query(
-            query_embedding=text_embedding, n_results=100
-        )
-        logger.info("ChromaDB CLIP query completed.")
-        if search_results is None:
+        search = TextToImageSearch(query=query, limit=limit)
+        search_results = search.search()
+        if not search_results:
             logger.error(
-                "ChromaDB query returned None, indicating a failure."
+                f"No search results returned from '{query}'."
             )
             return JSONResponse(
                 content={
-                    "error": "Failed to retrieve search results from ChromaDB"
+                    "error": f"No search results found for '{query}'."
                 },
                 status_code=500,
             )
-        logger.info(
-            f"ChromaDB CLIP query returned {len(search_results.get('ids', []))} results."
-        )
-        unique_results = SearchResults(search_results).find_best_hit()
-        return JSONResponse(content=unique_results, status_code=200)
+        return JSONResponse(content=search_results, status_code=200)
     except Exception as e:
         logger.error(
             f"Error during CLIP text search for query '{query}': {e}",
