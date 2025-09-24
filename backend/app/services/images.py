@@ -251,6 +251,7 @@ class ImagePersistData:
                     query_vector,
                     vector_column_name=vector_column_name,
                 )
+                .distance_type("cosine")
                 .limit(limit)
                 .to_polars()
             )

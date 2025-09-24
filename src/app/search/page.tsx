@@ -35,33 +35,35 @@ function SpeciesCard({ species }: { species: SemanticResultItem }) {
 
   const speciesName = cleanSpeciesName(species.species);
 
-  return loading ? (
-    <div className="border rounded-md p-4 items-center text-center justify-center">
-      <Image
-        src="/leaflet/images/butterfly.svg"
-        alt="Loading..."
-        width={50}
-        height={50}
-      />
-      <p className="text-gray-500">Loading image...</p>
-    </div>
-  ) : (
+  return (
     <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-4 items-center text-center">
-      <Link href={`/species/${species.species}`}>
-        <Image
-          src={imageUrl || `/api/image/${species.imgId}`}
-          alt={`Image of ${species.species}`}
-          width={200}
-          height={200}
-        />
+      {loading ? (
+        <div>
+          <Image
+            src="/leaflet/images/butterfly.svg"
+            alt="Loading..."
+            width={50}
+            height={50}
+          />
+          <p className="text-gray-500">Loading image...</p>
+        </div>
+      ) : (
+        <Link href={`/species/${species.species}`}>
+          <Image
+            src={imageUrl || `/api/image/${species.imgId}`}
+            alt={`Image of ${species.species}`}
+            width={200}
+            height={200}
+          />
 
-        <h2 className="text-lg truncate text-center text-gray-400 italic">
-          {speciesName}
-        </h2>
-        <p className="text-sm text-gray-500">
-          Scores: {species.distance.toPrecision(3)}
-        </p>
-      </Link>
+          <h2 className="text-lg truncate text-center text-gray-400 italic">
+            {speciesName}
+          </h2>
+          <p className="text-sm text-gray-500">
+            Scores: {species.distance.toPrecision(3)}
+          </p>
+        </Link>
+      )}
     </div>
   );
 }
@@ -119,7 +121,7 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
               alt="Loading..."
               width={120}
               height={120}
-              className="animate-spin mx-auto"
+              className="animate-pulse mx-auto"
             />
             <p className="text-gray-500 mt-8">Searching...</p>
           </div>
