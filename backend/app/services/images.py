@@ -23,19 +23,20 @@ logger = logging.getLogger(__name__)
 # https://lancedb.github.io/lancedb/search
 
 
-class SimilarImageResult(BaseModel):
-    """Class to represent similar image search results."""
+# class SimilarImageResult(BaseModel):
+#     """Class to represent similar image search results."""
 
-    img_id: str
-    species: str
-    distance: float
+#     img_id: str
+#     species: str
+#     distance: float
 
-    def to_dict(self) -> dict:
-        return {
-            "imgId": self.img_id,
-            "species": self.species,
-            "distance": self.distance,
-        }
+#     def to_dict(self) -> dict:
+#         return {
+#             "imgId": self.img_id,
+#             "species": self.species,
+#             "distance": self.distance,
+#         }
+
 
 class SpeciesImage(BaseModel):
     """Class to represent species image data."""
@@ -48,6 +49,7 @@ class SpeciesImage(BaseModel):
             "species": self.species,
             "imageIds": self.imageIds,
         }
+
 
 class ImagePersistData:
     """Class to handle image persistence operations."""
@@ -72,32 +74,28 @@ class ImagePersistData:
     # Function to fetch a list of image IDs for a given species
     # Returns species name and list of image IDs, or empty list if none found
     def fetch_image_ids(self, species_name: str) -> list:
-            """
-            Returns a list of image IDs for the given species name.
-            """
-            species = species_name.lower().replace(" ", "_")
-            query = f"species == '{species}'"
-            try:
-                results = (
-                    self.db_table.search()
-                    .where(query)
-                    .to_polars()
-                )
-                if "img_id" not in results.columns or results.is_empty():
-                    self.logger.warning(
-                        f"No image IDs found for species '{species_name}'."
-                    )
-                    return []
-                
-                return SpeciesImage(
-                    species=species,
-                    imageIds=results["img_id"].to_list(),
-                ).to_dict()
-            except Exception as e:
-                self.logger.error(
-                    f"Error fetching image IDs for species '{species_name}': {e}"
+        """
+        Returns a list of image IDs for the given species name.
+        """
+        species = species_name.lower().replace(" ", "_")
+        query = f"species == '{species}'"
+        try:
+            results = self.db_table.search().where(query).to_polars()
+            if "img_id" not in results.columns or results.is_empty():
+                self.logger.warning(
+                    f"No image IDs found for species '{species_name}'."
                 )
                 return []
+
+            return SpeciesImage(
+                species=species,
+                imageIds=results["img_id"].to_list(),
+            ).to_dict()
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching image IDs for species '{species_name}': {e}"
+            )
+            return []
 
     def get_img_by_id(
         self, img_id: str, is_thumbnail: bool = False
@@ -247,23 +245,21 @@ class ImagePersistData:
         )
         # Perform similarity search based on the centroid
         try:
-            similar_images = (
-                self.db_table.search(
-                    centroid, vector_column_name="unicom_embeddings"
-                )
-                .limit(limit)
-                .to_pydantic(LanceSchema)
+            similar_images = self._query_embedding(
+                query_vector=centroid,
+                vector_column_name="unicom_embeddings",
+                limit=limit,
             )
-            if not similar_images:
+            if similar_images is None or similar_images.is_empty():
                 self.logger.warning(
-                    f"No similar images found for species '{species_name}'."
+                    f"No unique species found in similar images for '{species_name}'."
                 )
                 return None
-            # We filter only one image per species to ensure diversity
-            filtered_imgs = self._filter_by_species_unicom(
-                similar_images, query_vector=centroid
+            filtered_imgs = self._filter_by_species(
+                similar_images, limit=limit
             )
-            return [img.to_dict() for img in filtered_imgs]
+
+            return filtered_imgs.to_dicts()
         except Exception as e:
             self.logger.error(
                 f"Error fetching similar images for species '{species_name}': {e}"

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from ..services.images import ImagePersistData, SimilarImageResult
+from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
 import logging
@@ -25,7 +25,7 @@ class SpeciesPayload(BaseModel):
         species_id: str,
         taxonomy: dict,
         traits: dict,
-        similarSpecies: list[str],
+        similarSpecies: list[dict],
     ):
         """
         Create a SpeciesPayload instance from the provided data.
@@ -122,7 +122,7 @@ class TaxonSearch:
                     f"No traits data found for species: {self.species}"
                 )
                 return None
-            similar_images: list[SimilarImageResult] = (
+            similar_images: list[dict] = (
                 ImagePersistData().fetch_id_similar_images(
                     species_name=self.species, limit=20
                 )
