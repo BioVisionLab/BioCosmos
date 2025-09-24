@@ -38,12 +38,13 @@ function SpeciesCard({ species }: { species: SemanticResultItem }) {
   return (
     <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-4 items-center text-center">
       {loading ? (
-        <div>
+        <div className="flex flex-col items-center">
           <Image
             src="/leaflet/images/butterfly.svg"
             alt="Loading..."
-            width={50}
-            height={50}
+            width={120}
+            height={120}
+            className="opacity-50 animate-pulse mx-auto"
           />
           <p className="text-gray-500">Loading image...</p>
         </div>
