@@ -75,15 +75,11 @@ export async function fetchSpeciesImage(speciesName: string): Promise<string[]> 
 
   // Attempt to fetch JSON image list first
   try {
-    // Construct the API endpoint URL ("images" instead of "image")
-    const listResponse = await fetch(`${API_SERVICE_URL}/${cleanName}/images`);
-    // NEXT LINE: FOR TESTING ----------------
-    console.log("Tried list endpoint:", listResponse.url, listResponse.status); 
+    // Calling the API endpoint "/taxon/{species_name}/ids"
+    const listResponse = await fetch(`${API_SERVICE_URL}/${cleanName}/ids`);
     if (listResponse.ok) {
       const data = await listResponse.json();
-      // NEXT LINE: FOR TESTING ----------------
-      console.log("Image list response JSON:", data);
-
+      
       // Handle array of strings OR array of objects with "url"
       const urls = Array.isArray(data) ? 
         data.map((item: any) => (typeof item === "string" ? 

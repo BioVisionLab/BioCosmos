@@ -7,6 +7,36 @@ from starlette.responses import StreamingResponse
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# New: adding a backend endpoint to fetch image IDs for a species
+from fastapi.responses import JSONResponse
+@router.get("/taxon/{species_name}/ids")
+async def fetch_species_images(species_name: str):
+    """
+    Takes in a species name.
+    Fetches all the corresponding image IDs.
+    Return a list of image IDs.
+    Returns a 404 error if images are not found.
+    """
+    logger.info(f"Fetching image IDs for species: {species_name}")
+
+    try:
+        # You need a method that returns image IDs, e.g. fetch_image_ids
+        image_ids = ImagePersistData().fetch_image_ids(species_name)
+        if not image_ids:
+            logger.warning(f"No images found for species: {species_name}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Images not found for species: {species_name}",
+            )
+        return JSONResponse(content=image_ids)
+        # returning the IDs in a JSON response
+    except Exception as e:
+    # Catch potential errors from the data fetching logic itself
+        logger.error(f"Error fetching image IDs for {species_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred while fetching image IDs.",
+        )
 
 @router.get("/taxon/{species_name}/thumbnail")
 async def fetch_taxon_thumbnail(species_name: str):
