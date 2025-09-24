@@ -37,6 +37,17 @@ class SimilarImageResult(BaseModel):
             "distance": self.distance,
         }
 
+class SpeciesImage(BaseModel):
+    """Class to represent species image data."""
+
+    species: str
+    imageIds: list[str]
+
+    def to_dict(self) -> dict:
+        return {
+            "species": self.species,
+            "imageIds": self.imageIds,
+        }
 
 class ImagePersistData:
     """Class to handle image persistence operations."""
@@ -57,6 +68,36 @@ class ImagePersistData:
             )
             return None
         return result
+
+    # Function to fetch a list of image IDs for a given species
+    # Returns species name and list of image IDs, or empty list if none found
+    def fetch_image_ids(self, species_name: str) -> list:
+            """
+            Returns a list of image IDs for the given species name.
+            """
+            species = species_name.lower().replace(" ", "_")
+            query = f"species == '{species}'"
+            try:
+                results = (
+                    self.db_table.search()
+                    .where(query)
+                    .to_polars()
+                )
+                if "img_id" not in results.columns or results.is_empty():
+                    self.logger.warning(
+                        f"No image IDs found for species '{species_name}'."
+                    )
+                    return []
+                
+                return SpeciesImage(
+                    species=species,
+                    imageIds=results["img_id"].to_list(),
+                ).to_dict()
+            except Exception as e:
+                self.logger.error(
+                    f"Error fetching image IDs for species '{species_name}': {e}"
+                )
+                return []
 
     def get_img_by_id(
         self, img_id: str, is_thumbnail: bool = False

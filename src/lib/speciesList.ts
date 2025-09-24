@@ -67,6 +67,42 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
   return thumbnails;
 }
 
+// NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS 
+// (nonfunctional, always falls back to single blob image)
+export async function fetchSpeciesImage(speciesName: string): Promise<string[]> {
+  // Force species name snake case
+  const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
+
+  // Attempt to fetch JSON image list first
+  try {
+    // Calling the API endpoint "/taxon/{species_name}/ids"
+    const listResponse = await fetch(`${API_SERVICE_URL}/${cleanName}/ids`);
+    if (listResponse.ok) {
+      const data = await listResponse.json();
+      
+      // Handle array of strings OR array of objects with "url"
+      const urls = Array.isArray(data) ? 
+        data.map((item: any) => (typeof item === "string" ? 
+        item : item.url)).filter(Boolean): [];
+
+      if (urls.length > 0) {
+        return urls;
+      }
+    }
+  } catch (err) {
+    console.warn("No image list endpoint, falling back to single image:", err);
+  }
+  // Fallback: single blob image endpoint
+  const response = await fetch(`${API_SERVICE_URL}/${cleanName}/image`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image. Status: ${response.status}`);
+  }
+  const imageBlob = await response.blob();
+  const localUrl = URL.createObjectURL(imageBlob);
+  return [localUrl]; // wrap single image in array
+}
+
+/* OLD FUNCTION: ONE IMAGE DISPLAYS (functional)
 export async function fetchSpeciesImage(speciesName: string): Promise<string> {
   // Force species name snake case
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
@@ -86,6 +122,7 @@ export async function fetchSpeciesImage(speciesName: string): Promise<string> {
 
   return localUrl;
 }
+  */
 
 export async function fetchImgById(imageId: string): Promise<string> {
   // Construct the API endpoint URL

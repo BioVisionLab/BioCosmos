@@ -38,7 +38,7 @@ export default function HomeClient() {
           BioCosmos
         </h1>
         <p className="mt-3 text-base sm:text-lg text-gray-600 dark:text-gray-300">
-          Discover species & traits with AI — fast, visual, intelligent
+          Discover species & traits with AI: fast, visual, and intelligent search
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
           <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
