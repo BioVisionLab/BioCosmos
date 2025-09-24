@@ -229,12 +229,23 @@ class ImagePersistData:
     def fetch_id_similar_images(
         self, species_name: str, limit: int = 20
     ) -> list[dict] | None:
-        """Fetch similar images for a specific species.
-        We use UNICOM embeddings for similarity search.
-        We then filter the results to ensure it contains only one image per species.
-        :param species_name: The name of the species to search for similar images.
-        :param limit: The maximum number of similar images to return.
-        :return: A list of dictionaries containing similar image details or None if no matches found."""
+        """Find images from other species similar to the given species using UNICOM embeddings.
+
+        Process:
+          1. Fetch a representative image record for the species (currently only one via _query_image()).
+          2. Use its UNICOM embedding (centroid if multiple in future).
+          3. Run cosine similarity search against all stored unicom_embeddings.
+          4. Keep at most one image per species (nearest match).
+          5. Remove the original species from the results.
+
+        Args:
+            species_name: Species name (case/space insensitive).
+            limit: Maximum number of similar (distinct) species to return (default 20).
+
+        Returns:
+            list of dicts with keys: imgId, species, distance (smaller = more similar),
+            or None if no similar images were found.
+        """
         # We get unicom embeddings for similarity search
         query = self._query_image(species_name)
         if query is None:
@@ -259,6 +270,10 @@ class ImagePersistData:
                 similar_images, limit=limit
             )
 
+            filtered_imgs = filtered_imgs.filter(
+                pl.col("species")
+                != species_name.lower().replace(" ", "_")
+            ).sort("species")
             return filtered_imgs.to_dicts()
         except Exception as e:
             self.logger.error(

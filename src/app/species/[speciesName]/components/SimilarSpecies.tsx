@@ -30,7 +30,7 @@ function VisuallySimilarSpecies({
 
 function SimilarSpeciesImageGallery({ meta }: { meta: SimilarSpeciesMeta[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl px-2">
+    <div className="overflow-x-auto rounded-xl px-2 flex flex-row gap-4 py-2">
       {meta.map((item) => (
         <div key={item.imgId}>
           <SimilarSpeciesImage meta={item} />
