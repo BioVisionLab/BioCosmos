@@ -113,10 +113,8 @@ class UnicomImageEmbedder:
             image_features /= image_features.norm(
                 dim=-1, keepdim=True
             )
-            embedding_array = image_features.cpu().numpy().squeeze()
-            if len(images) == 1:
-                return [embedding_array]
-            return embedding_array
+            embeddings_array = image_features.cpu().numpy()
+            return [embedding for embedding in embeddings_array]
         except Exception as e:
             self.logger.error(
                 f"Error processing batch of images with UNICOM: {e}",

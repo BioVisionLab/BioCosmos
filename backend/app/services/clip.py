@@ -80,7 +80,7 @@ class ClipEmbedder:
             return None
         try:
             images: Image = Image.open(img_path).convert("RGB")
-            return self.__get_embeddings([images])[0]
+            return self.get_embeddings([images])[0]
         except FileNotFoundError as e:
             self.logger.error(
                 f"Image file not found: {e}", exc_info=True
