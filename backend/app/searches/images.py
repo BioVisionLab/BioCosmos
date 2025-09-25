@@ -75,7 +75,7 @@ class ImageToImageSearch:
             )
             return None
         # Placeholder for actual search logic
-        logger.info(f"Performing image to image search for query.")
+        logger.info("Performing image to image search for query.")
         if "," in self.query:
             _, encoded = self.query.split(",", 1)
         else:

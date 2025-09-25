@@ -124,7 +124,7 @@ class TaxonSearch:
                 return None
             similar_images: list[dict] = (
                 ImagePersistData().fetch_id_similar_images(
-                    species_name=self.species, limit=20
+                    species_name=self.species, limit=50
                 )
                 or []
             )

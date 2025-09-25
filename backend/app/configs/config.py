@@ -119,10 +119,6 @@ class ImageConfig:
                 return None
         return None
 
-    @property
-    def reset(self) -> bool:
-        return self._image_config.get("reset", False)
-
 
 class EmbedderConfig:
     def __init__(self):
@@ -200,3 +196,27 @@ class EmbedderConfig:
                 f"CUDA device index is not a valid integer: {cuda_device}. Falling back to 0."
             )
             return "cuda"
+
+    @property
+    def reset(self) -> bool:
+        reset = self._embedder_config.get("reset", False)
+        if isinstance(reset, bool):
+            return reset
+        if isinstance(reset, str):
+            return reset.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Embedder reset config is not a valid boolean: {reset}. Falling back to False."
+        )
+        return False
+
+    @property
+    def skip(self) -> bool:
+        skip = self._embedder_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Embedder skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False

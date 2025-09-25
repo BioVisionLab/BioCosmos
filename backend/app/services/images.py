@@ -23,21 +23,6 @@ logger = logging.getLogger(__name__)
 # https://lancedb.github.io/lancedb/search
 
 
-# class SimilarImageResult(BaseModel):
-#     """Class to represent similar image search results."""
-
-#     img_id: str
-#     species: str
-#     distance: float
-
-#     def to_dict(self) -> dict:
-#         return {
-#             "imgId": self.img_id,
-#             "species": self.species,
-#             "distance": self.distance,
-#         }
-
-
 class SpeciesImage(BaseModel):
     """Class to represent species image data."""
 
@@ -175,9 +160,8 @@ class ImagePersistData:
                 f"Found {len(similar_images)} similar images for the text '{text}'."
             )
             # Filter to unique species and remove binary/embedding columns before JSON
-            similar_images = self._filter_by_species(
-                similar_images, limit=limit
-            )
+            similar_images = self._filter_by_species(similar_images)
+
             return similar_images.to_dicts()
 
         except Exception as e:
@@ -245,7 +229,9 @@ class ImagePersistData:
             list of dicts with keys: imgId, species, distance (smaller = more similar),
             or None if no similar images were found.
         """
-        # We get unicom embeddings for similarity search
+        self.logger.info(
+            f"Fetching images similar to species '{species_name}'"
+        )
         query = self._query_image(species_name)
         if query is None:
             return None
@@ -260,19 +246,23 @@ class ImagePersistData:
                 vector_column_name="unicom_embeddings",
                 limit=limit,
             )
+            self.logger.info(
+                f"Found {len(similar_images)} similar images for species '{species_name}'."
+            )
             if similar_images is None or similar_images.is_empty():
                 self.logger.warning(
                     f"No unique species found in similar images for '{species_name}'."
                 )
                 return None
-            filtered_imgs = self._filter_by_species(
-                similar_images, limit=limit
-            )
+            filtered_imgs = self._filter_by_species(similar_images)
 
             filtered_imgs = filtered_imgs.filter(
                 pl.col("species")
                 != species_name.lower().replace(" ", "_")
             ).sort("species")
+            self.logger.info(
+                f"Found {len(filtered_imgs)} similar images after filtering."
+            )
             return filtered_imgs.to_dicts()
         except Exception as e:
             self.logger.error(
@@ -321,9 +311,7 @@ class ImagePersistData:
             self.logger.error(f"Error querying embeddings: {e}")
             return None
 
-    def _filter_by_species(
-        self, df: pl.DataFrame, limit: int = 5
-    ) -> pl.DataFrame:
+    def _filter_by_species(self, df: pl.DataFrame) -> pl.DataFrame:
         """Filter the DataFrame to ensure only one image per species.
         We sort by distance and keep the first occurrence of each species.
         """
@@ -333,8 +321,6 @@ class ImagePersistData:
         df = df.sort("distance")
         # Keep only the first occurrence of each species
         filtered_df = df.unique(subset=["species"])
-        if len(filtered_df) > limit:
-            filtered_df = filtered_df.head(limit)
         self.logger.info(
             f"Filtered to {len(df)} of {len(filtered_df)} species."
         )
@@ -356,7 +342,6 @@ class ImagePersistData:
             img: list[LanceSchema] = (
                 self.db_table.search()
                 .where(query)
-                .limit(1)
                 .to_pydantic(LanceSchema)
             )
             if not img:
@@ -377,10 +362,9 @@ class ImageEmbedder:
     """
 
     def __init__(self):
-        embedder_config = EmbedderConfig()
+        self.embedder_config = EmbedderConfig()
         self.config = ImageConfig()
         self.clip = ClipEmbedder()
-        self.batch_size = embedder_config.batch_size
         self.unicom = UnicomImageEmbedder()
         self.logger = logging.getLogger(__name__)
         self.db_table = LanceDB().create_or_get_collection(
@@ -389,14 +373,18 @@ class ImageEmbedder:
 
     def ingest(self):
         """Ingest images into the database."""
-
+        if self.embedder_config.skip:
+            self.logger.info(
+                "Skipping image ingestion as per configuration."
+            )
+            return
         img_paths = self._get_images_from_path(self.config.dir)
         if not img_paths:
             self.logger.error(
                 "No image paths provided for ingestion."
             )
             return
-        if not self.config.reset:
+        if not self.embedder_config.reset:
             entries = LanceDB().count_entries(self.config.table)
             if entries == len(img_paths):
                 self.logger.info(
@@ -546,8 +534,10 @@ class ImageEmbedder:
             )
             return []
         batches = [
-            img_paths[i : i + self.batch_size]
-            for i in range(0, len(img_paths), self.batch_size)
+            img_paths[i : i + self.embedder_config.batch_size]
+            for i in range(
+                0, len(img_paths), self.embedder_config.batch_size
+            )
         ]
         self.logger.info(
             f"Split {len(img_paths)} image paths into {len(batches)} batches."

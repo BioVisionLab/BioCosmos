@@ -12,8 +12,6 @@ images:
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
   limit: null
-  # Reset the inserted images, set to true to re-insert all images
-  reset: true
 gbif:
   # dir: "~/Codes/"
   # dir: "../../"
@@ -25,6 +23,8 @@ leptrait:
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"
 embedder:
+  # Skip embedding process if set to true
+  skip: true
   # Options: "default", "cpu", "cuda", "mps"
   # "default" will detect the best available accelerator
   device: "default"
@@ -32,3 +32,5 @@ embedder:
   cuda_device: 0
   # Number of samples to process in each batch
   batch_size: 20
+  # Reset the inserted images, set to true to re-insert all images
+  reset: true
