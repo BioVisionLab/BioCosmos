@@ -134,8 +134,8 @@ class EmbedderConfig:
         device = self._embedder_config.get("device", "default")
         valid_devices = ["default", "cpu", "cuda", "mps"]
         default = (
-            torch.cuda.current_device().type
-            if torch.cuda.is_available()
+            torch.accelerator.current_accelerator().type
+            if torch.accelerator.is_available()
             else "cpu"
         )
         if device not in valid_devices:
