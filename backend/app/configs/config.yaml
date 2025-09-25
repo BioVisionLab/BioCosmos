@@ -31,6 +31,6 @@ embedder:
   # Select GPU for CUDA device, if multiple GPUs are available
   cuda_device: 0
   # Number of samples to process in each batch
-  batch_size: 20
+  batch_size: 120
   # Reset the inserted images, set to true to re-insert all images
   reset: true
