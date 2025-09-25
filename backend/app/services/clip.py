@@ -101,28 +101,27 @@ class ClipEmbedder:
                 "CLIP model not available for image embedding."
             )
             return []
-        embeddings = []
-        for img in images:
-            try:
-                inputs = self.processor(
-                    images=img, return_tensors="pt", padding=True
-                ).to(self.device)
-                with torch.no_grad():
-                    image_features = self.model.get_image_features(
-                        **inputs
-                    )
-                image_features = image_features / image_features.norm(
-                    dim=-1, keepdim=True
-                )  # Normalize the embeddings
-                embeddings.append(
-                    image_features.cpu().numpy().squeeze()
+
+        try:
+            inputs = self.processor(
+                images=images, return_tensors="pt", padding=True
+            ).to(self.device)
+            with torch.no_grad():
+                image_features = self.model.get_image_features(
+                    **inputs
                 )
-            except Exception as e:
-                self.logger.error(
-                    f"Error processing image {img}: {e}",
-                    exc_info=True,
-                )
-        return embeddings
+            image_features = image_features / image_features.norm(
+                dim=-1, keepdim=True
+            )  # Normalize the embeddings
+            embedding_array = image_features.cpu().numpy().squeeze()
+            if len(images) == 1:
+                return [embedding_array]
+            return embedding_array
+        except Exception as e:
+            self.logger.error(
+                f"Error processing batch of images with CLIP: {e}",
+                exc_info=True,
+            )
 
     def get_embedding_from_text(self, text) -> list[float]:
         if self.model is None:

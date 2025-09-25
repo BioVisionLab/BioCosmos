@@ -497,7 +497,7 @@ class ImageEmbedder:
             {
                 "img_id": [
                     os.path.splitext(os.path.basename(path))[0]
-                    for path in img_paths
+                    for path in successful_paths
                 ],
                 "species": species,
                 "img_bytes": image_bytes,
@@ -507,9 +507,6 @@ class ImageEmbedder:
         )
         try:
             self.db_table.add(data)
-            self.logger.info(
-                f"Batch added {len(img_paths)} embeddings to the database."
-            )
         except Exception as e:
             self.logger.error(
                 f"Error adding batch embeddings: {e}", exc_info=True
