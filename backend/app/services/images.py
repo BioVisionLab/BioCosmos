@@ -205,7 +205,6 @@ class ImagePersistData:
                     "Failed to compute image embedding."
                 )
                 return None
-
             similar_images = self._query_embedding(
                 query_vector=query_embedding,
                 vector_column_name="unicom_embeddings",
@@ -424,6 +423,8 @@ class ImageEmbedder:
         self.logger.info(
             f"Starting concurrent batch addition of {len(img_paths)} images."
         )
+        # Suppress excessive logging from watchfiles during concurrent processing
+        logging.getLogger("watchfiles").setLevel(logging.WARNING)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self._add_batch_to_db, batch)

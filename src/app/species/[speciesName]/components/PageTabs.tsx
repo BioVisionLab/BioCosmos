@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { SpeciesOverview } from "./Overview";
+import { SpeciesOverview } from "./SpeciesOverview";
 import { SpeciesData } from "@/lib/speciesData";
-import WikipediaPage from "./Wikipedia";
-import { SpeciesTraits } from "./Traits";
+import WikipediaPage from "./WikipediaPage";
+import { SpeciesTraits } from "./LepTraits";
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
