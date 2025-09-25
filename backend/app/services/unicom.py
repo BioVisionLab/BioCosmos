@@ -1,5 +1,6 @@
 import logging
 import torch
+from ..configs.config import EmbedderConfig
 import unicom
 import io
 import numpy as np
@@ -7,20 +8,14 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-UNICOM_COLLECTION_NAME = "unicom_collection"
-# UNICOM_COLLECTION_NAME = "biocosmos_images_unicom" # New collection for UNICOM
 UNICOM_MODEL_NAME = "ViT-L/14@336px"  # UNICOM model
-DEVICE = (
-    torch.accelerator.current_accelerator().type
-    if torch.accelerator.is_available()
-    else "cpu"
-)
 
 
 class UnicomImageEmbedder:
     def __init__(self):
         """Initialize the UNICOM image embedder."""
-        self.device = DEVICE
+        config = EmbedderConfig()
+        self.device = config.device
         self.logger = logger
         self.model, self.transform = self._load_model()
 
@@ -100,6 +95,31 @@ class UnicomImageEmbedder:
             )
             return None
 
+    def batch_get_embeddings(
+        self, images: list[Image]
+    ) -> list[np.ndarray]:
+        """Get embeddings for a batch of PIL Images."""
+        if self.model is None:
+            self.logger.error(
+                "UNICOM model not available for image embedding."
+            )
+            return []
+        try:
+            inputs = torch.stack(
+                [self.transform(img) for img in images]
+            ).to(self.device)
+            with torch.no_grad():
+                image_features = self.model(inputs)
+            image_features /= image_features.norm(
+                dim=-1, keepdim=True
+            )
+            return image_features.cpu().numpy().squeeze()
+        except Exception as e:
+            self.logger.error(
+                f"Error processing batch of images with UNICOM: {e}",
+                exc_info=True,
+            )
+
     def _get_embedding(self, image: Image) -> np.ndarray | None:
         """Get the image embedding from a given PIL Image."""
         if self.model is None:
@@ -128,7 +148,3 @@ class UnicomImageEmbedder:
                 exc_info=True,
             )
             return None
-
-    def get_collection_name(self):
-        """Get the name of the UNICOM collection."""
-        return UNICOM_COLLECTION_NAME

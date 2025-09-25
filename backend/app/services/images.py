@@ -1,10 +1,10 @@
 import glob
 import numpy as np
 import io
-
+from PIL import Image
 from pydantic import BaseModel
 
-from ..configs.config import ImageConfig
+from ..configs.config import EmbedderConfig, ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
 
@@ -378,8 +378,10 @@ class ImageEmbedder:
     """
 
     def __init__(self):
+        embedder_config = EmbedderConfig()
         self.config = ImageConfig()
         self.clip = ClipEmbedder()
+        self.batch_size = embedder_config.batch_size
         self.unicom = UnicomImageEmbedder()
         self.logger = logging.getLogger(__name__)
         self.db_table = LanceDB().create_or_get_collection(
@@ -414,7 +416,7 @@ class ImageEmbedder:
         ]
 
     def batch_add_embeddings(self, img_paths: list[str]):
-        batches = self.split_batch(img_paths)
+        batches = self._split_batch(img_paths)
         if not batches:
             self.logger.error("No batches to process.")
             return
@@ -427,7 +429,14 @@ class ImageEmbedder:
                 executor.submit(self._add_batch_to_db, batch)
                 for batch in batches
             ]
-            for future in concurrent.futures.as_completed(futures):
+
+            progress_bar = tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(batches),
+                desc="Processing batches",
+            )
+
+            for future in progress_bar:
                 try:
                     future.result()
                 except Exception as e:
@@ -462,13 +471,21 @@ class ImageEmbedder:
                 "No image paths provided for batch addition."
             )
             return
-        species = self.get_species_name_from_path(img_paths)
-        image_bytes = [open(path, "rb").read() for path in img_paths]
+        successful_paths, valid_images = self._get_imgs(img_paths)
+        if not valid_images or len(valid_images) == 0:
+            self.logger.error(
+                "No valid images found for batch addition."
+            )
+            return
+        image_bytes = [
+            open(path, "rb").read() for path in successful_paths
+        ]
+        species = self.get_species_name_from_path(successful_paths)
         clip_embeddings: list[np.ndarray] = (
-            self.get_all_clip_embeddings(img_paths)
+            self._get_all_clip_embeddings(valid_images)
         )
         unicom_embeddings: list[np.ndarray] = (
-            self.get_all_unicom_embeddings(img_paths)
+            self._get_all_unicom_embeddings(valid_images)
         )
         # Fix: Use explicit check for None in list of arrays
         if any(e is None for e in clip_embeddings):
@@ -499,9 +516,31 @@ class ImageEmbedder:
             )
             return
 
-    def split_batch(
-        self, img_paths: list[str], batch_size: int = 100
-    ):
+    def _get_imgs(
+        self, img_paths: list[str]
+    ) -> tuple[list[str], list[Image]]:
+        """Get the image embeddings from a list of image paths.
+        Returns a tuple of successfully processed image paths and their embeddings.
+        """
+        valid_images = []
+        successful_paths = []
+        for img_path in img_paths:
+            try:
+                img: Image = Image.open(img_path).convert("RGB")
+                valid_images.append(img)
+                successful_paths.append(img_path)
+            except FileNotFoundError:
+                self.logger.warning(
+                    f"Image file not found, skipping: {img_path}"
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"Error opening image {img_path}: {e}",
+                    exc_info=True,
+                )
+        return successful_paths, valid_images
+
+    def _split_batch(self, img_paths: list[str]):
         """Split the list of image paths into smaller batches."""
         if not img_paths:
             self.logger.error(
@@ -509,50 +548,20 @@ class ImageEmbedder:
             )
             return []
         batches = [
-            img_paths[i : i + batch_size]
-            for i in range(0, len(img_paths), batch_size)
+            img_paths[i : i + self.batch_size]
+            for i in range(0, len(img_paths), self.batch_size)
         ]
         self.logger.info(
             f"Split {len(img_paths)} image paths into {len(batches)} batches."
         )
         return batches
 
-    def get_all_clip_embeddings(self, img_paths: list[str]):
-        embeddings: list[np.ndarray] = []
-        for img_path in tqdm(
-            img_paths, desc="Computing CLIP embeddings"
-        ):
-            embedding = self.clip.get_embedding_from_img(img_path)
-            if embedding is not None:
-                embeddings.append(embedding)
-            else:
-                self.logger.error(
-                    f"Failed to compute embedding for {img_path}"
-                )
-        # Fix: Use explicit check for None in list of arrays
-        if any(e is None for e in embeddings):
-            self.logger.error(
-                "Some embeddings could not be computed. Skipping batch addition."
-            )
-            return
-        return embeddings
+    def _get_all_clip_embeddings(
+        self, img_paths: list[str]
+    ) -> list[np.ndarray]:
+        return self.clip.batch_get_embeddings(img_paths)
 
-    def get_all_unicom_embeddings(self, img_paths: list[str]):
-        embeddings: list[np.ndarray] = []
-        for img_path in tqdm(
-            img_paths, desc="Computing Unicom embeddings"
-        ):
-            embedding = self.unicom.get_embedding_from_img(img_path)
-            if embedding is not None:
-                embeddings.append(embedding)
-            else:
-                self.logger.error(
-                    f"Failed to compute embedding for {img_path}"
-                )
-        # Fix: Use explicit check for None in list of arrays
-        if any(e is None for e in embeddings):
-            self.logger.error(
-                "Some embeddings could not be computed. Skipping batch addition."
-            )
-            return
-        return embeddings
+    def _get_all_unicom_embeddings(
+        self, img_paths: list[str]
+    ) -> list[np.ndarray]:
+        return self.unicom.batch_get_embeddings(img_paths)

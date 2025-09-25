@@ -7,21 +7,28 @@ db:
     dir: "lance_db"
     file: "biocosmos.lance"
 images:
-  # dir: "../../../python/biocosmos-exploration/data/images"
-  dir: "/data/data/images/standardized/2024_nymphalidae/nymphalidae_whole_specimen-v250613/"
+  dir: "../../../python/biocosmos-exploration/data/images"
+  # dir: "/data/data/images/standardized/2024_nymphalidae/nymphalidae_whole_specimen-v250613/"
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
   limit: null
   # Reset the inserted images, set to true to re-insert all images
-  reset: false
+  reset: true
 gbif:
-  dir: "~/Codes/"
+  # dir: "~/Codes/"
   # dir: "../../"
+  dir: "../../../python/biocosmos-exploration/data/lep-meta"
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"
 leptrait:
+  # Directory for LepTrait data
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"
 embedder:
-  batch_size: 60
-  accelerator: default
+  # Options: "default", "cpu", "cuda", "mps"
+  # "default" will detect the best available accelerator
+  device: "default"
+  # Select GPU for CUDA device, if multiple GPUs are available
+  cuda_device: 0
+  # Number of samples to process in each batch
+  batch_size: 8

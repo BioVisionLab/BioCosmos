@@ -1,7 +1,9 @@
 # Pretrained shared embedder for CLIP model
 # Handle text and image embeddings using CLIP model
 import logging
+import numpy as np
 import torch
+from ..configs.config import EmbedderConfig
 from transformers import CLIPModel, CLIPProcessor
 from PIL import Image
 import os
@@ -26,11 +28,8 @@ class ClipEmbedder:
     """
 
     def __init__(self):
-        self.device = (
-            torch.accelerator.current_accelerator().type
-            if torch.accelerator.is_available()
-            else "cpu"
-        )
+        config = EmbedderConfig()
+        self.device = config.device
         self.logger: logging.Logger = logger
         self.model, self.processor = self._load_model()
 
@@ -80,18 +79,8 @@ class ClipEmbedder:
             )
             return None
         try:
-            images = Image.open(img_path).convert("RGB")
-            inputs = self.processor(
-                images=images, return_tensors="pt", padding=True
-            ).to(self.device)
-            with torch.no_grad():
-                image_features = self.model.get_image_features(
-                    **inputs
-                )
-            image_features = image_features / image_features.norm(
-                dim=-1, keepdim=True
-            )  # Normalize the embeddings
-            return image_features.cpu().numpy().squeeze()
+            images: Image = Image.open(img_path).convert("RGB")
+            return self.__get_embeddings([images])[0]
         except FileNotFoundError as e:
             self.logger.error(
                 f"Image file not found: {e}", exc_info=True
@@ -103,6 +92,37 @@ class ClipEmbedder:
                 exc_info=True,
             )
             return None
+
+    def batch_get_embeddings(
+        self, images: list[Image]
+    ) -> list[np.ndarray]:
+        if self.model is None:
+            self.logger.error(
+                "CLIP model not available for image embedding."
+            )
+            return []
+        embeddings = []
+        for img in images:
+            try:
+                inputs = self.processor(
+                    images=img, return_tensors="pt", padding=True
+                ).to(self.device)
+                with torch.no_grad():
+                    image_features = self.model.get_image_features(
+                        **inputs
+                    )
+                image_features = image_features / image_features.norm(
+                    dim=-1, keepdim=True
+                )  # Normalize the embeddings
+                embeddings.append(
+                    image_features.cpu().numpy().squeeze()
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"Error processing image {img}: {e}",
+                    exc_info=True,
+                )
+        return embeddings
 
     def get_embedding_from_text(self, text) -> list[float]:
         if self.model is None:
