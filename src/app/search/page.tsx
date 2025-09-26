@@ -47,7 +47,7 @@ function SpeciesCard({ species }: { species: SemanticResultItem }) {
             alt="Loading..."
             width={IMAGE_SIZE}
             height={IMAGE_SIZE}
-            className="animate-pulse opacity-70"
+            className="animate-pulse"
           />
           <p className="text-gray-500 text-xs mt-2">Loading image...</p>
         </div>
@@ -131,9 +131,9 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
             <p className="text-gray-500 mt-8 flex items-baseline justify-center gap-2 leading-none">
               <span className="tracking-wide text-xl">Searching</span>
               <span className="flex gap-1">
-                <span className="-ml-1 w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-pulse [animation-delay:0ms]"></span>
-                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-pulse [animation-delay:150ms]"></span>
-                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-pulse [animation-delay:300ms]"></span>
+                <span className="-ml-1 w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:0ms]"></span>
+                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:150ms]"></span>
+                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:300ms]"></span>
               </span>
             </p>
           </div>
