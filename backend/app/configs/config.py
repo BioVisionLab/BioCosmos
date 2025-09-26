@@ -24,7 +24,7 @@ def get_image_path() -> str:
 def get_duck_db_path() -> str:
     config = load_config()
     duck_config = config["db"]["duck"]
-    parent_dir = duck_config.get("dir", ".")
+    parent_dir = os.getenv("DUCK_DIR", ".")
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     return os.path.join(parent_dir, duck_config["file"])
@@ -33,7 +33,7 @@ def get_duck_db_path() -> str:
 def get_lance_db_path() -> str:
     config = load_config()
     lance_config = config["db"]["lance"]
-    parent_dir = lance_config.get("dir", ".")
+    parent_dir = os.getenv("LANCE_DIR", ".")
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     return os.path.join(parent_dir, lance_config["file"])
@@ -46,7 +46,7 @@ class GbifConfig:
 
     @property
     def path(self) -> str:
-        parent_dir = self._gbif_config.get("dir", ".")
+        parent_dir = os.getenv("GBIF_DIR", ".")
         file_name = self._gbif_config.get(
             "file", "gbif-lepi-2024-occurrence.tsv"
         )
@@ -94,7 +94,7 @@ class ImageConfig:
 
     @property
     def dir(self) -> str:
-        return self._image_config.get("dir", ".")
+        return os.getenv("IMAGE_DIR", "./images")
 
     @property
     def table(self) -> str:

@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from .services.images import ImageEmbedder
 
@@ -15,6 +16,7 @@ from .routers import (
     taxon_fetch,
 )
 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +29,22 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifespan event to initialize the database."""
     logger.info("Starting up the application...")
+    required_env_vars = [
+        "DUCK_DIR",
+        "LANCE_DIR",
+        "IMAGE_DIR",
+        "GBIF_DIR",
+    ]
+    missing_vars = [
+        var for var in required_env_vars if var not in os.environ
+    ]
+    if missing_vars:
+        logger.error(
+            f"Missing required environment variables: {', '.join(missing_vars)}"
+        )
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing_vars)}"
+        )
     try:
         LepTraits().ingest()
         logger.info("LepTraits data ingested successfully.")

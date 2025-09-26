@@ -1,25 +1,17 @@
 db:
-  parent_dir: "db"
   duck:
-    dir: "duck_db"
     file: "biocosmos.duckdb"
   lance:
-    dir: "/Volumes/HHFastSsd/biocosmos/lance_db"
     file: "biocosmos.lance"
 images:
-  dir: "../../../python/biocosmos-exploration/data/images"
-  # dir: "/data/data/images/standardized/2024_nymphalidae/nymphalidae_whole_specimen-v250613/"
+  # Table name for storing image in the database
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
   limit: null
 gbif:
-  # dir: "~/Codes/"
-  # dir: "../../"
-  dir: "../../../python/biocosmos-exploration/data/lep-meta"
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"
 leptrait:
-  # Directory for LepTrait data
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"
 embedder:
