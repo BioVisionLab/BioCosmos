@@ -1,10 +1,16 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+
+from .services.unicom import UnicomModel
+
+
+from .services.clip import ClipModel
 from .services.images import ImageEmbedder
 
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
+from fastapi import Request
 
 # from .database.duckdb import init_duckdb
 from fastapi import FastAPI
@@ -46,11 +52,22 @@ async def lifespan(app: FastAPI):
             f"Missing required environment variables: {', '.join(missing_vars)}"
         )
     try:
+        clip_model, clip_processor = ClipModel.load_model()
+        app.state.clip_embedder = ClipModel(
+            model=clip_model, processor=clip_processor
+        )
+        unicom_model, unicom_transform = UnicomModel.load_model()
+        app.state.unicom_embedder = UnicomModel(
+            model=unicom_model, transform=unicom_transform
+        )
+        logger.info("CLIP model and processor initialized.")
         LepTraits().ingest()
         logger.info("LepTraits data ingested successfully.")
         GbifPersistData().ingest()
         logger.info("GBIF data ingested successfully.")
-        ImageEmbedder().ingest()
+        ImageEmbedder(
+            clip_model, clip_processor, unicom_model, unicom_transform
+        ).ingest()
         yield
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
@@ -76,7 +93,6 @@ app.include_router(taxon_fetch.router)
 
 
 @app.get("/")
-async def root():
+async def root(request: Request):
     logger.info("Root endpoint accessed")
-
     return {"message": "Welcome to the CLIP Service"}

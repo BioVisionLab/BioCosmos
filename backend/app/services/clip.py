@@ -3,6 +3,8 @@
 import logging
 import numpy as np
 import torch
+
+from fastapi import Request
 from ..configs.config import EmbedderConfig
 from transformers import CLIPModel, CLIPProcessor
 from PIL import Image
@@ -16,6 +18,58 @@ logger = logging.getLogger(__name__)
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 
 
+class ClipModel:
+    """Class to handle loading of CLIP model and processor."""
+
+    def __init__(self, model=None, processor=None):
+        self.model = model
+        self.processor = processor
+
+    @classmethod
+    def load_model(cls):
+        """Load the CLIP model and processor."""
+        config = EmbedderConfig()
+        try:
+            model = CLIPModel.from_pretrained(CLIP_MODEL_NAME).to(
+                config.device
+            )
+            processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
+            model.eval()
+            logger.info(
+                f"CLIP model {CLIP_MODEL_NAME} loaded successfully."
+            )
+            return model, processor
+        except Exception as e:
+            logger.error(
+                f"Error loading CLIP model: {e}", exc_info=True
+            )
+            return None, None
+
+
+def get_clip_ndims() -> int:
+    """Get the dimensions of the CLIP model's text embeddings."""
+    clip = ClipModel()
+    model, processor = clip.load_model()
+    embedder = ClipEmbedder(model, processor)
+    if model is None:
+        logger.error(
+            "CLIP model not available for getting dimensions."
+        )
+        return None
+    try:
+        embeddings = embedder.get_embedding_from_text("test")
+        logger.info(
+            f"CLIP model text embedding dimensions: {len(embeddings)}"
+        )
+        return len(embeddings)
+    except Exception as e:
+        logger.error(
+            f"Error getting CLIP model dimensions: {e}",
+            exc_info=True,
+        )
+        return None
+
+
 class ClipEmbedder:
     """Class to handle text embedding using CLIP model.
 
@@ -27,49 +81,12 @@ class ClipEmbedder:
         List[float]: The normalized text embedding vector.
     """
 
-    def __init__(self):
+    def __init__(self, model, processor):
+        self.logger: logging.Logger = logger
         config = EmbedderConfig()
         self.device = config.device
-        self.logger: logging.Logger = logger
-        self.model, self.processor = self._load_model()
-
-    def _load_model(self):
-        """Load the CLIP model and processor."""
-        try:
-            model = CLIPModel.from_pretrained(CLIP_MODEL_NAME).to(
-                self.device
-            )
-            processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
-            model.eval()
-            logger.info(
-                f"CLIP model {CLIP_MODEL_NAME} loaded successfully."
-            )
-            return model, processor
-        except Exception as e:
-            self.logger.error(
-                f"Error loading CLIP model: {e}", exc_info=True
-            )
-            return None, None
-
-    def ndims(self) -> int:
-        """Get the dimensions of the CLIP model's text embeddings."""
-        if self.model is None:
-            self.logger.error(
-                "CLIP model not available for getting dimensions."
-            )
-            return None
-        try:
-            dimensions = self.get_embedding_from_text("test")
-            logger.info(
-                f"CLIP model text embedding dimensions: {len(dimensions)}"
-            )
-            return len(dimensions)
-        except Exception as e:
-            self.logger.error(
-                f"Error getting CLIP model dimensions: {e}",
-                exc_info=True,
-            )
-            return None
+        self.model = model
+        self.processor = processor
 
     def get_embedding_from_img(self, img_path) -> list[float]:
         """Get the image embedding from a given image path."""

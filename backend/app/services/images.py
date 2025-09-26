@@ -1,12 +1,14 @@
 import glob
 import numpy as np
 import io
+
 from PIL import Image
 from pydantic import BaseModel
 
 from ..configs.config import EmbedderConfig, ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
+from fastapi import Request
 
 # We experiment with polars for better performance instead of pandas
 from .unicom import UnicomImageEmbedder
@@ -125,7 +127,7 @@ class ImagePersistData:
         return query[0].image_bytes_png
 
     def fetch_similar_images_from_text(
-        self, text: str, limit: int = 50
+        self, request: Request, text: str, limit: int = 50
     ) -> list[dict] | None:
         """Fetch images similar to the given text.
         We use CLIP embeddings for text similarity search.
@@ -136,7 +138,10 @@ class ImagePersistData:
         :return: A list of dictionaries containing similar image details or None if no matches found.
         """
         try:
-            text_embedder = ClipEmbedder()
+            text_embedder = ClipEmbedder(
+                model=request.app.state.clip_embedder.model,
+                processor=request.app.state.clip_embedder.processor,
+            )
             query_embedding = text_embedder.get_embedding_from_text(
                 text
             )
@@ -169,7 +174,7 @@ class ImagePersistData:
             return None
 
     def fetch_similar_images_from_bytes(
-        self, image_bytes: bytes, limit: int = 20
+        self, request: Request, image_bytes: bytes, limit: int = 20
     ) -> list[dict] | None:
         """Fetch images similar to the given image bytes.
         We use UNICOM embeddings for image similarity search.
@@ -180,7 +185,10 @@ class ImagePersistData:
         :return: A list of dictionaries containing similar image details or None if no matches found.
         """
         try:
-            unicom_embedder = UnicomImageEmbedder()
+            unicom_embedder = UnicomImageEmbedder(
+                model=request.app.state.unicom_embedder.model,
+                transform=request.app.state.unicom_embedder.transform,
+            )
             query_embedding = (
                 unicom_embedder.get_embedding_from_bytes(image_bytes)
             )
@@ -361,11 +369,23 @@ class ImageEmbedder:
     Include methods for adding, updating, and deleting image data, metadata, and embeddings.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        clip_model,
+        clip_processor,
+        unicom_model,
+        unicom_transform,
+    ):
         self.embedder_config = EmbedderConfig()
         self.config = ImageConfig()
-        self.clip = ClipEmbedder()
-        self.unicom = UnicomImageEmbedder()
+        self.clip = ClipEmbedder(
+            model=clip_model,
+            processor=clip_processor,
+        )
+        self.unicom = UnicomImageEmbedder(
+            model=unicom_model,
+            transform=unicom_transform,
+        )
         self.logger = logging.getLogger(__name__)
         self.db_table = LanceDB().create_or_get_collection(
             self.config.table
@@ -391,6 +411,7 @@ class ImageEmbedder:
                     "Image entries already exist in the database. Skipping ingestion."
                 )
                 return
+
         self.logger.info(f"Ingesting {len(img_paths)} images.")
         self.batch_add_embeddings(img_paths)
 

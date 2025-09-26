@@ -1,6 +1,6 @@
 from ..searches.images import TextToImageSearch
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 import logging
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/text-search")
-async def search_text(q: str, limit: int = 50):
+async def search_text(request: Request, q: str, limit: int = 50):
     """Endpoint for text to image search.
 
     Expects a query parameter 'q' for the search term.
@@ -30,7 +30,9 @@ async def search_text(q: str, limit: int = 50):
             status_code=400,
         )
     try:
-        search = TextToImageSearch(query=query, limit=limit)
+        search = TextToImageSearch(
+            request=request, query=query, limit=limit
+        )
         search_results = search.search()
         if not search_results:
             logger.error(

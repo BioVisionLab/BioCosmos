@@ -48,7 +48,7 @@ async def image_search(request: Request):
         logger.info(
             "Generating UNICOM image embedding from base64 data..."
         )
-        img_service = ImageToImageSearch(base64_image)
+        img_service = ImageToImageSearch(request, base64_image)
         search_results = img_service.search()
         if search_results is None:
             logger.warning("No results found for the given image.")

@@ -11,23 +11,21 @@ logger = logging.getLogger(__name__)
 UNICOM_MODEL_NAME = "ViT-L/14@336px"  # UNICOM model
 
 
-class UnicomImageEmbedder:
-    def __init__(self):
-        """Initialize the UNICOM image embedder."""
-        config = EmbedderConfig()
-        self.device = config.device
-        self.logger = logger
-        self.model, self.transform = self._load_model()
+class UnicomModel:
+    def __init__(self, model=None, transform=None):
+        self.model = model
+        self.transform = transform
 
-    def _load_model(self):
+    @classmethod
+    def load_model(cls):
         """Load the UNICOM model and its transform."""
-        logger.info(f"Loading UNICOM model: {UNICOM_MODEL_NAME}...")
         try:
-            _model, transform = unicom.load(UNICOM_MODEL_NAME)
-            model = _model.to(self.device)
+            config = EmbedderConfig()
+            model, transform = unicom.load(UNICOM_MODEL_NAME)
+            model = model.to(config.device)
             model.eval()
             logger.info(
-                f"UNICOM model and transform loaded and moved to {self.device} successfully"
+                f"UNICOM model and transform loaded and moved to {config.device} successfully"
             )
             return model, transform
         except Exception as e:
@@ -37,30 +35,41 @@ class UnicomImageEmbedder:
             )
             raise e
 
-    def ndims(self):
-        """Get the dimensions of the UNICOM model's image embeddings."""
-        if self.model is None:
-            self.logger.error(
-                "UNICOM model not available for getting dimensions."
-            )
-            return None
-        try:
-            # Get a dummy embedding to determine dimensions
-            dummy_image = Image.new("RGB", (224, 224), color="white")
-            dummy_tensor = (
-                self.transform(dummy_image)
-                .unsqueeze(0)
-                .to(self.device)
-            )
-            with torch.no_grad():
-                embedding = self.model(dummy_tensor)
+
+def get_unicom_ndims() -> int:
+    """Get the dimensions of the UNICOM model's image embeddings."""
+    config = EmbedderConfig()
+    unicom_model, transform = UnicomModel.load_model()
+    if unicom_model is None:
+        logger.error(
+            "UNICOM model not available for getting dimensions."
+        )
+        return None
+    try:
+        # Get a dummy embedding to determine dimensions
+        dummy_image = Image.new("RGB", (224, 224), color="white")
+        dummy_tensor = (
+            transform(dummy_image).unsqueeze(0).to(config.device)
+        )
+        with torch.no_grad():
+            embedding = unicom_model(dummy_tensor)
             return embedding.shape[-1]
-        except Exception as e:
-            self.logger.error(
-                f"Error getting UNICOM model dimensions: {e}",
-                exc_info=True,
-            )
-            return None
+    except Exception as e:
+        logger.error(
+            f"Error getting UNICOM model dimensions: {e}",
+            exc_info=True,
+        )
+        return None
+
+
+class UnicomImageEmbedder:
+    def __init__(self, model, transform):
+        """Initialize the UNICOM image embedder."""
+        config = EmbedderConfig()
+        self.device = config.device
+        self.logger = logger
+        self.model = model
+        self.transform = transform
 
     def get_embedding_from_img(self, image_path):
         """Get the image embedding from a given image path."""
@@ -87,7 +96,7 @@ class UnicomImageEmbedder:
             return None
         try:
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            return self._get_embedding(image)
+            return self.get_embedding(image)
         except Exception as e:
             self.logger.error(
                 f"Could not process base64 image with UNICOM: {e}",
@@ -121,7 +130,7 @@ class UnicomImageEmbedder:
                 exc_info=True,
             )
 
-    def _get_embedding(self, image: Image) -> np.ndarray | None:
+    def get_embedding(self, image: Image) -> np.ndarray | None:
         """Get the image embedding from a given PIL Image."""
         if self.model is None:
             self.logger.error(
