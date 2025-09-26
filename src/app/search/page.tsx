@@ -146,7 +146,7 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
             <p className="mb-4">
               Found {results.length} results for "{query}":
             </p>
-            <div className="grid grid-flow-row grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 space-x-2">
+            <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
               {results.map((item) => (
                 <Suspense
                   key={item.imgId}
