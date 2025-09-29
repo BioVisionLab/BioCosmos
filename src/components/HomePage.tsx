@@ -102,7 +102,7 @@ export default function HomeClient() {
           <span className="h-px flex-1 bg-gradient-to-r from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
         </div>
         <p className="mt-3 text-center text-sm sm:text-base text-gray-600 dark:text-gray-400">
-          Explore a few sample species to get started
+          Get started with a curated list of butterflies.
         </p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mx-auto">
