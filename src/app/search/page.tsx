@@ -6,6 +6,7 @@ import Image from "next/image";
 import { fetchThumbnailById } from "@/lib/speciesList";
 import { cleanSpeciesName } from "@/lib/names";
 import Link from "next/link";
+import ImageLoading from "@/components/ImageLoading";
 // Define the type for the semantic result object from the Python service
 interface SemanticResultItem {
   imgId: string;
@@ -41,16 +42,7 @@ function SpeciesCard({ species }: { species: SemanticResultItem }) {
   return (
     <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
       {loading ? (
-        <div>
-          <Image
-            src="/leaflet/images/butterfly.svg"
-            alt="Loading..."
-            width={IMAGE_SIZE}
-            height={IMAGE_SIZE}
-            className="animate-pulse"
-          />
-          <p className="text-gray-500 text-xs mt-2">Loading image...</p>
-        </div>
+        <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <Link href={`/species/${species.species}`}>
           <Image

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
 import io
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 
 router = APIRouter()
 
@@ -93,9 +93,7 @@ async def image_search_by_id(image_id: str):
                 status_code=404,
             )
         # Correctly stream the image bytes
-        return StreamingResponse(
-            io.BytesIO(img_bytes), media_type="image/png"
-        )
+        return Response(content=img_bytes, media_type="image/png")
     except Exception as e:
         logger.error(
             f"Error during image search by ID {image_id}: {e}",
@@ -135,9 +133,7 @@ async def image_search_thumbnail_by_id(image_id: str):
                 status_code=404,
             )
         # Correctly stream the image bytes
-        return StreamingResponse(
-            io.BytesIO(img_bytes), media_type="image/png"
-        )
+        return Response(content=img_bytes, media_type="image/png")
     except Exception as e:
         logger.error(
             f"Error during thumbnail image fetch by ID {image_id}: {e}",
