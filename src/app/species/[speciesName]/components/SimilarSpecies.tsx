@@ -1,7 +1,12 @@
 import { SimilarSpeciesMeta } from "@/lib/speciesData";
-import { fetchImgById } from "@/lib/speciesList";
+import { fetchThumbnailById } from "@/lib/speciesList";
+import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import ImageLoading from "@/components/ImageLoading";
+import { cleanSpeciesName } from "@/lib/names";
+
+const IMAGE_SIZE = 128;
 
 function VisuallySimilarSpecies({
   species,
@@ -31,23 +36,27 @@ function VisuallySimilarSpecies({
 function SimilarSpeciesImageGallery({ meta }: { meta: SimilarSpeciesMeta[] }) {
   return (
     <div className="overflow-x-auto rounded-xl px-2 flex flex-row gap-4 py-2">
-      {meta.map((item) => (
-        <div key={item.imgId}>
-          <SimilarSpeciesImage meta={item} />
-        </div>
+      {meta.map((item, index) => (
+        <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
       ))}
     </div>
   );
 }
 
-function SimilarSpeciesImage({ meta }: { meta: SimilarSpeciesMeta }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+function SimilarSpeciesImage({
+  meta,
+  index,
+}: {
+  meta: SimilarSpeciesMeta;
+  index: number;
+}) {
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchImage = async () => {
       try {
-        const response = await fetchImgById(meta.imgId);
-        setImageUrl(response);
+        const response = await fetchThumbnailById(meta.imgId);
+        setThumbnailUrl(response);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
       }
@@ -55,22 +64,31 @@ function SimilarSpeciesImage({ meta }: { meta: SimilarSpeciesMeta }) {
     fetchImage();
   }, [meta.imgId]);
 
+  const speciesName = cleanSpeciesName(meta.species);
+
   return (
-    imageUrl && (
+    <Link key={index} href={`/species/${meta.species}`}>
       <div className="inline-block m-4 text-center">
-        <div className="relative w-32 h-32 inline-block overflow-hidden">
-          <Image
-            src={imageUrl}
-            alt={`Similar species image ${meta.imgId}`}
-            fill
-            className="object-fill"
-          />
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-          {meta.species}
-        </p>
+        {thumbnailUrl ? (
+          <>
+            <div className="relative w-32 h-32 inline-block overflow-hidden">
+              <Image
+                src={thumbnailUrl}
+                alt={`Similar species image ${meta.imgId}`}
+                width={IMAGE_SIZE}
+                height={IMAGE_SIZE}
+                className="object-fill mx-auto"
+              />
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+              {speciesName}
+            </p>
+          </>
+        ) : (
+          <ImageLoading size={IMAGE_SIZE} />
+        )}
       </div>
-    )
+    </Link>
   );
 }
 

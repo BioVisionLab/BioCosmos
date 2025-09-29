@@ -102,7 +102,7 @@ export async function getSpeciesData(
       dataRaw["similarSpecies"] || [];
     const cleanedSimilarSpecies = similarSpecies.map((item) => ({
       imgId: item.imgId,
-      species: cleanSpeciesName(item.species),
+      species: item.species,
       distance: parseFloat(item.distance.toFixed(4)), // Round distance to 4 decimal places
     }));
     // Use taxonomy data directly if available, otherwise fallback to the root
