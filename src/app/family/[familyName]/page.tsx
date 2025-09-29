@@ -1,4 +1,4 @@
-import HomeClient from "@/components/HomeClient"; // Reuse HomeClient for genus grid
+import HomeClient from "@/components/HomePage"; // Reuse HomeClient for genus grid
 import Link from "next/link";
 
 interface FamilyPageProps {

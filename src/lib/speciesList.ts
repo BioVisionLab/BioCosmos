@@ -11,18 +11,13 @@ const INITIAL_SPECIES = [
   "zeuxidia_ameythystus",
   "panacea_prola",
   "charaxes_subornatus",
+  "agrias_phalcidon",
 ];
-
-export interface SpeciesThumbnails {
-  name: string;
-  imageUrl: string;
-  folderName: string;
-}
 
 // Get an initial list of species.
 // Request image thumbnails from API/taxon/${speciesName}/thumbnail
 
-function getSpeciesList(): string[] {
+export function getSpeciesList(): string[] {
   // We shuffle the initial species array to get a random selection each time
   // return six random species from the list
   const sorted_list = INITIAL_SPECIES.sort(() => 0.5 - Math.random());
@@ -55,21 +50,6 @@ export async function fetchSpeciesThumbnail(
   const localUrl = URL.createObjectURL(imageBlob);
 
   return localUrl;
-}
-
-export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
-  const speciesList = getSpeciesList();
-  const thumbnails = await Promise.all(
-    speciesList.map(async (species) => {
-      const imageUrl = await fetchSpeciesThumbnail(species);
-      return {
-        name: cleanSpeciesName(species),
-        imageUrl,
-        folderName: species,
-      };
-    })
-  );
-  return thumbnails;
 }
 
 // NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS
