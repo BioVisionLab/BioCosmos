@@ -10,6 +10,7 @@ const INITIAL_SPECIES = [
   "panacea_prola",
   "charaxes_subornatus",
   "agrias_phalcidon",
+  "ypthima_doleta",
 ];
 
 // Get an initial list of species.
