@@ -35,7 +35,7 @@ function VisuallySimilarSpecies({
 
 function SimilarSpeciesImageGallery({ meta }: { meta: SimilarSpeciesMeta[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl px-2 flex flex-row gap-4 py-2">
+    <div className="overflow-x-auto rounded-xl p-2 flex flex-row gap-4">
       {meta.map((item, index) => (
         <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
       ))}
@@ -68,18 +68,16 @@ function SimilarSpeciesImage({
 
   return (
     <Link key={index} href={`/species/${meta.species}`}>
-      <div className="inline-block m-4 text-center">
+      <div className="item-center text-center m-2">
         {thumbnailUrl ? (
           <>
-            <div className="relative w-32 h-32 inline-block overflow-hidden">
-              <Image
-                src={thumbnailUrl}
-                alt={`Similar species image ${meta.imgId}`}
-                width={IMAGE_SIZE}
-                height={IMAGE_SIZE}
-                className="object-fill mx-auto"
-              />
-            </div>
+            <Image
+              src={thumbnailUrl}
+              alt={`Similar species image ${meta.imgId}`}
+              width={IMAGE_SIZE}
+              height={IMAGE_SIZE}
+              className="object-fill mx-auto"
+            />
             <p className="text-sm text-gray-500 dark:text-gray-400 italic">
               {speciesName}
             </p>
