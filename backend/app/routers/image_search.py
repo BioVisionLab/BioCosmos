@@ -3,7 +3,6 @@ from ..services.images import ImagePersistData
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
-import io
 from fastapi.responses import Response
 
 router = APIRouter()
@@ -72,7 +71,7 @@ async def image_search(request: Request):
 
 
 @router.get("/img-search/id/{image_id}")
-async def image_search_by_id(image_id: str):
+async def image_search_by_id(request: Request, image_id: str):
     """
     Endpoint for image to image search by image ID.
     Expects an image ID as a path parameter.
@@ -83,7 +82,9 @@ async def image_search_by_id(image_id: str):
         f"Received image search request for image ID: {image_id}"
     )
     try:
-        img_bytes = ImagePersistData().get_img_by_id(image_id)
+        img_bytes = ImagePersistData(
+            lance_db=request.app.state.lance_db
+        ).get_img_by_id(image_id)
         if img_bytes is None:
             logger.warning(f"Image not found for ID: {image_id}")
             return JSONResponse(
@@ -108,7 +109,9 @@ async def image_search_by_id(image_id: str):
 
 
 @router.get("/img-search/id/{image_id}/thumbnail")
-async def image_search_thumbnail_by_id(image_id: str):
+async def image_search_thumbnail_by_id(
+    request: Request, image_id: str
+):
     """
     Endpoint for fetching thumbnail image by image ID.
     Expects an image ID as a path parameter.
@@ -119,9 +122,9 @@ async def image_search_thumbnail_by_id(image_id: str):
         f"Received thumbnail image request for image ID: {image_id}"
     )
     try:
-        img_bytes = ImagePersistData().get_img_by_id(
-            image_id, is_thumbnail=True
-        )
+        img_bytes = ImagePersistData(
+            lance_db=request.app.state.lance_db
+        ).get_img_by_id(image_id, is_thumbnail=True)
         if img_bytes is None:
             logger.warning(
                 f"Thumbnail image not found for ID: {image_id}"

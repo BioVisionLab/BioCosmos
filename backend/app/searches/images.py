@@ -1,5 +1,6 @@
 import base64
 import logging
+import re
 
 from fastapi import Request
 from pydantic import BaseModel
@@ -48,7 +49,9 @@ class TextToImageSearch:
         logger.info(
             f"Performing text to image search for query: {self.query}"
         )
-        search_img = ImagePersistData()
+        search_img = ImagePersistData(
+            lance_db=self.request.app.state.lance_db
+        )
         results = search_img.fetch_similar_images_from_text(
             self.request, self.query, limit=self.limit
         )
@@ -87,7 +90,9 @@ class ImageToImageSearch:
         else:
             encoded = self.query
         query_img: bytes = base64.b64decode(encoded)
-        search_img = ImagePersistData()
+        search_img = ImagePersistData(
+            lance_db=self.request.app.state.lance_db
+        )
         results = search_img.fetch_similar_images_from_bytes(
             request=self.request,
             image_bytes=query_img,

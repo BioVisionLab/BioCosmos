@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from fastapi import Request
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
@@ -51,13 +51,14 @@ class TaxonSearch:
     A class to handle taxon search operations using the GBIF API.
     """
 
-    def __init__(self, query: str = ""):
+    def __init__(self, request: Request, query: str = ""):
         """
         Initialize the TaxonSearch class.
         Args:
             query (str): The species name to search for.
         """
         self.species = query.strip().lower()
+        self.request = request
 
     def get_counts(self) -> dict | None:
         """
@@ -65,7 +66,9 @@ class TaxonSearch:
         """
         gbif_service = GbifPersistData()
         leptraits_service = LepTraits()
-        img_service = ImagePersistData()
+        img_service = ImagePersistData(
+            lance_db=self.request.app.state.lance_db
+        )
         try:
             counts_gbif: int | None = gbif_service.count_entries()
             count_leptrait: int | None = (
@@ -123,7 +126,9 @@ class TaxonSearch:
                 )
                 return None
             similar_images: list[dict] = (
-                ImagePersistData().fetch_id_similar_images(
+                ImagePersistData(
+                    lance_db=self.request.app.state.lance_db
+                ).fetch_id_similar_images(
                     species_name=self.species, limit=50
                 )
                 or []

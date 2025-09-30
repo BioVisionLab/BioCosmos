@@ -41,10 +41,10 @@ class SpeciesImage(BaseModel):
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
-    def __init__(self):
+    def __init__(self, lance_db: LanceDB):
         self.config = ImageConfig()
         self.logger = logging.getLogger(__name__)
-        self.db_table = LanceDB().create_or_get_collection(
+        self.db_table = lance_db.create_or_get_collection(
             self.config.table
         )
 
@@ -375,6 +375,7 @@ class ImageEmbedder:
         clip_processor,
         unicom_model,
         unicom_transform,
+        lance_db: LanceDB,
     ):
         self.embedder_config = EmbedderConfig()
         self.config = ImageConfig()
@@ -387,7 +388,7 @@ class ImageEmbedder:
             transform=unicom_transform,
         )
         self.logger = logging.getLogger(__name__)
-        self.db_table = LanceDB().create_or_get_collection(
+        self.db_table = lance_db.create_or_get_collection(
             self.config.table
         )
 

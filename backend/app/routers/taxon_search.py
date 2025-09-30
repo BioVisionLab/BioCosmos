@@ -1,6 +1,6 @@
 # Query taxonomy data based on the species name
 # Use GBIF Species Search API to find species taxonomy data
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
 from ..searches.taxon import TaxonSearch
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/taxon")
-async def search_taxon(q: str):
+async def search_taxon(request: Request, q: str):
     """
     Search for species taxonomy data using the GBIF (Global Biodiversity Information Facility) API.
 
@@ -33,7 +33,9 @@ async def search_taxon(q: str):
         )
     logger.info(f"Searching for taxon: {q}")
     try:
-        taxon_data = await TaxonSearch(query=q).search()
+        taxon_data = await TaxonSearch(
+            request=request, query=q
+        ).search()
         if taxon_data is None:
             message = f"No data found for species: {q}"
             logger.info(message)
@@ -55,13 +57,13 @@ async def search_taxon(q: str):
 
 
 @router.get("/taxon/counts")
-async def get_taxon_counts():
+async def get_taxon_counts(request: Request):
     """
     Get the counts of species in each taxon.
     """
     logger.info("Received taxon counts request")
     try:
-        counts = TaxonSearch().get_counts()
+        counts = TaxonSearch(request=request).get_counts()
         logger.info(f"Taxon counts found: {counts}")
         return JSONResponse(content=counts, status_code=200)
     except Exception as e:

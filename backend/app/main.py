@@ -1,10 +1,10 @@
 import logging
-import os
 from contextlib import asynccontextmanager
+from pydantic import ValidationError
+from pydantic_settings import BaseSettings
 
 from .services.unicom import UnicomModel
-
-
+from .database.lance import LanceDB
 from .services.clip import ClipModel
 from .services.images import ImageEmbedder
 
@@ -31,47 +31,129 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class AppSettings(BaseSettings):
+    """
+    Manages application settings and environment variables using Pydantic.
+    This centralizes configuration and provides validation.
+    """
+
+    DUCK_DIR: str
+    LANCE_DIR: str
+    IMAGE_DIR: str
+    GBIF_DIR: str
+
+    class Config:
+        # If your env variables are in a .env file
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+def get_app_settings() -> AppSettings:
+    """
+    Loads and validates application settings.
+    Raises an EnvironmentError if required settings are missing.
+    """
+    try:
+        return AppSettings()
+    except ValidationError as e:
+        missing_vars = [
+            err["loc"][0] for err in e.errors() if "loc" in err
+        ]
+        error_message = f"Missing or invalid required environment variables: {', '.join(missing_vars)}"
+        logger.error(error_message)
+        # Re-raising as EnvironmentError for consistency with the original code's intent.
+        raise EnvironmentError(error_message) from e
+
+
+def initialize_models(app: FastAPI):
+    """Initializes and attaches machine learning models to the app state."""
+    logger.info("Initializing CLIP model...")
+    clip_model, clip_processor = ClipModel.load_model()
+    app.state.clip_embedder = ClipModel(
+        model=clip_model, processor=clip_processor
+    )
+    logger.info("CLIP model initialized successfully.")
+
+    logger.info("Initializing UNICOM model...")
+    unicom_model, unicom_transform = UnicomModel.load_model()
+    app.state.unicom_embedder = UnicomModel(
+        model=unicom_model, transform=unicom_transform
+    )
+    logger.info("UNICOM model initialized successfully.")
+
+
+def initialize_database(app: FastAPI):
+    """Initializes and attaches the database to the app state."""
+    logger.info("Initializing LanceDB...")
+    app.state.lance_db = LanceDB()
+    logger.info("LanceDB initialized successfully.")
+
+
+def run_data_ingestion(app: FastAPI):
+    """Runs all necessary data ingestion processes."""
+    logger.info("Starting data ingestion processes...")
+    LepTraits().ingest()
+    logger.info("LepTraits data ingested.")
+
+    GbifPersistData().ingest()
+    logger.info("GBIF data ingested.")
+
+    # The ImageEmbedder now gets its dependencies from the app.state
+    image_embedder = ImageEmbedder(
+        clip_model=app.state.clip_embedder.model,
+        clip_processor=app.state.clip_embedder.processor,
+        unicom_model=app.state.unicom_embedder.model,
+        unicom_transform=app.state.unicom_embedder.transform,
+        lance_db=app.state.lance_db,
+    )
+    image_embedder.ingest()
+    logger.info("Image embeddings ingested.")
+    logger.info(
+        "All data ingestion processes completed successfully."
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan event to initialize the database."""
-    logger.info("Starting up the application...")
-    required_env_vars = [
-        "DUCK_DIR",
-        "LANCE_DIR",
-        "IMAGE_DIR",
-        "GBIF_DIR",
-    ]
-    missing_vars = [
-        var for var in required_env_vars if var not in os.environ
-    ]
-    if missing_vars:
-        logger.error(
-            f"Missing required environment variables: {', '.join(missing_vars)}"
-        )
-        raise EnvironmentError(
-            f"Missing required environment variables: {', '.join(missing_vars)}"
-        )
+    """
+
+    Application lifespan manager.
+
+    This context manager handles the startup and shutdown logic for the FastAPI
+    application. On startup, it initializes all necessary services like
+    configuration, models, databases, and performs initial data ingestion.
+    On shutdown, it will handle cleanup.
+    """
+    logger.info("Application starting up...")
+
     try:
-        clip_model, clip_processor = ClipModel.load_model()
-        app.state.clip_embedder = ClipModel(
-            model=clip_model, processor=clip_processor
-        )
-        unicom_model, unicom_transform = UnicomModel.load_model()
-        app.state.unicom_embedder = UnicomModel(
-            model=unicom_model, transform=unicom_transform
-        )
-        logger.info("CLIP model and processor initialized.")
-        LepTraits().ingest()
-        logger.info("LepTraits data ingested successfully.")
-        GbifPersistData().ingest()
-        logger.info("GBIF data ingested successfully.")
-        ImageEmbedder(
-            clip_model, clip_processor, unicom_model, unicom_transform
-        ).ingest()
+        settings = get_app_settings()
+        app.state.settings = settings
+        logger.info("Application settings loaded and validated.")
+
+        initialize_models(app)
+        initialize_database(app)
+
+        run_data_ingestion(app)
+
+        logger.info("Application startup completed successfully.")
         yield
-    except Exception as e:
-        logger.error(f"Error initializing database: {e}")
-        raise e
+
+    except (EnvironmentError, Exception) as e:
+        logger.critical(
+            f"A critical error occurred during application startup: {e}"
+        )
+        # Depending on the desired behavior, you might want to exit the application
+        # or prevent it from starting to accept requests. Raising the exception
+        # will typically stop the server from starting.
+        raise
+
+    finally:
+        logger.info("Application shutting down...")
+        app.state.lance_db = None  # Example cleanup
+        app.state.clip_embedder = None
+        app.state.unicom_embedder = None
+        logger.info("Application shutdown completed.")
 
 
 app = FastAPI(
