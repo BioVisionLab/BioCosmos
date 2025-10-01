@@ -220,3 +220,27 @@ class EmbedderConfig:
             f"Embedder skip config is not a valid boolean: {skip}. Falling back to False."
         )
         return False
+
+
+class OpenAIConfig:
+    def __init__(self):
+        config = load_config()
+        self._openai_config = config.get("openai", {})
+
+    @property
+    def api_url(self) -> str | None:
+        api_url = os.getenv("UF_AI_URL", None)
+        if api_url:
+            return api_url
+        return None
+
+    @property
+    def api_key(self) -> str | None:
+        api_key = os.getenv("UF_AI_API_KEY", None)
+        if api_key:
+            return api_key
+        return None
+
+    @property
+    def model(self) -> str | None:
+        return self._openai_config.get("model", "gpt-4")

@@ -26,3 +26,5 @@ embedder:
   batch_size: 20
   # Reset the inserted images, set to true to re-insert all images
   reset: true
+openai:
+  model: "gpt-4"
