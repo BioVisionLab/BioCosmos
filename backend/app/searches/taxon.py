@@ -64,8 +64,12 @@ class TaxonSearch:
         """
         Get the counts of species in each taxon.
         """
-        gbif_service = GbifPersistData()
-        leptraits_service = LepTraits()
+        gbif_service = GbifPersistData(
+            duckdb=self.request.app.state.duck_db
+        )
+        leptraits_service = LepTraits(
+            duckdb=self.request.app.state.duck_db
+        )
         img_service = ImagePersistData(
             lance_db=self.request.app.state.lance_db
         )
@@ -158,7 +162,9 @@ class TaxonSearch:
             dict: A dictionary containing the species traits data or None if not found.
         """
         try:
-            leptraits = LepTraits()
+            leptraits = LepTraits(
+                duckdb=self.request.app.state.duck_db
+            )
             leptraits_data = leptraits.get(self.species)
             if leptraits_data is None:
                 logger.info(
@@ -175,6 +181,3 @@ class TaxonSearch:
                 exc_info=True,
             )
             return None
-        finally:
-            leptraits.close()
-            logger.info("LepTraits client connection closed")

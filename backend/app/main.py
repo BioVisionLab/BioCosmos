@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
+from .database.duckdb import DuckDBClient
 from pydantic_settings import BaseSettings
 
 from .services.unicom import UnicomModel
@@ -82,20 +83,26 @@ def initialize_models(app: FastAPI):
     logger.info("UNICOM model initialized successfully.")
 
 
-def initialize_database(app: FastAPI):
+def initialize_lance(app: FastAPI):
     """Initializes and attaches the database to the app state."""
     logger.info("Initializing LanceDB...")
     app.state.lance_db = LanceDB()
     logger.info("LanceDB initialized successfully.")
 
 
+def initialize_duckdb(app: FastAPI):
+    """Initializes and attaches the DuckDB to the app state."""
+    logger.info("Initializing DuckDB...")
+    app.state.duck_db = DuckDBClient()
+    logger.info("DuckDB initialized successfully.")
+
+
 def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
-    LepTraits().ingest()
+    LepTraits(app.state.duck_db).ingest()
     logger.info("LepTraits data ingested.")
-
-    GbifPersistData().ingest()
+    GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
 
     # The ImageEmbedder now gets its dependencies from the app.state
@@ -132,8 +139,8 @@ async def lifespan(app: FastAPI):
         logger.info("Application settings loaded and validated.")
 
         initialize_models(app)
-        initialize_database(app)
-
+        initialize_lance(app)
+        initialize_duckdb(app)
         run_data_ingestion(app)
 
         logger.info("Application startup completed successfully.")
@@ -150,7 +157,8 @@ async def lifespan(app: FastAPI):
 
     finally:
         logger.info("Application shutting down...")
-        app.state.lance_db = None  # Example cleanup
+        app.state.duck_db.close()
+        app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None
         logger.info("Application shutdown completed.")

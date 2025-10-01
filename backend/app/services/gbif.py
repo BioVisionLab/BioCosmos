@@ -17,14 +17,14 @@ class GbifPersistData:
     Allowing to ingest, store, and query GBIF species data.
     """
 
-    def __init__(self):
+    def __init__(self, duckdb: DuckDBClient):
         """
         Initialize the GbifPersistData from DuckDB.
         """
         config = GbifConfig()
         self.tsv_path = config.path
         self.table_name = config.table
-        self.db_client = DuckDBClient()
+        self.db_client = duckdb
 
     def ingest(self):
         """
