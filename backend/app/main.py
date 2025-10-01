@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
+
 from .database.duckdb import DuckDBClient
 from pydantic_settings import BaseSettings
 
@@ -11,7 +12,6 @@ from .services.images import ImageEmbedder
 
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
-from fastapi import Request
 
 # from .database.duckdb import init_duckdb
 from fastapi import FastAPI
@@ -21,6 +21,7 @@ from .routers import (
     text_search,
     taxon_search,
     taxon_fetch,
+    text_summarization,
 )
 
 
@@ -46,7 +47,6 @@ class AppSettings(BaseSettings):
     UF_AI_API_KEY: str
 
     class Config:
-        # If your env variables are in a .env file
         env_file = ".env"
         env_file_encoding = "utf-8"
 
@@ -64,7 +64,6 @@ def get_app_settings() -> AppSettings:
         ]
         error_message = f"Missing or invalid required environment variables: {', '.join(missing_vars)}"
         logger.error(error_message)
-        # Re-raising as EnvironmentError for consistency with the original code's intent.
         raise EnvironmentError(error_message) from e
 
 
@@ -107,7 +106,6 @@ def run_data_ingestion(app: FastAPI):
     GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
 
-    # The ImageEmbedder now gets its dependencies from the app.state
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
         clip_processor=app.state.clip_embedder.processor,
@@ -152,9 +150,6 @@ async def lifespan(app: FastAPI):
         logger.critical(
             f"A critical error occurred during application startup: {e}"
         )
-        # Depending on the desired behavior, you might want to exit the application
-        # or prevent it from starting to accept requests. Raising the exception
-        # will typically stop the server from starting.
         raise
 
     finally:
@@ -182,9 +177,10 @@ app.include_router(image_search.router)
 app.include_router(text_search.router)
 app.include_router(taxon_search.router)
 app.include_router(taxon_fetch.router)
+app.include_router(text_summarization.router)
 
 
 @app.get("/")
-async def root(request: Request):
+async def root():
     logger.info("Root endpoint accessed")
     return {"message": "Welcome to the CLIP Service"}

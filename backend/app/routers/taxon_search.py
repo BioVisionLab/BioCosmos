@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
-from ..searches.taxon import TaxonSearch
+from ..query.taxon import TaxonSearch
 
 router = APIRouter()
 

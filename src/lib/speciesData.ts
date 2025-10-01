@@ -1,6 +1,5 @@
 // import fs from "fs";
 import { API_HOST } from "./config";
-import { cleanSpeciesName } from "./names";
 
 const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
 

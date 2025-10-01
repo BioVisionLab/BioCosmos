@@ -1,5 +1,6 @@
 import logging
-from .services.openai import AiSummary
+
+from ..query.taxon import TaxonSearch
 from fastapi import (
     APIRouter,
     Request,
@@ -9,8 +10,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/summarize")
-async def summarize_text(request: Request, q: str):
+@router.get("/summarize/{species_name}")
+async def summarize_text(request: Request, species_name: str):
     """
     Summarize the provided text using a text summarization service.
 
@@ -21,19 +22,17 @@ async def summarize_text(request: Request, q: str):
         dict: A dictionary containing the summarized text or an error message.
     """
     logger.info("Received text summarization request")
-    q = q.strip() if q else None
-    if q is None or q == "":
+    species_name = species_name.strip() if species_name else None
+    if species_name is None or species_name == "":
         logger.warning("Text summarization query is empty")
         return {
-            "error": "Query parameter 'q' is required and cannot be empty."
+            "error": "Query parameter 'species_name' is required and cannot be empty."
         }
 
-    logger.info(
-        f"Summarizing text: {q[:30]}..."
-    )  # Log only the first 30 characters
+    logger.info(f"Summarizing text: {species_name}...")
     try:
-        summarizer = AiSummary()
-        summary = await summarizer.summarize(q)
+        summarizer = TaxonSearch(request=request, query=species_name)
+        summary = await summarizer.generate_summary()
 
         if summary is None:
             message = (
