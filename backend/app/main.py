@@ -42,8 +42,8 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    # UF_AI_URL: str
-    # UF_AI_API_KEY: str
+    UF_AI_URL: str
+    UF_AI_API_KEY: str
 
     class Config:
         env_file = ".env"
