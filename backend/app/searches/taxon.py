@@ -5,7 +5,22 @@ from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) 
+
+class TaxonStatPayload(BaseModel):
+    """
+    A class to represent taxon statistics from GBIF and LepTraits entries.
+    """
+    gbifEntries: int
+    lepTraitsEntries: int
+    imageEntries: int
+    gbifSpeciesCount: int
+
+    return cls(
+        gbifEntries = 
+    )
+
+
 
 
 class SpeciesPayload(BaseModel):
@@ -87,6 +102,7 @@ class TaxonSearch:
                 "GBIF entries": counts_gbif,
                 "LepTraits entries": count_leptrait,
                 "Image entries": count_img,
+                "GBIF species count":
             }
         except Exception as e:
             logger.error(f"Error fetching counts: {e}", exc_info=True)
