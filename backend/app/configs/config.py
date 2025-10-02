@@ -1,3 +1,4 @@
+import torch
 import yaml
 import os
 import logging
@@ -23,7 +24,7 @@ def get_image_path() -> str:
 def get_duck_db_path() -> str:
     config = load_config()
     duck_config = config["db"]["duck"]
-    parent_dir = duck_config.get("dir", ".")
+    parent_dir = os.getenv("DUCK_DIR", ".")
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     return os.path.join(parent_dir, duck_config["file"])
@@ -32,7 +33,7 @@ def get_duck_db_path() -> str:
 def get_lance_db_path() -> str:
     config = load_config()
     lance_config = config["db"]["lance"]
-    parent_dir = lance_config.get("dir", ".")
+    parent_dir = os.getenv("LANCE_DIR", ".")
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     return os.path.join(parent_dir, lance_config["file"])
@@ -45,7 +46,7 @@ class GbifConfig:
 
     @property
     def path(self) -> str:
-        parent_dir = self._gbif_config.get("dir", ".")
+        parent_dir = os.getenv("GBIF_DIR", ".")
         file_name = self._gbif_config.get(
             "file", "gbif-lepi-2024-occurrence.tsv"
         )
@@ -93,7 +94,7 @@ class ImageConfig:
 
     @property
     def dir(self) -> str:
-        return self._image_config.get("dir", ".")
+        return os.getenv("IMAGE_DIR", "./images")
 
     @property
     def table(self) -> str:
@@ -118,6 +119,128 @@ class ImageConfig:
                 return None
         return None
 
+
+class EmbedderConfig:
+    def __init__(self):
+        config = load_config()
+        self._embedder_config = config.get("embedder", {})
+
+    @property
+    def device(self) -> str:
+        device = self._embedder_config.get("device", "default")
+        valid_devices = ["default", "cpu", "cuda", "mps"]
+        default = (
+            torch.accelerator.current_accelerator().type
+            if torch.accelerator.is_available()
+            else "cpu"
+        )
+        if device not in valid_devices:
+            logger.info(
+                f"Invalid embedder device '{device}'. Falling back to 'default'."
+            )
+            return default
+        match device:
+            case "default":
+                return default
+            case "cpu":
+                return "cpu"
+            case "cuda":
+                if torch.cuda.is_available():
+                    return self._get_cuda_device()
+                else:
+                    logger.info(
+                        "CUDA not available. Falling back to 'cpu'."
+                    )
+                    return default
+            case "mps":
+                if torch.backends.mps.is_available():
+                    return "mps"
+                else:
+                    logger.info(
+                        "MPS not available. Falling back to 'cpu'."
+                    )
+                    return default
+
+    @property
+    def batch_size(self) -> int:
+        batch_size = self._embedder_config.get("batch_size", 8)
+        try:
+            batch_size = int(batch_size)
+            if batch_size <= 0:
+                logger.info(
+                    f"Embedder batch size must be positive, got: {batch_size}. Falling back to 8."
+                )
+                return 8
+            return batch_size
+        except ValueError:
+            logger.info(
+                f"Embedder batch size is not a valid integer: {batch_size}. Falling back to 8."
+            )
+            return 8
+
+    def _get_cuda_device(self) -> str:
+        cuda_device = self._embedder_config.get("cuda_device", 0)
+        try:
+            cuda_device = int(cuda_device)
+            if (
+                cuda_device < 0
+                or cuda_device >= torch.cuda.device_count()
+            ):
+                logger.info(
+                    f"CUDA device index {cuda_device} is out of range. Falling back to 0."
+                )
+                return "cuda"
+            return f"cuda:{cuda_device}"
+        except ValueError:
+            logger.info(
+                f"CUDA device index is not a valid integer: {cuda_device}. Falling back to 0."
+            )
+            return "cuda"
+
     @property
     def reset(self) -> bool:
-        return self._image_config.get("reset", False)
+        reset = self._embedder_config.get("reset", False)
+        if isinstance(reset, bool):
+            return reset
+        if isinstance(reset, str):
+            return reset.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Embedder reset config is not a valid boolean: {reset}. Falling back to False."
+        )
+        return False
+
+    @property
+    def skip(self) -> bool:
+        skip = self._embedder_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Embedder skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+
+class OpenAIConfig:
+    def __init__(self):
+        config = load_config()
+        self._openai_config = config.get("openai", {})
+
+    @property
+    def api_url(self) -> str | None:
+        api_url = os.getenv("UF_AI_URL", None)
+        if api_url:
+            return api_url
+        return None
+
+    @property
+    def api_key(self) -> str | None:
+        api_key = os.getenv("UF_AI_API_KEY", None)
+        if api_key:
+            return api_key
+        return None
+
+    @property
+    def model(self) -> str | None:
+        return self._openai_config.get("model", "gpt-4")

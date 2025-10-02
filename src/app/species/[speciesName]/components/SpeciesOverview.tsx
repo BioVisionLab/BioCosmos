@@ -1,9 +1,9 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { SpeciesImages } from "./ImageGallery";
-import { SpeciesDescription } from "./Description";
-import { SpeciesClassification } from "./Classification";
-import { RedListStatus } from "./RedlistStatus";
+import { SpeciesDescription } from "./TaxonSummary";
+import { SpeciesClassification } from "./TaxonClassification";
+import { RedListStatus } from "./IucnRedlist";
 import { LepTraits, SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 

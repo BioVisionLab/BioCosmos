@@ -88,8 +88,8 @@ class LanceSchema(LanceModel):
     img_id: str
     species: str
     img_bytes: bytes
-    clip_embeddings: Vector(clip.ClipEmbedder().ndims())
-    unicom_embeddings: Vector(unicom.UnicomImageEmbedder().ndims())
+    clip_embeddings: Vector(clip.get_clip_ndims())
+    unicom_embeddings: Vector(unicom.get_unicom_ndims())
 
     @property
     def image(self):

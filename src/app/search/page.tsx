@@ -6,12 +6,16 @@ import Image from "next/image";
 import { fetchThumbnailById } from "@/lib/speciesList";
 import { cleanSpeciesName } from "@/lib/names";
 import Link from "next/link";
+import ImageLoading from "@/components/ImageLoading";
 // Define the type for the semantic result object from the Python service
 interface SemanticResultItem {
   imgId: string;
   species: string;
   distance: number;
 }
+
+// Image size matching the backend resizing
+const IMAGE_SIZE = 128;
 
 // Reusable component for displaying a species card (similar to GenusSpeciesClient)
 function SpeciesCard({ species }: { species: SemanticResultItem }) {
@@ -36,31 +40,23 @@ function SpeciesCard({ species }: { species: SemanticResultItem }) {
   const speciesName = cleanSpeciesName(species.species);
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-4 items-center text-center">
+    <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
       {loading ? (
-        <div className="flex flex-col items-center">
-          <Image
-            src="/leaflet/images/butterfly.svg"
-            alt="Loading..."
-            width={120}
-            height={120}
-            className="opacity-50 animate-pulse mx-auto"
-          />
-          <p className="text-gray-500">Loading image...</p>
-        </div>
+        <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <Link href={`/species/${species.species}`}>
           <Image
             src={imageUrl || `/api/image/${species.imgId}`}
             alt={`Image of ${species.species}`}
-            width={200}
-            height={200}
+            width={IMAGE_SIZE}
+            height={IMAGE_SIZE}
+            className="mx-auto object-contain"
           />
 
-          <h2 className="text-lg truncate text-center text-gray-400 italic">
+          <h2 className="text-sm truncate text-center text-gray-400 italic mt-2">
             {speciesName}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs text-gray-500">
             Scores: {species.distance.toPrecision(3)}
           </p>
         </Link>
@@ -120,11 +116,18 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
             <Image
               src="/leaflet/images/butterfly.svg"
               alt="Loading..."
-              width={120}
-              height={120}
+              width={160}
+              height={160}
               className="animate-pulse mx-auto"
             />
-            <p className="text-gray-500 mt-8">Searching...</p>
+            <p className="text-gray-500 mt-8 flex items-baseline justify-center gap-2 leading-none">
+              <span className="tracking-wide text-xl">Searching</span>
+              <span className="flex gap-1">
+                <span className="-ml-1 w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:0ms]"></span>
+                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:150ms]"></span>
+                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:300ms]"></span>
+              </span>
+            </p>
           </div>
         ) : error ? (
           <p className="text-red-500">Error: {error}</p>
@@ -135,7 +138,7 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
             <p className="mb-4">
               Found {results.length} results for "{query}":
             </p>
-            <div className="grid grid-flow-row grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+            <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
               {results.map((item) => (
                 <Suspense
                   key={item.imgId}

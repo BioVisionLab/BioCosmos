@@ -58,9 +58,3 @@ class LanceDB:
             logger.warning(
                 f"CLIP collection {collection_name} does not exist."
             )
-
-    def close(self):
-        """Close the LanceDB connection."""
-        if self.db:
-            self.db.close()
-            logger.info("LanceDB connection closed.")

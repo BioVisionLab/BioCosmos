@@ -102,30 +102,31 @@ biocosmos/
 
 This is the easiest way to get started with BioCosmos. With Docker and Docker Compose, you can spin up the entire application with a single command.
 
-1.  **Clone the Repository**
+1. **Clone the Repository**
 
     ```bash
     git clone <repository-url>
     cd biocosmos
     ```
 
-2.  **Environment Configuration**
+2. **Environment Configuration**
 
     Create a `.env.local` file in the root directory:
 
     ```bash
-    OPENAI_API_KEY=your_openai_api_key_here
     # This is the API host for production, change it to development address if needed
     API_HOST=http://0.0.0.0:8000
+    # Dev API host if you run development server:
+    # API_HOST=http://127.0.0.1:8000
     ```
 
-3.  **Build and Run with Docker Compose**
+3. **Build and Run with Docker Compose**
 
     ```bash
     docker-compose up --build
     ```
 
-4.  **Access the Application**
+4. **Access the Application**
 
     Open [http://localhost:3000](http://localhost:3000) in your browser.
 
@@ -133,20 +134,20 @@ This is the easiest way to get started with BioCosmos. With Docker and Docker Co
 
 If you prefer to run the services manually without Docker, follow these steps:
 
-1.  **Clone the Repository**
+1. **Clone the Repository**
 
     ```bash
     git clone <repository-url>
     cd biocosmos
     ```
 
-2.  **Install Frontend Dependencies**
+2. **Install Frontend Dependencies**
 
     ```bash
     yarn install
     ```
 
-3.  **Set Up Python Environment**
+3. **Set Up Python Environment**
 
     We use [uv](https://docs.astral.sh/uv/) to manage the dependencies for the Python backend service. If you don't have `uv` installed, you can install it via pip:
 
@@ -156,7 +157,7 @@ If you prefer to run the services manually without Docker, follow these steps:
 
     Other intallation methods are available in the [uv documentation](https://docs.astral.sh/uv/installation).
 
-4.  **Environment Configuration**
+4. **Environment Configuration**
 
     Create a `.env.local` file in the root directory:
 
@@ -166,11 +167,11 @@ If you prefer to run the services manually without Docker, follow these steps:
     API_HOST=http://0.0.0.0:8000
     ```
 
-5.  **Prepare the Dataset**
+5. **Prepare the Dataset**
 
     Ensure your butterfly images are organized in `public/images/`.
 
-6.  **Start the Services**
+6. **Start the Services**
 
     **Terminal 1 - Frontend:**
 
@@ -185,7 +186,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     uvicorn app.main:app --reload
     ```
 
-7.  **Access the Application**
+7. **Access the Application**
 
     Open [http://localhost:3000](http://localhost:3000) in your browser.
 

@@ -2,11 +2,13 @@ import glob
 import numpy as np
 import io
 
+from PIL import Image
 from pydantic import BaseModel
 
-from ..configs.config import ImageConfig
+from ..configs.config import EmbedderConfig, ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
+from fastapi import Request
 
 # We experiment with polars for better performance instead of pandas
 from .unicom import UnicomImageEmbedder
@@ -23,28 +25,26 @@ logger = logging.getLogger(__name__)
 # https://lancedb.github.io/lancedb/search
 
 
-class SimilarImageResult(BaseModel):
-    """Class to represent similar image search results."""
+class SpeciesImage(BaseModel):
+    """Class to represent species image data."""
 
-    img_id: str
     species: str
-    distance: float
+    imageIds: list[str]
 
     def to_dict(self) -> dict:
         return {
-            "imgId": self.img_id,
             "species": self.species,
-            "distance": self.distance,
+            "imageIds": self.imageIds,
         }
 
 
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
-    def __init__(self):
+    def __init__(self, lance_db: LanceDB):
         self.config = ImageConfig()
         self.logger = logging.getLogger(__name__)
-        self.db_table = LanceDB().create_or_get_collection(
+        self.db_table = lance_db.create_or_get_collection(
             self.config.table
         )
 
@@ -57,6 +57,32 @@ class ImagePersistData:
             )
             return None
         return result
+
+    # Function to fetch a list of image IDs for a given species
+    # Returns species name and list of image IDs, or empty list if none found
+    def fetch_image_ids(self, species_name: str) -> list:
+        """
+        Returns a list of image IDs for the given species name.
+        """
+        species = species_name.lower().replace(" ", "_")
+        query = f"species == '{species}'"
+        try:
+            results = self.db_table.search().where(query).to_polars()
+            if "img_id" not in results.columns or results.is_empty():
+                self.logger.warning(
+                    f"No image IDs found for species '{species_name}'."
+                )
+                return []
+
+            return SpeciesImage(
+                species=species,
+                imageIds=results["img_id"].to_list(),
+            ).to_dict()
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching image IDs for species '{species_name}': {e}"
+            )
+            return []
 
     def get_img_by_id(
         self, img_id: str, is_thumbnail: bool = False
@@ -101,7 +127,7 @@ class ImagePersistData:
         return query[0].image_bytes_png
 
     def fetch_similar_images_from_text(
-        self, text: str, limit: int = 50
+        self, request: Request, text: str, limit: int = 50
     ) -> list[dict] | None:
         """Fetch images similar to the given text.
         We use CLIP embeddings for text similarity search.
@@ -112,7 +138,10 @@ class ImagePersistData:
         :return: A list of dictionaries containing similar image details or None if no matches found.
         """
         try:
-            text_embedder = ClipEmbedder()
+            text_embedder = ClipEmbedder(
+                model=request.app.state.clip_embedder.model,
+                processor=request.app.state.clip_embedder.processor,
+            )
             query_embedding = text_embedder.get_embedding_from_text(
                 text
             )
@@ -136,9 +165,8 @@ class ImagePersistData:
                 f"Found {len(similar_images)} similar images for the text '{text}'."
             )
             # Filter to unique species and remove binary/embedding columns before JSON
-            similar_images = self._filter_by_species(
-                similar_images, limit=limit
-            )
+            similar_images = self._filter_by_species(similar_images)
+
             return similar_images.to_dicts()
 
         except Exception as e:
@@ -146,7 +174,7 @@ class ImagePersistData:
             return None
 
     def fetch_similar_images_from_bytes(
-        self, image_bytes: bytes, limit: int = 20
+        self, request: Request, image_bytes: bytes, limit: int = 20
     ) -> list[dict] | None:
         """Fetch images similar to the given image bytes.
         We use UNICOM embeddings for image similarity search.
@@ -157,7 +185,10 @@ class ImagePersistData:
         :return: A list of dictionaries containing similar image details or None if no matches found.
         """
         try:
-            unicom_embedder = UnicomImageEmbedder()
+            unicom_embedder = UnicomImageEmbedder(
+                model=request.app.state.unicom_embedder.model,
+                transform=request.app.state.unicom_embedder.transform,
+            )
             query_embedding = (
                 unicom_embedder.get_embedding_from_bytes(image_bytes)
             )
@@ -166,7 +197,6 @@ class ImagePersistData:
                     "Failed to compute image embedding."
                 )
                 return None
-
             similar_images = self._query_embedding(
                 query_vector=query_embedding,
                 vector_column_name="unicom_embeddings",
@@ -190,13 +220,26 @@ class ImagePersistData:
     def fetch_id_similar_images(
         self, species_name: str, limit: int = 20
     ) -> list[dict] | None:
-        """Fetch similar images for a specific species.
-        We use UNICOM embeddings for similarity search.
-        We then filter the results to ensure it contains only one image per species.
-        :param species_name: The name of the species to search for similar images.
-        :param limit: The maximum number of similar images to return.
-        :return: A list of dictionaries containing similar image details or None if no matches found."""
-        # We get unicom embeddings for similarity search
+        """Find images from other species similar to the given species using UNICOM embeddings.
+
+        Process:
+          1. Fetch a representative image record for the species (currently only one via _query_image()).
+          2. Use its UNICOM embedding (centroid if multiple in future).
+          3. Run cosine similarity search against all stored unicom_embeddings.
+          4. Keep at most one image per species (nearest match).
+          5. Remove the original species from the results.
+
+        Args:
+            species_name: Species name (case/space insensitive).
+            limit: Maximum number of similar (distinct) species to return (default 20).
+
+        Returns:
+            list of dicts with keys: imgId, species, distance (smaller = more similar),
+            or None if no similar images were found.
+        """
+        self.logger.info(
+            f"Fetching images similar to species '{species_name}'"
+        )
         query = self._query_image(species_name)
         if query is None:
             return None
@@ -206,23 +249,29 @@ class ImagePersistData:
         )
         # Perform similarity search based on the centroid
         try:
-            similar_images = (
-                self.db_table.search(
-                    centroid, vector_column_name="unicom_embeddings"
-                )
-                .limit(limit)
-                .to_pydantic(LanceSchema)
+            similar_images = self._query_embedding(
+                query_vector=centroid,
+                vector_column_name="unicom_embeddings",
+                limit=limit,
             )
-            if not similar_images:
+            self.logger.info(
+                f"Found {len(similar_images)} similar images for species '{species_name}'."
+            )
+            if similar_images is None or similar_images.is_empty():
                 self.logger.warning(
-                    f"No similar images found for species '{species_name}'."
+                    f"No unique species found in similar images for '{species_name}'."
                 )
                 return None
-            # We filter only one image per species to ensure diversity
-            filtered_imgs = self._filter_by_species_unicom(
-                similar_images, query_vector=centroid
+            filtered_imgs = self._filter_by_species(similar_images)
+
+            filtered_imgs = filtered_imgs.filter(
+                pl.col("species")
+                != species_name.lower().replace(" ", "_")
+            ).sort("species")
+            self.logger.info(
+                f"Found {len(filtered_imgs)} similar images after filtering."
             )
-            return [img.to_dict() for img in filtered_imgs]
+            return filtered_imgs.to_dicts()
         except Exception as e:
             self.logger.error(
                 f"Error fetching similar images for species '{species_name}': {e}"
@@ -270,9 +319,7 @@ class ImagePersistData:
             self.logger.error(f"Error querying embeddings: {e}")
             return None
 
-    def _filter_by_species(
-        self, df: pl.DataFrame, limit: int = 5
-    ) -> pl.DataFrame:
+    def _filter_by_species(self, df: pl.DataFrame) -> pl.DataFrame:
         """Filter the DataFrame to ensure only one image per species.
         We sort by distance and keep the first occurrence of each species.
         """
@@ -282,8 +329,6 @@ class ImagePersistData:
         df = df.sort("distance")
         # Keep only the first occurrence of each species
         filtered_df = df.unique(subset=["species"])
-        if len(filtered_df) > limit:
-            filtered_df = filtered_df.head(limit)
         self.logger.info(
             f"Filtered to {len(df)} of {len(filtered_df)} species."
         )
@@ -305,7 +350,6 @@ class ImagePersistData:
             img: list[LanceSchema] = (
                 self.db_table.search()
                 .where(query)
-                .limit(1)
                 .to_pydantic(LanceSchema)
             )
             if not img:
@@ -325,31 +369,50 @@ class ImageEmbedder:
     Include methods for adding, updating, and deleting image data, metadata, and embeddings.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        clip_model,
+        clip_processor,
+        unicom_model,
+        unicom_transform,
+        lance_db: LanceDB,
+    ):
+        self.embedder_config = EmbedderConfig()
         self.config = ImageConfig()
-        self.clip = ClipEmbedder()
-        self.unicom = UnicomImageEmbedder()
+        self.clip = ClipEmbedder(
+            model=clip_model,
+            processor=clip_processor,
+        )
+        self.unicom = UnicomImageEmbedder(
+            model=unicom_model,
+            transform=unicom_transform,
+        )
         self.logger = logging.getLogger(__name__)
-        self.db_table = LanceDB().create_or_get_collection(
+        self.db_table = lance_db.create_or_get_collection(
             self.config.table
         )
 
     def ingest(self):
         """Ingest images into the database."""
-
+        if self.embedder_config.skip:
+            self.logger.info(
+                "Skipping image ingestion as per configuration."
+            )
+            return
         img_paths = self._get_images_from_path(self.config.dir)
         if not img_paths:
             self.logger.error(
                 "No image paths provided for ingestion."
             )
             return
-        if not self.config.reset:
+        if not self.embedder_config.reset:
             entries = LanceDB().count_entries(self.config.table)
             if entries == len(img_paths):
                 self.logger.info(
                     "Image entries already exist in the database. Skipping ingestion."
                 )
                 return
+
         self.logger.info(f"Ingesting {len(img_paths)} images.")
         self.batch_add_embeddings(img_paths)
 
@@ -362,7 +425,7 @@ class ImageEmbedder:
         ]
 
     def batch_add_embeddings(self, img_paths: list[str]):
-        batches = self.split_batch(img_paths)
+        batches = self._split_batch(img_paths)
         if not batches:
             self.logger.error("No batches to process.")
             return
@@ -370,12 +433,21 @@ class ImageEmbedder:
         self.logger.info(
             f"Starting concurrent batch addition of {len(img_paths)} images."
         )
+        # Suppress excessive logging from watchfiles during concurrent processing
+        logging.getLogger("watchfiles").setLevel(logging.WARNING)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self._add_batch_to_db, batch)
                 for batch in batches
             ]
-            for future in concurrent.futures.as_completed(futures):
+
+            progress_bar = tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(batches),
+                desc="Processing batches",
+            )
+
+            for future in progress_bar:
                 try:
                     future.result()
                 except Exception as e:
@@ -410,13 +482,21 @@ class ImageEmbedder:
                 "No image paths provided for batch addition."
             )
             return
-        species = self.get_species_name_from_path(img_paths)
-        image_bytes = [open(path, "rb").read() for path in img_paths]
+        successful_paths, valid_images = self._get_imgs(img_paths)
+        if not valid_images or len(valid_images) == 0:
+            self.logger.error(
+                "No valid images found for batch addition."
+            )
+            return
+        image_bytes = [
+            open(path, "rb").read() for path in successful_paths
+        ]
+        species = self.get_species_name_from_path(successful_paths)
         clip_embeddings: list[np.ndarray] = (
-            self.get_all_clip_embeddings(img_paths)
+            self._get_all_clip_embeddings(valid_images)
         )
         unicom_embeddings: list[np.ndarray] = (
-            self.get_all_unicom_embeddings(img_paths)
+            self._get_all_unicom_embeddings(valid_images)
         )
         # Fix: Use explicit check for None in list of arrays
         if any(e is None for e in clip_embeddings):
@@ -428,7 +508,7 @@ class ImageEmbedder:
             {
                 "img_id": [
                     os.path.splitext(os.path.basename(path))[0]
-                    for path in img_paths
+                    for path in successful_paths
                 ],
                 "species": species,
                 "img_bytes": image_bytes,
@@ -438,18 +518,37 @@ class ImageEmbedder:
         )
         try:
             self.db_table.add(data)
-            self.logger.info(
-                f"Batch added {len(img_paths)} embeddings to the database."
-            )
         except Exception as e:
             self.logger.error(
                 f"Error adding batch embeddings: {e}", exc_info=True
             )
             return
 
-    def split_batch(
-        self, img_paths: list[str], batch_size: int = 100
-    ):
+    def _get_imgs(
+        self, img_paths: list[str]
+    ) -> tuple[list[str], list[Image]]:
+        """Get the image embeddings from a list of image paths.
+        Returns a tuple of successfully processed image paths and their embeddings.
+        """
+        valid_images = []
+        successful_paths = []
+        for img_path in img_paths:
+            try:
+                img: Image = Image.open(img_path).convert("RGB")
+                valid_images.append(img)
+                successful_paths.append(img_path)
+            except FileNotFoundError:
+                self.logger.warning(
+                    f"Image file not found, skipping: {img_path}"
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"Error opening image {img_path}: {e}",
+                    exc_info=True,
+                )
+        return successful_paths, valid_images
+
+    def _split_batch(self, img_paths: list[str]):
         """Split the list of image paths into smaller batches."""
         if not img_paths:
             self.logger.error(
@@ -457,50 +556,22 @@ class ImageEmbedder:
             )
             return []
         batches = [
-            img_paths[i : i + batch_size]
-            for i in range(0, len(img_paths), batch_size)
+            img_paths[i : i + self.embedder_config.batch_size]
+            for i in range(
+                0, len(img_paths), self.embedder_config.batch_size
+            )
         ]
         self.logger.info(
             f"Split {len(img_paths)} image paths into {len(batches)} batches."
         )
         return batches
 
-    def get_all_clip_embeddings(self, img_paths: list[str]):
-        embeddings: list[np.ndarray] = []
-        for img_path in tqdm(
-            img_paths, desc="Computing CLIP embeddings"
-        ):
-            embedding = self.clip.get_embedding_from_img(img_path)
-            if embedding is not None:
-                embeddings.append(embedding)
-            else:
-                self.logger.error(
-                    f"Failed to compute embedding for {img_path}"
-                )
-        # Fix: Use explicit check for None in list of arrays
-        if any(e is None for e in embeddings):
-            self.logger.error(
-                "Some embeddings could not be computed. Skipping batch addition."
-            )
-            return
-        return embeddings
+    def _get_all_clip_embeddings(
+        self, img_paths: list[str]
+    ) -> list[np.ndarray]:
+        return self.clip.batch_get_embeddings(img_paths)
 
-    def get_all_unicom_embeddings(self, img_paths: list[str]):
-        embeddings: list[np.ndarray] = []
-        for img_path in tqdm(
-            img_paths, desc="Computing Unicom embeddings"
-        ):
-            embedding = self.unicom.get_embedding_from_img(img_path)
-            if embedding is not None:
-                embeddings.append(embedding)
-            else:
-                self.logger.error(
-                    f"Failed to compute embedding for {img_path}"
-                )
-        # Fix: Use explicit check for None in list of arrays
-        if any(e is None for e in embeddings):
-            self.logger.error(
-                "Some embeddings could not be computed. Skipping batch addition."
-            )
-            return
-        return embeddings
+    def _get_all_unicom_embeddings(
+        self, img_paths: list[str]
+    ) -> list[np.ndarray]:
+        return self.unicom.batch_get_embeddings(img_paths)
