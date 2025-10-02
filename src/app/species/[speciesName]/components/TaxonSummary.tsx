@@ -1,6 +1,6 @@
 import { LepTraitsAttribution } from "@/components/Attribution";
 import { LepTraits } from "@/lib/speciesData";
-import { CanopyAffinity, FlightDuration, WingspanCard } from "./Traits";
+import { CanopyAffinity, FlightDuration, WingspanCard } from "./LepTraits";
 
 export function SpeciesDescription({
   traits,

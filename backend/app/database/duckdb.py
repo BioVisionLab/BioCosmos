@@ -12,9 +12,10 @@ class DuckDBClient:
     A simple DuckDB client wrapper.
     """
 
-    def __init__(self, db_path: str = None):
+    def __init__(self):
         db_path = get_duck_db_path()
         self.conn = duckdb.connect(database=str(db_path))
+        logger.info(f"DuckDB connected at {db_path}")
 
     def execute(self, query: str):
         """Execute a SQL query and return the result.

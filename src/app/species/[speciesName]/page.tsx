@@ -1,7 +1,7 @@
 import { getSpeciesData } from "@/lib/speciesData"; // Import the function and the type
 import Link from "next/link";
-import TabsComponent from "./components/Tabs";
-import SpeciesHeader from "./components/Title";
+import TabsComponent from "./components/PageTabs";
+import SpeciesHeader from "./components/SpeciesTitle";
 
 interface SpeciesPageProps {
   params: {

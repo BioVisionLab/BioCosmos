@@ -1,27 +1,26 @@
-import { cleanSpeciesName } from "./names";
-
 const API_SERVICE_URL = `http://127.0.0.1:8000/taxon`;
 
 const INITIAL_SPECIES = [
-  "zeuxidia_doubledaii",
-  "abananote_erinome",
-  "abrota_ganga",
-  "zeuxidia_luxerii",
-  "zipaetis_saitis",
-  "acidalia_adela",
+  "anaeomorpha_splendida",
+  "agrias_narcissus",
+  "athyma_libnites",
+  "euploea_eleusina",
+  "nessaea_hewitsonii",
+  "zeuxidia_ameythystus",
+  "panacea_prola",
+  "charaxes_subornatus",
+  "agrias_phalcidon",
+  "ypthima_doleta",
 ];
-
-export interface SpeciesThumbnails {
-  name: string;
-  imageUrl: string;
-  folderName: string;
-}
 
 // Get an initial list of species.
 // Request image thumbnails from API/taxon/${speciesName}/thumbnail
 
-function getSpeciesList(): string[] {
-  return INITIAL_SPECIES.sort();
+export function getSpeciesList(): string[] {
+  // We shuffle the initial species array to get a random selection each time
+  // return six random species from the list
+  const sorted_list = INITIAL_SPECIES.sort(() => 0.5 - Math.random());
+  return sorted_list.slice(0, 6).sort();
 }
 
 /**
@@ -52,6 +51,7 @@ export async function fetchSpeciesThumbnail(
   return localUrl;
 }
 
+<<<<<<< HEAD
 export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
   const speciesList = getSpeciesList();
   const thumbnails = await Promise.all(
@@ -70,6 +70,13 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
 // NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS 
 // (nonfunctional, must format to send back list of image ids)
 export async function fetchSpeciesIds(speciesName: string): Promise<string[]> {
+=======
+// NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS
+// (nonfunctional, always falls back to single blob image)
+export async function fetchSpeciesImage(
+  speciesName: string
+): Promise<string[]> {
+>>>>>>> main
   // Force species name snake case
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
 
@@ -79,11 +86,13 @@ export async function fetchSpeciesIds(speciesName: string): Promise<string[]> {
     const listResponse = await fetch(`${API_SERVICE_URL}/${cleanName}/ids`);
     if (listResponse.ok) {
       const data = await listResponse.json();
-      
+
       // Handle array of strings OR array of objects with "url"
-      const urls = Array.isArray(data) ? 
-        data.map((item: any) => (typeof item === "string" ? 
-        item : item.url)).filter(Boolean): [];
+      const urls = Array.isArray(data)
+        ? data
+            .map((item: any) => (typeof item === "string" ? item : item.url))
+            .filter(Boolean)
+        : [];
 
       if (urls.length > 0) {
         return urls;
