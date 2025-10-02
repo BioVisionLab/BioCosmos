@@ -68,8 +68,8 @@ export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
 }
 
 // NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS 
-// (nonfunctional, always falls back to single blob image)
-export async function fetchSpeciesImage(speciesName: string): Promise<string[]> {
+// (nonfunctional, must format to send back list of image ids)
+export async function fetchSpeciesIds(speciesName: string): Promise<string[]> {
   // Force species name snake case
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
 
@@ -102,7 +102,6 @@ export async function fetchSpeciesImage(speciesName: string): Promise<string[]> 
   return [localUrl]; // wrap single image in array
 }
 
-/* OLD FUNCTION: ONE IMAGE DISPLAYS (functional)
 export async function fetchSpeciesImage(speciesName: string): Promise<string> {
   // Force species name snake case
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
@@ -122,7 +121,6 @@ export async function fetchSpeciesImage(speciesName: string): Promise<string> {
 
   return localUrl;
 }
-  */
 
 export async function fetchImgById(imageId: string): Promise<string> {
   // Construct the API endpoint URL

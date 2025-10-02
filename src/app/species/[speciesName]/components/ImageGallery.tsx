@@ -9,7 +9,7 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
 
   useEffect(() => {
     const fetchImage = async () => {
-      // Fetch a list of image IDs for the species from speciesLists.ts file
+      // Fetch a single image 
       const image = await fetchSpeciesImage(speciesName);
       // Normalize to always be a string array
       if (Array.isArray(image)) {
