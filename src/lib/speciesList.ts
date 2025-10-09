@@ -51,65 +51,6 @@ export async function fetchSpeciesThumbnail(
   return localUrl;
 }
 
-<<<<<<< HEAD
-export async function getInitialSpeciesList(): Promise<SpeciesThumbnails[]> {
-  const speciesList = getSpeciesList();
-  const thumbnails = await Promise.all(
-    speciesList.map(async (species) => {
-      const imageUrl = await fetchSpeciesThumbnail(species);
-      return {
-        name: cleanSpeciesName(species),
-        imageUrl,
-        folderName: species,
-      };
-    })
-  );
-  return thumbnails;
-}
-
-// NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS 
-// (nonfunctional, must format to send back list of image ids)
-export async function fetchSpeciesIds(speciesName: string): Promise<string[]> {
-=======
-// NEW FUNCTION W/ SEVERAL IMAGES: IN PROGRESS
-// (nonfunctional, always falls back to single blob image)
-export async function fetchSpeciesImage(
-  speciesName: string
-): Promise<string[]> {
->>>>>>> main
-  // Force species name snake case
-  const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
-
-  // Attempt to fetch JSON image list first
-  try {
-    // Calling the API endpoint "/taxon/{species_name}/ids"
-    const listResponse = await fetch(`${API_SERVICE_URL}/${cleanName}/ids`);
-    if (listResponse.ok) {
-      const data = await listResponse.json();
-
-      // Handle array of strings OR array of objects with "url"
-      const urls = Array.isArray(data)
-        ? data
-            .map((item: any) => (typeof item === "string" ? item : item.url))
-            .filter(Boolean)
-        : [];
-
-      if (urls.length > 0) {
-        return urls;
-      }
-    }
-  } catch (err) {
-    console.warn("No image list endpoint, falling back to single image:", err);
-  }
-  // Fallback: single blob image endpoint
-  const response = await fetch(`${API_SERVICE_URL}/${cleanName}/image`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image. Status: ${response.status}`);
-  }
-  const imageBlob = await response.blob();
-  const localUrl = URL.createObjectURL(imageBlob);
-  return [localUrl]; // wrap single image in array
-}
 
 export async function fetchSpeciesImage(speciesName: string): Promise<string> {
   // Force species name snake case

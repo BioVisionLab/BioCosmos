@@ -8,7 +8,7 @@ function ImageLoading({ size }: { size: number }) {
         alt="Loading..."
         width={size}
         height={size}
-        className="animate-pulse"
+        className="animate-pulse mx-auto"
       />
       <p className="mt-2 flex items-baseline justify-center gap-2 text-xs text-baseline leading-none text-gray-500 mx-auto">
         <span className="text-sm">Loading image</span>
