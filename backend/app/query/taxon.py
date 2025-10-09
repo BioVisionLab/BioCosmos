@@ -117,7 +117,7 @@ class TaxonSearch:
             return None
 
         try:
-            taxon_data = self._get_gbif_data()
+            taxon_data = await self._get_gbif_data()
             trait_data = self._get_traits()
             if trait_data is None:
                 logger.info(
