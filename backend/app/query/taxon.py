@@ -9,20 +9,53 @@ import logging
 
 logger = logging.getLogger(__name__) 
 
+# class TaxonStatPayload(BaseModel):
+#    """
+#    A class to represent taxon statistics from GBIF and LepTraits entries.
+#    """
+#    gbifEntries: int
+#    lepTraitsEntries: int
+#    imageEntries: int
+#    gbifSpeciesCount: int
+#    return cls(
+#        gbifEntries = 
+#    )
+
 class TaxonStatPayload(BaseModel):
     """
     A class to represent taxon statistics from GBIF and LepTraits entries.
     """
+
     gbifEntries: int
     lepTraitsEntries: int
     imageEntries: int
     gbifSpeciesCount: int
 
-    return cls(
-        gbifEntries = 
-    )
+    @classmethod
+    def from_data(
+        cls,
+        gbif_entries: int,
+        lep_traits_entries: int,
+        image_entries: int,
+        gbif_species_count: int
+    ):
+        """
+        Create a SpeciesPayload instance from the provided data.
 
+        Args:
+            species_id (str): The species ID.
+            taxonomy (dict): The taxonomy data for the species.
+            traits (dict): The traits data for the species.
 
+        Returns:
+            SpeciesPayload: An instance of SpeciesPayload.
+        """
+        return cls(
+            gbifEntries=gbif_entries,
+            lepTraitsEntries=lep_traits_entries,
+            imageEntries=image_entries,
+            gbifSpeciesCount=gbif_species_count,
+        )
 
 
 class SpeciesPayload(BaseModel):
@@ -98,23 +131,31 @@ class TaxonSearch:
                 leptraits_service.count_entries()
             )
             count_img: int | None = img_service.entries()
+            count_unique_species: int | None = gbif_service.count_unique_species()
 
             if (
                 counts_gbif is None
                 and count_leptrait is None
-                and count_img is None
+                and count_img is None and 
+                count_unique_species is None
             ):
                 logger.info("No counts data found.")
                 return None
             logger.info(
                 f"Counts data found: {counts_gbif}, {count_leptrait}"
             )
-            return {
-                "GBIF entries": counts_gbif,
-                "LepTraits entries": count_leptrait,
-                "Image entries": count_img,
-                "GBIF species count":
-            }
+
+            payload = TaxonStatPayload.from_data(
+                gbif_entries=counts_gbif,
+                lep_traits_entries=count_leptrait,
+                image_entries=count_img,
+                gbif_species_count=count_unique_species,
+            )
+            return payload.model_dump()
+                #"GBIF entries": counts_gbif,
+                #"LepTraits entries": count_leptrait,
+                #"Image entries": count_img,
+                #"GBIF species count": count_unique_species
         except Exception as e:
             logger.error(f"Error fetching counts: {e}", exc_info=True)
             return None
