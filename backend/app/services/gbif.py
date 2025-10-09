@@ -64,6 +64,20 @@ class GbifPersistData:
                 f"Failed to count entries in GBIF metadata table: {e}"
             )
             return None
+    
+    def count_unique_species(self) -> int | None :
+        try:
+            query = f"SELECT COUNT(DISTINCT species) FROM {self.table_name}"
+            result = self.db_client.execute(query).fetchone()[0]
+            logger.info(
+                f"Counted {result} unique species in GBIF metadata table."
+            )
+            return result if result else None
+        except Exception as e:
+            logger.error(
+                f"Failed to count unique species in GBIF metadata table: {e}"
+            )
+            return None
 
     def get(self, species_name: str) -> dict | None:
         """
