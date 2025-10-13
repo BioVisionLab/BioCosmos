@@ -1,5 +1,5 @@
 const gbifURL = "https://www.gbif.org/";
-const lepTraitURL = "https://github.com/RiesLabGU/LepTraitss";
+const lepTraitURL = "https://github.com/RiesLabGU/LepTraits";
 const lepTraitPublication = "https://doi.org/10.1038/s41597-022-01473-5";
 
 export function GbifAttribution({
