@@ -4,11 +4,13 @@ const lepTraitPublication = "https://doi.org/10.1038/s41597-022-01473-5";
 
 export function GbifAttribution({
   leadingText = "Source: ",
+  isLarge = false,
 }: {
   leadingText?: string;
+  isLarge?: boolean;
 }) {
   return (
-    <p className="text-xs text-gray-500 mt-2">
+    <p className={`text-xs text-gray-500 mt-2 ${isLarge ? "text-lg" : ""}`}>
       {leadingText}{" "}
       <a
         href={gbifURL}
@@ -22,9 +24,13 @@ export function GbifAttribution({
   );
 }
 
-export function LepTraitsAttribution() {
+export function LepTraitsAttribution({
+  isLarge = false,
+}: {
+  isLarge?: boolean;
+}) {
   return (
-    <p className="text-xs text-gray-500 mt-2">
+    <p className={`text-gray-500 mt-2 ${isLarge ? "text-lg" : "text-xs"}`}>
       Source:{" "}
       <a
         href={lepTraitURL}
