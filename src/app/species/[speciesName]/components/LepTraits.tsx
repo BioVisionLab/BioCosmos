@@ -18,13 +18,16 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { LepTraitsAttribution } from "@/components/Attribution";
+import {
+  LepTraitDataSourceInfo,
+  LepTraitsAttribution,
+} from "@/components/Attribution";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
 
 const valueClass =
   "font-semibold text-emerald-600 dark:text-emerald-300 text-xl";
-const labelClass = "text-gray-500 dark:text-gray-400";
+const labelClass = "font-normal text-gray-500 dark:text-gray-300";
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits) {
@@ -158,17 +161,18 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
       </div>
       <h2 className="text-2xl font-bold mt-4">Phenology</h2>
       <div className={lineClasses} />
-      <div className={gridClasses}>
-        {typeof traits.flight_duration === "number" &&
-          !Number.isNaN(traits.flight_duration) && (
-            <div className={boxClasses}>
-              <h3 className="text-xl">Flight Duration</h3>
-              <FlightDuration duration={traits.flight_duration} />
-            </div>
-          )}
+      {typeof traits.flight_duration === "number" &&
+        !Number.isNaN(traits.flight_duration) && (
+          <div className={boxClasses}>
+            <h3 className="text-xl">Flight Duration</h3>
+            <FlightDuration duration={traits.flight_duration} />
+          </div>
+        )}
+      <div className={boxClasses}>
+        <h3 className="text-xl">Adult Presence by Month</h3>
         <MonthPresence traits={traits} />
       </div>
-      <LepTraitsAttribution isLarge={true} />
+      <LepTraitDataSourceInfo />
     </div>
   );
 }
@@ -328,25 +332,19 @@ function Wingspan({
       {hasValue(male) && (
         <li>
           <span className={valueClass}>{male} cm</span>
-          <span className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-300 mr-1">
-            {" (♂)"}
-          </span>
+          <span className={labelClass}>{" (♂)"}</span>
         </li>
       )}
       {hasValue(female) && (
         <li>
           <span className={valueClass}>{female} cm</span>
-          <span className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-300 mr-1">
-            {" (♀)"}
-          </span>
+          <span className={labelClass}>{" (♀)"}</span>
         </li>
       )}
       {hasValue(unspecified) && (
         <li>
           <span className={valueClass}>{unspecified} cm</span>
-          <span className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-300 mr-1">
-            {" (Unspecified)"}
-          </span>
+          <span className={labelClass}>{" (Unspecified)"}</span>
         </li>
       )}
     </ul>
@@ -483,8 +481,10 @@ function NumberOfHostPlants({ count }: { count: number | null | undefined }) {
       <div>
         <p className={valueClass}>
           {count}
-          <span className={labelClass}></span>
-          {count > 1 ? " families" : " family"}
+          <span className={labelClass}>
+            {" "}
+            {count > 1 ? " families" : " family"}
+          </span>
         </p>
       </div>
     </div>
@@ -512,9 +512,7 @@ function HostPlantFamilies({
         <Circle className="h-12 w-12 m-1" />
       </div>
       <div>
-        <p className="text-gray-700 dark:text-gray-300 text-lg font-semibold">
-          {familyList.join(" · ")}
-        </p>
+        <p className={valueClass}>{familyList.join(" · ")}</p>
       </div>
     </div>
   );

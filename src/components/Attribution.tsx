@@ -53,3 +53,37 @@ export function LepTraitsAttribution({
     </p>
   );
 }
+
+export function LepTraitDataSourceInfo() {
+  return (
+    <div className="text-md text-gray-600 dark:text-gray-400 bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-xl mt-8">
+      <p>
+        The trait data is sourced from the{" "}
+        <a
+          href={lepTraitURL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-teal-300"
+        >
+          LepTraits database
+        </a>
+        . For more information on the database and its methodology, please refer
+        to the original publication:
+      </p>
+      <p className="mt-2">
+        Shirey, V., Larsen, E., Doherty, A., Kim, C.A., Al-Sulaiman, F.T.,
+        Hinolan, J.D., Itliong, M.G.A., Naive, M.A.K., Ku, M., Belitz, M. and
+        Jeschke, G. (2022). LepTraits 1.0: A globally comprehensive dataset of
+        butterfly traits. Scientific Data, 9(1), p.382.{" "}
+        <a
+          href={lepTraitPublication}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-teal-300"
+        >
+          https://doi.org/10.1038/s41597-022-01473-5
+        </a>
+      </p>
+    </div>
+  );
+}

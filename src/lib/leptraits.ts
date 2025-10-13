@@ -99,7 +99,7 @@ const monthKeys = [
   "dec_adult_presence",
 ] as const;
 type MonthKey = (typeof monthKeys)[number];
-const monthAbbr = [
+export const monthAbbr = [
   "Jan",
   "Feb",
   "Mar",
@@ -112,7 +112,7 @@ const monthAbbr = [
   "Oct",
   "Nov",
   "Dec",
-];
+] as const;
 
 /* 
 Parses month presence traits into a structured object.
