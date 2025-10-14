@@ -159,10 +159,6 @@ function parseMonthPresence(traits: LepTraits): Record<string, boolean> {
   return monthMap;
 }
 
-function isMonthPresenceEmpty(presenceMap: Record<string, boolean>): boolean {
-  return Object.keys(presenceMap).length === 0;
-}
-
 function parseVoltinism(voltinism: string | undefined): Voltinism {
   const defaultVoltinism = { label: "Unknown", description: "" };
   if (!voltinism || voltinism.trim() === "") {
@@ -192,10 +188,14 @@ function parseOvipositionStyle(style: string | undefined): string {
   return ovipositionStyle[value] || "Unknown";
 }
 
+function isAbsentAllYear(presenceMap: Record<string, boolean>): boolean {
+  return Object.values(presenceMap).every((present) => present === false);
+}
+
 export {
   parseMonthPresence,
-  isMonthPresenceEmpty,
   parseVoltinism,
+  isAbsentAllYear,
   parseDiapauseStage,
   parseOvipositionStyle,
 };

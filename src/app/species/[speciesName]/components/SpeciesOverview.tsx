@@ -4,8 +4,9 @@ import { SpeciesImages } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
 import { SpeciesClassification } from "./TaxonClassification";
 import { RedListStatus } from "./IucnRedlist";
-import { LepTraits, SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
+import { SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
+import { LepTraits } from "@/lib/leptraits";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
