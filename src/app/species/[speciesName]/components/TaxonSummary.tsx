@@ -1,6 +1,6 @@
 import { LepTraitsAttribution } from "@/components/Attribution";
-import { LepTraits } from "@/lib/speciesData";
-import { CanopyAffinity, FlightDuration, WingspanCard } from "./LepTraits";
+import { Affinity, FlightDuration, WingspanCard } from "./LepTraits";
+import { LepTraits } from "@/lib/leptraits";
 
 export function SpeciesDescription({
   traits,
@@ -72,7 +72,7 @@ function SpeciesDescriptionText({
         traits.canopy_affinity.trim() !== "" && (
           <div className={boxClasses}>
             <h3 className="text-xl m-2">Canopy Affinity</h3>
-            <CanopyAffinity affinity={traits.canopy_affinity} />
+            <Affinity affinity={traits.canopy_affinity} />
           </div>
         )}
     </section>

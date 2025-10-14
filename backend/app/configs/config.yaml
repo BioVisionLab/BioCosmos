@@ -4,7 +4,6 @@ db:
   lance:
     file: "biocosmos.lance"
 images:
-  # Table name for storing image in the database
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
   limit: null
