@@ -1,96 +1,3 @@
-/*
-"use client";
-
-import ImageLoading from "@/components/ImageLoading";
-import { fetchSpeciesImage } from "@/lib/speciesList";
-import Image from "next/image";
-import React, { useEffect, useState } from "react";
-
-export function SpeciesImages({ speciesName }: { speciesName: string }) {
-  const [thumbnail, setThumbnail] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchImage = async () => {
-      // Fetch a single image to be the first displayed image
-      const image = await fetchSpeciesImage(speciesName);
-
-      // Normalize to always be a string array
-      if (Array.isArray(image)) {
-        setThumbnail(image.filter(Boolean));
-      } else if (image) {
-        setThumbnail([image]);
-      }
-    };
-
-    fetchImage();
-  }, [speciesName]);
-
-  return (
-    <div className="relative w-full aspect-video overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 backdrop-blur-lg shadow">
-      {
-      thumbnail.length === 0 ? ( <ImageLoading size={400} /> ) : 
-      ( thumbnail.length > 0 && (
-          <div className="flex flex-col gap-4">
-            { // Main image 
-             }
-
-            <Image
-              src={thumbnail[0]}
-              alt={`Image of ${speciesName}`}
-              fill
-              sizes="(max-width:768px) 100vw, 600px"
-              className="object-contain"
-              priority
-            />
-
-            {// Thumbnails 
-            }
-            {thumbnail.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {thumbnail.map((img, idx) => (
-                  <button
-                    key={img + idx}
-                    type="button"
-                    aria-label={`View image ${idx + 1} of ${speciesName}`}
-                    title={`View image ${idx + 1} of ${speciesName}`}
-                    onClick={() =>
-                      setThumbnail((prev) => {
-                        if (!prev) return prev;
-                        if (idx === 0) return [...prev];
-                        const reordered = [
-                          prev[idx],
-                          ...prev.filter((_, i) => i !== idx),
-                        ];
-                        return reordered;
-                      })
-                    }
-                    className={`relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border transition-all ${
-                      idx === 0
-                        ? "ring-2 ring-blue-500 border-blue-500"
-                        : "border-gray-300 dark:border-gray-700 hover:ring-2 hover:ring-blue-300"
-                    }`}
-                  >
-                    <Image
-                      src={img}
-                      alt={`Thumbnail ${idx + 1} of ${speciesName}`}
-                      fill
-                      sizes="96px"
-                      className="object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      )}
-    </div>
-  );
-}
-*/
-
-// Test file rewrite
-
 "use client";
 
 import ImageLoading from "@/components/ImageLoading";
@@ -114,12 +21,13 @@ const TAXON_BASE = "http://127.0.0.1:8000/taxon";
  * SpeciesImages
  * - requests image IDs from backend route /taxon/{species_name}/ids
  * - loads full image for the first ID via fetchImgById
- * - loads thumbnails (up to 5) for the following IDs via fetchThumbnailById
- * - clicking a thumbnail promotes it to the main image (loads full if needed)
+ * - loads thumbnails for the next 5 IDs via fetchThumbnailById
+ * - clicking a thumbnail selects it as the main image WITHOUT reordering
  */
 export function SpeciesImages({ speciesName }: { speciesName: string }) {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState(0); // which image is shown large
   const createdUrls = useRef<string[]>([]);
 
   useEffect(() => {
@@ -138,6 +46,7 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
 
     const loadIdsAndImages = async () => {
       setLoading(true);
+      setSelectedIndex(0);
       revokeAll();
       setItems([]);
 
@@ -147,8 +56,7 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
         if (!mounted) return;
 
         if (!res.ok) {
-          // treat 404 or other errors as "no IDs"
-          // fallback: try the species-level single image endpoint
+          // fallback: try species-level single image endpoint
           try {
             const fallback = await fetchSpeciesImage(speciesName);
             if (!mounted) return;
@@ -164,7 +72,7 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
 
         const payload = await res.json();
 
-        // backend returns { species: ..., imageIds: [...] } in images.py
+        // payload may be an array of ids or an object with imageIds
         let ids: string[] = [];
         if (Array.isArray(payload)) {
           ids = payload as string[];
@@ -187,29 +95,28 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
           }
         }
 
-        // load full for first id
-        const firstId = ids[0];
+        // limit total thumbnails to 6 images (1 main + 5 thumbs)
+        const total = 6;
+        const selected = 0; // default selected index (first)
+        const idsToUse = ids.slice(0, total);
+
+        // fetch full for first id (or the selected index)
+        const firstId = idsToUse[selected];
         const fullUrl = await fetchImgById(firstId).catch(() => undefined);
         if (fullUrl) createdUrls.current.push(fullUrl);
 
-        // for following ids load up to 5 thumbnails
-        const thumbIds = ids.slice(1, 1 + 5);
-        const thumbPromises = thumbIds.map((id) =>
-          fetchThumbnailById(id).catch(() => undefined)
-        );
+        // fetch thumbnails for all ids (we show thumbs for all positions but first may reuse full if no thumb)
+        const thumbPromises = idsToUse.map((id) => fetchThumbnailById(id).catch(() => undefined));
         const thumbResults = await Promise.all(thumbPromises);
         thumbResults.forEach((u) => {
           if (u) createdUrls.current.push(u);
         });
 
-        const assembled: GalleryItem[] = [
-          { id: firstId, full: fullUrl, thumb: thumbResults[0] ?? fullUrl },
-          // include remaining thumbnails (if any) - note: we only requested up to 5
-          ...thumbIds.map((id, i) => ({
-            id,
-            thumb: thumbResults[i],
-          })),
-        ];
+        const assembled: GalleryItem[] = idsToUse.map((id, i) => ({
+          id,
+          full: i === selected ? fullUrl : undefined,
+          thumb: thumbResults[i] ?? undefined,
+        }));
 
         if (!mounted) return;
         setItems(assembled);
@@ -237,31 +144,19 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
     };
   }, [speciesName]);
 
-  const handleThumbnailClick = async (globalIndex: number) => {
-    // globalIndex corresponds to index in items array; index 0 is main, so ignore clicking main
-    if (globalIndex <= 0 || globalIndex >= items.length) return;
+  const handleThumbnailClick = async (idx: number) => {
+    // keep items order fixed; only change selectedIndex
+    if (idx < 0 || idx >= items.length) return;
+    setSelectedIndex(idx);
 
-    const clicked = items[globalIndex];
-
-    // optimistic reorder: move clicked to front
-    setItems((prev) => {
-      const copy = [...prev];
-      const [it] = copy.splice(globalIndex, 1);
-      copy.unshift(it);
-      return copy;
-    });
-
-    // if the clicked item has no full image, fetch it
+    const clicked = items[idx];
     if (!clicked.full) {
       try {
         const full = await fetchImgById(clicked.id);
-        // track URL to revoke later
         createdUrls.current.push(full);
-        setItems((prev) =>
-          prev.map((it) => (it.id === clicked.id ? { ...it, full } : it))
-        );
+        setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, full } : it)));
       } catch (err) {
-        console.error("Failed to load full image for clicked thumbnail", err);
+        console.error("Failed to load full image for selected thumbnail", err);
       }
     }
   };
@@ -273,11 +168,11 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
       ) : items.length === 0 ? (
         <div className="flex items-center justify-center h-full">No images</div>
       ) : (
-        <div className="flex flex-col gap-4 h-full">
+        <div className="flex flex-col gap-3 h-full p-3">{/* add outer padding so thumbs have breathing room */}
           {/* Main image */}
-          <div className="relative w-full flex-grow">
+          <div className="relative w-full flex-grow rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
             <Image
-              src={items[0].full ?? items[0].thumb ?? ""}
+              src={items[selectedIndex]?.full ?? items[selectedIndex]?.thumb ?? ""}
               alt={`Image of ${speciesName}`}
               fill
               sizes="(max-width:768px) 100vw, 600px"
@@ -286,30 +181,31 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
             />
           </div>
 
-          {/* Thumbnails (show up to 5 following images) */}
+          {/* Thumbnails (show up to 6 total images, keeping order) */}
           {items.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {items.slice(1).map((it, idx) => {
-                const globalIdx = idx + 1;
-                return (
-                  <button
-                    key={it.id}
-                    type="button"
-                    aria-label={`View image ${globalIdx + 1} of ${speciesName}`}
-                    title={`View image ${globalIdx + 1} of ${speciesName}`}
-                    onClick={() => handleThumbnailClick(globalIdx)}
-                    className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700 hover:ring-2 hover:ring-blue-300 transition-all"
-                  >
-                    <Image
-                      src={it.thumb ?? it.full ?? ""}
-                      alt={`Thumbnail ${globalIdx + 1} of ${speciesName}`}
-                      fill
-                      sizes="96px"
-                      className="object-cover"
-                    />
-                  </button>
-                );
-              })}
+            <div className="flex gap-3 overflow-x-auto pt-3">{/* increased gap and top padding */}
+              {items.map((it, idx) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  aria-label={`View image ${idx + 1} of ${speciesName}`}
+                  title={`View image ${idx + 1} of ${speciesName}`}
+                  onClick={() => handleThumbnailClick(idx)}
+                  className={`relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border transition-all ${
+                    idx === selectedIndex
+                      ? "ring-2 ring-blue-500 border-blue-500"
+                      : "border-gray-300 dark:border-gray-700 hover:ring-2 hover:ring-blue-300"
+                  }`}
+                >
+                  <Image
+                    src={it.thumb ?? it.full ?? ""}
+                    alt={`Thumbnail ${idx + 1} of ${speciesName}`}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                  />
+                </button>
+              ))}
             </div>
           )}
         </div>
