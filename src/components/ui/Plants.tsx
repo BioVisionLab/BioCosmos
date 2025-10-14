@@ -29,7 +29,6 @@ const MultiLeafIcon = ({ className }: { className: string }) => (
 const CanopyIcon = ({ className }: { className: string }) => (
   <svg
     id="fi_2599771"
-    enable-background="new 0 0 512 512"
     height="512"
     viewBox="0 0 512 512"
     width="512"

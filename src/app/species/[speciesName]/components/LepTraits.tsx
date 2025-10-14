@@ -26,11 +26,16 @@ import {
   MultiPlantIcon,
   SingleLeafIcon,
 } from "@/components/ui/Plants";
+import { MoistureIcon } from "@/components/ui/Moisture";
+import { DisturbanceIcon, EdgeForestIcon } from "@/components/ui/Forest";
+import { OvipositionIcon, VoltinismIcon } from "@/components/ui/LifeHistory";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
 
-const valueClass = "font-semibold text-teal-600 dark:text-teal-300 text-xl";
-const labelClass = "font-normal text-lg text-gray-500 dark:text-gray-300";
+const valueClass = "font-semibold text-grey-600 dark:text-grey-300 text-lg";
+const labelClass = "font-normal text-lg text-grey-600 dark:text-grey-300";
+const iconContainerClass =
+  "rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center p-2 mr-2";
 const iconColor = "fill-emerald-600 dark:fill-emerald-300";
 const commonIconClass = `w-16 h-16 ${iconColor} m-2`;
 
@@ -104,21 +109,30 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
           traits.edge_affinity.trim() !== "" && (
             <div className={boxClasses}>
               <h3 className="text-xl m-2">Edge Affinity</h3>
-              <Affinity affinity={traits.edge_affinity} />
+              <Affinity
+                affinity={traits.edge_affinity}
+                icon={<EdgeForestIcon className={commonIconClass} />}
+              />
             </div>
           )}
         {typeof traits.moisture_affinity === "string" &&
           traits.moisture_affinity.trim() !== "" && (
             <div className={boxClasses}>
               <h3 className="text-xl m-2">Moisture Affinity</h3>
-              <Affinity affinity={traits.moisture_affinity} />
+              <Affinity
+                affinity={traits.moisture_affinity}
+                icon={<MoistureIcon className={commonIconClass} />}
+              />
             </div>
           )}
         {typeof traits.disturbance_affinity === "string" &&
           traits.disturbance_affinity.trim() !== "" && (
             <div className={boxClasses}>
               <h3 className="text-xl m-2">Disturbance Affinity</h3>
-              <Affinity affinity={traits.disturbance_affinity} />
+              <Affinity
+                affinity={traits.disturbance_affinity}
+                icon={<DisturbanceIcon className={commonIconClass} />}
+              />
             </div>
           )}
       </div>
@@ -177,12 +191,12 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
       {typeof traits.flight_duration === "number" &&
         !Number.isNaN(traits.flight_duration) && (
           <div className={boxClasses}>
-            <h3 className="text-xl">Flight Duration</h3>
+            <h3 className="text-xl m-2">Flight Duration</h3>
             <FlightDuration duration={traits.flight_duration} />
           </div>
         )}
       <div className={boxClasses}>
-        <h3 className="text-xl">Adult Presence</h3>
+        <h3 className="text-xl m-2">Adult Presence</h3>
         <MonthPresence traits={traits} />
       </div>
       <LepTraitDataSourceInfo />
@@ -200,7 +214,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
   // Only render if we have data
   if (Object.keys(presentAbsentMap).length === 0) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm text-gray-500 dark:text-gray-400 m-2">
         No month presence data available.
       </p>
     );
@@ -208,15 +222,15 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
 
   if (isAbsentAllYear(presentAbsentMap)) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Absent all year or no data available.
+      <p className="text-sm text-gray-500 dark:text-gray-400 m-2">
+        No data available.
       </p>
     );
   }
 
   return (
     <div>
-      <div className="w-full h-16 flex mt-4">
+      <div className="w-full h-16 flex mt-2 mx-4">
         <table className="w-full h-full table-auto">
           <thead>
             <tr>
@@ -234,7 +248,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
                   key={month}
                   className={`h-5 w-5 border border-gray-300 dark:border-gray-700 ${
                     isPresent
-                      ? "bg-emerald-900/10 dark:bg-emerald-400"
+                      ? "bg-emerald-600 dark:bg-emerald-400"
                       : "bg-gray-200/50 dark:bg-gray-800/50"
                   }`}
                 >
@@ -268,10 +282,10 @@ function WingspanCard({
 }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
+      <div className={iconContainerClass}>
         <ButterflyFlat className={`w-28 h-28 m-2 ${iconColor}`} />
       </div>
-      <div className="space-y-2 ml-4">
+      <div className="space-y-2">
         <div>
           <h3 className="text-lg leading-tight">Upper</h3>
           {upper_male || upper_female || upper_unspecified ? (
@@ -355,7 +369,7 @@ function FlightDuration({ duration }: { duration: number | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
+      <div className={iconContainerClass}>
         <ButterflyFly className={commonIconClass} />
       </div>
       <div>
@@ -384,8 +398,8 @@ function Affinity({
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
-        {icon ? icon : <Trees className="w-16 h-16" />}
+      <div className={iconContainerClass}>
+        {icon ? icon : <CanopyIcon className={commonIconClass} />}
       </div>
       <div>
         <p className={valueClass}>{affinity}</p>
@@ -406,8 +420,8 @@ function Voltinism({ voltinism }: { voltinism: string | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
-        <Circle className="h-12 w-12 m-1" />
+      <div className={iconContainerClass}>
+        <VoltinismIcon className={commonIconClass} />
       </div>
       <p className={valueClass}>
         {voltinismLabel.label}{" "}
@@ -433,7 +447,7 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
+      <div className={iconContainerClass}>
         <Egg className="h-12 w-12" />
       </div>
       <p className={valueClass}>
@@ -458,8 +472,8 @@ function OvipositionStyle({ style }: { style: string | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
-        <Egg className="h-12 w-12" />
+      <div className={iconContainerClass}>
+        <OvipositionIcon className={commonIconClass} />
       </div>
       <p className={valueClass}>{styleLabel}</p>
     </div>
@@ -476,7 +490,7 @@ function NumberOfHostPlants({ count }: { count: number | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
+      <div className={iconContainerClass}>
         <MultiLeafIcon className={commonIconClass} />
       </div>
       <div>
@@ -511,7 +525,7 @@ function HostPlantFamilies({
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
+      <div className={iconContainerClass}>
         {icon ? icon : <SingleLeafIcon className={commonIconClass} />}
       </div>
       <div>
@@ -531,7 +545,7 @@ function HostPlantAccount({ count }: { count: number | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className="rounded-md bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center">
+      <div className={iconContainerClass}>
         <MultiPlantIcon className={commonIconClass} />
       </div>
       <div>
