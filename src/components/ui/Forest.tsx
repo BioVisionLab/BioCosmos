@@ -23,7 +23,6 @@ const EdgeForestIcon = ({ className }: { className?: string }) => (
 const DisturbanceIcon = ({ className }: { className?: string }) => (
   <svg
     id="fi_15682148"
-    enable-background="new 0 0 512 512"
     viewBox="0 0 512 512"
     xmlns="http://www.w3.org/2000/svg"
     className={className}
