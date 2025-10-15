@@ -1,7 +1,6 @@
 const EdgeForestIcon = ({ className }: { className?: string }) => (
   <svg
     id="fi_9092336"
-    enable-background="new 0 0 512 512"
     height="512"
     viewBox="0 0 512 512"
     width="512"
