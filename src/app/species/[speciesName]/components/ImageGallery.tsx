@@ -52,7 +52,9 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
 
       try {
         const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
-        const res = await fetch(`${TAXON_BASE}/${encodeURIComponent(cleanName)}/ids`);
+        const res = await fetch(
+          `${TAXON_BASE}/${encodeURIComponent(cleanName)}/ids`
+        );
         if (!mounted) return;
 
         if (!res.ok) {
@@ -61,7 +63,13 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
             const fallback = await fetchSpeciesImage(speciesName);
             if (!mounted) return;
             createdUrls.current.push(fallback);
-            setItems([{ id: `species-fallback-${speciesName}`, full: fallback, thumb: fallback }]);
+            setItems([
+              {
+                id: `species-fallback-${speciesName}`,
+                full: fallback,
+                thumb: fallback,
+              },
+            ]);
             return;
           } catch {
             if (!mounted) return;
@@ -86,7 +94,13 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
             const fallback = await fetchSpeciesImage(speciesName);
             if (!mounted) return;
             createdUrls.current.push(fallback);
-            setItems([{ id: `species-fallback-${speciesName}`, full: fallback, thumb: fallback }]);
+            setItems([
+              {
+                id: `species-fallback-${speciesName}`,
+                full: fallback,
+                thumb: fallback,
+              },
+            ]);
             return;
           } catch {
             if (!mounted) return;
@@ -106,7 +120,9 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
         if (fullUrl) createdUrls.current.push(fullUrl);
 
         // fetch thumbnails for all ids (we show thumbs for all positions but first may reuse full if no thumb)
-        const thumbPromises = idsToUse.map((id) => fetchThumbnailById(id).catch(() => undefined));
+        const thumbPromises = idsToUse.map((id) =>
+          fetchThumbnailById(id).catch(() => undefined)
+        );
         const thumbResults = await Promise.all(thumbPromises);
         thumbResults.forEach((u) => {
           if (u) createdUrls.current.push(u);
@@ -154,7 +170,9 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
       try {
         const full = await fetchImgById(clicked.id);
         createdUrls.current.push(full);
-        setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, full } : it)));
+        setItems((prev) =>
+          prev.map((it, i) => (i === idx ? { ...it, full } : it))
+        );
       } catch (err) {
         console.error("Failed to load full image for selected thumbnail", err);
       }
@@ -162,17 +180,26 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
   };
 
   return (
-    <div className="relative w-full aspect-video overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 backdrop-blur-lg shadow">
+    <div
+      className={`relative w-full aspect-video overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 p-2 ${
+        loading
+          ? "flex items-center justify-center border border-gray-200 dark:border-gray-700"
+          : ""
+      }`}
+    >
       {loading ? (
         <ImageLoading size={400} />
       ) : items.length === 0 ? (
         <div className="flex items-center justify-center h-full">No images</div>
       ) : (
-        <div className="flex flex-col gap-3 h-full p-3">{/* add outer padding so thumbs have breathing room */}
+        <div className="flex flex-col gap-3 h-full">
+          {/* add outer padding so thumbs have breathing room */}
           {/* Main image */}
-          <div className="relative w-full flex-grow rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+          <div className="relative w-full flex-grow rounded-xl overflow-hidden border  border-gray-200 dark:border-gray-700">
             <Image
-              src={items[selectedIndex]?.full ?? items[selectedIndex]?.thumb ?? ""}
+              src={
+                items[selectedIndex]?.full ?? items[selectedIndex]?.thumb ?? ""
+              }
               alt={`Image of ${speciesName}`}
               fill
               sizes="(max-width:768px) 100vw, 600px"
@@ -183,7 +210,8 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
 
           {/* Thumbnails (show up to 6 total images, keeping order) */}
           {items.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pt-3">{/* increased gap and top padding */}
+            <div className="flex gap-3 overflow-x-auto">
+              {/* increased gap and top padding */}
               {items.map((it, idx) => (
                 <button
                   key={it.id}
@@ -191,10 +219,10 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
                   aria-label={`View image ${idx + 1} of ${speciesName}`}
                   title={`View image ${idx + 1} of ${speciesName}`}
                   onClick={() => handleThumbnailClick(idx)}
-                  className={`relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border transition-all ${
+                  className={`relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border transition-all p-2 ${
                     idx === selectedIndex
-                      ? "ring-2 ring-blue-500 border-blue-500"
-                      : "border-gray-300 dark:border-gray-700 hover:ring-2 hover:ring-blue-300"
+                      ? "border-emerald-300"
+                      : "border-gray-300 dark:border-gray-700 hover:border-teal-600"
                   }`}
                 >
                   <Image
