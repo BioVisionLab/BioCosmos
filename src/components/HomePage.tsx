@@ -34,7 +34,7 @@ function SpeciesThumbnail({
   const speciesName = cleanSpeciesName(species);
   return (
     <Link key={index} href={linkUrl}>
-      <div className="justify-center bg-gray-100 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
+      <div className="w-fit h-fit justify-center bg-gray-100 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
         {thumbnailUrl ? (
           <>
             <Image

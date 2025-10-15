@@ -22,7 +22,7 @@ async def fetch_species_images(request: Request, species_name: str):
     logger.info(f"Fetching image IDs for species: {species_name}")
 
     try:
-        # You need a method that returns image IDs, e.g. fetch_image_ids
+        # Using method that returns image IDs: fetch_image_ids
         image_ids = ImagePersistData(
             lance_db=request.app.state.lance_db
         ).fetch_image_ids(species_name)

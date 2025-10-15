@@ -70,6 +70,7 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // TODO: handle 2 modes, semantic and text search (mode var unused)
   useEffect(() => {
     if (!query) return;
 
