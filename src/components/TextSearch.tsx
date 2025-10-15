@@ -53,6 +53,7 @@ export default function SearchBar() {
 
     // Navigate to the search page with query and mode
     const mode = isSemantic ? "semantic" : "text";
+    // TODO: handle 2 modes, semantic and text search
     router.push(`/search?q=${encodeURIComponent(query)}&mode=${mode}`);
   };
 
