@@ -96,7 +96,7 @@ export function NcbiAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-xs text-gray-500 mt-2 ${isLarge ? "text-lg" : ""}`}>
+    <p className={`text-gray-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
       {leadingText}{" "}
       <a
         href="https://www.ncbi.nlm.nih.gov/"

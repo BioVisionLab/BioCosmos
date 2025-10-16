@@ -25,13 +25,29 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
     const fetchData = async () => {
-      const counts = await fetchGenBankGeneCount(speciesName);
-      setGeneCounts(counts);
-      setLoading(false);
+      try {
+        const counts = await fetchGenBankGeneCount(speciesName);
+        if (isMounted) {
+          setGeneCounts(counts);
+        }
+      } catch (error) {
+        console.error("Error fetching gene counts:", error);
+        if (isMounted) {
+          setGeneCounts(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     };
     fetchData();
+    return () => {
+      isMounted = false;
+    };
   }, [speciesName]);
 
   return (
@@ -39,19 +55,20 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
       {loading ? (
         <TextLoading text="Loading genetic data..." />
       ) : (
-        geneCounts && Object.keys(geneCounts).length > 0
+        !geneCounts && <p className="text-gray-600">No genetic data found.</p>
       )}
-      {geneCounts ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(geneCounts).map(([type, count]) => (
-            <GeneCounts geneType={type} count={count} />
-          ))}
+      {geneCounts && (
+        <div>
+          <h3 className="text-lg">Known gene counts</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(geneCounts).map(([type, count]) => (
+              <GeneCounts key={type} geneType={type} count={count} />
+            ))}
+          </div>
         </div>
-      ) : (
-        <p className="text-gray-700">Loading genetic data...</p>
       )}
 
-      <NcbiAttribution />
+      <NcbiAttribution isLarge={true} />
     </div>
   );
 }

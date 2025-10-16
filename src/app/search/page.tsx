@@ -6,7 +6,7 @@ import Image from "next/image";
 import { fetchThumbnailById } from "@/lib/speciesList";
 import { cleanSpeciesName } from "@/lib/names";
 import Link from "next/link";
-import ImageLoading from "@/components/Loadings";
+import { ImageLoading } from "@/components/Loadings";
 // Define the type for the semantic result object from the Python service
 interface SemanticResultItem {
   imgId: string;
