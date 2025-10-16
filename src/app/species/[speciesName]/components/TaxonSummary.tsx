@@ -1,5 +1,5 @@
 import { LepTraitsAttribution } from "@/components/Attribution";
-import { Affinity, FlightDuration, WingspanCard } from "./LepTraits";
+import { Affinity, FlightDuration, WingspanCard } from "./LepTraitPage";
 import { LepTraits } from "@/lib/leptraits";
 
 export function SpeciesDescription({
