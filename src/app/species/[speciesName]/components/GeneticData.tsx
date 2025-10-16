@@ -1,5 +1,6 @@
 import { NcbiAttribution } from "@/components/Attribution";
 import { TextLoading } from "@/components/Loadings";
+import { NoData } from "@/components/NoData";
 import {
   DnaIcon,
   ProteinCodingIcon,
@@ -50,24 +51,32 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
     };
   }, [speciesName]);
 
+  if (loading) {
+    return (
+      <div className="mx-auto items-center">
+        <TextLoading text="Loading genetic data..." />
+      </div>
+    );
+  }
+
+  if (!geneCounts) {
+    return (
+      <div className="mx-auto items-center">
+        <NoData text="No genetic data available." />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto items-center">
-      {loading ? (
-        <TextLoading text="Loading genetic data..." />
-      ) : (
-        !geneCounts && <p className="text-gray-600">No genetic data found.</p>
-      )}
-      {geneCounts && (
-        <div>
-          <h3 className="text-lg">Sequenced genes</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(geneCounts).map(([type, count]) => (
-              <GeneCounts key={type} geneType={type} count={count} />
-            ))}
-          </div>
+      <div>
+        <h3 className="text-lg">Sequenced genes</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.entries(geneCounts).map(([type, count]) => (
+            <GeneCounts key={type} geneType={type} count={count} />
+          ))}
         </div>
-      )}
-
+      </div>
       <NcbiAttribution isLarge={true} />
     </div>
   );

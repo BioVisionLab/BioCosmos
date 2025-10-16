@@ -192,10 +192,16 @@ function isAbsentAllYear(presenceMap: Record<string, boolean>): boolean {
   return Object.values(presenceMap).every((present) => present === false);
 }
 
+function noTraitData(traits: LepTraits): boolean {
+  const keys = Object.keys(traits);
+  return keys.length === 0;
+}
+
 export {
   parseMonthPresence,
   parseVoltinism,
   isAbsentAllYear,
   parseDiapauseStage,
   parseOvipositionStyle,
+  noTraitData,
 };

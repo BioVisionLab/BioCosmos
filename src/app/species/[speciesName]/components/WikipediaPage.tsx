@@ -1,5 +1,6 @@
 "use client";
 
+import { NoData } from "@/components/NoData";
 import {
   ParsedContent,
   parseWikipediaContent,
@@ -135,11 +136,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
           </div>
         )}
 
-        {error && (
-          <div className="text-center text-gray-600 p-10 rounded-xl">
-            <p>{cleanWikipediaError(error)}</p>
-          </div>
-        )}
+        {error && <NoData text={cleanWikipediaError(error)} />}
 
         {!isLoading && !error && parsedContent.length > 0 && (
           <>

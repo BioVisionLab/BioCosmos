@@ -1,6 +1,6 @@
 import { LepTraits } from "@/lib/leptraits";
 import { GeneticData } from "./GeneticData";
-import { SpeciesTraits } from "./LepTraits";
+import { SpeciesTraits } from "./Traits";
 
 function BiologyPage({
   speciesName,

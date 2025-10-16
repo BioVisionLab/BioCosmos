@@ -1,6 +1,7 @@
 import {
   isAbsentAllYear,
   LepTraits,
+  noTraitData,
   parseDiapauseStage,
   parseMonthPresence,
   parseOvipositionStyle,
@@ -29,6 +30,7 @@ import {
 import { MoistureIcon } from "@/components/ui/Moisture";
 import { DisturbanceIcon, EdgeForestIcon } from "@/components/ui/Forest";
 import { OvipositionIcon, VoltinismIcon } from "@/components/ui/LifeHistory";
+import { NoData } from "@/components/NoData";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
 
@@ -40,8 +42,8 @@ const iconColor = "fill-emerald-600 dark:fill-emerald-300";
 const commonIconClass = `w-16 h-16 ${iconColor} m-2`;
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
-  if (!traits) {
-    return <p className="text-gray-200">No traits available.</p>;
+  if (!traits || noTraitData(traits)) {
+    return <NoData text="No trait data available." />;
   }
   const containerClasses = "relative rounded-xl p-2 overflow-hidden";
   const boxClasses = containerClasses.replace("my-2", "");
@@ -340,19 +342,19 @@ function Wingspan({
     <ul className="space-y-1 text-gray-700 dark:text-gray-300">
       {hasValue(male) && (
         <li>
-          <span className={valueClass}>{male} cm</span>
+          <span className={valueClass}>{male.toPrecision(3)} cm</span>
           <span className={labelClass}>{" (♂)"}</span>
         </li>
       )}
       {hasValue(female) && (
         <li>
-          <span className={valueClass}>{female} cm</span>
+          <span className={valueClass}>{female.toPrecision(3)} cm</span>
           <span className={labelClass}>{" (♀)"}</span>
         </li>
       )}
       {hasValue(unspecified) && (
         <li>
-          <span className={valueClass}>{unspecified} cm</span>
+          <span className={valueClass}>{unspecified.toPrecision(3)} cm</span>
           <span className={labelClass}>{" (Unspecified)"}</span>
         </li>
       )}
