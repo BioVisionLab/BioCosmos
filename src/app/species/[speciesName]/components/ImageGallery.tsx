@@ -1,6 +1,6 @@
 "use client";
 
-import ImageLoading from "@/components/ImageLoading";
+import { ImageLoading } from "@/components/Loadings";
 import {
   fetchImgById,
   fetchThumbnailById,

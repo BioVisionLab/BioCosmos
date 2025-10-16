@@ -87,3 +87,25 @@ export function LepTraitDataSourceInfo() {
     </div>
   );
 }
+
+export function NcbiAttribution({
+  leadingText = "Source: ",
+  isLarge = false,
+}: {
+  leadingText?: string;
+  isLarge?: boolean;
+}) {
+  return (
+    <p className={`text-xs text-gray-500 mt-2 ${isLarge ? "text-lg" : ""}`}>
+      {leadingText}{" "}
+      <a
+        href="https://www.ncbi.nlm.nih.gov/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-blue-700"
+      >
+        NCBI
+      </a>
+    </p>
+  );
+}

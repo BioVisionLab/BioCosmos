@@ -3,7 +3,7 @@ import { fetchThumbnailById } from "@/lib/speciesList";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import ImageLoading from "@/components/ImageLoading";
+import { ImageLoading } from "@/components/Loadings";
 import { cleanSpeciesName } from "@/lib/names";
 
 const IMAGE_SIZE = 128;

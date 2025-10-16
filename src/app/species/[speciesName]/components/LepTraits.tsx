@@ -8,7 +8,7 @@ import {
 } from "@/lib/leptraits";
 
 // import { Chart } from "chart.js/auto";
-import { Circle, Egg, Trees } from "lucide-react";
+import { Egg } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 
 import {
@@ -47,9 +47,10 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   const boxClasses = containerClasses.replace("my-2", "");
   const lineClasses = "border-t border-gray-300 dark:border-gray-700 my-2";
   const gridClasses = "grid gap-2 md:grid-cols-2 transition-all mb-4";
+  const categoryClasses = "text-xl font-semibold mt-2";
   return (
     <div>
-      <h2 className="text-2xl font-bold">Morphology</h2>
+      <h3 className={categoryClasses}>Morphology</h3>
       <div className={lineClasses} />
       <div className={gridClasses}>
         <div className={`${boxClasses} md:col-span-2 h-fit`}>
@@ -66,7 +67,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
           </div>
         </div>
       </div>
-      <h2 className="text-2xl font-bold mt-4">Life History</h2>
+      <h3 className={categoryClasses}>Life History</h3>
       <div className={lineClasses} />
       <div className={gridClasses}>
         {/* Each small card is its own grid item (no wrapping flex) */}
@@ -92,7 +93,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
             </div>
           )}
       </div>
-      <h2 className="text-2xl font-bold mt-4">Habitats</h2>
+      <h3 className={categoryClasses}>Habitats</h3>
       <div className={lineClasses} />
       <div className={gridClasses}>
         {typeof traits.canopy_affinity === "string" &&
@@ -136,7 +137,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
             </div>
           )}
       </div>
-      <h2 className="text-2xl font-bold mt-4">Resources</h2>
+      <h3 className={categoryClasses}>Resources</h3>
       <div className={lineClasses} />
       <div className={gridClasses}>
         {/* Each small card is its own grid item (no wrapping flex) */}
@@ -186,7 +187,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
             </div>
           )}
       </div>
-      <h2 className="text-2xl font-bold mt-4">Phenology</h2>
+      <h3 className={categoryClasses}>Phenology</h3>
       <div className={lineClasses} />
       {typeof traits.flight_duration === "number" &&
         !Number.isNaN(traits.flight_duration) && (

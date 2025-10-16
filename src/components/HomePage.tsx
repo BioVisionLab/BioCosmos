@@ -5,7 +5,7 @@ import Image from "next/image";
 import { fetchSpeciesThumbnail, getSpeciesList } from "@/lib/speciesList";
 import Link from "next/link";
 import SearchSwitcher from "./SearchSwitcher";
-import ImageLoading from "./ImageLoading";
+import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName } from "@/lib/names";
 
 function SpeciesThumbnail({

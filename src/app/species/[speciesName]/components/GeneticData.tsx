@@ -1,0 +1,89 @@
+import { NcbiAttribution } from "@/components/Attribution";
+import { TextLoading } from "@/components/Loadings";
+import {
+  DnaIcon,
+  ProteinCodingIcon,
+  PseudoGeneIcon,
+  RnaIcon,
+} from "@/components/ui/Genetics";
+import {
+  cleanGeneType,
+  fetchGenBankGeneCount,
+  GeneCategory,
+  getGeneCategory,
+} from "@/lib/genetic";
+import { useEffect, useState } from "react";
+
+interface GeneticPageProps {
+  speciesName: string;
+}
+
+export function GeneticData({ speciesName }: GeneticPageProps) {
+  const [geneCounts, setGeneCounts] = useState<Record<string, number> | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const fetchData = async () => {
+      const counts = await fetchGenBankGeneCount(speciesName);
+      setGeneCounts(counts);
+      setLoading(false);
+    };
+    fetchData();
+  }, [speciesName]);
+
+  return (
+    <div className="mx-auto items-center">
+      {loading ? (
+        <TextLoading text="Loading genetic data..." />
+      ) : (
+        geneCounts && Object.keys(geneCounts).length > 0
+      )}
+      {geneCounts ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.entries(geneCounts).map(([type, count]) => (
+            <GeneCounts geneType={type} count={count} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-700">Loading genetic data...</p>
+      )}
+
+      <NcbiAttribution />
+    </div>
+  );
+}
+
+function GeneCounts({ geneType, count }: { geneType: string; count: number }) {
+  const geneCategory = getGeneCategory(geneType);
+  const cleanedName = cleanGeneType(geneType);
+  const containerClass =
+    "rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center p-2 mr-2";
+  return (
+    <div className="flex flex-col-2 items-center">
+      <div className={containerClass}>
+        <GeneIcon category={geneCategory} />
+      </div>
+      <div className="my-2 py-2">
+        <p className="text-lg font-semibold">{cleanedName}</p>
+        <p className="text-2xl font-bold">{count}</p>
+      </div>
+    </div>
+  );
+}
+
+function GeneIcon({ category }: { category: GeneCategory }) {
+  const className = "w-12 h-12 fill-teal-500 mb-2";
+  switch (category) {
+    case GeneCategory.ProteinCoding:
+      return <ProteinCodingIcon key="protein-coding" className={className} />;
+    case GeneCategory.Rna:
+      return <RnaIcon key="rna" className={className} />;
+    case GeneCategory.Pseudo:
+      return <PseudoGeneIcon key="pseudo" className={className} />;
+    default:
+      return <DnaIcon key="dna" className={className} />;
+  }
+}
