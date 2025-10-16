@@ -181,7 +181,7 @@ export function SpeciesImages({ speciesName }: { speciesName: string }) {
 
   return (
     <div
-      className={`relative w-full aspect-video overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 p-2 ${
+      className={`relative w-full aspect-video overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${
         loading
           ? "flex items-center justify-center border border-gray-200 dark:border-gray-700"
           : ""
