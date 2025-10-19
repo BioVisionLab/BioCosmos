@@ -67,7 +67,7 @@ class ImagePersistData:
         species = species_name.lower().replace(" ", "_")
         query = f"species == '{species}'"
         try:
-            results = self.db_table.search().where(query).to_polars()
+            results = self.db_table.search().where(query).limit(10).to_polars()
             if "img_id" not in results.columns or results.is_empty():
                 self.logger.warning(
                     f"No image IDs found for species '{species_name}'."
