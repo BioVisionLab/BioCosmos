@@ -114,38 +114,6 @@ export const monthAbbr = [
   "Dec",
 ] as const;
 
-/* 
-Parses month presence traits into a structured object.
-Returns an object with month abbreviations as keys and boolean values indicating presence.
-API output example:
-jan adult presence: Absent
-feb adult presence: Absent
-mar adult presence: Absent
-apr adult presence: Present
-may adult presence: Present
-jun adult presence: Present
-jul adult presence: Present
-aug adult presence: Present
-sep adult presence: Present
-oct adult presence: Present
-nov adult presence: Absent
-dec adult presence: Absent
-    Resulting object:
-{
-  jan: false,
-  feb: false,
-  mar: false,
-  apr: true,
-  may: true,
-  jun: true,
-  jul: true,
-  aug: true,
-  sep: true,
-  oct: true,
-  nov: false,
-  dec: false
-}  
-*/
 function parseMonthPresence(traits: LepTraits): Record<string, boolean> {
   const monthMap: Record<string, boolean> = {}; // Move inside function
 
