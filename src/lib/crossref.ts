@@ -2,7 +2,12 @@
 Literature search via CrossRef API
 */
 
-import { decodeHtmlEntities, toSentenceCase } from "./textUtils";
+import {
+  decodeHtmlEntities,
+  toAuthorNameCase,
+  toSentenceCase,
+  toTitleCase,
+} from "./textUtils";
 
 const API_BASE_URL = "https://api.crossref.org/types/journal-article/works?";
 
@@ -86,7 +91,7 @@ async function fetchCrossRefData(
     );
     const title = toSentenceCase(decodedTitle);
     const authors = item.author
-      ? item.author.map((a: any) => `${a.given} ${a.family}`)
+      ? item.author.map((a: any) => toAuthorNameCase(`${a.given} ${a.family}`))
       : ["No authors available"];
     const published_year = parsePublishedYear(item);
     const journal = decodeHtmlEntities(

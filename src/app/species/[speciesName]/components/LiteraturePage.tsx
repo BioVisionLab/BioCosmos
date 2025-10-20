@@ -1,6 +1,6 @@
 "use client";
 
-import { CrossRefAttribution } from "@/components/Attribution";
+import { CrossRefAttribution, CrossRefLink } from "@/components/Attribution";
 import { TextLoading } from "@/components/Loadings";
 import { CrossRefResult, fetchCrossRefData } from "@/lib/crossref";
 import Link from "next/link";
@@ -54,8 +54,11 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
     <div>
       <div className="mb-4">
         <p className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700">
-          Note: This literature list is automatically generated and not manually
-          reviewed; it may contain irrelevant publications.
+          Note: This literature list is automatically fetched from{" "}
+          <span>
+            <CrossRefLink />
+          </span>{" "}
+          and not manually reviewed; it may contain irrelevant publications.
         </p>
       </div>
       {Object.keys(relevantLiterature).length === 0 ? (
@@ -101,8 +104,8 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
                         ) : (
                           ""
                         )}
-                        {pub.doi ? <JournalViewButton doi={pub.doi} /> : null}
                       </p>
+                      {pub.doi ? <JournalViewButton doi={pub.doi} /> : null}
                     </div>
                   ))}
                 </div>

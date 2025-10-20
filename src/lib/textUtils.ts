@@ -11,6 +11,24 @@ function toSentenceCase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function toAuthorNameCase(str: string) {
+  return str
+    .split(" ")
+    .map((word) => {
+      if (word.includes("-")) {
+        return word
+          .split("-")
+          .map(
+            (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+          )
+          .join("-");
+      } else {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }
+    })
+    .join(" ");
+}
+
 function decodeHtmlEntities(str: string): string {
   if (!str) return "";
   return str
@@ -25,4 +43,4 @@ function decodeHtmlEntities(str: string): string {
     );
 }
 
-export { toTitleCase, toSentenceCase, decodeHtmlEntities };
+export { toTitleCase, toSentenceCase, decodeHtmlEntities, toAuthorNameCase };

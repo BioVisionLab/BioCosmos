@@ -131,3 +131,16 @@ export function CrossRefAttribution({
     </p>
   );
 }
+
+export function CrossRefLink() {
+  return (
+    <a
+      href="https://www.crossref.org/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline hover:text-blue-700"
+    >
+      CrossRef
+    </a>
+  );
+}
