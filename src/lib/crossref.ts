@@ -2,6 +2,7 @@
 Literature search via CrossRef API
 */
 
+import { fi } from "zod/v4/locales";
 import {
   decodeHtmlEntities,
   toAuthorNameCase,
@@ -27,10 +28,10 @@ async function queryCrossRef(speciesName: string): Promise<any> {
   // It searches titles, authors, ISSNs, and publication years
   const params = new URLSearchParams({
     "query.bibliographic": `${speciesName} butterfly Lepidoptera`,
-    rows: "20", // Increased from 15 for better coverage
+    rows: "50", // Increased from 15 for better coverage
     sort: "relevance", // Explicitly sort by relevance score
     order: "desc",
-    filter: "from-pub-date:2000-01-01,type:journal-article,has-abstract:true",
+    filter: "from-pub-date:1995-01-01,type:journal-article,has-abstract:true",
     select:
       "DOI,title,author,published,container-title,abstract,is-referenced-by-count",
   });
@@ -72,6 +73,47 @@ function parsePublishedYear(item: any): number | undefined {
   return undefined;
 }
 
+/**
+ * Check if a specific species/genus appears in the title
+ */
+function matchedSpecies(
+  title: string,
+  genus: string,
+  species: string
+): boolean {
+  // We check species name first.
+  // If it is not available, we check genus only.
+  const pattern = new RegExp(`\\b${genus}\\s+${species}\\b`, "i");
+  return pattern.test(title);
+}
+
+function matchedGenus(title: string, genus: string): boolean {
+  const genusPattern = new RegExp(`\\b${genus}\\b`, "i");
+  return genusPattern.test(title);
+}
+
+/* Filter papers to include only those that mention the species or genus in title or abstract
+Otherwise, return only 10 newest papers
+*/
+function filterRelevantPapers(papers: any[], speciesName: string): any[] {
+  // We need to check the speciesName contain underscore or space separator
+  const [genus, species] = speciesName.includes("_")
+    ? speciesName.split("_")
+    : speciesName.split(" ");
+  const relevantPapers = papers.filter((paper) => {
+    const title = paper.title?.[0] || "";
+    const abstract = paper.abstract || "";
+
+    // Check both title and abstract
+    // to see if they mention the species or genus
+    return (
+      matchedSpecies(title, genus, species) ||
+      matchedSpecies(abstract, genus, species)
+    );
+  });
+  return relevantPapers;
+}
+
 /* Fetches literature data from CrossRef API based on species name
 We group the results by year so it is not cluttered for viewing 
 */
@@ -84,7 +126,9 @@ async function fetchCrossRefData(
     return results;
   }
 
-  for (const item of data.message.items) {
+  const filteredPapers = filterRelevantPapers(data.message.items, speciesName);
+
+  for (const item of filteredPapers) {
     // We turn all title into sentence case for consistency
     const decodedTitle = decodeHtmlEntities(
       item.title ? item.title[0] : "No title available"

@@ -62,21 +62,11 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           {speciesData.taxonomy.species}
         </span>
       </nav>
-      {/* Optional: Add explicit "Back to Genus" link */}
-      <div className="mb-4">
-        <Link
-          href={`/genus/${speciesData.taxonomy.genus}`}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          &larr; Back to{" "}
-          <span className="italic">{speciesData.taxonomy.genus}</span> species
-        </Link>
-      </div>
       <SpeciesHeader
         taxonomy={speciesData.taxonomy}
         name={speciesData.taxonomy.species}
       />
-      <div>
+      <div className="mt-8">
         <TabsComponent speciesData={speciesData} />
       </div>
     </section>

@@ -144,3 +144,16 @@ export function CrossRefLink() {
     </a>
   );
 }
+
+export function NcbiLink() {
+  return (
+    <a
+      href="https://www.ncbi.nlm.nih.gov/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline hover:text-blue-700"
+    >
+      NCBI
+    </a>
+  );
+}

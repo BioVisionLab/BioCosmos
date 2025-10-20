@@ -55,7 +55,7 @@ function SpeciesHeader({
 }) {
   return (
     <header>
-      <div className="mb-6 text-center mx-auto">
+      <div className="mb-6 mt-4 text-center mx-auto">
         <SpeciesTitle taxonomy={taxonomy} name={name} />
         <CommonName
           vernacularName={taxonomy?.vernacularName || null}

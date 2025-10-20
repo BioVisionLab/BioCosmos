@@ -7,6 +7,7 @@ import Link from "next/link";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName } from "@/lib/names";
+import { ButterflyAiIcon } from "./ui/Butterfly";
 
 function SpeciesThumbnail({
   species,
@@ -59,17 +60,12 @@ function SpeciesThumbnail({
   );
 }
 
-export default function HomeClient() {
+export default function HomePage() {
   const speciesList = getSpeciesList();
 
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <Image
-        src="/leaflet/images/logo.png"
-        alt="biocosmos logo"
-        width={160}
-        height={160}
-      />
+      <ButterflyAiIcon className="w-24 h-24 mt-10 fill-emerald-400" />
       <div className="mt-2 mb-6 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
           BioCosmos
