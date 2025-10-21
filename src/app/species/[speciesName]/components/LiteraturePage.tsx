@@ -100,7 +100,8 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
                   <div key={index} className="">
                     <JournalTitle title={pub.title} />
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                      {pub.authors.join(", ")}. {pub.journal}
+                      {pub.authors.join(", ")}.{" "}
+                      <span className="italic">{pub.journal}</span>
                       {pub.volume ? `, Vol. ${pub.volume}` : ""}
                       {pub.issue ? `, No. ${pub.issue}` : ""}
                       {pub.pages ? `, pp. ${pub.pages}` : ""}.
