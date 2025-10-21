@@ -2,12 +2,11 @@
 Literature search via CrossRef API
 */
 
-import { fi } from "zod/v4/locales";
+import { get } from "http";
 import {
   decodeHtmlEntities,
   toAuthorNameCase,
   toSentenceCase,
-  toTitleCase,
 } from "./textUtils";
 
 const API_BASE_URL = "https://api.crossref.org/types/journal-article/works?";
@@ -146,7 +145,7 @@ async function fetchCrossRefData(
     const volume = item.volume;
     const issue = item.issue;
     const pages = item.pages;
-    const doi = item.DOI;
+    const doi = item.DOI ? getDoiUrl(item.DOI) : undefined;
 
     if (published_year) {
       if (!results[published_year]) {
@@ -178,6 +177,10 @@ async function fetchCrossRefData(
     }
   }
   return results;
+}
+
+function getDoiUrl(doi: string): string {
+  return `https://doi.org/${doi}`;
 }
 
 export { fetchCrossRefData };

@@ -110,7 +110,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
                         <span>
                           {" "}
                           <Link
-                            href={`https://doi.org/${pub.doi}`}
+                            href={pub.doi}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline hover:text-teal-700"
