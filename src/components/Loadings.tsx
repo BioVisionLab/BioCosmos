@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-function ImageLoading({ size }: { size: number }) {
+function ImageLoading({ size, text }: { size: number; text?: string }) {
   return (
     <div className="items-center justify-center text-center">
       <Image
@@ -10,7 +10,7 @@ function ImageLoading({ size }: { size: number }) {
         height={size}
         className="animate-pulse mx-auto opacity-75"
       />
-      <TextLoading text="Loading image" />
+      <TextLoading text={text || "Loading image"} />
     </div>
   );
 }
