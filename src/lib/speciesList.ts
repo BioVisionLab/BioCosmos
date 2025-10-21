@@ -4,6 +4,7 @@ const INITIAL_SPECIES = [
   "anaeomorpha_splendida",
   "agrias_narcissus",
   "athyma_libnites",
+  "danaus_gilippus",
   "euploea_eleusina",
   "nessaea_hewitsonii",
   "zeuxidia_ameythystus",
@@ -50,7 +51,6 @@ export async function fetchSpeciesThumbnail(
 
   return localUrl;
 }
-
 
 export async function fetchSpeciesImage(speciesName: string): Promise<string> {
   // Force species name snake case

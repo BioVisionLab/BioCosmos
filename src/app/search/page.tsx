@@ -115,14 +115,6 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
         {loading ? (
           <div className="flex flex-col items-center mt-24">
             <ImageLoading size={240} text="Searching for species" />
-            {/* <p className="text-gray-500 mt-8 flex items-baseline justify-center gap-2 leading-none">
-              <span className="tracking-wide text-xl">Searching</span>
-              <span className="flex gap-1">
-                <span className="-ml-1 w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:0ms]"></span>
-                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:150ms]"></span>
-                <span className="w-1 h-1 rounded-full bg-gray-400 dark:gray-500 animate-bounce [animation-delay:300ms]"></span>
-              </span>
-            </p> */}
           </div>
         ) : error ? (
           <p className="text-red-500">Error: {error}</p>

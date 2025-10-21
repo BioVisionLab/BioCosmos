@@ -46,7 +46,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   if (loading) {
     return (
       <div className="mx-auto items-center">
-        <TextLoading text="Loading literature data..." />
+        <TextLoading text="Loading literature data" />
       </div>
     );
   }
@@ -166,18 +166,18 @@ function JournalTitle({ title, doi }: { title: string; doi?: string }) {
 
 function JournalViewButton({ doi }: { doi: string }) {
   return (
-    <Link
-      href={`https://doi.org/${doi}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-2"
+    <div
+      key={doi}
+      className="border border-teal-700 px-2 py-1 rounded-md w-fit mt-2 mb-4 hover:bg-teal-700 hover:text-white text-sm"
     >
-      <div
-        key={doi}
-        className="border border-teal-700 px-2 py-1 rounded-md w-fit mt-2 mb-4 hover:bg-teal-700 hover:text-white text-sm"
+      <Link
+        href={`https://doi.org/${doi}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2"
       >
         View Publication
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

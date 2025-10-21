@@ -1,3 +1,40 @@
+/**
+ * Fully qualified URL of the local Python CLIP text-search endpoint, built from `API_HOST`.
+ * The route forwards incoming queries to this service.
+ *
+ * @example
+ * // If API_HOST = "http://localhost:5001"
+ * // TEXT_SEARCH resolves to "http://localhost:5001/text-search"
+ */
+
+/**
+ * Next.js (App Router) GET handler for semantic search.
+ *
+ * Expects a query string parameter `q` containing the natural-language search text.
+ * Forwards the query to a local Python CLIP service and returns the array of identifiers
+ * (strings) produced by that service.
+ *
+ * Query parameters:
+ * - q: string (required) — semantic search text.
+ *
+ * Responses:
+ * - 200: JSON array of strings returned by the CLIP service.
+ * - 400: { error: string } when `q` is missing.
+ * - 503: { error: string } when the CLIP service is unreachable or returns a non-OK status.
+ *
+ * Notes:
+ * - The handler URL-encodes `q` before forwarding.
+ * - Logs basic request/response details to the server console.
+ *
+ * Example requests:
+ * @example
+ * // Using a browser/location bar:
+ * // /api/semantic-search?q=danaus%20plexippus
+ *
+ *
+ * @param request - The incoming Next.js Request containing the URL with search params.
+ * @returns A NextResponse containing JSON.
+ */
 import { NextResponse } from "next/server";
 
 import { API_HOST } from "@/lib/config";
@@ -36,7 +73,7 @@ export async function GET(request: Request) {
       let errorBody = "Unknown error from CLIP service";
       try {
         errorBody = await clipResponse.text(); // Try to get error text
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* Ignore parsing errors */
       }

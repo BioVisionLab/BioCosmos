@@ -121,3 +121,36 @@ async def fetch_taxon_img(request: Request, species_name: str):
             status_code=500,
             detail="An internal error occurred while fetching the image data.",
         )
+
+
+@router.get("/taxon/{species_name}/specimens")
+async def fetch_taxon_specimens(request: Request, species_name: str):
+    """
+    Fetches taxon specimens.
+    Returns a 404 error if no specimens are found.
+    """
+    logger.info(
+        f"Fetching taxon specimens for species: {species_name}"
+    )
+
+    try:
+        specimens = ImagePersistData(
+            lance_db=request.app.state.lance_db
+        ).fetch_image_stat_by_species(species_name)
+        if not specimens:
+            logger.warning(
+                f"No specimens found for species: {species_name}"
+            )
+            raise HTTPException(
+                status_code=404,
+                detail=f"Specimens not found for species: {species_name}",
+            )
+        return JSONResponse(content=specimens)
+    except Exception as e:
+        logger.error(
+            f"Error fetching specimens for {species_name}: {e}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred while fetching specimens.",
+        )

@@ -38,6 +38,19 @@ class SpeciesImage(BaseModel):
         }
 
 
+class SpeciesImageStat(BaseModel):
+    """Class to represent species image statistics."""
+
+    species: str
+    imageCounts: int
+
+    def to_dict(self) -> dict:
+        return {
+            "species": self.species,
+            "imageCounts": self.imageCounts,
+        }
+
+
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
@@ -125,6 +138,24 @@ class ImagePersistData:
         if query is None:
             return None
         return query[0].image_bytes_png
+
+    def fetch_image_stat_by_species(
+        self, species_name: str
+    ) -> dict | None:
+        """Fetch image statistics for a specific species.
+
+        How it works:
+        1. Query the database for images matching the species name.
+        2. Return statistics such as number of images available.
+        :param species_name: The name of the species to fetch the image statistics for.
+        :return: A dictionary containing image statistics or None if not found."""
+        query = self._query_image(species_name)
+        if query is None:
+            return None
+        return SpeciesImageStat(
+            species=species_name,
+            imageCounts=len(query),
+        ).to_dict()
 
     def fetch_similar_images_from_text(
         self, request: Request, text: str, limit: int = 50
