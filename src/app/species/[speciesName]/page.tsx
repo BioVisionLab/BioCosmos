@@ -9,7 +9,6 @@ interface SpeciesPageProps {
   };
 }
 
-// --- End GBIF API Fetching Function ---
 export default async function SpeciesPage({ params }: SpeciesPageProps) {
   const resolvedParams = await params;
   const { speciesName: folderName } = resolvedParams;

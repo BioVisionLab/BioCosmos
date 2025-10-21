@@ -65,7 +65,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <ButterflyAiIcon className="w-24 h-24 mt-10 fill-emerald-400" />
+      <ButterflyAiIcon className="w-24 h-24 fill-emerald-400" />
       <div className="mt-2 mb-6 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
           BioCosmos

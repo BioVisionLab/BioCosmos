@@ -1,4 +1,3 @@
-from typing import final
 from pydantic import BaseModel
 from fastapi import Request
 from ..services.images import ImagePersistData
@@ -7,7 +6,7 @@ from ..services.gbif import GbifTaxonSearch, GbifPersistData
 from ..services.openai import AiSummary
 import logging
 
-logger = logging.getLogger(__name__) 
+logger = logging.getLogger(__name__)
 
 # class TaxonStatPayload(BaseModel):
 #    """
@@ -18,8 +17,9 @@ logger = logging.getLogger(__name__)
 #    imageEntries: int
 #    gbifSpeciesCount: int
 #    return cls(
-#        gbifEntries = 
+#        gbifEntries =
 #    )
+
 
 class TaxonStatPayload(BaseModel):
     """
@@ -34,10 +34,10 @@ class TaxonStatPayload(BaseModel):
     @classmethod
     def from_data(
         cls,
-        gbif_entries: int,
-        lep_traits_entries: int,
-        image_entries: int,
-        gbif_species_count: int
+        gbif_entries: int | None,
+        lep_traits_entries: int | None,
+        image_entries: int | None,
+        gbif_species_count: int | None,
     ):
         """
         Create a SpeciesPayload instance from the provided data.
@@ -51,10 +51,18 @@ class TaxonStatPayload(BaseModel):
             SpeciesPayload: An instance of SpeciesPayload.
         """
         return cls(
-            gbifEntries=gbif_entries,
-            lepTraitsEntries=lep_traits_entries,
-            imageEntries=image_entries,
-            gbifSpeciesCount=gbif_species_count,
+            gbifEntries=gbif_entries
+            if gbif_entries is not None
+            else 0,
+            lepTraitsEntries=lep_traits_entries
+            if lep_traits_entries is not None
+            else 0,
+            imageEntries=image_entries
+            if image_entries is not None
+            else 0,
+            gbifSpeciesCount=gbif_species_count
+            if gbif_species_count is not None
+            else 0,
         )
 
 
@@ -131,13 +139,15 @@ class TaxonSearch:
                 leptraits_service.count_entries()
             )
             count_img: int | None = img_service.entries()
-            count_unique_species: int | None = gbif_service.count_unique_species()
+            count_unique_species: int | None = (
+                gbif_service.count_unique_species()
+            )
 
             if (
                 counts_gbif is None
                 and count_leptrait is None
-                and count_img is None and 
-                count_unique_species is None
+                and count_img is None
+                and count_unique_species is None
             ):
                 logger.info("No counts data found.")
                 return None
@@ -152,10 +162,6 @@ class TaxonSearch:
                 gbif_species_count=count_unique_species,
             )
             return payload.model_dump()
-                #"GBIF entries": counts_gbif,
-                #"LepTraits entries": count_leptrait,
-                #"Image entries": count_img,
-                #"GBIF species count": count_unique_species
         except Exception as e:
             logger.error(f"Error fetching counts: {e}", exc_info=True)
             return None
@@ -268,7 +274,7 @@ class TaxonSearch:
         prompt += "Please provide a brief overview of the species based on the above information."
         return prompt
 
-    async def _get_gbif_data(self) -> dict | None:
+    async def _get_gbif_data(self) -> dict:
         """
         Fetch GBIF data for the species using the GbifPersistData service.
 
@@ -282,7 +288,7 @@ class TaxonSearch:
                 logger.info(
                     f"No GBIF data found for species: {self.species}"
                 )
-                return None
+                return {}
             logger.info(
                 f"Found GBIF data for species: {self.species}. Data: {gbif_data}"
             )
@@ -292,7 +298,7 @@ class TaxonSearch:
                 f"Error fetching GBIF data for species {self.species}: {e}",
                 exc_info=True,
             )
-            return None
+            return {}
         finally:
             await gbif_service.close()
 

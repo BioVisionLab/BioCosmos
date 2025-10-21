@@ -4,11 +4,11 @@ function ImageLoading({ size }: { size: number }) {
   return (
     <div className="items-center justify-center text-center">
       <Image
-        src="/leaflet/images/butterfly.svg"
+        src="/icons/butterfly.svg"
         alt="Loading..."
         width={size}
         height={size}
-        className="animate-pulse mx-auto"
+        className="animate-pulse mx-auto opacity-75"
       />
       <TextLoading text="Loading image" />
     </div>
