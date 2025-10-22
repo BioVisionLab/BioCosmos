@@ -19,7 +19,7 @@ export interface CrossRefResult {
   volume?: string;
   issue?: string;
   pages?: string;
-  doi?: string;
+  doi: string | null;
 }
 
 async function queryCrossRef(speciesName: string): Promise<any> {
@@ -145,7 +145,7 @@ async function fetchCrossRefData(
     const volume = item.volume;
     const issue = item.issue;
     const pages = item.pages;
-    const doi = item.DOI ? getDoiUrl(item.DOI) : undefined;
+    const doi = item.DOI ? getDoiUrl(item.DOI) : null;
 
     if (published_year) {
       if (!results[published_year]) {

@@ -137,7 +137,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
 /*
 Show title in standard format but detect italic tags for species names
 */
-function JournalTitle({ title, doi }: { title: string; doi?: string }) {
+function JournalTitle({ title }: { title: string }) {
   return (
     <p className="font-medium text-lg">
       {(() => {
