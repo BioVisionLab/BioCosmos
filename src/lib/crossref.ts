@@ -1,8 +1,6 @@
 /*
 Literature search via CrossRef API
 */
-
-import { get } from "http";
 import {
   decodeHtmlEntities,
   toAuthorNameCase,
@@ -32,7 +30,7 @@ async function queryCrossRef(speciesName: string): Promise<any> {
     order: "desc",
     filter: "from-pub-date:1995-01-01,type:journal-article,has-abstract:true",
     select:
-      "DOI,title,author,published,container-title,abstract,is-referenced-by-count",
+      "DOI,title,author,published,volume,page,issue,container-title,abstract,is-referenced-by-count",
   });
 
   try {
@@ -144,7 +142,7 @@ async function fetchCrossRefData(
     );
     const volume = item.volume;
     const issue = item.issue;
-    const pages = item.pages;
+    const pages = item.page;
     const doi = item.DOI ? getDoiUrl(item.DOI) : null;
 
     if (published_year) {

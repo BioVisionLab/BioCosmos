@@ -100,11 +100,11 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
                     <JournalTitle title={pub.title} />
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                       {pub.authors.join(", ")}.{" "}
+                      {pub.published_year ? ` (${pub.published_year}). ` : ""}
                       <span className="italic">{pub.journal}</span>
-                      {pub.volume ? `, Vol. ${pub.volume}` : ""}
-                      {pub.issue ? `, No. ${pub.issue}` : ""}
+                      {pub.volume ? `, ${pub.volume}` : ""}
+                      {pub.issue ? ` (${pub.issue})` : ""}
                       {pub.pages ? `, pp. ${pub.pages}` : ""}.
-                      {pub.published_year ? ` (${pub.published_year}).` : ""}
                       {pub.doi ? (
                         <span>
                           {" "}
