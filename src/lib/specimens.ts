@@ -1,15 +1,24 @@
-// function getSpecimenStats(speciesName: string) {
-//   const response = fetch(
-//     `api/specimens/stats?species=${encodeURIComponent(speciesName)}`
-//   );
+export interface SpecimenData {
+  species: string;
+  imageCounts: number;
+}
 
-//   if (!response.ok) {
-//     throw new Error(
-//       `Failed to fetch specimen stats. Status: ${response.status}`
-//     );
-//   }
+async function fetchSpecimenData(
+  speciesName: string
+): Promise<SpecimenData | null> {
+  const speciesNameEncoded = speciesName.replace(" ", "_");
+  const response = await fetch(
+    `api/specimen-search?species=${encodeURIComponent(speciesNameEncoded)}`
+  );
 
-//   return response.json();
-// }
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch specimen stats. Status: ${response.status}`
+    );
+  }
 
-// export { getSpecimenStats };
+  const specimenData: SpecimenData = await response.json();
+  return specimenData;
+}
+
+export { fetchSpecimenData };

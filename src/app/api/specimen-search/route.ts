@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   console.log(`API: Fetching specimens for species: ${species}`);
   try {
     const response = await fetch(
-      `${API_HOST}/${encodeURIComponent(species)}/specimens`,
+      `${API_HOST}/taxon/${encodeURIComponent(species)}/specimens`,
       {
         method: "GET",
         headers: {
