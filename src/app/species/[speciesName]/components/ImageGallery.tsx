@@ -5,7 +5,7 @@ import {
   fetchImgById,
   fetchThumbnailById,
   fetchSpeciesImage,
-} from "@/lib/speciesList";
+} from "@/lib/images";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 

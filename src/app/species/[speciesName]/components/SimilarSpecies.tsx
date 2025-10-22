@@ -1,5 +1,5 @@
 import { SimilarSpeciesMeta } from "@/lib/speciesData";
-import { fetchThumbnailById } from "@/lib/speciesList";
+import { fetchThumbnailById } from "@/lib/images";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { fetchSpeciesThumbnail, getSpeciesList } from "@/lib/speciesList";
+import { getSpeciesList } from "@/lib/speciesList";
+import { fetchSpeciesThumbnail } from "@/lib/images";
 import Link from "next/link";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";

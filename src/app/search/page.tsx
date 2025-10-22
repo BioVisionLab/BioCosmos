@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { fetchThumbnailById } from "@/lib/speciesList";
+import { fetchThumbnailById } from "@/lib/images";
 import { cleanSpeciesName } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
