@@ -67,8 +67,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
           <span>
             <CrossRefLink />
           </span>{" "}
-          and has not been manually reviewed; it may contain irrelevant
-          publications.
+          ; it may contain irrelevant publications.
         </p>
       </div>
       <div className="mb-2">

@@ -15,9 +15,8 @@ function BiologyPage({
       <h2 className="text-2xl font-semibold mb-2">Genetics</h2>
       <div className="mb-4">
         <p className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700 w-fit">
-          Genetic information is fetched automatically from <NcbiLink /> and has
-          not been manually reviewed. It includes only sequenced genes currently
-          available for this species.
+          Genetic information is fetched automatically from <NcbiLink />. It
+          includes only sequenced genes currently available for this species.
         </p>
       </div>
       <GeneticData speciesName={speciesName} />
