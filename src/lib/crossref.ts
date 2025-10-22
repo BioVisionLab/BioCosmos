@@ -180,6 +180,10 @@ async function fetchCrossRefData(
 }
 
 function getDoiUrl(doi: string): string {
+  if (doi.startsWith("http://") || doi.startsWith("https://")) {
+    return doi;
+  }
+
   return `https://doi.org/${doi}`;
 }
 
