@@ -1,8 +1,5 @@
 // import fs from "fs";
-import { API_HOST } from "./config";
 import { LepTraits } from "./leptraits";
-
-const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
 
 export interface TaxonomyData {
   kingdom: string;
@@ -46,7 +43,7 @@ export async function getSpeciesData(
   // Fetch taxonomy data from the external service
   try {
     const response = await fetch(
-      `${TAXONOMY_SERVICE_URL}?q=${encodeURIComponent(formattedName)}`
+      `/api/taxon-search?species=${encodeURIComponent(formattedName)}`
     );
     if (!response.ok) {
       console.error(
