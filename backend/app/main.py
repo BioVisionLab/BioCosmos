@@ -183,3 +183,10 @@ app.include_router(text_summarization.router)
 async def root():
     logger.info("Root endpoint accessed")
     return {"message": "Welcome to the CLIP Service"}
+
+
+# Check server status okay
+@app.get("/status")
+async def status():
+    logger.info("Status endpoint accessed")
+    return {"status": "ok"}
