@@ -8,7 +8,7 @@ async function fetchSpecimenData(
 ): Promise<SpecimenData | null> {
   const speciesNameEncoded = speciesName.replace(" ", "_");
   const response = await fetch(
-    `api/specimen-search?species=${encodeURIComponent(speciesNameEncoded)}`
+    `/api/specimen-search?species=${encodeURIComponent(speciesNameEncoded)}`
   );
 
   if (!response.ok) {

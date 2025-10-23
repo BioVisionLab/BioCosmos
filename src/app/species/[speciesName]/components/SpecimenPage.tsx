@@ -1,13 +1,8 @@
+"use client";
 import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
 import { useEffect, useState } from "react";
-import { set } from "zod/v4";
-import { tr } from "zod/v4/locales";
 
-interface SpecimenPageProps {
-  speciesName: string;
-}
-
-export function SpecimenPage({ speciesName }: SpecimenPageProps) {
+export function SpecimenPage({ speciesName }: { speciesName: string }) {
   const [specimenData, setSpecimenData] = useState<SpecimenData | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -18,6 +13,7 @@ export function SpecimenPage({ speciesName }: SpecimenPageProps) {
         const response = await fetchSpecimenData(speciesName);
         setSpecimenData(response);
       } catch (error) {
+        // Handle error using next js error handling
         console.error("Error fetching specimen data:", error);
       } finally {
         setLoading(false);
