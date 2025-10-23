@@ -98,8 +98,9 @@ class ImagePersistData:
             return []
 
     def get_img_by_id(
-        self, img_id: str, is_thumbnail: bool = False
-    ) -> io.BytesIO | None:
+        self,
+        img_id: str,
+    ) -> bytes | None:
         """Fetch an image by its ID."""
         try:
             img: list[LanceSchema] = (
@@ -113,11 +114,8 @@ class ImagePersistData:
                     f"No image found with ID '{img_id}'."
                 )
                 return None
-            return (
-                img[0].thumbnail_bytes_png
-                if is_thumbnail
-                else img[0].image_bytes_png
-            )
+            return img[0].img_bytes
+
         except Exception as e:
             self.logger.error(
                 f"Error fetching image with ID '{img_id}': {e}"

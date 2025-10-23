@@ -19,11 +19,11 @@ from .services.leptraits import LepTraits
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
+    image_retrieval,
     image_search,
     text_search,
     taxon_search,
     taxon_fetch,
-    images,
     text_summarization,
 )
 
@@ -182,7 +182,7 @@ app.include_router(text_search.router)
 app.include_router(taxon_search.router)
 app.include_router(taxon_fetch.router)
 app.include_router(text_summarization.router)
-app.include_router(images.router)
+app.include_router(image_retrieval.router)
 
 
 @app.get("/")

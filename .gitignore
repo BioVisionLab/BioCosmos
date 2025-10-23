@@ -54,4 +54,7 @@ lance_db/
 biocosmos.duckdb
 biocosmos.lance
 
-/static
+/backend/static/webp/
+/backend/static/thumbnails/
+/backend/static/tiles/
+/backend/static/images/

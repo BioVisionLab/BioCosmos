@@ -1,5 +1,5 @@
 import HomePage from "@/components/HomePage";
 
-export default function MainPage() {
+export default async function MainPage() {
   return <HomePage />;
 }

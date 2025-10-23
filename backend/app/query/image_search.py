@@ -1,6 +1,5 @@
 import base64
 import logging
-import re
 
 from fastapi import Request
 from pydantic import BaseModel

@@ -9,6 +9,7 @@ import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName } from "@/lib/names";
 import { ButterflyAiIcon } from "./ui/Butterfly";
+import { isBackendAlive } from "@/lib/backend";
 
 function SpeciesThumbnail({
   species,
@@ -35,8 +36,8 @@ function SpeciesThumbnail({
   let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
-    <Link key={index} href={linkUrl}>
-      <div className="w-fit h-fit justify-center bg-gray-100 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
+    <div className="w-fit h-fit justify-center bg-gray-100 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
+      <Link key={index} href={linkUrl}>
         {thumbnailUrl ? (
           <>
             <Image
@@ -56,12 +57,40 @@ function SpeciesThumbnail({
         ) : (
           <ImageLoading size={150} />
         )}
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
 export default function HomePage() {
+  const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const alive = await isBackendAlive();
+        setBackendAlive(alive);
+      } catch (error) {
+        console.error("Failed to check backend status:", error);
+        setBackendAlive(false);
+      }
+    };
+
+    checkBackend();
+  }, []);
+
+  if (backendAlive === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-red-600 dark:text-red-400">
+          Unable to connect to the backend service. Please try again later.
+        </p>
+      </div>
+    );
+  }
+  if (backendAlive === null) {
+    return <ImageLoading size={100} msg="Loading" />;
+  }
   const speciesList = getSpeciesList();
 
   return (

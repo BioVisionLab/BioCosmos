@@ -1,4 +1,4 @@
-from ..query.images import TextToImageSearch
+from ..query.image_search import TextToImageSearch
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
