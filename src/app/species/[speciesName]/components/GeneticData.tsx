@@ -1,4 +1,5 @@
 import { NcbiAttribution } from "@/components/Attribution";
+import { IconContainer } from "@/components/IconContainer";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
 import {
@@ -54,7 +55,7 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
   if (loading) {
     return (
       <div className="mx-auto items-center">
-        <TextLoading text="Loading genetic data..." />
+        <TextLoading msg="Fetching genetic data..." />
       </div>
     );
   }
@@ -85,13 +86,12 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
 function GeneCounts({ geneType, count }: { geneType: string; count: number }) {
   const geneCategory = getGeneCategory(geneType);
   const cleanedName = cleanGeneType(geneType);
-  const containerClass =
-    "rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center p-2 mr-2";
+
   return (
     <div className="flex flex-col-2 items-center">
-      <div className={containerClass}>
+      <IconContainer>
         <GeneIcon category={geneCategory} />
-      </div>
+      </IconContainer>
       <div className="my-2 py-2">
         <p className="text-lg font-semibold">{cleanedName}</p>
         <p className="text-2xl font-bold">{count}</p>

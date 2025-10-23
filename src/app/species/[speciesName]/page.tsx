@@ -83,7 +83,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
         </nav>
       )}
       {loading || !speciesData ? (
-        <ImageLoading size={240} text="Loading species data" />
+        <ImageLoading size={240} msg="Fetching species details" />
       ) : (
         <div>
           <SpeciesHeader

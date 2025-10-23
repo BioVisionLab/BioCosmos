@@ -31,14 +31,13 @@ import { MoistureIcon } from "@/components/ui/Moisture";
 import { DisturbanceIcon, EdgeForestIcon } from "@/components/ui/Forest";
 import { OvipositionIcon, VoltinismIcon } from "@/components/ui/LifeHistory";
 import { NoData } from "@/components/NoData";
+import { IconContainer } from "@/components/IconContainer";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
 
 const valueClass = "font-semibold text-grey-600 dark:text-grey-300 text-lg";
 const labelClass = "font-normal text-lg text-grey-600 dark:text-grey-300";
-const iconContainerClass =
-  "rounded-xl bg-gradient-to-br from-teal-500/15 to-emerald-500/15 flex items-center justify-center p-2 mr-2";
-const iconColor = "fill-emerald-600 dark:fill-emerald-300";
+const iconColor = "fill-teal-500";
 const commonIconClass = `w-16 h-16 ${iconColor} m-2`;
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
@@ -285,9 +284,9 @@ function WingspanCard({
 }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <ButterflyFlat className={`w-28 h-28 m-2 ${iconColor}`} />
-      </div>
+      </IconContainer>
       <div className="space-y-2">
         <div>
           <h3 className="text-lg leading-tight">Upper</h3>
@@ -372,9 +371,9 @@ function FlightDuration({ duration }: { duration: number | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <ButterflyFly className={commonIconClass} />
-      </div>
+      </IconContainer>
       <div>
         <p className={valueClass}>
           {duration}{" "}
@@ -401,9 +400,9 @@ function Affinity({
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         {icon ? icon : <CanopyIcon className={commonIconClass} />}
-      </div>
+      </IconContainer>
       <div>
         <p className={valueClass}>{affinity}</p>
       </div>
@@ -423,9 +422,9 @@ function Voltinism({ voltinism }: { voltinism: string | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <VoltinismIcon className={commonIconClass} />
-      </div>
+      </IconContainer>
       <p className={valueClass}>
         {voltinismLabel.label}{" "}
         {voltinismLabel.description.trim() === "" ? null : (
@@ -450,9 +449,9 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <Egg className="h-12 w-12" />
-      </div>
+      </IconContainer>
       <p className={valueClass}>
         {diapauseLabel.label}{" "}
         {diapauseLabel.description.trim() === "" ? null : (
@@ -475,9 +474,9 @@ function OvipositionStyle({ style }: { style: string | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <OvipositionIcon className={commonIconClass} />
-      </div>
+      </IconContainer>
       <p className={valueClass}>{styleLabel}</p>
     </div>
   );
@@ -493,9 +492,9 @@ function NumberOfHostPlants({ count }: { count: number | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <MultiLeafIcon className={commonIconClass} />
-      </div>
+      </IconContainer>
       <div>
         <p className={valueClass}>
           {count}
@@ -528,9 +527,9 @@ function HostPlantFamilies({
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         {icon ? icon : <SingleLeafIcon className={commonIconClass} />}
-      </div>
+      </IconContainer>
       <div>
         <p className={valueClass}>{familyList.join(" · ")}</p>
       </div>
@@ -548,9 +547,9 @@ function HostPlantAccount({ count }: { count: number | null | undefined }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <div className={iconContainerClass}>
+      <IconContainer>
         <MultiPlantIcon className={commonIconClass} />
-      </div>
+      </IconContainer>
       <div>
         <p className={valueClass}>
           {count} <span className={labelClass}>host plant account</span>

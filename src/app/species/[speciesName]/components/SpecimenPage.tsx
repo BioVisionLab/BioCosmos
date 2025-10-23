@@ -1,4 +1,5 @@
 "use client";
+import { ImageLoading } from "@/components/Loadings";
 import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
 import { useEffect, useState } from "react";
 
@@ -23,10 +24,9 @@ export function SpecimenPage({ speciesName }: { speciesName: string }) {
   }, [speciesName]);
 
   return (
-    <div className="mt-4 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/70 dark:bg-gray-800/70 backdrop-blur shadow">
-      <h2 className="text-2xl font-semibold mb-4">Specimen Information</h2>
+    <>
       {loading ? (
-        <p>Loading specimen data...</p>
+        <ImageLoading size={240} msg="Hang tight! Fetching specimen data" />
       ) : specimenData ? (
         <div>
           <p>
@@ -39,6 +39,6 @@ export function SpecimenPage({ speciesName }: { speciesName: string }) {
       ) : (
         <p>No specimen data available.</p>
       )}
-    </div>
+    </>
   );
 }
