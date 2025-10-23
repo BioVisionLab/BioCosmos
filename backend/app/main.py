@@ -2,8 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 
+
 from .database.duckdb import DuckDBClient
 from pydantic_settings import BaseSettings
+from fastapi.staticfiles import StaticFiles
 
 from .services.unicom import UnicomModel
 from .database.lance import LanceDB
@@ -21,6 +23,7 @@ from .routers import (
     text_search,
     taxon_search,
     taxon_fetch,
+    images,
     text_summarization,
 )
 
@@ -164,6 +167,8 @@ app = FastAPI(
     lifespan=lifespan, title="BIOCOSMOS API", version="0.1.0"
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -177,6 +182,7 @@ app.include_router(text_search.router)
 app.include_router(taxon_search.router)
 app.include_router(taxon_fetch.router)
 app.include_router(text_summarization.router)
+app.include_router(images.router)
 
 
 @app.get("/")
