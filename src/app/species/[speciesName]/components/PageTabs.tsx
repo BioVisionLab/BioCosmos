@@ -5,6 +5,7 @@ import { SpeciesOverview } from "./SpeciesOverview";
 import { SpeciesData } from "@/lib/speciesData";
 import WikipediaPage from "./WikipediaPage";
 import { SpeciesTraits } from "./LepTraits";
+import SpecimensTab from "./SpecimensTab"; // New file SpecimentsTab
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
@@ -30,6 +31,16 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
       label: "Traits",
       content: <SpeciesTraits traits={speciesData.traits} />,
     },
+
+    { // New Specimens tab implementation
+      id: "specimens",
+      label: "Specimens",
+      content: (
+        <SpecimensTab speciesName={speciesData.taxonomy?.species ?? ""} />
+      ),
+    },
+
+    /* Original specimens placeholder
     {
       id: "specimens",
       label: "Specimens",
@@ -41,7 +52,8 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
           </p>
         </div>
       ),
-    },
+    }, */
+
     {
       id: "Wikipedia",
       label: "Wikipedia",
