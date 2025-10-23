@@ -43,4 +43,14 @@ function decodeHtmlEntities(str: string): string {
     );
 }
 
-export { toTitleCase, toSentenceCase, decodeHtmlEntities, toAuthorNameCase };
+function formatNumberToLocaleString(num: number): string {
+  return num.toLocaleString("en-US");
+}
+
+export {
+  toTitleCase,
+  toSentenceCase,
+  decodeHtmlEntities,
+  toAuthorNameCase,
+  formatNumberToLocaleString,
+};

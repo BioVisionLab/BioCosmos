@@ -14,6 +14,7 @@ import {
   GeneCategory,
   getGeneCategory,
 } from "@/lib/genetic";
+import { formatNumberToLocaleString } from "@/lib/textUtils";
 import { useEffect, useState } from "react";
 
 interface GeneticPageProps {
@@ -86,6 +87,7 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
 function GeneCounts({ geneType, count }: { geneType: string; count: number }) {
   const geneCategory = getGeneCategory(geneType);
   const cleanedName = cleanGeneType(geneType);
+  const geneCount = formatNumberToLocaleString(count);
 
   return (
     <div className="flex flex-col-2 items-center">
@@ -94,7 +96,7 @@ function GeneCounts({ geneType, count }: { geneType: string; count: number }) {
       </IconContainer>
       <div className="my-2 py-2">
         <p className="text-lg font-semibold">{cleanedName}</p>
-        <p className="text-2xl font-bold">{count}</p>
+        <p className="text-2xl font-bold">{geneCount}</p>
       </div>
     </div>
   );
