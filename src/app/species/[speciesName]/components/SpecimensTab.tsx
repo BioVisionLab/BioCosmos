@@ -28,12 +28,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
   const createdUrls = useRef<string[]>([]);
 
   // pagination
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 24; // 30 images per page
   const MAX_PAGES = 10; // show up to 10 pages
   const [currentPage, setCurrentPage] = useState<number>(1); // 1-based
 
   // simple cache of fetched thumbnail URLs by image id
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
+  // cache for fetched full-size images while modal is open
+  const fullCache = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     let mounted = true;
@@ -46,6 +48,15 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
         }
       });
       createdUrls.current = [];
+      // revoke any cached full-size images
+      fullCache.current.forEach((u) => {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {
+          /* ignore */
+        }
+      });
+      fullCache.current.clear();
     };
 
     const loadFromSpecies = async (name: string) => {
@@ -173,13 +184,38 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
   const openFull = async (id: string) => {
     try {
-      setModalLoading(true);
       setModalError(null);
-      // fetch full image blob URL
+      // if full image already cached, use it
+      if (fullCache.current.has(id)) {
+        const cached = fullCache.current.get(id)!;
+        setModalImageUrl(cached);
+        setModalOpen(true);
+        if (allIds) {
+          const idx = allIds.indexOf(id);
+          setModalIndex(idx >= 0 ? idx : null);
+        } else {
+          setModalIndex(null);
+        }
+        // prefetch neighbors
+        prefetchNeighbors(id);
+        return;
+      }
+
+      setModalLoading(true);
+      // fetch full image blob URL and cache it
       const url = await fetchImgById(id);
       createdUrls.current.push(url);
+      fullCache.current.set(id, url);
       setModalImageUrl(url);
+      if (allIds) {
+        const idx = allIds.indexOf(id);
+        setModalIndex(idx >= 0 ? idx : null);
+      } else {
+        setModalIndex(null);
+      }
       setModalOpen(true);
+      // prefetch neighbors
+      prefetchNeighbors(id);
     } catch (err) {
       console.error("Failed to open full image:", err);
       setModalError("Failed to load full image");
@@ -188,11 +224,34 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     }
   };
 
+  // prefetch previous and next full images to reduce loading latency
+  const prefetchNeighbors = (id: string) => {
+    if (!allIds) return;
+    const idx = allIds.indexOf(id);
+    if (idx < 0) return;
+    const neighbors = [idx - 1, idx + 1];
+    neighbors.forEach((n) => {
+      if (n < 0 || n >= Math.min(allIds.length, PAGE_SIZE * MAX_PAGES)) return;
+      const nid = allIds[n];
+      if (fullCache.current.has(nid)) return; // already cached
+      // fetch but don't block UI
+      fetchImgById(nid)
+        .then((url) => {
+          createdUrls.current.push(url);
+          fullCache.current.set(nid, url);
+        })
+        .catch(() => {
+          // ignore prefetch failures
+        });
+    });
+  };
+
   // modal state for full-size image viewer
   const [modalOpen, setModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [modalIndex, setModalIndex] = useState<number | null>(null); // index into allIds
 
   const revokeUrl = (url?: string | null) => {
     if (!url) return;
@@ -203,6 +262,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     }
     // remove from createdUrls list if present
     createdUrls.current = createdUrls.current.filter((u) => u !== url);
+    // also remove from fullCache if present
+    for (const [k, v] of Array.from(fullCache.current.entries())) {
+      if (v === url) fullCache.current.delete(k);
+    }
   };
 
   const closeModal = () => {
@@ -210,10 +273,20 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       // revoke and remove
       revokeUrl(modalImageUrl);
     }
+    // revoke any prefetched full images too
+    fullCache.current.forEach((u) => {
+      try {
+        URL.revokeObjectURL(u);
+      } catch {
+        /* ignore */
+      }
+    });
+    fullCache.current.clear();
     setModalImageUrl(null);
     setModalOpen(false);
     setModalError(null);
     setModalLoading(false);
+    setModalIndex(null);
   };
 
   // close on ESC
@@ -224,6 +297,43 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [modalOpen, modalImageUrl]);
+
+  // keyboard left/right navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!modalOpen || modalIndex == null || !allIds) return;
+      if (e.key === "ArrowLeft") {
+        if (modalIndex > 0) navigateModalTo(modalIndex - 1);
+      } else if (e.key === "ArrowRight") {
+        if (modalIndex < Math.min(allIds.length, PAGE_SIZE * MAX_PAGES) - 1) navigateModalTo(modalIndex + 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalOpen, modalIndex, allIds]);
+
+  // navigate modal to index
+  const navigateModalTo = async (newIndex: number) => {
+    if (!allIds) return;
+    const cappedTotal = Math.min(allIds.length, PAGE_SIZE * MAX_PAGES);
+    if (newIndex < 0 || newIndex >= cappedTotal) return;
+    const id = allIds[newIndex];
+    try {
+      setModalLoading(true);
+      setModalError(null);
+      const url = await fetchImgById(id);
+      // revoke previous
+      if (modalImageUrl) revokeUrl(modalImageUrl);
+      createdUrls.current.push(url);
+      setModalImageUrl(url);
+      setModalIndex(newIndex);
+    } catch (err) {
+      console.error("Failed to navigate to image:", err);
+      setModalError("Failed to load image");
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   // compute pagination info
   const totalImages = allIds ? Math.min(allIds.length, PAGE_SIZE * MAX_PAGES) : items.length;
@@ -249,14 +359,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 w-full">
             {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                  <div
-                    key={`ph-${i}`}
-                    className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 flex items-center justify-center"
-                  >
-                    <Image src="/leaflet/images/butterfly.svg" alt="Loading..." width={96} height={96} className="animate-pulse mx-auto" />
-                  </div>
+              <div
+                key={`ph-${i}`}
+                className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 flex items-center justify-center"
+              >
+                <Image src="/leaflet/images/butterfly.svg" alt="Loading..." width={128} height={128} className="animate-pulse mx-auto" />
+              </div>
             ))}
           </div>
         </div>
@@ -267,19 +377,19 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
+  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
         {items.map((it) => (
           <button
             key={it.id}
             onClick={() => openFull(it.id)}
             title="Open full image"
-            className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-2 hover:ring-blue-300"
+            className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-2 hover:ring-blue-500"
           >
             {it.thumbUrl ? (
               <Image src={it.thumbUrl} alt={`Specimen ${it.id}`} fill sizes="(max-width:768px) 33vw, 150px" className="object-cover" />
             ) : (
               <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
-                <Image src="/leaflet/images/butterfly.svg" alt="Loading..." width={64} height={64} className="animate-pulse mx-auto" />
+                <Image src="/leaflet/images/butterfly.svg" alt="Loading..." width={112} height={112} className="animate-pulse mx-auto" />
               </div>
             )}
           </button>
@@ -287,43 +397,58 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       </div>
 
       {/* Pagination bar */}
-      <div className="flex items-center justify-center gap-2 mt-2">
-        <button
-          onClick={() => gotoPage(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className={`px-3 py-1 rounded ${currentPage <= 1 ? "text-gray-400" : "bg-white/60 hover:bg-gray-200"}`}
-        >
-          Prev
-        </button>
+      <div className="flex items-center justify-center gap-3 mt-3">
+        {/* Navigation container styled similar to PageTabs: rounded, dark background */}
+        <div className="inline-flex items-center rounded-full bg-gray-800/80 p-1">
+          <button
+            onClick={() => gotoPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              currentPage <= 1
+                ? "text-gray-500 cursor-not-allowed"
+                : "text-gray-200 hover:bg-gray-700"
+            }`}
+          >
+            Prev
+          </button>
 
-        <nav aria-label="Pages" className="flex items-center gap-1">
           {Array.from({ length: totalPages }).map((_, i) => {
             const p = i + 1;
+            const isCurrent = p === currentPage;
             return (
               <button
                 key={p}
                 onClick={() => gotoPage(p)}
-                className={`px-3 py-1 rounded ${p === currentPage ? "bg-emerald-500 text-white" : "bg-white/60 hover:bg-gray-200"}`}
-                aria-current={p === currentPage ? "page" : undefined}
+                className={`px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
+                  isCurrent
+                    ? "bg-emerald-500 text-white"
+                    : "text-gray-200 hover:bg-gray-700"
+                }`}
+                aria-current={isCurrent ? "page" : undefined}
               >
                 {p}
               </button>
             );
           })}
-        </nav>
 
-        <button
-          onClick={() => gotoPage(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className={`px-3 py-1 rounded ${currentPage >= totalPages ? "text-gray-400" : "bg-white/60 hover:bg-gray-200"}`}
-        >
-          Next
-        </button>
+          <button
+            onClick={() => gotoPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              currentPage >= totalPages
+                ? "text-gray-500 cursor-not-allowed"
+                : "text-gray-200 hover:bg-gray-700"
+            }`}
+          >
+            Next
+          </button>
+        </div>
       </div>
+      
       {/* Modal/lightbox for full-size image */}
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
           role="dialog"
           aria-modal="true"
           onClick={(e) => {
@@ -331,29 +456,63 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
+          <div className="relative w-[30vw] max-w-[65vw] max-h-[100vh] flex items-center justify-center">
+            {/* left nav */}
+            <button
+              onClick={() => (modalIndex != null ? navigateModalTo(modalIndex - 1) : null)}
+              disabled={modalIndex == null || modalIndex <= 0}
+              aria-label="Previous image"
+              className={`absolute left-[-48px] z-30 rounded-full p-2 transition-colors ${
+                modalIndex == null || modalIndex <= 0
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-white bg-black/30 hover:bg-white/10"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
             <button
               onClick={closeModal}
               aria-label="Close full image"
-              className="absolute -top-3 -right-3 z-20 bg-white/90 rounded-full p-2 shadow hover:bg-white"
+              className="absolute -top-3 -right-3 z-40 bg-white/90 rounded-full p-2 shadow hover:bg-white"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 8.586l4.95-4.95a1 1 0 111.414 1.414L11.414 10l4.95 4.95a1 1 0 01-1.414 1.414L10 11.414l-4.95 4.95a1 1 0 01-1.414-1.414L8.586 10 3.636 5.05A1 1 0 015.05 3.636L10 8.586z" clipRule="evenodd" />
               </svg>
             </button>
-
-            <div className="flex items-center justify-center bg-black rounded">
+            
+            { /* Formatting of popout image box: */ }
+            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-300 rounded-lg p-4 w-full max-w-[65vh] h-full max-h-[100vh] flex items-center justify-center">
+              
               {modalLoading ? (
                 <div className="p-6">
                   <ImageLoading size={200} />
                 </div>
               ) : modalImageUrl ? (
                 // use native img for blob URLs
-                <img src={modalImageUrl} alt="Full size specimen" className="max-h-[80vh] max-w-[90vw] object-contain" />
+                <img src={modalImageUrl} alt="Full size specimen" className="max-h-[80vh] max-w-[48vw] object-contain rounded-lg" />
               ) : (
-                <div className="p-6 text-white">{modalError ?? "Unable to load image"}</div>
+                <div className="p-6 text-gray-700">{modalError ?? "Unable to load image"}</div>
               )}
             </div>
+
+            {/* right nav */}
+            <button
+              onClick={() => (modalIndex != null ? navigateModalTo(modalIndex + 1) : null)}
+              disabled={modalIndex == null || modalIndex >= Math.min((allIds || []).length, PAGE_SIZE * MAX_PAGES) - 1}
+              aria-label="Next image"
+              className={`absolute right-[-48px] z-30 rounded-full p-2 transition-colors ${
+                modalIndex == null || modalIndex >= Math.min((allIds || []).length, PAGE_SIZE * MAX_PAGES) - 1
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-white bg-black/30 hover:bg-white/10"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
