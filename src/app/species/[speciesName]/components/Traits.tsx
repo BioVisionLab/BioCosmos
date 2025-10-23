@@ -450,7 +450,7 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <Egg className="h-12 w-12" />
+        <Egg className={`h-12 w-12 stroke-teal-500`} />
       </IconContainer>
       <p className={valueClass}>
         {diapauseLabel.label}{" "}
