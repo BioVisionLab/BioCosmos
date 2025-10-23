@@ -38,7 +38,7 @@ ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
 const valueClass = "font-semibold text-grey-600 dark:text-grey-300 text-lg";
 const labelClass = "font-normal text-lg text-grey-600 dark:text-grey-300";
 const iconColor = "fill-teal-500";
-const commonIconClass = `w-16 h-16 ${iconColor} m-2`;
+const commonIconClass = `w-12 h-12 ${iconColor} m-2`;
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits || noTraitData(traits)) {
@@ -285,7 +285,7 @@ function WingspanCard({
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <ButterflyFlat className={`w-28 h-28 m-2 ${iconColor}`} />
+        <ButterflyFlat className={`w-36 h-36 m-2 ${iconColor}`} />
       </IconContainer>
       <div className="space-y-2">
         <div>
@@ -450,7 +450,7 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <Egg className={`h-12 w-12 stroke-teal-500`} />
+        <Egg className={`h-12 w-12 stroke-teal-500 m-2`} />
       </IconContainer>
       <p className={valueClass}>
         {diapauseLabel.label}{" "}
