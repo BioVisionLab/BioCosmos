@@ -53,3 +53,5 @@ duck_db/
 lance_db/
 biocosmos.duckdb
 biocosmos.lance
+
+/static
