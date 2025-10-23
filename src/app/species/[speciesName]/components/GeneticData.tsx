@@ -1,4 +1,4 @@
-import { NcbiAttribution } from "@/components/Attribution";
+import { NcbiAttribution, NcbiLink } from "@/components/Attribution";
 import { IconContainer } from "@/components/IconContainer";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
@@ -70,16 +70,24 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
   }
 
   return (
-    <div className="mx-auto items-center">
-      <div>
-        <h3 className="text-lg">Sequenced genes</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(geneCounts).map(([type, count]) => (
-            <GeneCounts key={type} geneType={type} count={count} />
-          ))}
-        </div>
+    <div id="genetics-section">
+      <div className="mb-4">
+        <p className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700 w-fit">
+          Genetic information is fetched automatically from <NcbiLink />. It
+          includes only sequenced genes currently available for this species.
+        </p>
       </div>
-      <NcbiAttribution isLarge={true} />
+      <div className="mx-auto items-center">
+        <div>
+          <h3 className="text-lg">Sequenced genes</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(geneCounts).map(([type, count]) => (
+              <GeneCounts key={type} geneType={type} count={count} />
+            ))}
+          </div>
+        </div>
+        <NcbiAttribution isLarge={true} />
+      </div>
     </div>
   );
 }
