@@ -318,15 +318,32 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     const cappedTotal = Math.min(allIds.length, PAGE_SIZE * MAX_PAGES);
     if (newIndex < 0 || newIndex >= cappedTotal) return;
     const id = allIds[newIndex];
+    // if cached, use it immediately
+    const cached = fullCache.current.get(id);
+    if (cached) {
+      // set image immediately from cache
+      setModalImageUrl(cached);
+      setModalIndex(newIndex);
+      // ensure modal is open
+      setModalOpen(true);
+      // prefetch neighbors
+      prefetchNeighbors(id);
+      return;
+    }
+
     try {
       setModalLoading(true);
       setModalError(null);
       const url = await fetchImgById(id);
-      // revoke previous
-      if (modalImageUrl) revokeUrl(modalImageUrl);
+      // cache and keep previous image displayed until we swap
+      fullCache.current.set(id, url);
       createdUrls.current.push(url);
+      // now swap to new image
+      if (modalImageUrl) revokeUrl(modalImageUrl);
       setModalImageUrl(url);
       setModalIndex(newIndex);
+      // prefetch neighbors
+      prefetchNeighbors(id);
     } catch (err) {
       console.error("Failed to navigate to image:", err);
       setModalError("Failed to load image");
@@ -483,18 +500,20 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               </svg>
             </button>
             
-            { /* Formatting of popout image box: */ }
-            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-300 rounded-lg p-4 w-full max-w-[65vh] h-full max-h-[100vh] flex items-center justify-center">
-              
+            { /* Formatting of popout image box (keep your colors/borders but reserve a fixed box to prevent resizing) */ }
+            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-300 rounded-lg p-4 w-full h-full flex items-center justify-center">
               {modalLoading ? (
-                <div className="p-6">
-                  <ImageLoading size={200} />
+                // Loading placeholder occupies the same space as the final image to avoid layout jumps
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-full h-full flex items-center justify-center max-w-full max-h-full">
+                    <ImageLoading size={200} />
+                  </div>
                 </div>
               ) : modalImageUrl ? (
-                // use native img for blob URLs
-                <img src={modalImageUrl} alt="Full size specimen" className="max-h-[80vh] max-w-[48vw] object-contain rounded-lg" />
+                // use native img for blob URLs; constrain to the container so the box doesn't resize
+                <img src={modalImageUrl} alt="Full size specimen" className="max-h-full max-w-full object-contain rounded-lg" />
               ) : (
-                <div className="p-6 text-gray-700">{modalError ?? "Unable to load image"}</div>
+                <div className="w-full h-full flex items-center justify-center text-gray-700">{modalError ?? "Unable to load image"}</div>
               )}
             </div>
 
