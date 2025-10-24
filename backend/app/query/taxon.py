@@ -40,15 +40,16 @@ class TaxonStatPayload(BaseModel):
         gbif_species_count: int | None,
     ):
         """
-        Create a SpeciesPayload instance from the provided data.
+        Create a TaxonStatPayload instance from the provided data.
 
         Args:
-            species_id (str): The species ID.
-            taxonomy (dict): The taxonomy data for the species.
-            traits (dict): The traits data for the species.
+            gbif_entries (int): The number of entries in the GBIF data table.
+            lep_traits_entries (int): The number of entries in the Leptraits.
+            image_entries (int): The number of image entries
+            gbif_species_count (int): The number of unique GBIF species in the occurence
 
         Returns:
-            SpeciesPayload: An instance of SpeciesPayload.
+            TaxonStatPayload: An instance of TaxonStatPayload.
         """
         return cls(
             gbifEntries=gbif_entries

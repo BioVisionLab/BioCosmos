@@ -21,9 +21,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
     image_retrieval,
     image_search,
+    taxon_data,
     text_search,
     taxon_search,
-    taxon_fetch,
     text_summarization,
 )
 
@@ -180,7 +180,7 @@ app.add_middleware(
 app.include_router(image_search.router)
 app.include_router(text_search.router)
 app.include_router(taxon_search.router)
-app.include_router(taxon_fetch.router)
+app.include_router(taxon_data.router)
 app.include_router(text_summarization.router)
 app.include_router(image_retrieval.router)
 

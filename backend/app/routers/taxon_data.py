@@ -1,3 +1,4 @@
+from ..query.specimen_data import SpecimenData
 from ..services.images import ImagePersistData
 import logging
 import io
@@ -134,9 +135,9 @@ async def fetch_taxon_specimens(request: Request, species_name: str):
     )
 
     try:
-        specimens = ImagePersistData(
-            lance_db=request.app.state.lance_db
-        ).fetch_image_stat_by_species(species_name)
+        specimens = SpecimenData(request=request).summarize(
+            species=species_name
+        )
         if not specimens:
             logger.warning(
                 f"No specimens found for species: {species_name}"
