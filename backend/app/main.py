@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 
 from .database.duckdb import DuckDBClient
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi.staticfiles import StaticFiles
 
 from .services.unicom import UnicomModel
@@ -82,9 +82,11 @@ class AppSettings(BaseSettings):
     # UF_AI_URL: str
     # UF_AI_API_KEY: str
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file="../.env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # optional: ignore unexpected keys
+    )
 
 
 def get_app_settings() -> AppSettings:
