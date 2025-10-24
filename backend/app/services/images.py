@@ -257,8 +257,7 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the provided image."
             )
-            # return polars DataFrame as list of dicts
-            return similar_images.write_json()
+            return similar_images.to_dicts()
 
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")

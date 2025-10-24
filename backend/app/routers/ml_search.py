@@ -1,4 +1,3 @@
-from backend.app.main import status
 from ..query.image_search import TextToImageSearch
 from ..query.image_search import ImageToImageSearch
 
@@ -113,8 +112,8 @@ async def image_search(
             "Generating UNICOM image embedding from uploaded file..."
         )
         # Pass the image bytes directly to ImageToImageSearch
-        img_service = ImageToImageSearch(request, image_bytes)
-        search_results = img_service.search()
+        img_service = ImageToImageSearch(request)
+        search_results = img_service.search(image_bytes=image_bytes)
         if search_results is None:
             logger.warning("No results found for the given image.")
             return JSONResponse(

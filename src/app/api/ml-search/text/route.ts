@@ -70,7 +70,7 @@ export async function GET(request: Request) {
 
     // Check if the Python service responded successfully
     if (!clipResponse.ok) {
-      let errorBody = "Unknown error from CLIP service";
+      let errorBody = "Unknown error from BIOCOSMOS BACKEND service";
       try {
         errorBody = await clipResponse.text(); // Try to get error text
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -88,13 +88,17 @@ export async function GET(request: Request) {
 
     if (!Array.isArray(results)) {
       console.error(
-        "Unexpected response format from CLIP service. Expected an array.",
+        "Unexpected response format from BIOCOSMOS BACKEND service. Expected an array.",
         results
       );
-      throw new Error("Invalid response format from CLIP service.");
+      throw new Error(
+        "Invalid response format from BIOCOSMOS BACKEND service."
+      );
     }
 
-    console.log(`Received ${results.length} results from CLIP service.`);
+    console.log(
+      `Received ${results.length} results from BIOCOSMOS BACKEND service.`
+    );
 
     // Return the results from the Python service to the frontend
     return NextResponse.json(results);

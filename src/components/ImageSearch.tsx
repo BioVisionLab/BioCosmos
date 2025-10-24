@@ -4,13 +4,13 @@ import React, { useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { UploadCloud, Image as ImageIcon, Loader2, Search } from "lucide-react";
+import { searchFromImage } from "@/lib/ml_search";
 
 // Define the type for the semantic result object (consistent with HeaderClient)
 interface SemanticResultItem {
   species_folder: string;
   best_image_filename: string;
 }
-
 export default function ImageSearch() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -34,16 +34,6 @@ export default function ImageSearch() {
     event.target.value = "";
   };
 
-  // Convert file to base64
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   // Handle search submission
   const handleImageSearch = async () => {
     if (!selectedFile) {
@@ -55,26 +45,8 @@ export default function ImageSearch() {
     setSearchError(null);
 
     try {
-      const base64Image = await fileToBase64(selectedFile);
-
-      // Send base64 image to the backend API route
-      const response = await fetch("/api/image-search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ image: base64Image }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error ||
-            `Image search failed with status ${response.status}`
-        );
-      }
-
-      const results: SemanticResultItem[] = await response.json();
+      // Use the searchFromImage function
+      const results: SemanticResultItem[] = await searchFromImage(selectedFile);
 
       if (results.length > 0) {
         // Navigate to search page with results
