@@ -37,7 +37,9 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
         />
       ),
     },
+
     {
+      // New Specimens tab implementation
       id: "specimens",
       label: "Specimens",
       content: (

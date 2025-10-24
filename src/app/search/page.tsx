@@ -7,12 +7,7 @@ import { fetchThumbnailById } from "@/lib/images";
 import { cleanSpeciesName } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
-// Define the type for the semantic result object from the Python service
-interface SemanticResultItem {
-  imgId: string;
-  species: string;
-  distance: number;
-}
+import { searchSemantic, SemanticResultItem } from "@/lib/ml_search";
 
 // Image size matching the backend resizing
 const IMAGE_SIZE = 128;
@@ -78,14 +73,7 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(
-          `/api/semantic-search?q=${encodeURIComponent(query)}`
-        );
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch search results");
-        }
-        const data: SemanticResultItem[] = await response.json();
+        const data = await searchSemantic(query);
         // Sort results by distance ascending
         data.sort((a, b) => a.distance - b.distance);
         setResults(data);
@@ -114,7 +102,7 @@ function SearchResults({ query, mode }: { query: string; mode: string }) {
       <div className="mt-5">
         {loading ? (
           <div className="flex flex-col items-center mt-24">
-            <ImageLoading size={240} text="Searching for species" />
+            <ImageLoading size={240} msg="Searching for species" />
           </div>
         ) : error ? (
           <p className="text-red-500">Error: {error}</p>
