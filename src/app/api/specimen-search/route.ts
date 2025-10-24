@@ -1,6 +1,8 @@
 import { API_HOST } from "@/lib/config";
 import { NextResponse } from "next/server";
 
+const SPECIMEN_API_URL = `${API_HOST}/species`;
+
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const species = searchParams.get("species");
@@ -15,7 +17,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   console.log(`API: Fetching specimens for species: ${species}`);
   try {
     const response = await fetch(
-      `${API_HOST}/taxon/${encodeURIComponent(species)}/specimens`,
+      `${SPECIMEN_API_URL}/${encodeURIComponent(species)}/specimens`,
       {
         method: "GET",
         headers: {

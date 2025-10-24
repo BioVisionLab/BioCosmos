@@ -39,7 +39,7 @@ import { NextResponse } from "next/server";
 
 import { API_HOST } from "@/lib/config";
 // Define the expected URL for the local Python CLIP service
-const TEXT_SEARCH = `${API_HOST}/text-search`;
+const TEXT_SEARCH = `${API_HOST}/search/text`;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

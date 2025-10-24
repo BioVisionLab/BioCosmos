@@ -1,5 +1,7 @@
 # 🦋 BioCosmos - Biodiversity Image Platform
 
+![Backend-Tests](https://github.com/agporto/BioCosmos/workflows/Backend-Tests/badge.svg)
+
 A personalized, museum-quality biodiversity image platform that combines cutting-edge machine learning with intuitive web interfaces to explore and identify butterfly species. Built with Next.js, Python, and advanced computer vision technologies.
 
 ## 🌟 Features

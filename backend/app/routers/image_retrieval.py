@@ -9,7 +9,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/image/id/{image_id}")
+@router.get("/image/id/{image_id}", tags=["Taxon Images"])
 async def image_search_by_id(
     request: Request, image_id: str
 ) -> FileResponse:
@@ -45,7 +45,7 @@ async def image_search_by_id(
         )
 
 
-@router.get("/image/id/{image_id}/thumbnail")
+@router.get("/image/id/{image_id}/thumbnail", tags=["Taxon Images"])
 async def image_search_thumbnail_by_id(
     request: Request, image_id: str
 ):

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { API_HOST } from "@/lib/config";
 // Define the expected URL for the image search endpoint on the Python service
-const IMAGE_SEARCH = `${API_HOST}/img-search`;
+const IMAGE_SEARCH = `${API_HOST}/search/image`;
 
 export async function POST(request: Request) {
   let base64Image: string;
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       );
     }
     base64Image = body.image;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return NextResponse.json(
       { error: "Invalid JSON request body." },
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       let errorBody = "Unknown error from CLIP service (image search)";
       try {
         errorBody = await clipResponse.text();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* Ignore parsing errors */
       }

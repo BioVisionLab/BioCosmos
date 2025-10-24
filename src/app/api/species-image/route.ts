@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { API_HOST } from "@/lib/config";
 
-const IMAGE_API_URL = `${API_HOST}/taxon`;
+const IMAGE_API_URL = `${API_HOST}/species`;
 
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
