@@ -81,8 +81,8 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
         <div>
           <h3 className="text-lg">Sequenced genes</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(geneCounts).map(([type, count]) => (
-              <GeneCounts key={type} geneType={type} count={count} />
+            {Object.entries(geneCounts).map(([geneType, count]) => (
+              <GeneCounts key={geneType} geneType={geneType} count={count} />
             ))}
           </div>
         </div>
