@@ -40,7 +40,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const imageBuffer = await response.arrayBuffer();
 
     // FileResponse sets the correct Content-Type automatically
-    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const contentType = response.headers.get("content-type") || "image/webp";
 
     return new NextResponse(imageBuffer, {
       headers: {

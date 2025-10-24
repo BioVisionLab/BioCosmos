@@ -8,66 +8,23 @@ export async function fetchSpeciesThumbnail(
   speciesName: string
 ): Promise<string> {
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
-  try {
-    const response = await fetch(
-      `/api/species-image?species=${encodeURIComponent(
-        cleanName
-      )}&type=thumbnail`
-    );
-    if (!response.ok) {
-      throw new Error(`Failed to fetch thumbnail. Status: ${response.status}`);
-    }
-    return URL.createObjectURL(await response.blob());
-  } catch (error) {
-    console.error(
-      `Error fetching thumbnail for species ${speciesName}:`,
-      error
-    );
-    throw error;
-  }
+  return `/api/species-image?species=${encodeURIComponent(
+    cleanName
+  )}&type=thumbnail`;
 }
 
 export async function fetchSpeciesImage(speciesName: string): Promise<string> {
   const cleanName = speciesName.toLowerCase().replace(/ /g, "_");
   // Construct the API endpoint URL
-  const response = await fetch(
-    `/api/species-image?species=${encodeURIComponent(cleanName)}&type=full`
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image. Status: ${response.status}`);
-  }
-
-  return URL.createObjectURL(await response.blob());
+  return `/api/species-image?species=${encodeURIComponent(
+    cleanName
+  )}&type=full`;
 }
 
 export async function fetchImgById(imageId: string): Promise<string> {
-  try {
-    const response = await fetch(
-      `/api/image-id?imageId=${encodeURIComponent(imageId)}&type=full`
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image. Status: ${response.status}`);
-    }
-    return URL.createObjectURL(await response.blob());
-  } catch (error) {
-    console.error(`Error fetching image for ID ${imageId}:`, error);
-    throw error;
-  }
+  return `/api/image-id?imageId=${encodeURIComponent(imageId)}&type=full`;
 }
 
 export async function fetchThumbnailById(imageId: string): Promise<string> {
-  try {
-    const response = await fetch(
-      `/api/image-id?imageId=${encodeURIComponent(imageId)}&type=thumbnail`
-    );
-    if (!response.ok) {
-      throw new Error(`Failed to fetch thumbnail. Status: ${response.status}`);
-    }
-    return URL.createObjectURL(await response.blob());
-  } catch (error) {
-    console.error(`Error fetching thumbnail for ID ${imageId}:`, error);
-    throw error;
-  }
+  return `/api/image-id?imageId=${encodeURIComponent(imageId)}&type=thumbnail`;
 }
