@@ -1,7 +1,9 @@
+from backend.app.main import status
 from ..query.image_search import TextToImageSearch
 from ..query.image_search import ImageToImageSearch
 
-from fastapi import APIRouter, Request
+
+from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 
 import logging
@@ -59,44 +61,59 @@ async def search_text(request: Request, q: str, limit: int = 50):
         )
 
 
-@router.get("/search/image", tags=["ML Search"])
-async def image_search(request: Request):
+@router.post("/search/image", tags=["ML Search"])
+async def image_search(
+    request: Request, file: UploadFile = File(...)
+):
     """
     Endpoint for image to image search.
-    Expects a base64 encoded image in the JSON body under the key 'image'.
+    Expects an uploaded image file.
     Returns a list of search results based on the image embedding.
     """
 
     logger.info("Received image search request (UNICOM).")
     try:
-        data = await request.json()
-        if not data or "image" not in data:
+        # Validate file upload
+        if not file or not file.filename:
             logger.warning(
-                "Image search request missing 'image' field in JSON body."
+                "Image search request missing file upload."
             )
             return JSONResponse(
+                content={"error": "Missing image file in request"},
+                status_code=400,
+            )
+        allowed_content_types = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+        ]
+        if file.content_type not in allowed_content_types:
+            logger.warning(f"Invalid file type: {file.content_type}")
+            return JSONResponse(
                 content={
-                    "error": "Missing 'image' field in JSON body"
+                    "error": f"Invalid file type: {file.content_type}. Allowed types are: JPEG, JPG, PNG, GIF, WEBP."
                 },
                 status_code=400,
             )
 
-        base64_image = data["image"]
-        if not base64_image or not str(base64_image).strip():
+        # Read the uploaded file as bytes
+        image_bytes = await file.read()
+        if not image_bytes:
             logger.warning(
-                "Image search request contains empty 'image' field."
+                "Image search request contains empty file."
             )
             return JSONResponse(
-                content={
-                    "error": "Missing 'image' field in JSON body"
-                },
+                content={"error": "Uploaded file is empty"},
                 status_code=400,
             )
 
         logger.info(
-            "Generating UNICOM image embedding from base64 data..."
+            "Generating UNICOM image embedding from uploaded file..."
         )
-        img_service = ImageToImageSearch(request, base64_image)
+        # Pass the image bytes directly to ImageToImageSearch
+        img_service = ImageToImageSearch(request, image_bytes)
         search_results = img_service.search()
         if search_results is None:
             logger.warning("No results found for the given image.")

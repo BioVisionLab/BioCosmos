@@ -1,5 +1,6 @@
-import base64
+import io
 import logging
+from PIL import Image
 
 from fastapi import Request
 from pydantic import BaseModel
@@ -62,39 +63,48 @@ class ImageToImageSearch:
     A class to handle image to image search operations.
     """
 
-    def __init__(
-        self, request: Request, query: str = "", limit: int = 50
-    ):
+    def __init__(self, request: Request, limit: int = 50):
         """
         Initialize the ImageToImageSearch class.
         The query is base64 encoded image string.
         """
         self.request = request
-        self.query = query.strip()
         self.limit = limit
 
-    def search(self) -> list[dict] | None:
+    def search(self, image_bytes: bytes) -> list[dict] | None:
         """
         Perform an image to image search.
         """
-        if not self.query:
+        if not image_bytes:
             logger.warning(
                 "Empty query provided for image to image search."
             )
             return None
+        if not self._verify_image(image_bytes):
+            logger.error("Invalid image data provided for search.")
+            return None
         # Placeholder for actual search logic
         logger.info("Performing image to image search for query.")
-        if "," in self.query:
-            _, encoded = self.query.split(",", 1)
-        else:
-            encoded = self.query
-        query_img: bytes = base64.b64decode(encoded)
+
         search_img = ImagePersistData(
             lance_db=self.request.app.state.lance_db
         )
         results = search_img.fetch_similar_images_from_bytes(
             request=self.request,
-            image_bytes=query_img,
+            image_bytes=image_bytes,
             limit=self.limit,
         )
         return results
+
+    def _verify_image(self, image_bytes: bytes) -> bool:
+        """Verify if the provided bytes represent a valid image."""
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+            image.verify()  # This will raise an exception if the image is not valid
+            return True
+        except (IOError, SyntaxError) as e:
+            self.logger.error(
+                f"Invalid image data: {e}",
+                exc_info=True,
+            )
+            return False
