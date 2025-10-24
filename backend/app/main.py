@@ -51,10 +51,6 @@ tags_metadata = [
         "description": "Get species-related data including species, specimen data, and image IDs.",
     },
     {
-        "name": "Text Summarization",
-        "description": "Endpoints for summarizing text data related to taxa.",
-    },
-    {
         "name": "Server Health",
         "description": "Endpoints for checking the health status of the server.",
     },
