@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import { searchSemantic, SemanticResultItem } from "@/lib/ml_search";
+import { searchSemantic, MlResultItems } from "@/lib/ml_search";
 import SpeciesSearchResultCard from "./ResultCard";
 
 function TextSearchResults({ query }: { query: string }) {
-  const [results, setResults] = useState<SemanticResultItem[]>([]);
+  const [results, setResults] = useState<MlResultItems[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

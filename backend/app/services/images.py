@@ -360,6 +360,8 @@ class ImagePersistData:
             cleaned_results = results.select(safe_cols).rename(
                 {"img_id": "imgId", "_distance": "distance"}
             )
+            # We filter image by unique image IDs to avoid duplicates
+            cleaned_results = cleaned_results.unique(subset=["imgId"])
             return cleaned_results
         except Exception as e:
             self.logger.error(f"Error querying embeddings: {e}")
