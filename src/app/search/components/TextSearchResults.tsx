@@ -5,7 +5,7 @@ import { ImageLoading } from "@/components/Loadings";
 import { searchSemantic, SemanticResultItem } from "@/lib/ml_search";
 import SpeciesSearchResultCard from "./ResultCard";
 
-function TextSearchResults({ query, mode }: { query: string; mode: string }) {
+function TextSearchResults({ query }: { query: string }) {
   const [results, setResults] = useState<SemanticResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

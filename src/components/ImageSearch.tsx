@@ -3,8 +3,7 @@
 import React, { useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { UploadCloud, Image as ImageIcon, Loader2, Search } from "lucide-react";
-import { searchFromImage } from "@/lib/ml_search";
+import { UploadCloud, Image as Loader2, Search } from "lucide-react";
 
 // Define the type for the semantic result object (consistent with HeaderClient)
 interface SemanticResultItem {
@@ -12,7 +11,7 @@ interface SemanticResultItem {
   best_image_filename: string;
 }
 export default function ImageSearch() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -22,11 +21,11 @@ export default function ImageSearch() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type.startsWith("image/")) {
-      setSelectedFile(file);
+      setSelectedFileUrl(URL.createObjectURL(file));
       setPreviewUrl(URL.createObjectURL(file));
       setSearchError(null); // Clear previous error on new selection
     } else {
-      setSelectedFile(null);
+      setSelectedFileUrl(null);
       setPreviewUrl(null);
       setSearchError("Please select a valid image file.");
     }
@@ -36,7 +35,7 @@ export default function ImageSearch() {
 
   // Handle search submission
   const handleImageSearch = async () => {
-    if (!selectedFile) {
+    if (!selectedFileUrl) {
       setSearchError("Please select an image first.");
       return;
     }
@@ -45,23 +44,10 @@ export default function ImageSearch() {
     setSearchError(null);
 
     try {
-      // Use the searchFromImage function
-      const results: SemanticResultItem[] = await searchFromImage(selectedFile);
-
-      if (results.length > 0) {
-        // Navigate to search page with results
-        router.push(
-          `/search?ids=${encodeURIComponent(
-            JSON.stringify(results)
-          )}&mode=semantic`
-        );
-        // Optionally clear selection after successful search
-        // setSelectedFile(null);
-        // setPreviewUrl(null);
-      } else {
-        setSearchError("No similar species found for the uploaded image.");
-        console.log("Image search returned empty results.");
-      }
+      // Navigate to search page with results
+      router.push(
+        `/search?q=${encodeURIComponent(selectedFileUrl)}&mode=image`
+      );
     } catch (err) {
       console.error("Image search error:", err);
       setSearchError(
@@ -96,11 +82,12 @@ export default function ImageSearch() {
     event.currentTarget.classList.remove("border-green-500");
     const file = event.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      const fileUrl = URL.createObjectURL(file);
+      setSelectedFileUrl(fileUrl);
+      setPreviewUrl(fileUrl);
       setSearchError(null);
     } else {
-      setSelectedFile(null);
+      setSelectedFileUrl(null);
       setPreviewUrl(null);
       setSearchError("Please drop a valid image file.");
     }
@@ -146,16 +133,16 @@ export default function ImageSearch() {
                   : "text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900"
               }`}
             >
-              {selectedFile ? "Change Image" : "Upload Image"}
+              {selectedFileUrl ? "Change Image" : "Upload Image"}
             </label>
-            {!selectedFile && (
+            {!selectedFileUrl && (
               <p className="text-xs text-gray-500 mt-1">or drag & drop</p>
             )}
           </div>
 
           <button
             onClick={handleImageSearch}
-            disabled={!selectedFile || isSearching}
+            disabled={!selectedFileUrl || isSearching}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-md hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:from-gray-600 dark:disabled:to-gray-600 dark:disabled:text-gray-400 transition-all"
           >
             {isSearching ? (
