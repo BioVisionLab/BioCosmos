@@ -26,31 +26,31 @@ export async function POST(request: Request) {
     fastApiFormData.append("file", image, image.name);
 
     // Forward the request to your FastAPI service
-    const clipResponse = await fetch(IMAGE_SEARCH, {
+    const response = await fetch(IMAGE_SEARCH, {
       method: "POST",
       body: fastApiFormData,
       // Don't set Content-Type header - browser adds it automatically with boundary
     });
 
     // Check if the FastAPI service responded successfully
-    if (!clipResponse.ok) {
+    if (!response.ok) {
       let errorBody = "Unknown error from BIOCOSMOS BACKEND service";
       try {
-        errorBody = await clipResponse.text();
+        errorBody = await response.text();
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* Ignore parsing errors */
       }
       console.error(
-        `Error from BIOCOSMOS BACKEND service (${clipResponse.status}): ${errorBody}`
+        `Error from BIOCOSMOS BACKEND service (${response.status}): ${errorBody}`
       );
       throw new Error(
-        `BIOCOSMOS BACKEND service failed with status ${clipResponse.status}`
+        `BIOCOSMOS BACKEND service failed with status ${response.status}`
       );
     }
 
     // Parse the JSON response
-    const results = await clipResponse.json();
+    const results = await response.json();
 
     if (!Array.isArray(results)) {
       console.error(
