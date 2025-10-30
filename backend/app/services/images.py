@@ -257,7 +257,8 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the provided image."
             )
-            return similar_images.to_dicts()
+            filtered_imgs = self._filter_by_species(similar_images)
+            return filtered_imgs.to_dicts()
 
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")
