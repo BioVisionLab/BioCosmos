@@ -44,11 +44,16 @@ export async function POST(request: Request) {
       console.error(
         `Error from BIOCOSMOS BACKEND service (${response.status}): ${errorBody}`
       );
-      throw new Error(
-        `BIOCOSMOS BACKEND service failed with status ${response.status}`
-      );
+      if (errorBody.includes("Invalid file type")) {
+        throw new Error(
+          "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, GIF, WEBP."
+        );
+      } else {
+        throw new Error(
+          `BIOCOSMOS BACKEND service failed with status ${response.status}`
+        );
+      }
     }
-
     // Parse the JSON response
     const results = await response.json();
 
@@ -71,9 +76,6 @@ export async function POST(request: Request) {
     console.error("Error during image search API call:", error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
-    return NextResponse.json(
-      { error: `Failed to contact CLIP service: ${errorMessage}` },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 503 });
   }
 }

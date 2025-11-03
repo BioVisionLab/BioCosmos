@@ -20,14 +20,17 @@ export default function ImageSearch() {
   // Handle file selection from input
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
+    // Exclude avif format because it's not supported by the backend
+    if (file && file.type.startsWith("image/") && file.type !== "image/avif") {
       setSelectedFileUrl(URL.createObjectURL(file));
       setPreviewUrl(URL.createObjectURL(file));
       setSearchError(null); // Clear previous error on new selection
     } else {
       setSelectedFileUrl(null);
       setPreviewUrl(null);
-      setSearchError("Please select a valid image file.");
+      setSearchError(
+        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, GIF, WEBP."
+      );
     }
     // Reset the input value to allow selecting the same file again
     event.target.value = "";
