@@ -22,8 +22,10 @@ export default function ImageSearch() {
     const file = event.target.files?.[0];
     // Exclude avif format because it's not supported by the backend
     if (file && file.type.startsWith("image/") && file.type !== "image/avif") {
-      setSelectedFileUrl(URL.createObjectURL(file));
-      setPreviewUrl(URL.createObjectURL(file));
+      // use session storage to store the file URL for retrieval in the search results page
+      const fileUrl = URL.createObjectURL(file);
+      setSelectedFileUrl(fileUrl);
+      setPreviewUrl(fileUrl);
       setSearchError(null); // Clear previous error on new selection
     } else {
       setSelectedFileUrl(null);

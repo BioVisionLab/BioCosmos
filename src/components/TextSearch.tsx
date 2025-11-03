@@ -5,38 +5,11 @@ import { useRouter } from "next/navigation";
 import { Search, FlaskConical } from "lucide-react"; // Import icons and Loader2
 
 const LOCAL_STORAGE_KEY = "searchMode"; // Key for localStorage
-export default function SearchBar() {
+export default function SemanticSearchBar() {
   const router = useRouter();
-
-  // Initialize state to default (false) to match server render
-  const [isSemantic, setIsSemantic] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isMounted, setIsMounted] = useState(false); // Track if component is mounted
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching] = useState(false); // No actual search; keep false
-
-  // Effect runs only on the client after mount
-  useEffect(() => {
-    // Read from localStorage and update state
-    const storedMode = localStorage.getItem(LOCAL_STORAGE_KEY);
-    setIsSemantic(storedMode === "semantic");
-    // Mark as mounted
-    setIsMounted(true);
-  }, []); // Empty dependency array ensures it runs only once on mount
-
-  // Effect to update localStorage when state changes (dependent on isMounted)
-  useEffect(() => {
-    // Only write to localStorage after initial mount & state hydration
-    if (isMounted) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, isSemantic ? "semantic" : "text");
-    }
-  }, [isSemantic, isMounted]);
-
-  const toggleSearchMode = () => {
-    setIsSemantic((prev) => !prev);
-    setSearchTerm(""); // Clear search term on mode switch
-    setSearchError(null); // Clear errors
-  };
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -46,13 +19,19 @@ export default function SearchBar() {
     setSearchError(null);
 
     // Navigate to the search page with query and mode
-    const mode = isSemantic ? "semantic" : "text";
+    const mode = "semantic";
     // TODO: handle 2 modes, semantic and text search
     router.push(`/search?q=${encodeURIComponent(query)}&mode=${mode}`);
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto mb-6">
+    <div className="w-full max-w-2xl mx-auto mb-6 bg-emerald-50/50 dark:bg-gray-800/50 p-6 rounded-3xl">
+      <div className="mb-4 text-center text-gray-600 dark:text-gray-400 text-sm">
+        <p>
+          AI-powered search using natural language descriptions. Try describing
+          a species' appearance, such as "orange butterfly with black lines".
+        </p>
+      </div>
       <form
         onSubmit={handleSearchSubmit}
         className="flex flex-col gap-2"
@@ -67,30 +46,20 @@ export default function SearchBar() {
         ring-1 ring-gray-200 dark:ring-gray-700
         shadow-sm hover:shadow-md transition-all
         focus-within:ring-2 focus-within:ring-green-500/60
-        w-full
+        w-full h-full
         `}
           >
             {/* Left Icon */}
             <div className="flex items-center">
-              {isSemantic ? (
-                <FlaskConical className="h-5 w-5 text-green-600 dark:text-green-300 transition-colors" />
-              ) : (
-                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 transition-colors" />
-              )}
+              <FlaskConical className="h-5 w-5 text-green-600 dark:text-green-300 transition-colors" />
             </div>
 
             {/* Text Input */}
             <input
               type="text"
-              aria-label={
-                isSemantic
-                  ? "Semantic species search input"
-                  : "Text species search input"
-              }
+              aria-label={"Semantic species search input"}
               placeholder={
-                isMounted && isSemantic
-                  ? "Describe a species: e.g. orange butterfly with black lines"
-                  : "Search species by name..."
+                "Describe species traits, e.g., 'butterfly with orange wings and black lines'"
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,51 +71,6 @@ export default function SearchBar() {
           disabled:opacity-60
         `}
             />
-            <button
-              type="button"
-              onClick={toggleSearchMode}
-              disabled={!isMounted}
-              className={`
-          relative inline-flex items-center rounded-full p-1 transition-colors
-          focus:outline-none focus:ring-2 focus:ring-green-500/70
-          
-          ${
-            isSemantic
-              ? "bg-green-600/20"
-              : "bg-gray-300/40 dark:bg-gray-700/60"
-          }
-          disabled:opacity-50 disabled:cursor-not-allowed
-        `}
-              aria-pressed="false"
-              aria-label="Toggle semantic search mode"
-              title={
-                !isMounted
-                  ? "Loading mode..."
-                  : isSemantic
-                  ? "Switch to Text Search"
-                  : "Switch to Semantic Search"
-              }
-            >
-              <span
-                className={`
-          flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full
-          transition-all
-          ${
-            isSemantic
-              ? "bg-green-500 text-white shadow"
-              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 shadow"
-          }
-          `}
-              >
-                {isSemantic ? (
-                  <span>Semantic</span>
-                ) : (
-                  <span className="text-gray-400 dark:text-gray-500 ">
-                    Text
-                  </span>
-                )}
-              </span>
-            </button>
           </div>
           {/* Submit button */}
           {/* Loading spinner */}
@@ -173,7 +97,7 @@ export default function SearchBar() {
             </button>
           </div>
         </div>
-        {/* Mode Toggle */}
+        {/* Mode Toggle
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -181,7 +105,7 @@ export default function SearchBar() {
               ? "Semantic mode: natural language & visual description"
               : "Text mode: exact / partial species names"}
           </div>
-        </div>
+        </div> */}
       </form>
 
       {searchError && (
