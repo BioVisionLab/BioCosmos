@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import SearchBar from "./TextSearch";
 import ImageSearch from "./ImageSearch";
-import SemanticSearchBar from "./TextSearch";
+import SemanticSearchBar from "./SemanticTextSearch";
 
 const tabData = [
   { id: "text", label: "Text Search", content: <SemanticSearchBar /> },

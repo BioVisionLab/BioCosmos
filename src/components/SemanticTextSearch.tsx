@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, FlaskConical } from "lucide-react"; // Import icons and Loader2
+import { FlaskConical } from "lucide-react"; // Import icons and Loader2
 
-const LOCAL_STORAGE_KEY = "searchMode"; // Key for localStorage
 export default function SemanticSearchBar() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
@@ -97,17 +96,7 @@ export default function SemanticSearchBar() {
             </button>
           </div>
         </div>
-        {/* Mode Toggle
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            {isSemantic
-              ? "Semantic mode: natural language & visual description"
-              : "Text mode: exact / partial species names"}
-          </div>
-        </div> */}
       </form>
-
       {searchError && (
         <p
           role="alert"
