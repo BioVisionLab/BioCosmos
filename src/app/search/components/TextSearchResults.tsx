@@ -4,6 +4,8 @@ import React, { useState, useEffect, Suspense } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { searchSemantic, MlResultItems } from "@/lib/ml_search";
 import SpeciesSearchResultCard from "./ResultCard";
+import SearchForm from "@/components/SearchForm";
+import { Search } from "lucide-react";
 
 function TextSearchResults({ query }: { query: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -32,6 +34,24 @@ function TextSearchResults({ query }: { query: string }) {
     fetchResults();
   }, [query]);
 
+  const handleSearch = (newQuery: string, mode: string) => {
+    setError(null);
+    setLoading(true);
+    setResults([]);
+    // Update the URL without refreshing the page
+    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
+    window.history.pushState({}, "", newUrl);
+    // Trigger useEffect to fetch new results
+    setTimeout(() => {
+      setLoading(false);
+      window.location.reload();
+    }, 100); // Slight delay to ensure URL is updated
+  };
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
+
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
       <div className="mb-4">
@@ -39,21 +59,52 @@ function TextSearchResults({ query }: { query: string }) {
           &larr; Back to Home
         </a>
       </div>
-      <div className="mt-2 mb-6 text-center">
-        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
-          Search Results
-        </h1>
+      <div id="search-query" className="mb-12 mt-8 text-center">
+        <SearchForm
+          mode="text"
+          icon={Search}
+          onSubmit={handleSearch}
+          query={query}
+          placeholder="Orange butterfly with black lines"
+        />
       </div>
-      <div className="mt-5">
-        {loading ? (
-          <div className="flex flex-col items-center mt-24">
-            <ImageLoading size={240} msg="Searching for species" />
-          </div>
-        ) : error ? (
-          <p className="text-red-500">Error: {error}</p>
-        ) : results.length === 0 ? (
-          <p>No results found for "{query}".</p>
-        ) : (
+      <div id="results-section" className="mt-2">
+        <div className="mb-6 text-center">
+          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
+            Search Results
+          </h1>
+        </div>
+        <SearchResults results={results} query={query} loading={loading} />
+      </div>
+    </div>
+  );
+}
+
+function SearchResults({
+  results,
+  query,
+  loading,
+}: {
+  results: MlResultItems[];
+  query: string;
+  loading: boolean;
+}) {
+  if (query.trim() === "" && !loading) {
+    return <p>Please enter a search query.</p>;
+  }
+
+  if (results.length === 0 && !loading) {
+    return <p>No results found for "{query}". Please try a different query.</p>;
+  }
+
+  return (
+    <>
+      {loading ? (
+        <div className="flex flex-col items-center mt-24">
+          <ImageLoading size={240} msg="Loading results" />
+        </div>
+      ) : (
+        <div className="mt-5">
           <div>
             <p className="mb-4">
               Found {results.length} results for "{query}":
@@ -69,9 +120,9 @@ function TextSearchResults({ query }: { query: string }) {
               ))}
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 
