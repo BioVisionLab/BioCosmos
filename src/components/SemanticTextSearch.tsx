@@ -2,25 +2,30 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FlaskConical } from "lucide-react"; // Import icons and Loader2
+import { FlaskConical } from "lucide-react";
+import SearchForm from "./SearchForm";
 
 export default function SemanticSearchBar() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [isSearching] = useState(false); // No actual search; keep false
 
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = searchTerm.trim();
-    if (!query) return;
-
+  const handleSearch = async (query: string, mode: string) => {
     setSearchError(null);
 
-    // Navigate to the search page with query and mode
-    const mode = "semantic";
-    // TODO: handle 2 modes, semantic and text search
-    router.push(`/search?q=${encodeURIComponent(query)}&mode=${mode}`);
+    try {
+      // If you need to validate or pre-process before navigation
+      if (!query || query.length < 3) {
+        throw new Error("Search query must be at least 3 characters long");
+      }
+
+      router.push(`/search?q=${encodeURIComponent(query)}&mode=${mode}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "An error occurred during search";
+      setSearchError(errorMessage);
+    }
   };
 
   return (
@@ -31,72 +36,12 @@ export default function SemanticSearchBar() {
           a species' appearance, such as "orange butterfly with black lines".
         </p>
       </div>
-      <form
-        onSubmit={handleSearchSubmit}
-        className="flex flex-col gap-2"
-        aria-label="Species search form"
-      >
-        {/* Input + Actions */}
-        <div className="flex items-center gap-2 w-full h-12">
-          <div
-            className={`
-        relative flex items-stretch gap-2 rounded-l-2xl px-4 py-2
-        bg-white/70 dark:bg-gray-800/60 backdrop-blur
-        ring-1 ring-gray-200 dark:ring-gray-700
-        shadow-sm hover:shadow-md transition-all
-        focus-within:ring-2 focus-within:ring-green-500/60
-        w-full h-full
-        `}
-          >
-            {/* Left Icon */}
-            <div className="flex items-center">
-              <FlaskConical className="h-5 w-5 text-green-600 dark:text-green-300 transition-colors" />
-            </div>
-
-            {/* Text Input */}
-            <input
-              type="text"
-              aria-label={"Semantic species search input"}
-              placeholder={
-                "Describe species traits, e.g., 'butterfly with orange wings and black lines'"
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`
-          flex-1 bg-transparent border-0 focus:outline-none
-          placeholder:text-gray-400 dark:placeholder:text-gray-500
-          text-gray-800 dark:text-gray-100
-          text-sm md:text-base
-          disabled:opacity-60
-        `}
-            />
-          </div>
-          {/* Submit button */}
-          {/* Loading spinner */}
-          <div className="col-span-2 flex items-center h-full">
-            {/* {isSearching && (
-              <div className="flex items-center pr-1">
-                <Loader2 className="w-6 animate-spin text-green-500" />
-              </div>
-            )} */}
-            <button
-              type="submit"
-              disabled={isSearching || !searchTerm.trim()}
-              className={`
-              flex items-center justify-center 
-              px-5 text-sm font-medium rounded-r-2xl
-              bg-green-600 text-white hover:bg-green-700
-              ring-1 ring-emerald-200 dark:ring-emerald-600
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors h-full backdrop-blur
-              `}
-              aria-label="Submit species search"
-            >
-              {isSearching ? "Searching..." : "Search"}
-            </button>
-          </div>
-        </div>
-      </form>
+      <SearchForm
+        mode="semantic"
+        icon={FlaskConical}
+        onSubmit={handleSearch}
+        placeholder="Orange butterfly with black lines"
+      />
       {searchError && (
         <p
           role="alert"
