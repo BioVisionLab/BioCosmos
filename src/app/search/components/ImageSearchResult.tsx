@@ -2,6 +2,7 @@ import { MlResultItems, searchFromImage } from "@/lib/ml_search";
 import { Suspense, useEffect, useState } from "react";
 import SpeciesSearchResultCard from "./ResultCard";
 import { ImageLoading } from "@/components/Loadings";
+import ImageSearch from "@/components/ImageSearch";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -47,7 +48,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
           &larr; Back to Home
         </a>
       </div>
-      <div className="mt-2 mb-6 text-center">
+      <div className="mt-8 mb-6 text-center">
         <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
           Image Similarity Search
         </h1>
@@ -63,15 +64,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
           <p>No results found for "{imageUrl}".</p>
         ) : (
           <div>
-            <p>Query image</p>
-            <div className="my-4 flex">
-              <img
-                src={imageUrl}
-                alt="Query"
-                className="max-h-60 object-contain rounded-lg"
-              />
-            </div>
-            <p className="mb-4">Found {results.length} results:</p>
+            <p className="mb-4">Found {results.length} results</p>
             <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
               {results.map((item) => (
                 <Suspense
