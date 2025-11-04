@@ -3,9 +3,10 @@
 import React, { useState } from "react";
 import ImageSearch from "./ImageSearch";
 import SemanticSearchBar from "./SemanticTextSearch";
+import TextSearch from "./TextSearch";
 
 const tabData = [
-  { id: "text", label: "Text Search", content: <SemanticSearchBar /> },
+  { id: "text", label: "Text Search", content: <TextSearch /> },
   {
     id: "semantic",
     label: "Semantic Search",

@@ -1,20 +1,19 @@
-"use client";
+import { useState } from "react";
 
-import React, { useState } from "react";
-
-export default function SemanticSearchBar({
+export default function SemanticForm({
   mode,
   icon: Icon,
   onSubmit,
+  query,
   placeholder = "Describe species traits, e.g., 'butterfly with orange wings and black lines'",
 }: {
   mode: string;
-  icon: React.ComponentType;
+  icon: React.ComponentType<{ className?: string }>;
   onSubmit: (query: string, mode: string) => void;
+  query?: string;
   placeholder?: string;
 }) {
-  const [searchTerm, setSearchTerm] = useState("");
-
+  const [searchTerm, setSearchTerm] = useState(query || "");
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = searchTerm.trim();
@@ -37,12 +36,18 @@ export default function SemanticSearchBar({
         bg-white/70 dark:bg-gray-800/60 backdrop-blur
         ring-1 ring-gray-200 dark:ring-gray-700
         shadow-sm hover:shadow-md transition-all
-        focus-within:ring-2 focus-within:ring-green-500/60
+        focus-within:ring-2 focus-within:ring-emerald-500/60
         w-full h-full
         `}
         >
           <div className="flex items-center">
-            <Icon />
+            <Icon
+              className={`h-6 w-6 transition-colors ${
+                searchTerm
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-gray-400 dark:text-gray-500"
+              }`}
+            />
           </div>
           {/* Text Input */}
           <input
@@ -65,12 +70,7 @@ export default function SemanticSearchBar({
             type="submit"
             disabled={!searchTerm.trim()}
             className={`
-              flex items-center justify-center 
-              px-5 text-sm font-medium rounded-r-2xl
-              bg-green-600 text-white hover:bg-green-700
-              ring-1 ring-emerald-200 dark:ring-emerald-600
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors h-full backdrop-blur
+              flex items-center justify-center px-5 text-sm font-medium rounded-r-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:from-gray-600 dark:disabled:to-gray-600 dark:disabled:text-gray-400 h-full 
               `}
             aria-label="Submit species search"
           >

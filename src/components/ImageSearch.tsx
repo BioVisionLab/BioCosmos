@@ -141,12 +141,15 @@ export default function ImageSearch() {
               {selectedFileUrl ? "Change Image" : "Upload Image"}
             </label>
             {!selectedFileUrl && (
-              <>
-                <p className="text-xs text-gray-500">or drag & drop</p>
-                <p className="text-xs text-gray-500 mt-4">
+              <div
+                id="upload-instructions"
+                className="text-center text-xs text-gray-500 "
+              >
+                <p>or drag & drop</p>
+                <p className="mt-4">
                   Supported formats: JPEG, JPG, PNG, and WEBP.
                 </p>
-              </>
+              </div>
             )}
           </div>
           <button
