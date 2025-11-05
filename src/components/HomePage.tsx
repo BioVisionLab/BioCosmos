@@ -79,6 +79,10 @@ export default function HomePage() {
     checkBackend();
   }, []);
 
+  if (backendAlive === null) {
+    return <ImageLoading size={100} msg="Loading" />;
+  }
+
   if (backendAlive === false) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -88,9 +92,7 @@ export default function HomePage() {
       </div>
     );
   }
-  if (backendAlive === null) {
-    return <ImageLoading size={100} msg="Loading" />;
-  }
+
   const speciesList = getSpeciesList();
 
   return (
