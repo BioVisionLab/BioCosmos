@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { SpeciesData } from "@/lib/speciesData";
 import { API_HOST } from "@/lib/config";
 
-const TAXONOMY_SERVICE_URL = `${API_HOST}/taxon`;
+const TAXONOMY_SERVICE_URL = `${API_HOST}/species`;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   console.log(`API: Fetching taxonomy data for species: ${species}`);
   try {
     const response = await fetch(
-      `${TAXONOMY_SERVICE_URL}?q=${encodeURIComponent(species)}`,
+      `${TAXONOMY_SERVICE_URL}/${encodeURIComponent(species)}/biology`,
       {
         method: "GET",
         headers: {

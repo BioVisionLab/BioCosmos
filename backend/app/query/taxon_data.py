@@ -105,6 +105,32 @@ class SpeciesPayload(BaseModel):
         )
 
 
+class ClassificationPayload(BaseModel):
+    """
+    A class to represent taxon classification data.
+    """
+
+    matchedCategory: str
+    classification: dict
+
+    @classmethod
+    def from_data(
+        cls,
+        matched_category: str,
+        classification: dict,
+    ):
+        """
+        Create a ClassificationPayload instance from the provided data.
+
+        Args:
+            classification (dict): The classification data for the taxon.
+        """
+        return cls(
+            matchedCategory=matched_category,
+            classification=classification,
+        )
+
+
 class TaxonSearch:
     """
     A class to handle taxon search operations using the GBIF API.
@@ -116,9 +142,11 @@ class TaxonSearch:
         Args:
             query (str): The species name to search for.
         """
-        self.species = query.strip().lower()
-        if "_" in self.species:
-            self.species = self.species.replace("_", " ").strip()
+        self.scientific_name = query.strip().lower()
+        if "_" in self.scientific_name:
+            self.scientific_name = self.scientific_name.replace(
+                "_", " "
+            ).strip()
         self.request = request
 
     def get_counts(self) -> dict | None:
@@ -177,7 +205,7 @@ class TaxonSearch:
         Returns:
             dict: A dictionary containing the species taxonomy data or None if not found.
         """
-        if not self.species:
+        if not self.scientific_name:
             return None
 
         try:
@@ -185,19 +213,19 @@ class TaxonSearch:
             trait_data = self._get_traits()
             if trait_data is None:
                 logger.info(
-                    f"No traits data found for species: {self.species}"
+                    f"No traits data found for species: {self.scientific_name}"
                 )
                 return None
             similar_images: list[dict] = (
                 ImagePersistData(
                     lance_db=self.request.app.state.lance_db
                 ).fetch_id_similar_images(
-                    species_name=self.species, limit=50
+                    species_name=self.scientific_name, limit=50
                 )
                 or []
             )
             payload = SpeciesPayload.from_data(
-                species_id=self.species,
+                species_id=self.scientific_name,
                 taxonomy=taxon_data,
                 traits=trait_data,
                 similarSpecies=similar_images,
@@ -212,6 +240,55 @@ class TaxonSearch:
         finally:
             logger.info("Closed GBIF client connection")
 
+    async def get_classification(self) -> list[dict]:
+        """
+        Get the taxon classification for the species from the database.
+
+        Returns:
+            list[dict]: A list of classification data or None if not found.
+        """
+        if not self.scientific_name:
+            return []
+
+        try:
+            gbif_data = await self._get_gbif_data()
+            if not gbif_data:
+                logger.info(
+                    f"No GBIF data found for species: {self.scientific_name}"
+                )
+                return []
+            # We match the query to values and keep track the key where it matched
+            matched_data: list[dict] = []
+            for key, value in gbif_data.items():
+                if (
+                    isinstance(value, str)
+                    and value.lower() == self.scientific_name.lower()
+                ):
+                    classification_payload = (
+                        ClassificationPayload.from_data(
+                            matched_category=key,
+                            classification=gbif_data,
+                        )
+                    )
+                    matched_data.append(
+                        classification_payload.model_dump()
+                    )
+            if len(matched_data) > 0:
+                logger.info(
+                    f"Classification data found for species: {self.scientific_name}"
+                )
+                return matched_data
+            return []
+
+        except Exception as e:
+            logger.error(
+                f"Error fetching classification for taxon: {e}",
+                exc_info=True,
+            )
+            return []
+        finally:
+            logger.info("Closed GBIF client connection")
+
     async def generate_summary(self) -> str | None:
         """
         Generate a summary for the species using an AI service.
@@ -219,7 +296,7 @@ class TaxonSearch:
         Returns:
             str | None: The generated summary or None if not found.
         """
-        if not self.species:
+        if not self.scientific_name:
             return None
         try:
             taxon_data = await self._get_gbif_data()
@@ -227,25 +304,25 @@ class TaxonSearch:
             prompt = self._generate_prompt(taxon_data, traits)
             if prompt is None or prompt.strip() == "":
                 logger.info(
-                    f"No valid prompt could be generated for species: {self.species}"
+                    f"No valid prompt could be generated for species: {self.scientific_name}"
                 )
                 return None
             summarizer = AiSummary()
             summary = summarizer.summarize_text(prompt)
 
             if summary is None:
-                message = f"No summary could be generated for species: {self.species}"
+                message = f"No summary could be generated for species: {self.scientific_name}"
                 logger.info(message)
                 return None
 
             logger.info(
-                f"Summary generated for species: {self.species}"
+                f"Summary generated for species: {self.scientific_name}"
             )
             return summary
 
         except Exception as e:
             logger.error(
-                f"Error generating summary for species {self.species}: {e}",
+                f"Error generating summary for species {self.scientific_name}: {e}",
                 exc_info=True,
             )
             return None
@@ -284,19 +361,21 @@ class TaxonSearch:
         """
         gbif_service = GbifTaxonSearch()
         try:
-            gbif_data = await gbif_service.search(self.species)
+            gbif_data = await gbif_service.search(
+                self.scientific_name
+            )
             if gbif_data is None:
                 logger.info(
-                    f"No GBIF data found for species: {self.species}"
+                    f"No GBIF data found for species: {self.scientific_name}"
                 )
                 return {}
             logger.info(
-                f"Found GBIF data for species: {self.species}. Data: {gbif_data}"
+                f"Found GBIF data for species: {self.scientific_name}. Data: {gbif_data}"
             )
             return gbif_data
         except Exception as e:
             logger.error(
-                f"Error fetching GBIF data for species {self.species}: {e}",
+                f"Error fetching GBIF data for species {self.scientific_name}: {e}",
                 exc_info=True,
             )
             return {}
@@ -314,19 +393,19 @@ class TaxonSearch:
             leptraits = LepTraits(
                 duckdb=self.request.app.state.duck_db
             )
-            leptraits_data = leptraits.get(self.species)
+            leptraits_data = leptraits.get(self.scientific_name)
             if leptraits_data is None:
                 logger.info(
-                    f"No traits data found for species: {self.species}"
+                    f"No traits data found for species: {self.scientific_name}"
                 )
                 return None
             logger.info(
-                f"Found traits data for species: {self.species}. Data: {leptraits_data}"
+                f"Found traits data for species: {self.scientific_name}. Data: {leptraits_data}"
             )
             return leptraits_data
         except Exception as e:
             logger.error(
-                f"Error fetching traits for species {self.species}: {e}",
+                f"Error fetching traits for species {self.scientific_name}: {e}",
                 exc_info=True,
             )
             return None

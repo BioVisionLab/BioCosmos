@@ -15,15 +15,16 @@ from .services.images import ImageEmbedder
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
 
-# from .database.duckdb import init_duckdb
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
+    data_stats,
     image_retrieval,
     ml_search,
     species_data,
-    taxon_search,
     text_summarization,
+    db_search,
 )
 
 
@@ -47,20 +48,24 @@ tags_metadata = [
         "description": "Machine learning-based search for images using text or image queries.",
     },
     {
-        "name": "Species Data",
-        "description": "Get species-related data including species, specimen data, and image IDs.",
+        "name": "Conventional Search",
+        "description": "Conventional database search for taxon information.",
     },
     {
-        "name": "Server Health",
-        "description": "Endpoints for checking the health status of the server.",
+        "name": "Data Statistics",
+        "description": "Get various statistics about the database including taxon counts.",
+    },
+    {
+        "name": "Species Data",
+        "description": "Get species-related data including species, specimen data, and image IDs.",
     },
     {
         "name": "Taxon Images",
         "description": "Retrieve images by their IDs, including thumbnails and full-resolution images.",
     },
     {
-        "name": "Root",
-        "description": "Root endpoint of the BIOCOSMOS API.",
+        "name": "Server Health",
+        "description": "Endpoints for checking the health status of the server.",
     },
 ]
 
@@ -219,13 +224,14 @@ app.add_middleware(
 )
 
 app.include_router(ml_search.router)
-app.include_router(taxon_search.router)
+app.include_router(data_stats.router)
 app.include_router(species_data.router)
 app.include_router(text_summarization.router)
 app.include_router(image_retrieval.router)
+app.include_router(db_search.router)
 
 
-@app.get("/", tags=["Root"])
+@app.get("/")
 async def root():
     logger.info("Root endpoint accessed")
     return {"message": "Welcome to the CLIP Service"}
