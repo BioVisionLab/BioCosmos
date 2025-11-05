@@ -9,7 +9,7 @@ import {
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-export function SpeciesImages({ speciesName }: { speciesName: string }) {
+export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);

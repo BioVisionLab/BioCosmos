@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import SpeciesSearchResultCard from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
 import { Search } from "lucide-react";
 import {
@@ -45,7 +44,7 @@ function TextSearchResults({ query }: { query: string }) {
     setLoading(true);
     setResults([]);
     // Update the URL without refreshing the page
-    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
+    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=text`;
     window.history.pushState({}, "", newUrl);
     // Trigger useEffect to fetch new results
     setTimeout(() => {

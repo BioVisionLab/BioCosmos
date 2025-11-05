@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { searchSemantic, MlResultItems } from "@/lib/ml_search";
-import MLSearchResultCard from "./MlResultCard";
+import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
 import { FlaskConical } from "lucide-react";
 
@@ -39,7 +39,7 @@ function SemanticSearchResults({ query }: { query: string }) {
     setLoading(true);
     setResults([]);
     // Update the URL without refreshing the page
-    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
+    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=semantic`;
     window.history.pushState({}, "", newUrl);
     // Trigger useEffect to fetch new results
     setTimeout(() => {
@@ -105,12 +105,22 @@ function SearchResults({
         </div>
       ) : (
         <div className="mt-5">
+          <div id="top-results" className="mb-6">
+            {/* Highlight top result as the first item */}
+            <h2 className="text-lg font-semibold mb-4">Top Result</h2>
+            <div className="mb-4">
+              <Suspense fallback={<div>Loading top species...</div>}>
+                <TopResultCard data={results[0]} />
+              </Suspense>
+            </div>
+          </div>
           <div>
             <p className="mb-4">
-              Found {results.length} results for "{query}":
+              Found {results.length} other results for "{query}":
             </p>
             <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-              {results.map((item) => (
+              {/* Render remaining results */}
+              {results.slice(1).map((item) => (
                 <Suspense
                   key={item.imgId}
                   fallback={<div>Loading species...</div>}

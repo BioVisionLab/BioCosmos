@@ -1,6 +1,6 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { SpeciesImages } from "./ImageGallery";
+import { SpeciesImageGallery } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
 import { SpeciesClassification } from "./TaxonClassification";
 import { RedListStatus } from "./IucnRedlist";
@@ -51,7 +51,7 @@ export function SpeciesOverview({
     <div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <SpeciesImages speciesName={taxonomy?.species ?? ""} />
+          <SpeciesImageGallery speciesName={taxonomy?.species ?? ""} />
           <SpeciesDescription
             traits={traits}
             species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name

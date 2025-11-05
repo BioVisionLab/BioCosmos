@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { fetchThumbnailById } from "@/lib/images";
+import {
+  fetchImgById,
+  fetchSpeciesImageIds,
+  fetchThumbnailById,
+} from "@/lib/images";
 import { cleanSpeciesName } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
@@ -58,4 +62,85 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   );
 }
 
-export default MLSearchResultCard;
+function TopResultCard({ data }: { data: MlResultItems }) {
+  const [speciesImageUrl, setSpeciesImageUrl] = useState<string | null>(null);
+  const [otherImageUrls, setOtherImageUrl] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const speciesImage = await fetchImgById(data.imgId);
+        setSpeciesImageUrl(speciesImage);
+        const imageIds = await fetchSpeciesImageIds(data.species, 5);
+        if (imageIds.length > 0) {
+          const otherImages = await Promise.all(
+            imageIds.map((id) => fetchThumbnailById(id))
+          );
+          setOtherImageUrl(otherImages);
+        }
+      } catch (error) {
+        console.error("Error fetching images for TopResultCard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchImages();
+  }, [data.species, data.imgId]);
+
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl p-4 shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
+      <Link href={`/species/${data.species}`}>
+        <h2 className="text-xl font-semibold mb-2 italic text-start text-gray-400">
+          {cleanSpeciesName(data.species)}
+        </h2>
+        {loading ? (
+          <ImageLoading size={160} />
+        ) : (
+          <div className="flex gap-12 items-center">
+            <div className="flex flex-col items-start">
+              {speciesImageUrl && (
+                <Image
+                  src={speciesImageUrl}
+                  alt={`Matched image of ${data.species}`}
+                  width={260}
+                  height={260}
+                  className="rounded-lg object-contain"
+                />
+              )}
+            </div>
+
+            <div className="items-start">
+              <h3 className="text-sm mb-2 text-gray-400 ">Other forms</h3>
+              {otherImageUrls && (
+                <div className="gap-2 overflow-auto flex">
+                  {otherImageUrls.map((url, index) => (
+                    <div
+                      key={index}
+                      className="p-2 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
+                    >
+                      <Image
+                        key={index}
+                        src={url}
+                        alt={`Other image ${index + 1} of ${data.species}`}
+                        width={70}
+                        height={70}
+                        className="rounded-lg object-contain"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Link>
+    </div>
+  );
+}
+
+export { TopResultCard, MLSearchResultCard };

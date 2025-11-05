@@ -1,7 +1,7 @@
 import { MlResultItems, searchFromImage } from "@/lib/ml_search";
 import { Suspense, useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import MLSearchResultCard from "./MlResultCard";
+import { MLSearchResultCard } from "./MlResultCard";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
