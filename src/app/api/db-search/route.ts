@@ -1,5 +1,4 @@
 import { API_HOST } from "@/lib/config";
-import { SpeciesData } from "@/lib/speciesData";
 import { NextResponse } from "next/server";
 
 const DB_SEARCH_ENDPOINT = `${API_HOST}/search/taxon`;

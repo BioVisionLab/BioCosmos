@@ -27,9 +27,12 @@ export interface SpeciesData {
   similarSpecies: SimilarSpeciesMeta[];
 }
 
-export async function getSpeciesData(
-  folderName: string
-): Promise<SpeciesData | null> {
+export interface ClassificationSearchResult {
+  matchCategory: string;
+  classification: TaxonomyData;
+}
+
+async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
   // We will capture the species name from the folder name by splitting on underscores
   let genus = "Unknown";
   let species = "sp.";
@@ -78,3 +81,26 @@ export async function getSpeciesData(
     return null; // Return null if there was an error
   }
 }
+
+async function fetchTaxonClassification(
+  species: string
+): Promise<ClassificationSearchResult | null> {
+  try {
+    const response = await fetch(
+      `/api/db-search?q=${encodeURIComponent(species)}`
+    );
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch classification for ${species}: ${response.statusText}`
+      );
+      return null;
+    }
+    const data = await response.json();
+    return data as ClassificationSearchResult;
+  } catch (error) {
+    console.error(`Error fetching classification for ${species}:`, error);
+    return null;
+  }
+}
+
+export { getSpeciesData, fetchTaxonClassification };
