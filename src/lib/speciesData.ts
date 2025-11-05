@@ -84,7 +84,7 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
 
 async function fetchTaxonClassification(
   species: string
-): Promise<ClassificationSearchResult | null> {
+): Promise<ClassificationSearchResult[] | null> {
   try {
     const response = await fetch(
       `/api/db-search?q=${encodeURIComponent(species)}`
@@ -96,7 +96,7 @@ async function fetchTaxonClassification(
       return null;
     }
     const data = await response.json();
-    return data as ClassificationSearchResult;
+    return data["results"] || null;
   } catch (error) {
     console.error(`Error fetching classification for ${species}:`, error);
     return null;

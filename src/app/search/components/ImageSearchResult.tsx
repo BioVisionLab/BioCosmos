@@ -1,8 +1,7 @@
 import { MlResultItems, searchFromImage } from "@/lib/ml_search";
 import { Suspense, useEffect, useState } from "react";
-import SpeciesSearchResultCard from "./ResultCard";
 import { ImageLoading } from "@/components/Loadings";
-import ImageSearch from "@/components/ImageSearch";
+import MLSearchResultCard from "./MlResultCard";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -71,7 +70,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
                   key={item.imgId}
                   fallback={<div>Loading species...</div>}
                 >
-                  <SpeciesSearchResultCard species={item} />
+                  <MLSearchResultCard data={item} />
                 </Suspense>
               ))}
             </div>

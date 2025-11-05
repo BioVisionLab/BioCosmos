@@ -2,17 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import SpeciesSearchResultCard from "./MlResultCard";
+import { searchSemantic, MlResultItems } from "@/lib/ml_search";
+import MLSearchResultCard from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
-import { Search } from "lucide-react";
-import {
-  ClassificationSearchResult,
-  fetchTaxonClassification,
-} from "@/lib/speciesData";
-import TextResultCard from "./TextResultCard";
+import { FlaskConical } from "lucide-react";
 
-function TextSearchResults({ query }: { query: string }) {
-  const [results, setResults] = useState<ClassificationSearchResult[]>([]);
+function SemanticSearchResults({ query }: { query: string }) {
+  const [results, setResults] = useState<MlResultItems[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,11 +20,9 @@ function TextSearchResults({ query }: { query: string }) {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchTaxonClassification(query);
-        if (!data) {
-          setResults([]);
-          return;
-        }
+        const data = await searchSemantic(query);
+        // Sort results by distance ascending
+        data.sort((a, b) => a.distance - b.distance);
         setResults(data);
       } catch (err: any) {
         setError(err.message || "An unexpected error occurred");
@@ -68,7 +62,7 @@ function TextSearchResults({ query }: { query: string }) {
       <div id="search-query" className="mb-12 mt-8 text-center">
         <SearchForm
           mode="text"
-          icon={Search}
+          icon={FlaskConical}
           onSubmit={handleSearch}
           query={query}
           placeholder="Orange butterfly with black lines"
@@ -91,7 +85,7 @@ function SearchResults({
   query,
   loading,
 }: {
-  results: ClassificationSearchResult[];
+  results: MlResultItems[];
   query: string;
   loading: boolean;
 }) {
@@ -110,19 +104,26 @@ function SearchResults({
           <ImageLoading size={240} msg="Loading results" />
         </div>
       ) : (
-        <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-          {results.map((item, index) => (
-            <Suspense
-              key={item.matchCategory + index}
-              fallback={<div>Loading species...</div>}
-            >
-              <TextResultCard classification={item.classification} />
-            </Suspense>
-          ))}
+        <div className="mt-5">
+          <div>
+            <p className="mb-4">
+              Found {results.length} results for "{query}":
+            </p>
+            <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
+              {results.map((item) => (
+                <Suspense
+                  key={item.imgId}
+                  fallback={<div>Loading species...</div>}
+                >
+                  <MLSearchResultCard data={item} />
+                </Suspense>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </>
   );
 }
 
-export default TextSearchResults;
+export default SemanticSearchResults;
