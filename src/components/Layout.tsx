@@ -1,4 +1,9 @@
 import React from "react";
+import Link from "next/link";
+import HeaderClient from "./HeaderClient";
+import ChatbotPanel from "./ChatbotPanel";
+import ImageSearchWidget from "./ImageSearchWidget";
+import Navigation from "./Navigation";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -7,6 +12,11 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      {/* Use the HeaderClient component */}
+      {/* <HeaderClient /> */}
+      
+      <Navigation />
+
       {/* Main Content - Putting container back on main */}
       <main className="flex-grow container mx-auto px-4 py-8">
         {" "}
