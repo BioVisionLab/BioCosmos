@@ -3,7 +3,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ImageLoading } from "@/components/Loadings";
-import { fetchThumbnailById, fetchImgById } from "@/lib/images";
+import { IconContainer } from "@/components/IconContainer";
+import { ButterflyComplex } from "@/components/ui/Butterfly";
+import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
+import { formatNumberToLocaleString } from "@/lib/textUtils";
+import { fetchThumbnailById, fetchImgById, fetchSpeciesImageIds } from "@/lib/images";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -17,20 +21,21 @@ type ThumbItem = {
   thumbUrl?: string;
 };
 
-const TAXON_BASE = "http://127.0.0.1:8000/taxon";
+  // Use the server-side next/api proxy routes instead of a hard-coded backend host.
 
 const SpecimensTab: React.FC<SpecimensTabProps> = ({
   specimens,
   speciesName,
 }) => {
   const [items, setItems] = useState<ThumbItem[]>([]); // current page items
+  const [specimenData, setSpecimenData] = useState<SpecimenData | null>(null);
+  const [specimenLoading, setSpecimenLoading] = useState(false);
   const [allIds, setAllIds] = useState<string[] | null>(null); // all image ids for species
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const createdUrls = useRef<string[]>([]);
-
   // pagination
-  const PAGE_SIZE = 24; // 30 images per page
+  const PAGE_SIZE = 24; // images per page
   const MAX_PAGES = 10; // show up to 10 pages
   const [currentPage, setCurrentPage] = useState<number>(1); // 1-based
 
@@ -40,8 +45,30 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   const fullCache = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
+    // load specimen metadata (image count) separately and show in header
+    let mountedMeta = true;
+    const loadMeta = async (name?: string) => {
+      if (!name) {
+        setSpecimenData(null);
+        return;
+      }
+      setSpecimenLoading(true);
+      try {
+        const data = await fetchSpecimenData(name);
+        if (!mountedMeta) return;
+        setSpecimenData(data ?? null);
+      } catch (err) {
+        console.error("Failed to fetch specimen metadata:", err);
+        if (mountedMeta) setSpecimenData(null);
+      } finally {
+        if (mountedMeta) setSpecimenLoading(false);
+      }
+    };
+    loadMeta(speciesName);
     let mounted = true;
     const revokeAll = () => {
+      // we don't create blob URLs for thumbnail paths (they are API URLs),
+      // but fullCache may contain URLs and should be cleared when modal closes
       createdUrls.current.forEach((u) => {
         try {
           URL.revokeObjectURL(u);
@@ -50,7 +77,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         }
       });
       createdUrls.current = [];
-      // revoke any cached full-size images
       fullCache.current.forEach((u) => {
         try {
           URL.revokeObjectURL(u);
@@ -71,26 +97,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       setCurrentPage(1);
 
       try {
-        const cleanName = name.toLowerCase().replace(/ /g, "_");
-        const res = await fetch(
-          `${TAXON_BASE}/${encodeURIComponent(cleanName)}/ids`
-        );
+        // use the helper which calls the internal `/api/images/metadata` proxy
+        const ids = await fetchSpeciesImageIds(name, PAGE_SIZE * MAX_PAGES);
         if (!mounted) return;
 
-        if (!res.ok) {
-          setError("No images found for this species");
-          setItems([]);
-          return;
-        }
-
-        const payload = await res.json();
-        let ids: string[] = [];
-        if (Array.isArray(payload)) ids = payload as string[];
-        else if (payload && Array.isArray(payload.imageIds))
-          ids = payload.imageIds as string[];
-
         if (!ids || ids.length === 0) {
-          setError("No image IDs returned for this species");
+          setError("No image IDs returned for this species.");
           setItems([]);
           return;
         }
@@ -107,13 +119,13 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         const results = await Promise.all(promises);
         if (!mounted) return;
         results.forEach((r) => {
-          if (r.url) createdUrls.current.push(r.url);
+          // thumbnails are API URLs (no blob URL was created), so don't try to revoke them
           thumbCache.current.set(r.id, r.url);
         });
         setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
       } catch (err) {
         console.error("SpecimensTab load error:", err);
-        if (mounted) setError("Failed to load specimen thumbnails");
+        if (mounted) setError("Failed to load specimen thumbnails.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -160,7 +172,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
           })
           .catch((err) => {
             console.error(err);
-            if (mounted) setError("Failed to load thumbnails from specimens");
+            if (mounted) setError("Failed to load thumbnails from specimens.");
           })
           .finally(() => {
             if (mounted) setLoading(false);
@@ -176,6 +188,13 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       revokeAll();
     };
   }, [speciesName, specimens]);
+
+  // cleanup meta loader on unmount
+  useEffect(() => {
+    return () => {
+      setSpecimenLoading(false);
+    };
+  }, []);
 
   // helper to load thumbnails for a given page (1-based)
   const loadPage = async (page: number) => {
@@ -211,8 +230,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       });
       setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
     } catch (err) {
-      console.error("Failed to load page thumbnails", err);
-      setError("Failed to load thumbnails for page");
+      console.error("Failed to load page thumbnails.", err);
+      setError("Failed to load thumbnails for page.");
     } finally {
       setLoading(false);
     }
@@ -254,7 +273,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       prefetchNeighbors(id);
     } catch (err) {
       console.error("Failed to open full image:", err);
-      setModalError("Failed to load full image");
+      setModalError("Failed to load full image.");
     } finally {
       setModalLoading(false);
     }
@@ -383,7 +402,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       prefetchNeighbors(id);
     } catch (err) {
       console.error("Failed to navigate to image:", err);
-      setModalError("Failed to load image");
+      setModalError("Failed to load image.");
     } finally {
       setModalLoading(false);
     }
@@ -440,6 +459,24 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
 
   return (
     <div>
+      {/* Specimen header (icon + image count) */}
+      <div className="flex items-center gap-4 mb-4">
+        <IconContainer>
+          <ButterflyComplex className="w-10 h-10 fill-teal-500" />
+        </IconContainer>
+        <div className="my-2">
+          {specimenLoading ? (
+            <ImageLoading size={72} />
+          ) : specimenData ? (
+            <>
+              <p className="text-sm text-gray-500">Image count</p>
+              <p className="text-xl font-semibold">{formatNumberToLocaleString(specimenData.imageCounts)}</p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">Image count unavailable</p>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
         {items.map((it) => (
           <button
