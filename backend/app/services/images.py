@@ -38,6 +38,49 @@ class SpeciesImage(BaseModel):
         }
 
 
+class ImageSummary:
+    """Class to represent image summary data."""
+
+    def __init__(self, lance_db: LanceDB):
+        self.logger = logging.getLogger(__name__)
+        self.config = ImageConfig()
+        self.db_table = lance_db.create_or_get_collection(
+            self.config.table
+        )
+
+    def get_count(self, species_name: str) -> int | None:
+        """Fetch image statistics for a specific species.
+
+        How it works:
+        1. Query the database for images matching the species name.
+        2. Return statistics such as number of images available.
+        :param species_name: The name of the species to fetch the image statistics for.
+        :return: A dictionary containing image statistics or None if not found."""
+        query = self._query_image(species_name)
+
+        return len(query) if query is not None else None
+
+    def _query_image(self, species_name: str) -> pl.DataFrame | None:
+        """Construct a query string for fetching images."""
+        species = species_name.lower().replace(" ", "_")
+        query = f"species == '{species}'"
+        try:
+            results = self.db_table.search().where(query).to_polars()
+            if results.is_empty():
+                self.logger.warning(
+                    f"No images found for species '{species_name}'."
+                )
+                return None
+
+            dedup_images = results.unique(subset=["img_id"])
+            return dedup_images
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching images for species '{species_name}': {e}"
+            )
+            return None
+
+
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
@@ -67,16 +110,22 @@ class ImagePersistData:
         species = species_name.lower().replace(" ", "_")
         query = f"species == '{species}'"
         try:
-            results = self.db_table.search().where(query).to_polars()
+            results = (
+                self.db_table.search()
+                .where(query)
+                .limit(10)
+                .to_polars()
+            )
             if "img_id" not in results.columns or results.is_empty():
                 self.logger.warning(
                     f"No image IDs found for species '{species_name}'."
                 )
                 return []
-
+            # Result may contain duplicates image IDs, so we deduplicate
+            dedup_results = results.unique(subset=["img_id"])
             return SpeciesImage(
                 species=species,
-                imageIds=results["img_id"].to_list(),
+                imageIds=dedup_results["img_id"].to_list(),
             ).to_dict()
         except Exception as e:
             self.logger.error(
@@ -85,8 +134,9 @@ class ImagePersistData:
             return []
 
     def get_img_by_id(
-        self, img_id: str, is_thumbnail: bool = False
-    ) -> io.BytesIO | None:
+        self,
+        img_id: str,
+    ) -> bytes | None:
         """Fetch an image by its ID."""
         try:
             img: list[LanceSchema] = (
@@ -100,11 +150,8 @@ class ImagePersistData:
                     f"No image found with ID '{img_id}'."
                 )
                 return None
-            return (
-                img[0].thumbnail_bytes_png
-                if is_thumbnail
-                else img[0].image_bytes_png
-            )
+            return img[0].img_bytes
+
         except Exception as e:
             self.logger.error(
                 f"Error fetching image with ID '{img_id}': {e}"
@@ -210,8 +257,7 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the provided image."
             )
-            # return polars DataFrame as list of dicts
-            return similar_images.write_json()
+            return similar_images.to_dicts()
 
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")

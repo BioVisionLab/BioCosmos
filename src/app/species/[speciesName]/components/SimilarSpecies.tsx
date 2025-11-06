@@ -1,12 +1,14 @@
 import { SimilarSpeciesMeta } from "@/lib/speciesData";
-import { fetchThumbnailById } from "@/lib/speciesList";
+import { fetchThumbnailById } from "@/lib/images";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import ImageLoading from "@/components/ImageLoading";
+import { ImageLoading } from "@/components/Loadings";
 import { cleanSpeciesName } from "@/lib/names";
 
 const IMAGE_SIZE = 128;
+
+const labelColor = "text-gray-500 dark:text-gray-400";
 
 function VisuallySimilarSpecies({
   species,
@@ -22,23 +24,35 @@ function VisuallySimilarSpecies({
     <div className="mt-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white/70 dark:bg-gray-800/70 backdrop-blur shadow">
       <div className="border-b border-gray-300 dark:border-gray-600 p-4">
         <h2 className="text-2xl font-semibold">Visually Similar Species</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className={`text-sm ${labelColor}`}>
           Found {meta.length} species similar to{" "}
           <span className="italic">{species}</span>.
         </p>
       </div>
 
-      <SimilarSpeciesImageGallery meta={meta} />
+      <SimilarSpeciesImageGallery
+        speciesData={meta}
+        label="Based on mean color and pattern similarity"
+      />
     </div>
   );
 }
 
-function SimilarSpeciesImageGallery({ meta }: { meta: SimilarSpeciesMeta[] }) {
+function SimilarSpeciesImageGallery({
+  speciesData,
+  label,
+}: {
+  speciesData: SimilarSpeciesMeta[];
+  label: string;
+}) {
   return (
-    <div className="overflow-x-auto rounded-xl p-2 flex flex-row gap-4">
-      {meta.map((item, index) => (
-        <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
-      ))}
+    <div className="p-4 mt-2">
+      <h3 className={`text-md ${labelColor}`}>{label}</h3>
+      <div className="overflow-x-auto rounded-xl flex flex-row gap-4">
+        {speciesData.map((item, index) => (
+          <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -68,7 +82,7 @@ function SimilarSpeciesImage({
 
   return (
     <Link key={index} href={`/species/${meta.species}`}>
-      <div className="item-center text-center m-2">
+      <div className="item-center text-center">
         {thumbnailUrl ? (
           <>
             <Image

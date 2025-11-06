@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, FlaskConical, Loader2 } from "lucide-react"; // Import icons and Loader2
-
-// Define the type for the semantic result object from the Python service
-interface SemanticResultItem {
-  species_folder: string;
-  best_image_filename: string;
-}
+import { Search, FlaskConical } from "lucide-react"; // Import icons and Loader2
 
 const LOCAL_STORAGE_KEY = "searchMode"; // Key for localStorage
 export default function SearchBar() {
@@ -53,6 +47,7 @@ export default function SearchBar() {
 
     // Navigate to the search page with query and mode
     const mode = isSemantic ? "semantic" : "text";
+    // TODO: handle 2 modes, semantic and text search
     router.push(`/search?q=${encodeURIComponent(query)}&mode=${mode}`);
   };
 

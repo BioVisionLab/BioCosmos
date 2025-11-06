@@ -1,0 +1,25 @@
+import { LepTraits } from "@/lib/leptraits";
+import { GeneticData } from "./GeneticData";
+import { SpeciesTraits } from "./Traits";
+function BiologyPage({
+  speciesName,
+  traits,
+}: {
+  speciesName: string;
+  traits: LepTraits;
+}) {
+  return (
+    <div>
+      <h2 className="text-2xl font-semibold mb-2">Genetics</h2>
+
+      <GeneticData speciesName={speciesName} />
+
+      <div className="my-8">
+        <h2 className="text-2xl font-semibold mb-4">Traits</h2>
+        <SpeciesTraits traits={traits} />
+      </div>
+    </div>
+  );
+}
+
+export default BiologyPage;

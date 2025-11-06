@@ -9,11 +9,7 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
-  // Example: Define current taxonomy for links (could come from context/props later)
-  const currentFamily = "Nymphalidae"; // Example
-  // const currentGenus = "Danaus"; // Example (might not always be available)
-
+const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Use the HeaderClient component */}
@@ -41,7 +37,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </footer>
 
       {/* Render the Chatbot Panel (uses fixed positioning) */}
-      <ChatbotPanel />
+      {/* <ChatbotPanel /> */}
     </div>
   );
 };

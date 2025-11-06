@@ -53,3 +53,8 @@ duck_db/
 lance_db/
 biocosmos.duckdb
 biocosmos.lance
+
+/backend/static/webp/
+/backend/static/thumbnails/
+/backend/static/tiles/
+/backend/static/images/

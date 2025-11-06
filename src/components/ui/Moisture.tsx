@@ -1,7 +1,6 @@
 const MoistureIcon = ({ className }: { className?: string }) => (
   <svg
     id="fi_2352776"
-    enable-background="new 0 0 91 91"
     height="512"
     viewBox="0 0 91 91"
     width="512"

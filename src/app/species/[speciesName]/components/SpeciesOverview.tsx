@@ -7,6 +7,7 @@ import { RedListStatus } from "./IucnRedlist";
 import { SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 import { LepTraits } from "@/lib/leptraits";
+import { NoData } from "@/components/NoData";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
@@ -14,7 +15,7 @@ const SpeciesDistribution = dynamic(
     ssr: false,
     loading: () => (
       <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-        <span className="text-gray-500">Loading map...</span>
+        <NoData text="Loading map..." />
       </div>
     ),
   }

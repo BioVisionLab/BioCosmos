@@ -87,3 +87,73 @@ export function LepTraitDataSourceInfo() {
     </div>
   );
 }
+
+export function NcbiAttribution({
+  leadingText = "Source: ",
+  isLarge = false,
+}: {
+  leadingText?: string;
+  isLarge?: boolean;
+}) {
+  return (
+    <p className={`text-gray-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
+      {leadingText}{" "}
+      <a
+        href="https://www.ncbi.nlm.nih.gov/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-blue-700"
+      >
+        NCBI
+      </a>
+    </p>
+  );
+}
+
+export function CrossRefAttribution({
+  leadingText = "Source: ",
+  isLarge = false,
+}: {
+  leadingText?: string;
+  isLarge?: boolean;
+}) {
+  return (
+    <p className={`text-gray-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
+      {leadingText}{" "}
+      <a
+        href="https://www.crossref.org/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-blue-700"
+      >
+        CrossRef
+      </a>
+    </p>
+  );
+}
+
+export function CrossRefLink() {
+  return (
+    <a
+      href="https://www.crossref.org/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline hover:text-blue-700"
+    >
+      CrossRef
+    </a>
+  );
+}
+
+export function NcbiLink() {
+  return (
+    <a
+      href="https://www.ncbi.nlm.nih.gov/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline hover:text-blue-700"
+    >
+      NCBI
+    </a>
+  );
+}

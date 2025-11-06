@@ -119,11 +119,29 @@ class LanceSchema(LanceModel):
         return None
 
     @property
+    def image_bytes_webp(self):
+        """Get the image as WEBP bytes."""
+        if self.image:
+            with BytesIO() as output:
+                self.image.save(output, format="WEBP")
+                return output.getvalue()
+        return None
+
+    @property
     def thumbnail_bytes_png(self):
         """Get the thumbnail image as PNG bytes."""
         if self.thumbnail:
             with BytesIO() as output:
                 self.thumbnail.save(output, format="PNG")
+                return output.getvalue()
+        return None
+
+    @property
+    def thumbnail_bytes_webp(self):
+        """Get the thumbnail image as WEBP bytes."""
+        if self.thumbnail:
+            with BytesIO() as output:
+                self.thumbnail.save(output, format="WEBP")
                 return output.getvalue()
         return None
 

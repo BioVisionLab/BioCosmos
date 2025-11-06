@@ -2,8 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 
+
 from .database.duckdb import DuckDBClient
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from fastapi.staticfiles import StaticFiles
 
 from .services.unicom import UnicomModel
 from .database.lance import LanceDB
@@ -17,10 +19,10 @@ from .services.leptraits import LepTraits
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
-    image_search,
-    text_search,
+    image_retrieval,
+    ml_search,
+    species_data,
     taxon_search,
-    taxon_fetch,
     text_summarization,
 )
 
@@ -30,6 +32,41 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+description = """
+BIOCOSMOS API
+
+This is the backend API for the BIOCOSMOS project, providing endpoints for
+image search, taxon data retrieval, and text summarization using machine
+learning models like CLIP and UNICOM.
+"""
+
+tags_metadata = [
+    {
+        "name": "ML Search",
+        "description": "Machine learning-based search for images using text or image queries.",
+    },
+    {
+        "name": "Species Data",
+        "description": "Get species-related data including species, specimen data, and image IDs.",
+    },
+    {
+        "name": "Text Summarization",
+        "description": "Endpoints for summarizing text data related to taxa.",
+    },
+    {
+        "name": "Server Health",
+        "description": "Endpoints for checking the health status of the server.",
+    },
+    {
+        "name": "Taxon Images",
+        "description": "Retrieve images by their IDs, including thumbnails and full-resolution images.",
+    },
+    {
+        "name": "Root",
+        "description": "Root endpoint of the BIOCOSMOS API.",
+    },
+]
 
 
 class AppSettings(BaseSettings):
@@ -45,9 +82,11 @@ class AppSettings(BaseSettings):
     # UF_AI_URL: str
     # UF_AI_API_KEY: str
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # optional: ignore unexpected keys
+    )
 
 
 def get_app_settings() -> AppSettings:
@@ -161,8 +200,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    lifespan=lifespan, title="BIOCOSMOS API", version="0.1.0"
+    lifespan=lifespan,
+    title="BIOCOSMOS API",
+    version="0.1.0",
+    description=description,
+    summary="API for BIOCOSMOS project backend services",
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/license/mit/",
+    },
+    openapi_tags=tags_metadata,
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -172,14 +222,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(image_search.router)
-app.include_router(text_search.router)
+app.include_router(ml_search.router)
 app.include_router(taxon_search.router)
-app.include_router(taxon_fetch.router)
+app.include_router(species_data.router)
 app.include_router(text_summarization.router)
+app.include_router(image_retrieval.router)
 
 
-@app.get("/")
+@app.get("/", tags=["Root"])
 async def root():
     logger.info("Root endpoint accessed")
     return {"message": "Welcome to the CLIP Service"}
+
+
+# Check server status okay
+@app.get("/status", tags=["Server Health"])
+async def status():
+    logger.info("Status endpoint accessed")
+    return {"status": "ok"}
