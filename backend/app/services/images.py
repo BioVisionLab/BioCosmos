@@ -370,16 +370,22 @@ class ImagePersistData:
 
     def _filter_by_species(self, df: pl.DataFrame) -> pl.DataFrame:
         """Filter the DataFrame to ensure only one image per species.
-        We sort by distance and keep the first occurrence of each species.
+        We keep the species with the highest distance value.
         """
         if df is None or df.is_empty():
             return df
-        # Sort by distance
-        df = df.sort("distance")
-        # Keep only the first occurrence of each species
-        filtered_df = df.unique(subset=["species"])
+
+        # Sort by distance descending, then unique while maintaining order
+        filtered_df = (
+            df.sort("distance", descending=True)
+            .unique(subset=["species"], maintain_order=True)
+            .sort(
+                "distance", descending=True
+            )  # Final sort for output
+        )
+
         self.logger.info(
-            f"Filtered to {len(df)} of {len(filtered_df)} species."
+            f"Filtered to {len(filtered_df)} of {len(df)} species."
         )
         return filtered_df
 

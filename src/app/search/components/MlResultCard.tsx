@@ -93,15 +93,18 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   }
 
   return (
-    <div className="rounded-2xl p-4 shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
+    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
+      <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
+        <h2 className="text-lg font-semibold">The Top Result</h2>
+      </div>
       <Link href={`/species/${data.species}`}>
-        <h2 className="text-xl font-semibold mb-2 italic text-start text-gray-400">
+        <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4 m-4">
           {cleanSpeciesName(data.species)}
         </h2>
         {loading ? (
           <ImageLoading size={160} />
         ) : (
-          <div className="flex gap-12 items-center">
+          <div className="flex gap-12 items-center m-4">
             <div className="flex flex-col items-start">
               {speciesImageUrl && (
                 <Image
@@ -113,7 +116,6 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                 />
               )}
             </div>
-
             <div className="items-start">
               <h3 className="text-sm mb-2 text-gray-400 ">Other forms</h3>
               {otherImageUrls && (

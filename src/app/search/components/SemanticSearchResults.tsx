@@ -21,8 +21,6 @@ function SemanticSearchResults({ query }: { query: string }) {
       setError(null);
       try {
         const data = await searchSemantic(query);
-        // Sort results by distance ascending
-        data.sort((a, b) => a.distance - b.distance);
         setResults(data);
       } catch (err: any) {
         setError(err.message || "An unexpected error occurred");
@@ -106,13 +104,9 @@ function SearchResults({
       ) : (
         <div className="mt-5">
           <div id="top-results" className="mb-6">
-            {/* Highlight top result as the first item */}
-            <h2 className="text-lg font-semibold mb-4">Top Result</h2>
-            <div className="mb-4">
-              <Suspense fallback={<div>Loading top species...</div>}>
-                <TopResultCard data={results[0]} />
-              </Suspense>
-            </div>
+            <Suspense fallback={<div>Loading top species...</div>}>
+              <TopResultCard data={results[0]} />
+            </Suspense>
           </div>
           <div>
             <p className="mb-4">
