@@ -483,7 +483,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
             key={it.id}
             onClick={() => openFull(it.id)}
             title="Open full image"
-            className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-2 hover:ring-blue-500"
+            className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
           >
             {it.thumbUrl ? (
               <Image
@@ -601,7 +601,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
             <button
               onClick={closeModal}
               aria-label="Close full image"
-              className="absolute -top-3 -right-3 z-40 bg-white/90 rounded-full p-2 shadow hover:bg-white"
+              className="absolute -top-3 -right-3 z-40 flex items-center justify-center 
+                rounded-full p-2 bg-emerald-500 hover:bg-emerald-400 
+                dark:bg-emerald-600 dark:hover:bg-emerald-500 
+                text-gray border border-white/50 shadow-md hover:shadow-lg 
+                transition-all duration-200"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -618,7 +622,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
             </button>
 
             {/* Formatting of popout image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
-            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-300 rounded-lg p-4 w-full h-full flex items-center justify-center">
+            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-lg p-4 w-full h-full flex items-center justify-center">
               {modalLoading ? (
                 // Loading placeholder occupies the same space as the final image to avoid layout jumps
                 <div className="w-full h-full flex items-center justify-center">

@@ -20,63 +20,43 @@ export function SpeciesClassification({
         <h2 className="text-2xl font-semibold">Classification</h2>
       </div>
       <div className="p-4 ml-4">
-        <table className="text-sm text-gray-700 dark:text-gray-300 w-full min-w-[350px]">
+        <table className="text-sm text-gray-700 dark:text-gray-300 w-full min-w-0">
           <tbody>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Kingdom</td>
-              <td className="break-all">
-                : {taxonomyData?.kingdom ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Kingdom:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.kingdom ?? "Unknown"}</td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Phylum</td>
-              <td className="break-all">
-                : {taxonomyData?.phylum ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Phylum:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.phylum ?? "Unknown"}</td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Class</td>
-              <td className="break-all">
-                : {taxonomyData?.class ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Class:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.class ?? "Unknown"}</td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Order</td>
-              <td className="break-all">
-                : {taxonomyData?.order ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Order:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.order ?? "Unknown"}</td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Family</td>
-              <td className="break-all">
-                : {taxonomyData?.family ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Family:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.family ?? "Unknown"}</td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Genus</td>
-              <td className="break-all">
-                : <i className="italic">{taxonomyData?.genus ?? "Unknown"}</i>
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Genus:</td>
+              <td className="break-words whitespace-normal pl-2"> <i className="italic">{taxonomyData?.genus ?? "Unknown"}</i></td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Species</td>
-              <td className="break-all">
-                : <i className="italic">{taxonomyData?.species ?? "Unknown"}</i>
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Species:</td>
+              <td className="break-words whitespace-normal pl-2"> <i className="italic">{taxonomyData?.species ?? "Unknown"}</i></td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top">Authorship</td>
-              <td className="break-all">
-                : {taxonomyData?.authorship ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap">Authorship:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.authorship ?? "Unknown"}</td>
             </tr>
             <tr>
-              <td className="font-medium w-36 pr-2 align-top my-2">
-                Taxonomic Status
-              </td>
-              <td className="break-all">
-                : {taxonomyData?.taxonomicStatus ?? "Unknown"}
-              </td>
+              <td className="font-medium pr-1 align-top whitespace-nowrap my-2">Taxonomic Status:</td>
+              <td className="break-words whitespace-normal pl-2">{taxonomyData?.taxonomicStatus ?? "Unknown"}</td>
             </tr>
           </tbody>
         </table>
