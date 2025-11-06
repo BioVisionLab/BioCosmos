@@ -63,38 +63,6 @@ function SpeciesThumbnail({
 }
 
 export default function HomePage() {
-  const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        const alive = await isBackendAlive();
-        setBackendAlive(alive);
-      } catch (error) {
-        console.error("Failed to check backend status:", error);
-        setBackendAlive(false);
-      }
-    };
-
-    checkBackend();
-  }, []);
-
-  if (backendAlive === null) {
-    return <ImageLoading size={100} msg="Loading" />;
-  }
-
-  if (backendAlive === false) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-red-600 dark:text-red-400">
-          Unable to connect to the backend service. Please try again later.
-        </p>
-      </div>
-    );
-  }
-
-  const speciesList = getSpeciesList();
-
   return (
     <div className="flex flex-col items-center min-h-screen">
       <ButterflyAiIcon className="w-24 h-24 fill-emerald-400" />
@@ -118,8 +86,50 @@ export default function HomePage() {
           </span>
         </div>
       </div>
-      <SearchSwitcher />
 
+      <HomeContent />
+    </div>
+  );
+}
+
+function HomeContent() {
+  const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const alive = await isBackendAlive();
+        setBackendAlive(alive);
+      } catch (error) {
+        console.error("Failed to check backend status:", error);
+        setBackendAlive(false);
+      }
+    };
+
+    checkBackend();
+  }, []);
+
+  if (backendAlive === null) {
+    return (
+      <div className="mt-12">
+        <ImageLoading size={240} msg="Connecting to backend" />
+      </div>
+    );
+  }
+
+  if (backendAlive === false) {
+    return (
+      <div className="mt-12">
+        <p className="text-red-600 dark:text-red-400">
+          Unable to connect to the backend service. Please try again later.
+        </p>
+      </div>
+    );
+  }
+  const speciesList = getSpeciesList();
+  return (
+    <div>
+      <SearchSwitcher />
       <div className="w-full max-w-5xl mt-10 mb-4">
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-gradient-to-r from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
