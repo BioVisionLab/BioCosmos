@@ -56,7 +56,7 @@ export function LepTraitsAttribution({
 
 export function LepTraitDataSourceInfo() {
   return (
-    <div className="text-md text-gray-600 dark:text-gray-400 bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-xl mt-8">
+    <div className="text-md text-gray-600 dark:text-gray-400 border border-teal-300/30 bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-xl mt-8">
       <p>
         The trait data is sourced from the{" "}
         <a

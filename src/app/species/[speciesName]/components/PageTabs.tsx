@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import { SpeciesOverview } from "./SpeciesOverview";
 import { SpeciesData } from "@/lib/speciesData";
 import WikipediaPage from "./WikipediaPage";
-import { SpecimenPage } from "./SpecimenPage";
 import { LiteraturePage } from "./LiteraturePage";
 import BiologyPage from "./BiologyPage";
+import SpecimensTab from "./SpecimensTab";
 
 // Define the props for the TabsComponent
 interface TabsComponentProps {
@@ -39,11 +39,11 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
     },
 
     {
-      // New Specimens tab implementation
+      // Using new SpecimensTab implementation (instead of SpecimenPage)
       id: "specimens",
       label: "Specimens",
       content: (
-        <SpecimenPage speciesName={speciesData.taxonomy?.species ?? ""} />
+        <SpecimensTab speciesName={speciesData.taxonomy?.species ?? ""} />
       ),
     },
     {
