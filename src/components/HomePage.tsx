@@ -130,14 +130,14 @@ function HomeContent() {
   return (
     <div>
       <SearchSwitcher />
-      <div className="w-full max-w-5xl mt-10 mb-4">
+      <div className="w-full max-w-5xl mt-12 mb-4 px-4 mx-auto">
         <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-gradient-to-r from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
+          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
           <h2 className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-300 flex items-center gap-2">
             <span className="text-lg">🦋</span>
             Featured Butterflies
           </h2>
-          <span className="h-px flex-1 bg-gradient-to-r from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
+          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
         </div>
         <p className="mt-3 text-center text-sm sm:text-base text-gray-600 dark:text-gray-400">
           Get started with a curated list of butterflies.
