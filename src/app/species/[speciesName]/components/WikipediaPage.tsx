@@ -70,8 +70,10 @@ const fetchWikipediaPage = async (
 
 function WikipediaAttribution({ speciesName }: { speciesName: string }) {
   return (
-    <div className="space-y-2 text-xs text-gray-600">
-      <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700">
+    <div className="space-y-2 text-xs">
+      <div className="rounded-md px-4 py-3 text-[12px] leading-snug
+        bg-white/80 border border-slate-200 text-slate-700
+        dark:bg-gradient-to-r dark:from-slate-900 dark:to-emerald-900 dark:border-emerald-700 dark:text-emerald-100">
         <p>
           Content adapted from English Wikipedia (en.wikipedia.org) and lightly
           cleaned for readability. It may contain community-edited or unverified
@@ -83,7 +85,7 @@ function WikipediaAttribution({ speciesName }: { speciesName: string }) {
             href={`https://en.wikipedia.org/wiki/${speciesName}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline"
+            className="underline text-emerald-700 dark:text-emerald-200"
           >
             English Wikipedia (<span className="italic">{speciesName}</span>)
           </a>
@@ -129,10 +131,55 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
 
   return (
     <>
+      {/* CSS overrides scoped to the wiki-rendered HTML to normalize infobox headings and colors */}
+      <style>{`
+        /* Target Wikipedia infobox/table headers and captions that often carry inline beige backgrounds */
+        .wiki-container .infobox th,
+        .wiki-container .infobox caption,
+        .wiki-container .infobox .fn,
+        .wiki-container .infobox caption span {
+          background: transparent !important;
+          background-color: transparent !important;
+          color: inherit !important;
+        }
+        .wiki-container .infobox {
+          background: transparent !important;
+          /* Use separate border model and vertical spacing between rows so each header/section breathes */
+          border-collapse: separate !important;
+          border-spacing: 0 0.6rem !important;
+          border-color: rgba(148,163,184,0.12) !important;
+        }
+        /* Default (light) colors */
+        .wiki-container .infobox td,
+        .wiki-container .infobox th,
+        .wiki-container .infobox caption {
+          color: #0f172a !important; /* slate-900 */
+        }
+        /* Dark mode adjustments */
+        @media (prefers-color-scheme: dark) {
+          .wiki-container .infobox td,
+          .wiki-container .infobox th,
+          .wiki-container .infobox caption {
+            color: #d1fae5 !important; /* emerald-100-ish */
+          }
+        }
+        /* Make wiki links inherit surrounding text color and only show an underline for clarity
+           (avoids bright-blue links on dark/blue backgrounds). Scoped to wiki-container. */
+        .wiki-container a,
+        .wiki-container a:visited {
+          color: inherit !important;
+          text-decoration: underline !important;
+          text-decoration-color: currentColor !important;
+          text-underline-offset: 2px !important;
+        }
+        /* Prevent images/tables inside wiki HTML from overflowing their container */
+        .wiki-container img { max-width: 100%; height: auto; }
+      `}</style>
+
       <div className="rounded-2xl p-6">
         {isLoading && (
           <div className="text-center p-10 rounded-xl">
-            <p className="text-xl text-gray-600">Loading content...</p>
+            <p className="text-xl text-slate-600 dark:text-emerald-100">Loading content...</p>
           </div>
         )}
 
@@ -141,30 +188,35 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         {!isLoading && !error && parsedContent.length > 0 && (
           <>
             <div
-              className={`font-sans text-gray-900 rounded-2xl bg-gradient-to-tr from-white to-green-50 p-6 backdrop-blur-lg shadow border border-gray-300 dark:border-gray-600`}
+              className={`font-sans rounded-2xl p-6 shadow-lg backdrop-blur-sm
+                bg-white/80 text-slate-800 border border-slate-200
+                dark:bg-gradient-to-tr dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 dark:text-emerald-100 dark:border-slate-700`}
             >
               <WikipediaAttribution speciesName={speciesName} />
-              <div className="rounded-xl overflow-hidden">
-                <div className="p-4 md:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="rounded-xl overflow-hidden bg-transparent">
+                {/* wrapper to scope wiki HTML overrides */}
+                <div className="wiki-container p-4 md:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2 space-y-8">
                     {mainContent.map((item, index) => (
                       <div key={index}>
                         {item.type === "section" && (
                           <section>
-                            <h2 className="text-2xl font-semibold border-b pb-2 mb-4">
+                            <h2 className="text-2xl font-semibold border-b pb-2 mb-4
+                              text-slate-900 dark:text-emerald-100 border-slate-200 dark:border-emerald-700">
                               {item.title}
                             </h2>
                             <div
-                              className="dynamic-content"
+                              className="dynamic-content text-slate-700 dark:text-emerald-50"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </section>
                         )}
                         {item.type === "table" && (
                           // Full-bleed (viewport-wide) table container
-                          <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border bg-white">
+                          <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border
+                            border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 text-slate-700 dark:text-emerald-100">
                             <div
-                              className="border border-gray-200 inline-block min-w-full"
+                              className="inline-block min-w-full p-4"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </div>
@@ -175,7 +227,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                               Taxon Identifier
                             </h3>
                             <div
-                              className="dynamic-content pl-2"
+                              className="dynamic-content pl-2 text-slate-700 dark:text-emerald-50"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </div>
@@ -187,7 +239,9 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                     {infobox && (
                       <div className="sticky top-8 mx-auto flex justify-center items-center">
                         <div
-                          className="border bg-gradient-to-r from-emerald-200  to-teal-200 rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8"
+                          className="border rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
+                            bg-white/80 border-slate-200 text-slate-800
+                            dark:bg-gradient-to-r dark:from-slate-800 dark:to-emerald-900 dark:border-emerald-600 dark:text-emerald-100"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
                         />
                       </div>

@@ -72,7 +72,7 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
   return (
     <div id="genetics-section">
       <div className="mb-4">
-        <p className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700 w-fit">
+        <p className="rounded-md border border-teal-300/30 bg-gradient-to-br from-teal-500/20 to-emerald-300/10 px-3 py-2 text-[13px] leading-snug text-gray-600 dark:text-gray-400 w-fit">
           Genetic information is fetched automatically from <NcbiLink />. It
           includes only sequenced genes currently available for this species.
         </p>
