@@ -35,8 +35,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 description = """
-BIOCOSMOS API
-
 This is the backend API for the BIOCOSMOS project, providing endpoints for
 image search, taxon data retrieval, and text summarization using machine
 learning models like CLIP and UNICOM.
@@ -205,7 +203,7 @@ app = FastAPI(
     title="BIOCOSMOS API",
     version="0.1.0",
     description=description,
-    summary="API for BIOCOSMOS project backend services",
+    summary="Butterfly diversity database with AI-powered search",
     license_info={
         "name": "MIT License",
         "url": "https://opensource.org/license/mit/",
