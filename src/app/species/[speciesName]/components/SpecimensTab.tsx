@@ -7,7 +7,11 @@ import { IconContainer } from "@/components/IconContainer";
 import { ButterflyComplex } from "@/components/ui/Butterfly";
 import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
 import { formatNumberToLocaleString } from "@/lib/textUtils";
-import { fetchThumbnailById, fetchImgById, fetchSpeciesImageIds } from "@/lib/images";
+import {
+  fetchThumbnailById,
+  fetchImgById,
+  fetchSpeciesImageIds,
+} from "@/lib/images";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -21,7 +25,7 @@ type ThumbItem = {
   thumbUrl?: string;
 };
 
-  // Use the server-side next/api proxy routes instead of a hard-coded backend host.
+// Use the server-side next/api proxy routes instead of a hard-coded backend host.
 
 const SpecimensTab: React.FC<SpecimensTabProps> = ({
   specimens,
@@ -470,44 +474,48 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
           ) : specimenData ? (
             <>
               <p className="text-sm text-gray-500">Image count</p>
-              <p className="text-xl font-semibold">{formatNumberToLocaleString(specimenData.imageCounts)}</p>
+              <p className="text-xl font-semibold">
+                {formatNumberToLocaleString(specimenData.imageCounts)}
+              </p>
             </>
           ) : (
             <p className="text-sm text-gray-500">Image count unavailable</p>
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
-        {items.map((it) => (
-          <button
-            key={it.id}
-            onClick={() => openFull(it.id)}
-            title="Open full image"
-            className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
-          >
-            {it.thumbUrl ? (
-              <Image
-                src={it.thumbUrl}
-                alt={`Specimen ${it.id}`}
-                fill
-                sizes="(max-width:768px) 33vw, 150px"
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
+      <div id="specimen-thumbs" className="mt-8">
+        <h2 className="text-lg font-medium mb-3">Specimen Images</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
+          {items.map((it) => (
+            <button
+              key={it.id}
+              onClick={() => openFull(it.id)}
+              title="Open full image"
+              className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
+            >
+              {it.thumbUrl ? (
                 <Image
-                  src="/leaflet/images/butterfly.svg"
-                  alt="Loading..."
-                  width={112}
-                  height={112}
-                  className="animate-pulse mx-auto"
+                  src={it.thumbUrl}
+                  alt={`Specimen ${it.id}`}
+                  fill
+                  sizes="(max-width:768px) 33vw, 150px"
+                  className="object-cover"
                 />
-              </div>
-            )}
-          </button>
-        ))}
+              ) : (
+                <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
+                  <Image
+                    src="/leaflet/images/butterfly.svg"
+                    alt="Loading..."
+                    width={112}
+                    height={112}
+                    className="animate-pulse mx-auto"
+                  />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
-
       {/* Pagination bar */}
       <div className="flex items-center justify-center gap-3 mt-3">
         {/* Navigation container styled similar to PageTabs: rounded, dark background */}
