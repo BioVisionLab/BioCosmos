@@ -14,7 +14,7 @@ const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
       <Navigation />
 
       {/* Main Content - Putting container back on main */}
-      <main className="flex-grow container mx-auto px-4 py-8">
+      <main className="flex-grow container mx-auto px-4 py-4">
         {" "}
         {/* Restored container mx-auto, kept px-4 (container adds padding, but explicit px-4 is fine too) */}
         <div className="flex flex-col">

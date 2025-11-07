@@ -94,7 +94,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     <div className="w-full max-w-2xl mx-auto mb-6">
       <div className="flex flex-col gap-3">
         <div
-          className="relative flex flex-col items-center justify-center p-4 rounded-2xl bg-white/70 dark:bg-gray-800/60 backdrop-blur ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm hover:shadow-md transition-all"
+          className="relative flex flex-col items-center justify-center p-4 rounded-2xl bg-white/70 dark:bg-gray-800/60 backdrop-blur shadow-sm hover:shadow-md transition-all"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}

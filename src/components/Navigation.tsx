@@ -16,9 +16,9 @@ export default function Navigation() {
   const baseBtn =
     "inline-flex items-center justify-center px-8 py-1 rounded-full text-1xl font-semibold transition-all";
 
-  return(
+  return (
     <div className="flex flex-col items-end w-full">
-      <div className="flex items-center mt-3 mr-3">
+      <div className="flex items-center mt-4 mr-8">
         <div
           className={
             `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
@@ -37,52 +37,53 @@ export default function Navigation() {
 
             const activeItemClass =
               isActive && containerIsGradient
-          ? "scale-105 ring-1 ring-white/20 dark:ring-white/10 bg-white/30 dark:bg-white/12"
-          : "";
+                ? "scale-105 ring-1 ring-white/20 dark:ring-white/10 bg-white/30 dark:bg-white/12"
+                : "";
 
-
-            const classes = `${baseBtn} ${textColor} ${isActive ? activeItemClass : ""} first:ml-1 last:mr-1`;
+            const classes = `${baseBtn} ${textColor} ${
+              isActive ? activeItemClass : ""
+            } first:ml-1 last:mr-1`;
 
             if (tab.href) {
               return (
-          <Link
-            href={tab.href}
-            key={tab.id}
-            id={`tab-${tab.id}`}
-            className={classes}
-            role="tab"
-            aria-controls={`tabpanel-${tab.id}`}
-            tabIndex={activeTab === tab.id ? 0 : -1}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <span>{tab.label}</span>
-          </Link>
+                <Link
+                  href={tab.href}
+                  key={tab.id}
+                  id={`tab-${tab.id}`}
+                  className={classes}
+                  role="tab"
+                  aria-controls={`tabpanel-${tab.id}`}
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <span>{tab.label}</span>
+                </Link>
               );
             }
 
             return (
               <button
-          id={`tab-${tab.id}`}
-          key={tab.id}
-          type="button"
-          onClick={() => setActiveTab(tab.id)}
-          className={classes}
-          role="tab"
-          aria-controls={`tabpanel-${tab.id}`}
-          tabIndex={activeTab === tab.id ? 0 : -1}
+                id={`tab-${tab.id}`}
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={classes}
+                role="tab"
+                aria-controls={`tabpanel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
               >
-          {isActive && (
-            <svg
-              className="w-6 h-6"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden
-            >
-              <circle cx="12" cy="12" r="10" />
-            </svg>
-          )}
-          <span>{tab.label}</span>
+                {isActive && (
+                  <svg
+                    className="w-6 h-6"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                )}
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -102,4 +103,4 @@ export default function Navigation() {
       </div>
     </div>
   );
-};
+}
