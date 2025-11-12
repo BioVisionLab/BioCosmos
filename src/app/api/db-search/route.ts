@@ -1,7 +1,9 @@
-import { SpeciesData } from "@/lib/speciesData";
+import { API_HOST } from "@/lib/config";
 import { NextResponse } from "next/server";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-// import { getSpeciesData, type SpeciesData } from '@/lib/speciesData';
+
+const DB_SEARCH_ENDPOINT = `${API_HOST}/search/taxon`;
+
+const LIMIT = 20;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,17 +17,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    // const allSpecies = await getSpeciesData(); // Fetch all species
-    const lowerCaseQuery = query.toLowerCase();
+    const response = await fetch(
+      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&limit=${LIMIT}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch taxon data: ${response.statusText}`);
+    }
+    const taxonData = await response.json();
 
-    // const filteredSpecies = allSpecies.filter(
-    //   (species) =>
-    //     species.name.toLowerCase().includes(lowerCaseQuery) ||
-    //     species.commonName.toLowerCase().includes(lowerCaseQuery)
-    //   // Add more fields to search here if needed (e.g., description)
-    // );
-    const filteredSpecies: SpeciesData[] = []; // Placeholder until getSpeciesData is implemented
-    return NextResponse.json(filteredSpecies);
+    return NextResponse.json(taxonData);
   } catch (error) {
     console.error("Search API error:", error);
     return NextResponse.json(

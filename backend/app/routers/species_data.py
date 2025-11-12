@@ -4,19 +4,73 @@ import logging
 import io
 from fastapi import APIRouter, HTTPException, Request
 from starlette.responses import StreamingResponse
+from ..query.taxon_data import TaxonSearch
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# New: adding a backend endpoint to fetch image IDs for a species
 from fastapi.responses import JSONResponse
+
+
+@router.get(
+    "/species/{scientific_name}/biology", tags=["Species Data"]
+)
+async def fetch_species_biology(
+    request: Request, scientific_name: str
+):
+    """
+    Get species taxonomy data, traits, and similar species.
+
+    Args:
+        scientific_name (str): The species name to search for.
+
+    Returns:
+        JSONResponse: A JSON response containing the species taxonomy data,
+        traits, and similar species based on image similarity analyses
+        or an error message.
+    """
+    logger.info("Received taxon search request")
+    scientific_name = (
+        scientific_name.strip().lower() if scientific_name else None
+    )
+    if scientific_name is None or scientific_name == "":
+        logger.warning("Taxon search query is empty")
+        return JSONResponse(
+            content={
+                "error": "Query parameter 'scientific_name' is required and cannot be empty."
+            },
+            status_code=400,
+        )
+    logger.info(f"Searching for taxon: {scientific_name}")
+    try:
+        taxon_data = await TaxonSearch(
+            request=request, query=scientific_name
+        ).search()
+        if taxon_data is None:
+            message = f"No data found for species: {scientific_name}"
+            logger.info(message)
+            return JSONResponse(
+                content={"message": message},
+                status_code=404,
+            )
+        logger.info(f"Taxon data found for: {scientific_name}")
+        logger.info(f"Taxon data: {taxon_data}")
+        return JSONResponse(content=taxon_data, status_code=200)
+    except Exception as e:
+        logger.error(f"Error searching for taxon: {e}", exc_info=True)
+        return JSONResponse(
+            content={
+                "message": f"An error occurred while searching for taxon: {str(e)}"
+            },
+            status_code=500,
+        )
 
 
 @router.get(
     "/species/{scientific_name}/ids",
     tags=["Species Data", "Taxon Images"],
 )
-async def fetch_species_images(
+async def fetch_species_image_ids(
     request: Request, scientific_name: str
 ):
     """
@@ -103,14 +157,15 @@ async def fetch_taxon_thumbnail(
     "/species/{scientific_name}/image",
     tags=["Species Data", "Taxon Images"],
 )
-async def fetch_taxon_img(request: Request, scientific_name: str):
+async def fetch_species_high_res_image(
+    request: Request, scientific_name: str
+):
     """
-    Fetches a taxon image.
-    Return a high-res taxon image.
+    Fetches a species high-resolution image.
     Returns a 404 error if the image is not found.
     """
     logger.info(
-        f"Fetching taxon image for species: {scientific_name}"
+        f"Fetching species high-resolution image for species: {scientific_name}"
     )
 
     try:
@@ -146,15 +201,15 @@ async def fetch_taxon_img(request: Request, scientific_name: str):
 @router.get(
     "/species/{scientific_name}/specimens", tags=["Species Data"]
 )
-async def fetch_taxon_specimens(
+async def fetch_species_specimen_info(
     request: Request, scientific_name: str
 ):
     """
-    Fetches taxon specimens.
+    Fetches species specimens.
     Returns a 404 error if no specimens are found.
     """
     logger.info(
-        f"Fetching taxon specimens for species: {scientific_name}"
+        f"Fetching species specimens for species: {scientific_name}"
     )
 
     try:

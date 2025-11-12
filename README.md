@@ -58,13 +58,18 @@ A personalized, museum-quality biodiversity image platform that combines cutting
 - **Leaflet.js**: Interactive maps for visualization
 - **Lucide React**: Beautiful, customizable icons
 
-### Backend Services
+### Backend Stack
 
-- **Python**: The core language for the backend.
-- **FastAPI**: A modern, fast (high-performance) web framework for building APIs.
-- **DuckDB**: An in-process SQL OLAP database management system.
-- **UNICOM**: A model for advanced computer vision tasks, including semantic search.
-- **Pillow**: A powerful image processing library for Python.
+- **FastAPI**: Modern, high-performance web framework for building APIs
+- **Python 3.10+**: Core backend language
+- **LanceDB**: Vector database for embedding storage and similarity search
+- **DuckDB**: In-process SQL OLAP database for structured data
+- **CLIP**: OpenAI's vision-language model for semantic search
+- **UNICOM**: Advanced computer vision model for visual similarity
+- **Polars**: High-performance DataFrame library for data processing
+- **ChromaDB**: Vector database for additional embedding operations
+- **Transformers**: Hugging Face library for ML model integration
+- **PyTorch**: Deep learning framework for model inference
 
 ## 📁 Project Structure
 
@@ -73,66 +78,85 @@ biocosmos/
 ├── backend/                  # Python backend (FastAPI)
 │   ├── app/                    # Core application code
 │   │   ├── main.py             # FastAPI entrypoint
+│   │   ├── configs/            # Configuration files and settings
 │   │   ├── database/           # Database models and connections
+│   │   │   ├── duckdb.py       # DuckDB operations
+│   │   │   ├── lance.py        # LanceDB operations
+│   │   │   └── model.py        # Data models
+│   │   ├── query/              # Database query logic
 │   │   ├── routers/            # API endpoints
-│   │   ├── searches/           # Search logic
-│   │   └── services/           # ML and external services
+│   │   │   ├── data_stats.py   # Statistics endpoints
+│   │   │   ├── db_search.py    # Database search endpoints
+│   │   │   ├── image_retrieval.py  # Image serving endpoints
+│   │   │   ├── ml_search.py    # ML-based search endpoints
+│   │   │   ├── species_data.py # Species data endpoints
+│   │   │   └── text_summarization.py  # AI chatbot endpoints
+│   │   └── services/           # Business logic and ML services
+│   │       ├── clip.py         # CLIP model integration
+│   │       ├── unicom.py       # UNICOM model integration
+│   │       ├── images.py       # Image processing and embedding
+│   │       ├── gbif.py         # GBIF API integration
+│   │       ├── leptraits.py    # Trait data processing
+│   │       └── openai.py       # OpenAI API integration
+│   ├── tests/                  # Backend tests
 │   ├── Dockerfile              # Backend Dockerfile
-│   └── pyproject.toml          # Python dependencies
+│   └── pyproject.toml          # Python dependencies (uv)
 ├── src/                      # Next.js frontend
 │   ├── app/                    # App Router pages and layouts
+│   │   ├── page.tsx            # Home page
+│   │   ├── layout.tsx          # Root layout
+│   │   ├── about/              # About page
+│   │   ├── api/                # API route handlers
+│   │   ├── collections/        # Collections pages
+│   │   ├── family/             # Family taxonomy pages
+│   │   ├── genus/              # Genus taxonomy pages
+│   │   ├── resources/          # Resources page
+│   │   ├── search/             # Search results page
+│   │   ├── species/            # Species detail pages
+│   │   └── visualization/      # t-SNE visualization page
 │   ├── components/             # React components
+│   │   ├── ui/                 # UI components
+│   │   ├── ChatbotPanel.tsx    # AI chatbot
+│   │   ├── ImageSearch.tsx     # Image search component
+│   │   ├── SearchBar.tsx       # Search interface
+│   │   ├── SpeciesMap.tsx      # Geographic maps
+│   │   └── ...                 # Other components
 │   └── lib/                    # Helper functions and utilities
-├── public/                   # Static assets (images, etc.)
-├── tools/                    # Helper scripts for data processing
+│       ├── backend.ts          # Backend API client
+│       ├── types.ts            # TypeScript types
+│       └── ...                 # Other utilities
+├── public/                   # Static assets
+│   ├── images/                 # Species images
+│   ├── dataset-metadata/       # Metadata files
+│   └── leaflet/                # Leaflet map assets
+├── tools/                    # Data processing scripts
+│   ├── embed_images.py         # Generate image embeddings
+│   ├── generate_tsne_coords.py # Create t-SNE visualization data
+│   └── create_metadata_json.py # Process metadata
+├── scripts/                  # Convenience runner scripts
+│   ├── run_backend.sh          # Start backend (Linux/macOS)
+│   ├── run_backend.ps1         # Start backend (Windows)
+│   ├── run_frontend.sh         # Start frontend (Linux/macOS)
+│   └── run_frontend.ps1        # Start frontend (Windows)
 ├── docker-compose.yml        # Docker Compose configuration
 ├── Dockerfile.frontend       # Frontend Dockerfile
-└── package.json              # Frontend dependencies
+├── package.json              # Frontend dependencies (Yarn)
+├── tsconfig.json             # TypeScript configuration
+└── tailwind.config.ts        # Tailwind CSS configuration
 ```
 
 ## 🚀 Local Development Setup
 
 ### Prerequisites
 
-- **Node.js** (v18 or higher)
+- **Node.js** (v18 or higher) and **Yarn** package manager
 - **Python** (v3.10 or higher)
+- **uv** - Modern Python package manager (recommended)
 - **Git**
-- **Docker** and **Docker Compose**
-- **OpenAI API Key** (for chatbot functionality)
+- **Docker** and **Docker Compose** (for containerized deployment)
+- **OpenAI API Key** (optional, for chatbot functionality)
 
-### Running with Docker (Recommended)
-
-This is the easiest way to get started with BioCosmos. With Docker and Docker Compose, you can spin up the entire application with a single command.
-
-1. **Clone the Repository**
-
-    ```bash
-    git clone <repository-url>
-    cd biocosmos
-    ```
-
-2. **Environment Configuration**
-
-    Create a `.env.local` file in the root directory:
-
-    ```bash
-    # This is the API host for production, change it to development address if needed
-    API_HOST=http://0.0.0.0:8000
-    # Dev API host if you run development server:
-    # API_HOST=http://127.0.0.1:8000
-    ```
-
-3. **Build and Run with Docker Compose**
-
-    ```bash
-    docker-compose up --build
-    ```
-
-4. **Access the Application**
-
-    Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Manual Setup
+### Manual Setup (Development)
 
 If you prefer to run the services manually without Docker, follow these steps:
 
@@ -151,46 +175,232 @@ If you prefer to run the services manually without Docker, follow these steps:
 
 3. **Set Up Python Environment**
 
-    We use [uv](https://docs.astral.sh/uv/) to manage the dependencies for the Python backend service. If you don't have `uv` installed, you can install it via pip:
+    We use [uv](https://docs.astral.sh/uv/) for fast, reliable Python dependency management:
+
+    **Install uv:**
 
     ```bash
+    # On macOS/Linux
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    
+    # Or via pip
     pip install uv
     ```
 
-    Other intallation methods are available in the [uv documentation](https://docs.astral.sh/uv/installation).
+    **Install backend dependencies:**
+
+    ```bash
+    cd backend
+    uv sync
+    cd ..
+    ```
 
 4. **Environment Configuration**
 
-    Create a `.env.local` file in the root directory:
+    **Frontend** - Create a `.env.local` file in the root directory:
 
     ```bash
+    # Optional: OpenAI API key for chatbot functionality
     OPENAI_API_KEY=your_openai_api_key_here
-    # This is the API host for production, change it to development address if needed
-    API_HOST=http://0.0.0.0:8000
+    
+    # API host for local development
+    API_HOST=http://127.0.0.1:8000
+    ```
+
+    **Backend** - Create a `.env` file in the `backend/` directory:
+
+    ```bash
+    # Optional: Database directory paths (defaults to current directory if not set)
+    DUCK_DIR=./duck_db
+    LANCE_DIR=./lance_db
+    GBIF_DIR=./data
+    IMAGE_DIR=../public/images
+    
+    # Optional: Custom AI service (UF AI or similar)
+    # UF_AI_URL=your_ai_service_url
+    # UF_AI_API_KEY=your_ai_api_key
     ```
 
 5. **Prepare the Dataset**
 
-    Ensure your butterfly images are organized in `public/images/`.
+    Organize your butterfly images in the appropriate directory structure. See the data preparation section for details.
 
-6. **Start the Services**
+6. **Generate Embeddings (First Time Setup)**
 
-    **Terminal 1 - Frontend:**
+    ```bash
+    cd backend
+    
+    # Generate image embeddings using CLIP and UNICOM
+    uv run python ../tools/embed_images.py
+    
+    # Generate t-SNE visualization coordinates
+    uv run python ../tools/generate_tsne_coords.py
+    
+    cd ..
+    ```
+
+7. **Start the Services**
+
+    **Option A - Using convenience scripts:**
+
+    ```bash
+    # Terminal 1 - Backend
+    ./scripts/run_backend.sh
+    
+    # Terminal 2 - Frontend
+    ./scripts/run_frontend.sh
+    ```
+
+    **Option B - Manual commands:**
+
+    **Terminal 1 - Backend:**
+
+    ```bash
+    cd backend
+    uv run --env-file .env -- fastapi dev
+    # Or: uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    ```
+
+    **Terminal 2 - Frontend:**
 
     ```bash
     yarn dev
     ```
 
-    **Terminal 2 - Backend Service:**
+8. **Access the Application**
 
-    ```bash
-    cd backend
-    uvicorn app.main:app --reload
-    ```
+    - **Frontend**: [http://localhost:3000](http://localhost:3000)
+    - **Backend API**: [http://localhost:8000](http://localhost:8000)
+    - **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-7. **Access the Application**
+## 🗄️ Data Management
 
-    Open [http://localhost:3000](http://localhost:3000) in your browser.
+### Database Structure
+
+BioCosmos uses two complementary databases:
+
+1. **LanceDB** (Vector Database)
+   - Stores image embeddings for similarity search
+   - Supports both CLIP and UNICOM embeddings
+   - Enables fast nearest-neighbor queries
+
+2. **DuckDB** (Analytical Database)
+   - Stores species metadata and taxonomic information
+   - Handles structured queries and aggregations
+   - Provides trait and geographic data
+
+### Data Preparation
+
+The `tools/` directory contains scripts for data processing:
+
+- **embed_images.py**: Generate CLIP and UNICOM embeddings for images
+- **generate_tsne_coords.py**: Create t-SNE visualization coordinates
+- **create_metadata_json.py**: Process and format metadata
+
+## 🧪 Testing
+
+### Backend Tests
+
+```bash
+cd backend
+uv run pytest
+```
+
+### Frontend Linting
+
+```bash
+yarn lint
+```
+
+## 🛠️ Development Tips
+
+### Backend Development
+
+- **Hot Reload**: Use `--reload` flag with uvicorn for auto-restart on code changes
+- **API Docs**: FastAPI automatically generates interactive API documentation at `/docs`
+- **Logging**: Configure logging levels in `backend/app/configs/config.yaml`
+- **Dependencies**: Add new packages with `uv add <package>`
+- **Environment Variables**: Backend reads from `backend/.env` file for configuration
+- **Convenience Scripts**: Use `scripts/run_backend.sh` (or `.ps1` for Windows) for quick startup
+
+### Frontend Development
+
+- **TypeScript**: All components use TypeScript for type safety
+- **Tailwind CSS**: Utility-first styling with custom theme configuration
+- **Dark Mode**: Theme handled by `next-themes` with system preference detection
+- **API Integration**: Backend API calls centralized in `src/lib/backend.ts`
+- **Convenience Scripts**: Use `scripts/run_frontend.sh` (or `.ps1` for Windows) for quick startup
+
+## 🚀 Deployment
+
+### Docker Deployment
+
+The project includes Docker configurations for easy deployment:
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d
+
+# Stop services
+docker-compose down
+```
+
+### Environment Variables
+
+For production deployment, ensure the following environment variables are set:
+
+**Frontend** (`.env` in root directory):
+
+```bash
+API_HOST=http://backend:8000  # Or your production backend URL
+```
+
+**Backend** (`.env` in `backend/` directory):
+
+```bash
+# Database directories
+DUCK_DIR=./duck_db
+LANCE_DIR=./lance_db
+GBIF_DIR=./data
+IMAGE_DIR=../public/images
+
+# Optional: Custom AI service
+UF_AI_URL=your_ai_service_url
+UF_AI_API_KEY=your_ai_api_key
+```
+
+## 🔌 API Endpoints
+
+The backend provides the following key API endpoints:
+
+### Search & Retrieval
+
+- `GET /api/ml-search/text-search` - Text-based semantic search
+- `POST /api/ml-search/image-search` - Image-based similarity search
+- `GET /api/db-search/taxon` - Taxonomic data search
+
+### Species Data
+
+- `GET /api/species/{species_name}` - Get detailed species information
+- `GET /api/species/{species_name}/similar` - Find similar species
+
+### Images
+
+- `GET /api/images/{species_name}` - Retrieve species images
+- `GET /api/images/thumbnail/{species_name}` - Get thumbnail images
+
+### Statistics
+
+- `GET /api/stats/summary` - Dataset statistics and metrics
+
+### AI Chat
+
+- `POST /api/chat` - Conversational AI about biodiversity
+
+For complete API documentation, visit [http://localhost:8000/docs](http://localhost:8000/docs) when running the backend.
 
 ## 🤝 Contributing
 
@@ -206,11 +416,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- **iNaturalist**: Inspiration for biodiversity platforms
-- **OpenAI CLIP**: Computer vision capabilities
-- **Leaflet**: Interactive mapping functionality
-- **Next.js Team**: Excellent React framework
-- **Butterfly Dataset Contributors**: High-quality species images
+- **OpenAI CLIP**: Vision-language model for semantic understanding
+- **UNICOM**: Advanced computer vision model for biological images
+- **LanceDB**: Fast vector database for similarity search
+- **FastAPI**: Modern Python web framework
+- **Next.js**: React framework with excellent developer experience
+- **Leaflet**: Open-source mapping library
+- **GBIF**: Global biodiversity data integration
+- **Butterfly Dataset Contributors**: High-quality species images and data
 
 ---
 

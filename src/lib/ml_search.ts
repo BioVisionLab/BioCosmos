@@ -1,10 +1,10 @@
-export interface SemanticResultItem {
+export interface MlResultItems {
   imgId: string;
   species: string;
   distance: number;
 }
 
-async function searchSemantic(query: string): Promise<SemanticResultItem[]> {
+async function searchSemantic(query: string): Promise<MlResultItems[]> {
   const response = await fetch(
     "/api/ml-search/text?q=" + encodeURIComponent(query),
     {
@@ -21,17 +21,14 @@ async function searchSemantic(query: string): Promise<SemanticResultItem[]> {
     );
   }
   const results = await response.json();
-  return results as SemanticResultItem[];
+  return results as MlResultItems[];
 }
 
-async function searchFromImage(file: File) {
-  const formData = new FormData();
-  formData.append("image", file); // Client sends as "image"
-
+async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
   try {
     const response = await fetch("/api/ml-search/image", {
       method: "POST",
-      body: formData,
+      body: data,
     });
 
     if (!response.ok) {

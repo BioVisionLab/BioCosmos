@@ -9,14 +9,7 @@ import {
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-/**
- * SpeciesImages
- * - requests image IDs from backend route /taxon/{species_name}/ids
- * - loads full image for the first ID via fetchImgById
- * - loads thumbnails for the next 5 IDs via fetchThumbnailById
- * - clicking a thumbnail selects it as the main image WITHOUT reordering
- */
-export function SpeciesImages({ speciesName }: { speciesName: string }) {
+export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);

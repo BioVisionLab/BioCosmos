@@ -1,6 +1,6 @@
 import logging
 
-from ..query.taxon import TaxonSearch
+from ..query.taxon_data import TaxonSearch
 from fastapi import (
     APIRouter,
     Request,

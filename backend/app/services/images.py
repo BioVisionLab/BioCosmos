@@ -257,7 +257,8 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the provided image."
             )
-            return similar_images.to_dicts()
+            filtered_imgs = self._filter_by_species(similar_images)
+            return filtered_imgs.to_dicts()
 
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")
@@ -360,6 +361,8 @@ class ImagePersistData:
             cleaned_results = results.select(safe_cols).rename(
                 {"img_id": "imgId", "_distance": "distance"}
             )
+            # We filter image by unique image IDs to avoid duplicates
+            cleaned_results = cleaned_results.unique(subset=["imgId"])
             return cleaned_results
         except Exception as e:
             self.logger.error(f"Error querying embeddings: {e}")
@@ -367,16 +370,22 @@ class ImagePersistData:
 
     def _filter_by_species(self, df: pl.DataFrame) -> pl.DataFrame:
         """Filter the DataFrame to ensure only one image per species.
-        We sort by distance and keep the first occurrence of each species.
+        We keep the species with the highest distance value.
         """
         if df is None or df.is_empty():
             return df
-        # Sort by distance
-        df = df.sort("distance")
-        # Keep only the first occurrence of each species
-        filtered_df = df.unique(subset=["species"])
+
+        # Sort by distance descending, then unique while maintaining order
+        filtered_df = (
+            df.sort("distance", descending=True)
+            .unique(subset=["species"], maintain_order=True)
+            .sort(
+                "distance", descending=True
+            )  # Final sort for output
+        )
+
         self.logger.info(
-            f"Filtered to {len(df)} of {len(filtered_df)} species."
+            f"Filtered to {len(filtered_df)} of {len(df)} species."
         )
         return filtered_df
 

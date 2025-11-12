@@ -85,7 +85,6 @@ async def image_search(
             "image/jpeg",
             "image/jpg",
             "image/png",
-            "image/gif",
             "image/webp",
         ]
         if file.content_type not in allowed_content_types:
