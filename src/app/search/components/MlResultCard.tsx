@@ -14,6 +14,12 @@ import { MlResultItems } from "@/lib/ml_search";
 
 // Image size matching the backend resizing
 const IMAGE_SIZE = 128;
+// Compute match percent from a 0..1 distance value using the app's scaling formula
+function computeMatchPercent(distance: number) {
+  return Math.round(
+    50.0 + (distance - 0.501) * (50.0 / (0.999 - 0.501))
+  );
+}
 // Reusable component for displaying a species card (similar to GenusSpeciesClient)
 function MLSearchResultCard({ data }: { data: MlResultItems }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -37,9 +43,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   const speciesName = cleanSpeciesName(data.species);
 
   // Format similarity (0..1) as a percentage for display
-  const matchPercent = Math.round(
-    50.0 + (data.distance - 0.501) * (50.0 / (0.999 - 0.501))
-  );
+  const matchPercent = computeMatchPercent(data.distance);
 
   // Return Tailwind classes for a colored pill (bg + text) with dark-mode variants
   const getMatchPillClass = (pct: number) => {
@@ -73,7 +77,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
           <h2 className="text-sm truncate text-center text-gray-400 italic mt-2">
             {speciesName}
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 mt-1">
             <span className={getMatchPillClass(matchPercent)}>Match: {matchPercent}%</span>
           </p>
         </Link>
@@ -112,19 +116,37 @@ function TopResultCard({ data }: { data: MlResultItems }) {
     return null;
   }
 
+  // Compute match percent for the top result (reuse helper)
+  const matchPercent = computeMatchPercent(data.distance);
+
+  // Reuse the same pill styling logic as the other result cards
+  const getMatchPillClass = (pct: number) => {
+    const base = "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
+    if (pct < 65)
+      return `${base} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
+    if (pct < 70)
+      return `${base} bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200`;
+    if (pct < 75)
+      return `${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
+    if (pct < 80)
+      return `${base} bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200`;
+    return `${base} bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100`;
+  };
+
   return (
     <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
-      <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
-        <h2 className="text-lg font-semibold">Top Result</h2>
+      <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl flex items-center gap-3">
+        <h2 className="text-lg font-semibold p-1">Top Result</h2>
+        <span className={getMatchPillClass(matchPercent)}>Match: {matchPercent}%</span>
       </div>
       <Link href={`/species/${data.species}`}>
-        <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4 m-4">
+        <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4 m-4 p-2">
           {cleanSpeciesName(data.species)}
         </h2>
         {loading ? (
           <ImageLoading size={160} />
         ) : (
-          <div className="flex gap-12 items-center m-4">
+          <div className="flex gap-12 items-center m-4 p-3">
             <div className="flex flex-col items-start">
               {speciesImageUrl && (
                 <Image
@@ -137,14 +159,14 @@ function TopResultCard({ data }: { data: MlResultItems }) {
               )}
             </div>
             <div className="items-start">
-              <h3 className="text-sm mb-2 text-gray-400 ">Other forms</h3>
+                  <h3 className="text-sm mb-2 text-gray-400">Other forms:</h3>
               {otherImageUrls && (
                 <div className="gap-2 overflow-auto flex">
                   {otherImageUrls.map((url, index) => (
-                    <div
-                      key={index}
-                      className="p-2 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
-                    >
+                        <div
+                          key={index}
+                          className="p-3 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
+                        >
                       <Image
                         key={index}
                         src={url}
