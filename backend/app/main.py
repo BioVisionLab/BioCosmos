@@ -78,8 +78,7 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    # UF_AI_URL: str
-    # UF_AI_API_KEY: str
+    UMAP_DIR: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
