@@ -77,6 +77,7 @@ class AppSettings(BaseSettings):
     DUCK_DIR: str
     LANCE_DIR: str
     IMAGE_DIR: str
+    IMAGE_META_DIR: str
     GBIF_DIR: str
     UMAP_DIR: str
 

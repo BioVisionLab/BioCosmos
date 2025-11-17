@@ -44,6 +44,18 @@ class ImageMetaConfig:
         config = load_config()
         self._image_meta_config = config.get("image_meta", {})
 
+    def path(self) -> str:
+        parent_dir = os.getenv("IMAGE_META_DIR", ".")
+        file_name = self._image_meta_config.get(
+            "file", "image_metadata.csv"
+        )
+        full_path = os.path.join(parent_dir, file_name)
+        if not os.path.exists(full_path):
+            logger.info(
+                f"Failed to find image metadata file at: {full_path}"
+            )
+        return full_path
+
     @property
     def skip(self) -> bool:
         skip = self._image_meta_config.get("skip", False)
@@ -64,7 +76,20 @@ class ImageMetaConfig:
 class UmapDataConfig:
     def __init__(self):
         config = load_config()
-        self._umap_data_config = config.get("umap_data", {})
+        self._umap_data_config = config.get("umap", {})
+
+    @property
+    def path(self) -> str:
+        parent_dir = os.getenv("UMAP_DIR", ".")
+        file_name = self._umap_data_config.get(
+            "file", "umap_embeddings.csv"
+        )
+        full_path = os.path.join(parent_dir, file_name)
+        if not os.path.exists(full_path):
+            logger.info(
+                f"Failed to find UMAP data file at: {full_path}"
+            )
+        return full_path
 
     @property
     def skip(self) -> bool:
