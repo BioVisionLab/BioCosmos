@@ -95,15 +95,10 @@ function ImageUmap({ species }: { species: string }) {
 
   return (
     <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 max-w-4xl h-fit">
-      <h3 className="mb-2 text-xl font-semibold">
-        UMAP Embeddings for specimen images
-      </h3>
-      <p className="text-xs text-gray-600 dark:text-gray-400">
-        UMAP visualization of specimen images. Each point represents an image,
-        and colors indicate different clusters based on visual similarity.
-      </p>
+      <h2 className="text-lg font-semibold">Specimen Similarity Map</h2>
       <p className="mb-4 text-xs text-gray-600 dark:text-gray-400">
-        Tips: Hover over points to see specimen thumbnails.
+        Images with similar visual features clustered using UMAP dimensionality
+        reduction. Hover to preview a specimen image; colors show cluster groups
       </p>
 
       <ResponsiveContainer width="100%" height={400}>
@@ -132,12 +127,12 @@ function ImageUmap({ species }: { species: string }) {
               return null;
             }}
           />
-          <Legend
+          {/* <Legend
             verticalAlign="bottom"
             wrapperStyle={{
               paddingTop: "24px",
             }}
-          />
+          /> */}
 
           {clusters.map((cluster) => (
             <Scatter

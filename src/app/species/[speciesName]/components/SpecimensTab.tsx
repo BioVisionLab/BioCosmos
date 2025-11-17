@@ -488,7 +488,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         <ImageUmap species={speciesName ?? ""} />
       </div>
       <div id="specimen-thumbs" className="mt-8">
-        <h2 className="text-lg font-medium mb-3">Specimen Images</h2>
+        <h2 className="text-lg font-semibold mb-2">Specimen Images</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
           {items.map((it) => (
             <button
