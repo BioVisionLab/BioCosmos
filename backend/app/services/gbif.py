@@ -24,12 +24,18 @@ class GbifPersistData:
         config = GbifConfig()
         self.tsv_path = config.path
         self.table_name = config.table
+        self.skip_ingestion = config.skip
         self.db_client = duckdb
 
     def ingest(self):
         """
         Ingest GBIF data from a TSV file into DuckDB.
         """
+        if self.skip_ingestion:
+            logger.info(
+                "Skipping GBIF data ingestion as per configuration."
+            )
+            return
         try:
             # We use custom execution instead of the wrapper function
             # for table creation in the DuckDb module to avoid
@@ -64,8 +70,8 @@ class GbifPersistData:
                 f"Failed to count entries in GBIF metadata table: {e}"
             )
             return None
-    
-    def count_unique_species(self) -> int | None :
+
+    def count_unique_species(self) -> int | None:
         try:
             query = f"SELECT COUNT(DISTINCT species) FROM {self.table_name}"
             result = self.db_client.execute(query).fetchone()[0]

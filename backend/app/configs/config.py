@@ -39,10 +39,66 @@ def get_lance_db_path() -> str:
     return os.path.join(parent_dir, lance_config["file"])
 
 
+class ImageMetaConfig:
+    def __init__(self):
+        config = load_config()
+        self._image_meta_config = config.get("image_meta", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._image_meta_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Image meta skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def table(self) -> str:
+        return self._image_meta_config.get("table", "image_meta")
+
+
+class UmapDataConfig:
+    def __init__(self):
+        config = load_config()
+        self._umap_data_config = config.get("umap_data", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._umap_data_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"UMAP skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def table(self) -> str:
+        return self._umap_data_config.get("table", "umap_embeddings")
+
+
 class GbifConfig:
     def __init__(self):
         config = load_config()
         self._gbif_config = config.get("gbif", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._gbif_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"GBIF skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
 
     @property
     def path(self) -> str:
@@ -74,6 +130,18 @@ class LepTraitConfig:
         if not url.startswith("http"):
             logger.info(f"LepTrait URL does not look remote: {url}")
         return url
+
+    @property
+    def skip(self) -> bool:
+        skip = self._leptrait_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"LepTrait skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
 
     # Backward compatibility if existing code still calls .path
     @property
