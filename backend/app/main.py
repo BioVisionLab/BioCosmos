@@ -11,7 +11,7 @@ from .services.unicom import UnicomModel
 from .database.lance import LanceDB
 from .services.clip import ClipModel
 from .services.images import ImageEmbedder
-from .services.umap import Umap
+from .services.umap import SpeciesImageUmap
 
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
@@ -143,7 +143,7 @@ def run_data_ingestion(app: FastAPI):
     logger.info("LepTraits data ingested.")
     GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
-    Umap(app.state.duck_db).ingest()
+    SpeciesImageUmap(app.state.duck_db).ingest()
     logger.info("UMAP data ingested.")
 
     image_embedder = ImageEmbedder(

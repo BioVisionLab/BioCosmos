@@ -1,6 +1,6 @@
 from openai import BaseModel
 
-from ..services.umap import Umap
+from ..services.umap import SpeciesImageUmap
 from ..services.images import ImageSummary
 from starlette.requests import Request
 import logging
@@ -53,9 +53,9 @@ class SpeciesUmap:
 
     def get_umap_embeddings(self, species: str) -> dict | None:
         try:
-            umap_data: dict = Umap(duckdb=self.duckdb).get_embeddings(
-                species
-            )
+            umap_data: dict = SpeciesImageUmap(
+                duckdb=self.duckdb
+            ).get_embeddings(species)
             return umap_data
         except Exception as e:
             logger.error(

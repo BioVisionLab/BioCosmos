@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class Umap:
+class SpeciesImageUmap:
     """
     Service class for UMAP data processing.
     """
