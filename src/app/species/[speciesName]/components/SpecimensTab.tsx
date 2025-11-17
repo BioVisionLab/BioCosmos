@@ -465,9 +465,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   return (
     <div>
       {/* Specimen header (icon + image count) */}
-      <div className="flex items-center gap-4 mb-4">
+      <div className="flex items-center gap-4 mb-8">
         <IconContainer>
-          <ButterflyComplex className="w-10 h-10 fill-teal-500" />
+          <ButterflyComplex className="w-16 h-16 fill-teal-500" />
         </IconContainer>
         <div className="my-2">
           {specimenLoading ? (
