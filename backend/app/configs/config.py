@@ -76,7 +76,7 @@ class ImageMetaConfig:
 class UmapDataConfig:
     def __init__(self):
         config = load_config()
-        self._umap_data_config = config.get("umap", {})
+        self._umap_data_config = config.get("umap_data", {})
 
     @property
     def path(self) -> str:

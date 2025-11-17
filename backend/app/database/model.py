@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import os
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -7,6 +7,7 @@ from PIL import Image
 from io import BytesIO
 from ..services import clip, unicom
 from lancedb.pydantic import LanceModel, Vector
+from pydantic.alias_generators import to_camel
 
 logger = logging.getLogger(__name__)
 
@@ -365,3 +366,29 @@ class LepTraitData(BaseModel):
         except ValueError:
             logger.error(f"Failed to convert {value} to int")
             return None
+
+
+class UmapEmbedding(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    img_id: str
+    umap_x: float
+    umap_y: float
+    cluster_label: Optional[int]
+
+    def __repr__(self):
+        return f"UmapEmbedding(species={self.species}, umap_x={self.umap_x}, umap_y={self.umap_y})"
+
+
+class UmapData(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    species: str
+    umap_embeddings: list[UmapEmbedding]
+
+    def __repr__(self):
+        return f"UmapData(species={self.species}, umap_embeddings_count={len(self.umap_embeddings)})"

@@ -1,4 +1,6 @@
 from openai import BaseModel
+
+from ..services.umap import Umap
 from ..services.images import ImageSummary
 from starlette.requests import Request
 import logging
@@ -41,5 +43,23 @@ class SpecimenData:
         except Exception as e:
             logger.error(
                 f"Error fetching specimen data: {e}", exc_info=True
+            )
+            return None
+
+
+class SpeciesUmap:
+    def __init__(self, request: Request):
+        self.duckdb = request.app.state.duck_db
+
+    def get_umap_embeddings(self, species: str) -> dict | None:
+        try:
+            umap_data: dict = Umap(duckdb=self.duckdb).get_embeddings(
+                species
+            )
+            return umap_data
+        except Exception as e:
+            logger.error(
+                f"Error fetching UMAP embeddings for species '{species}': {e}",
+                exc_info=True,
             )
             return None
