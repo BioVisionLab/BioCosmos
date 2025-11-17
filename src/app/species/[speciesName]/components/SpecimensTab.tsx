@@ -12,6 +12,7 @@ import {
   fetchImgById,
   fetchSpeciesImageIds,
 } from "@/lib/images";
+import ImageUmap from "./ImageUmap";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -482,6 +483,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
             <p className="text-sm text-gray-500">Image count unavailable</p>
           )}
         </div>
+      </div>
+      <div id="specimen-umap">
+        <ImageUmap species={speciesName ?? ""} />
       </div>
       <div id="specimen-thumbs" className="mt-8">
         <h2 className="text-lg font-medium mb-3">Specimen Images</h2>
