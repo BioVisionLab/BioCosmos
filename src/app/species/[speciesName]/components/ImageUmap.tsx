@@ -221,7 +221,7 @@ function ImageUmap({ species }: { species: string }) {
         </ScatterChart>
       </ResponsiveContainer>
       <div className="mt-2 text-sm text-gray-600">
-        Total points: {umapCoords.length} &middot; Clusters: {clusters.length}
+        Total samples: {umapCoords.length} &middot; Clusters: {clusters.length}
       </div>
     </div>
   );
