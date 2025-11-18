@@ -37,7 +37,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   const speciesName = cleanSpeciesName(data.species);
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
+    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
@@ -93,7 +93,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   }
 
   return (
-    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
+    <div className="rounded-2xl w-fit border border-teal-200/50 dark:border-teal-700/50 bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
         <h2 className="text-lg font-semibold">The Top Result</h2>
       </div>
@@ -102,7 +102,9 @@ function TopResultCard({ data }: { data: MlResultItems }) {
         {cleanSpeciesName(data.species)}
       </h2>
       {loading ? (
-        <ImageLoading size={160} />
+        <div className="m-4">
+          <ImageLoading size={160} />
+        </div>
       ) : (
         <div className="flex gap-12 items-center m-4">
           <div className="flex flex-col items-start">

@@ -111,7 +111,10 @@ function SearchResults({
           </div>
           <div>
             <div className="mb-4">
-              <h2 id="other-results" className="text-lg text-gray-200">
+              <h2
+                id="other-results"
+                className="text-lg text-gray-700 dark:text-gray-200"
+              >
                 Found {results.length} other results for "{query}"
               </h2>
               <Tips message="Click on an image to view species page" />
