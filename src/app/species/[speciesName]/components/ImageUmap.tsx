@@ -13,7 +13,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   ZAxis,
-  CartesianGrid,
 } from "recharts";
 
 const TOOLTIP_IMAGE_SIZE = 80;
@@ -248,15 +247,15 @@ const CustomDot = (props: any) => {
   }
   return (
     <g>
-      <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.7} />
       <foreignObject
-        x={cx}
-        y={cy}
+        x={cx - CLUSTER_IMAGE_SIZE / 2}
+        y={cy - CLUSTER_IMAGE_SIZE / 2}
         width={CLUSTER_IMAGE_SIZE}
         height={CLUSTER_IMAGE_SIZE}
       >
         <ClusterImage imgId={imgId} />
       </foreignObject>
+      <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.8} />
     </g>
   );
 };
