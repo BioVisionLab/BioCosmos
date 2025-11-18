@@ -162,6 +162,17 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
             color: oklch(98.5% 0.002 247.839) !important;
           }
         }
+          /* Default colors for table head background color */
+        .wiki-container table.wikitable th {
+          background-color: oklch(95% 0.01 250) !important;
+          color: oklch(20% 0.05 250) !important;
+        }
+        @media (prefers-color-scheme: dark) {
+          .wiki-container table.wikitable th {
+            background-color: oklch(20% 0.05 250) !important;
+            color: oklch(95% 0.01 250) !important;
+          }
+        }  
         /* Make wiki links inherit surrounding text color and only show an underline for clarity
            (avoids bright-blue links on dark/blue backgrounds). Scoped to wiki-container. */
         .wiki-container a,
