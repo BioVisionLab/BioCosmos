@@ -47,7 +47,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   if (loading) {
     return (
       <div className="mx-auto items-center">
-        <TextLoading text="Loading literature data" />
+        <TextLoading msg="Loading literature data" />
       </div>
     );
   }
