@@ -36,6 +36,22 @@ class DuckDBClient:
         """
         return self.conn.execute(query, params)
 
+    def create_or_replace_table_csv(
+        self, table_name: str, csv_path: str
+    ):
+        """Create or replace a table from a CSV file.
+        Args:
+            table_name (str): The name of the table to create or replace.
+            csv_path (str): The path to the CSV file.
+        """
+        self.conn.execute(
+            f"""
+            CREATE OR REPLACE TABLE {table_name} AS 
+            SELECT * FROM read_csv_auto('{csv_path}')
+            """
+        )
+        logger.info(f"Table '{table_name}' created or replaced.")
+
     def create_if_not_exists_csv(
         self, table_name: str, csv_path: str
     ):

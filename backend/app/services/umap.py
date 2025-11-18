@@ -29,7 +29,7 @@ class SpeciesImageUmap:
             )
             return
         try:
-            self.db_client.create_if_not_exists_csv(
+            self.db_client.create_or_replace_table_csv(
                 table_name=self.table, csv_path=self.path
             )
             entries: int | None = self.count_entries()
