@@ -13,10 +13,11 @@ import {
   Tooltip,
   ResponsiveContainer,
   ZAxis,
+  CartesianGrid,
 } from "recharts";
 
 const TOOLTIP_IMAGE_SIZE = 80;
-const CLUSTER_IMAGE_SIZE = 24;
+const CLUSTER_IMAGE_SIZE = 60;
 
 const CLUSTER_COLORS = [
   "#7c3aed", // Purple
@@ -147,7 +148,16 @@ function ImageUmap({ species }: { species: string }) {
             domain={[xMin, xMax]}
             tickFormatter={formatAxisTick}
             name="UMAP 1"
-            label={{ value: "UMAP 1", position: "insideBottom", offset: -10 }}
+            label={{
+              value: "UMAP 1",
+              position: "insideBottom",
+              offset: -10,
+              fill: "#374151", // Tailwind gray-700 for label text
+            }}
+            stroke="#94a3b8" // Overall axis color (Tailwind slate-400)
+            tick={{ fill: "#475569" }} // Tick text color (Tailwind slate-600)
+            axisLine={{ stroke: "#cbd5e1" }} // Axis line color (Tailwind slate-300)
+            tickLine={{ stroke: "#cbd5e1" }} // Tick marks color (Tailwind slate-300)
           />
           <YAxis
             type="number"
@@ -155,7 +165,16 @@ function ImageUmap({ species }: { species: string }) {
             domain={[yMin, yMax]}
             tickFormatter={formatAxisTick}
             name="UMAP 2"
-            label={{ value: "UMAP 2", angle: -90, position: "insideLeft" }}
+            label={{
+              value: "UMAP 2",
+              angle: -90,
+              position: "insideLeft",
+              fill: "#374151",
+            }} // Tailwind gray-700 for label text
+            stroke="#94a3b8" // Overall axis color (Tailwind slate-400)
+            tick={{ fill: "#475569" }} // Tick text color (Tailwind slate-600)
+            axisLine={{ stroke: "#cbd5e1" }} // Axis line color (Tailwind slate-300)
+            tickLine={{ stroke: "#cbd5e1" }} // Tick marks color (Tailwind slate-300)
           />
           <ZAxis range={[60, 60]} />
           <Tooltip
