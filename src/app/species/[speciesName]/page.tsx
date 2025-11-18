@@ -57,11 +57,6 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
     <section>
       {!loading && speciesData && (
         <nav className="text-sm mb-1 text-gray-600 dark:text-gray-400 flex items-center gap-2 border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur w-fit py-1 px-4 rounded-full">
-          <Link href="/" className="hover:underline">
-            Home
-          </Link>
-          <span>&gt;</span>
-          {/* Link to Family (assuming Nymphalidae for now) */}
           <Link
             href={`/family/${speciesData.taxonomy.family}`}
             className="hover:underline"

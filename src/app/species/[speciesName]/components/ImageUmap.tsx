@@ -96,10 +96,10 @@ function ImageUmap({ species }: { species: string }) {
   const xValues = umapCoords.map((point) => point.umapX);
   const yValues = umapCoords.map((point) => point.umapY);
 
-  const xMin = Math.min(...xValues) - 0.2;
-  const xMax = Math.max(...xValues) + 0.2;
-  const yMin = Math.min(...yValues) - 0.2;
-  const yMax = Math.max(...yValues) + 0.2;
+  const xMin = Math.min(...xValues) - 0.6;
+  const xMax = Math.max(...xValues) + 0.6;
+  const yMin = Math.min(...yValues) - 0.6;
+  const yMax = Math.max(...yValues) + 0.6;
 
   // Group data by cluster for separate scatter series
   const clusterGroups = umapCoords.reduce((acc, point) => {
