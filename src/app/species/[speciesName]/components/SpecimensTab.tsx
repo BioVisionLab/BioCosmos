@@ -489,34 +489,33 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       </div>
       <div id="specimen-thumbs" className="mt-8">
         <h2 className="text-lg font-semibold mb-2">Specimen Images</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mb-4">
           {items.map((it) => (
-            <button
+            <div
               key={it.id}
-              onClick={() => openFull(it.id)}
-              title="Open full image"
-              className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
+              className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 p-2 hover:ring-1 hover:ring-teal-600"
             >
-              {it.thumbUrl ? (
-                <Image
-                  src={it.thumbUrl}
-                  alt={`Specimen ${it.id}`}
-                  fill
-                  sizes="(max-width:768px) 33vw, 150px"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
+              <button
+                key={it.id}
+                onClick={() => openFull(it.id)}
+                title="Open full image"
+                className="relative w-full aspect-square transition-all"
+              >
+                {it.thumbUrl ? (
                   <Image
-                    src="/leaflet/images/butterfly.svg"
-                    alt="Loading..."
-                    width={112}
-                    height={112}
-                    className="animate-pulse mx-auto"
+                    src={it.thumbUrl}
+                    alt={`Specimen ${it.id}`}
+                    fill
+                    sizes="(max-width:768px) 33vw, 150px"
+                    className="object-cover"
                   />
-                </div>
-              )}
-            </button>
+                ) : (
+                  <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
+                    <ImageLoading size={160} />
+                  </div>
+                )}
+              </button>
+            </div>
           ))}
         </div>
       </div>
