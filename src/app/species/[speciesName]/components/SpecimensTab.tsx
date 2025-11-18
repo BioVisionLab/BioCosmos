@@ -13,6 +13,7 @@ import {
   fetchSpeciesImageIds,
 } from "@/lib/images";
 import ImageUmap from "./ImageUmap";
+import Tips from "@/components/Tips";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -488,7 +489,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         <ImageUmap species={speciesName ?? ""} />
       </div>
       <div id="specimen-thumbs" className="mt-8">
-        <h2 className="text-lg font-semibold mb-2">Specimen Images</h2>
+        <ImageGalleryHeader />
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mb-4">
           {items.map((it) => (
             <div
@@ -695,5 +696,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     </div>
   );
 };
+
+function ImageGalleryHeader() {
+  return (
+    <div className="mb-4">
+      <h2 className="text-2xl font-semibold mb-2">Specimen Images</h2>
+      <Tips message="Click on an image to view in full size" />
+    </div>
+  );
+}
 
 export default SpecimensTab;

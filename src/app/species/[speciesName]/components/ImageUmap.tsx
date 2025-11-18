@@ -1,5 +1,6 @@
 "use client";
 import { ImageLoading } from "@/components/Loadings";
+import Tips from "@/components/Tips";
 import { fetchThumbnailById } from "@/lib/images";
 import { fetchSpeciesImageUmap, SpeciesImageUmap } from "@/lib/speciesData";
 import Image from "next/image";
@@ -137,12 +138,7 @@ function ImageUmap({ species }: { species: string }) {
 
   return (
     <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-xl max-w-4xl h-fit">
-      <h2 className="text-lg font-semibold">Specimen Similarity Map</h2>
-      <p className="mb-4 text-xs text-gray-600 dark:text-gray-400">
-        Images with similar visual features clustered using UMAP dimensionality
-        reduction. Hover to preview a specimen image; colors show cluster groups
-      </p>
-
+      <UmapHeader />
       <ResponsiveContainer width="100%" height={500}>
         <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
           <XAxis
@@ -205,10 +201,22 @@ function ImageUmap({ species }: { species: string }) {
           })}
         </ScatterChart>
       </ResponsiveContainer>
-
-      <div className="mt-4 text-sm text-gray-600">
+      <div className="mt-2 text-sm text-gray-600">
         Total points: {umapCoords.length} &middot; Clusters: {clusters.length}
       </div>
+    </div>
+  );
+}
+
+function UmapHeader() {
+  return (
+    <div className="mb-4">
+      <h1 className="text-2xl font-bold">Image Similarity</h1>
+      <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+        Specimen image similarity in a 2D space using UMAP dimensionality
+        reduction.
+      </p>
+      <Tips message="Hover on a point to preview a specimen image; colors show cluster groups" />
     </div>
   );
 }
@@ -219,7 +227,6 @@ const CustomDot = (props: any) => {
   if (!isRepresentative) {
     return <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.7} />;
   }
-
   return (
     <g>
       <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.7} />
