@@ -25,75 +25,6 @@ interface WikipediaApiParseResponse {
   };
 }
 
-/**
- * Fetches and processes a Wikipedia page's HTML content.
- * @param title The title of the Wikipedia page to fetch.
- * @returns The processed HTML content of the page.
- */
-const fetchWikipediaPage = async (
-  title: string
-): Promise<{ title: string; html: string }> => {
-  if (!title) {
-    throw new Error("Title is required");
-  }
-  const WIKIPEDIA_API_URL = `https://en.wikipedia.org/w/api.php`;
-  const params = new URLSearchParams({
-    action: "parse",
-    page: title,
-    format: "json",
-    prop: "text",
-    redirects: "true",
-    origin: "*", // Required for client-side CORS requests
-  });
-
-  const response = await fetch(`${WIKIPEDIA_API_URL}?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`Wikipedia API returned status: ${response.status}`);
-  }
-  const data: WikipediaApiParseResponse = await response.json();
-  if (data.error) {
-    throw new Error(`Wikipedia error: ${data.error.info}`);
-  }
-
-  const pageHtml = data.parse?.text["*"];
-  const pageTitle = data.parse?.title || title;
-
-  if (pageHtml) {
-    // Replace relative URLs with absolute URLs for links and images
-    const processedHtml = pageHtml
-      .replace(/href="\/wiki\//g, 'href="https://en.wikipedia.org/wiki/')
-      .replace(/src="\/\//g, 'src="https://');
-    return { title: pageTitle, html: processedHtml };
-  } else {
-    throw new Error(`Page content not found for "${title}". It may not exist.`);
-  }
-};
-
-function WikipediaAttribution({ speciesName }: { speciesName: string }) {
-  return (
-    <div className="space-y-2 text-xs">
-      <Info>
-        <p>
-          Content adapted from English Wikipedia (en.wikipedia.org) and lightly
-          cleaned for readability. It may contain community-edited or unverified
-          information. Verify with primary sources.
-        </p>
-        <p>
-          Source URL:{" "}
-          <a
-            href={`https://en.wikipedia.org/wiki/${speciesName}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline "
-          >
-            English Wikipedia (<span className="italic">{speciesName}</span>)
-          </a>
-        </p>
-      </Info>
-    </div>
-  );
-}
-
 function WikipediaPage({ speciesName }: { speciesName: string }) {
   const [parsedContent, setParsedContent] = useState<ParsedContent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -151,26 +82,42 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         /* Default (light) colors */
         .wiki-container .infobox td,
         .wiki-container .infobox th,
+        .wiki-container .infobox tr,
         .wiki-container .infobox caption {
-          color: oklch(98.5% 0.002 247.839) !important;
+          color: oklch(25% 0.02 247.839) !important;
         }
         /* Dark mode adjustments */
         @media (prefers-color-scheme: dark) {
+          .wiki-container .infobox {
+            border-color: oklch(40% 0.015 247.839) !important;
+          }
           .wiki-container .infobox td,
           .wiki-container .infobox th,
+          .wiki-container .infobox tr,
           .wiki-container .infobox caption {
-            color: oklch(98.5% 0.002 247.839) !important;
+            color: oklch(88% 0.008 247.839) !important;
           }
         }
-          /* Default colors for table head background color */
+          /* Override IUCN colors in dark mode */
+          .wiki-container [style*="background-color"] {
+            background-color: transparent !important;
+          }
+        }
+        
+        /* Default colors for table head background color */
+        .wiki-container table.wikitable th {
+          background-color: oklch(95% 0.01 250) !important;
+          color: oklch(20% 0.05 250) !important;
+        }
+        /* Default colors for table head background color */
         .wiki-container table.wikitable th {
           background-color: oklch(95% 0.01 250) !important;
           color: oklch(20% 0.05 250) !important;
         }
         @media (prefers-color-scheme: dark) {
           .wiki-container table.wikitable th {
-            background-color: oklch(20% 0.05 250) !important;
-            color: oklch(95% 0.01 250) !important;
+            background-color: oklch(25% 0.03 250) !important;
+            color: oklch(90% 0.01 250) !important;
           }
         }  
         /* Make wiki links inherit surrounding text color and only show an underline for clarity
@@ -257,7 +204,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                         <div
                           className="rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
                           bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-500/50
-                            dark:bg-gradient-to-r dark:from-teal-800 dark:to-emerald-700/50 dark:text-gray-100"
+                            dark:bg-gradient-to-r dark:from-teal-800 dark:to-emerald-600/50 dark:text-gray-100"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
                         />
                       </div>
@@ -270,6 +217,75 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Fetches and processes a Wikipedia page's HTML content.
+ * @param title The title of the Wikipedia page to fetch.
+ * @returns The processed HTML content of the page.
+ */
+const fetchWikipediaPage = async (
+  title: string
+): Promise<{ title: string; html: string }> => {
+  if (!title) {
+    throw new Error("Title is required");
+  }
+  const WIKIPEDIA_API_URL = `https://en.wikipedia.org/w/api.php`;
+  const params = new URLSearchParams({
+    action: "parse",
+    page: title,
+    format: "json",
+    prop: "text",
+    redirects: "true",
+    origin: "*", // Required for client-side CORS requests
+  });
+
+  const response = await fetch(`${WIKIPEDIA_API_URL}?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Wikipedia API returned status: ${response.status}`);
+  }
+  const data: WikipediaApiParseResponse = await response.json();
+  if (data.error) {
+    throw new Error(`Wikipedia error: ${data.error.info}`);
+  }
+
+  const pageHtml = data.parse?.text["*"];
+  const pageTitle = data.parse?.title || title;
+
+  if (pageHtml) {
+    // Replace relative URLs with absolute URLs for links and images
+    const processedHtml = pageHtml
+      .replace(/href="\/wiki\//g, 'href="https://en.wikipedia.org/wiki/')
+      .replace(/src="\/\//g, 'src="https://');
+    return { title: pageTitle, html: processedHtml };
+  } else {
+    throw new Error(`Page content not found for "${title}". It may not exist.`);
+  }
+};
+
+function WikipediaAttribution({ speciesName }: { speciesName: string }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <Info>
+        <p>
+          Content adapted from English Wikipedia (en.wikipedia.org) and lightly
+          cleaned for readability. It may contain community-edited or unverified
+          information. Verify with primary sources.
+        </p>
+        <p>
+          Source URL:{" "}
+          <a
+            href={`https://en.wikipedia.org/wiki/${speciesName}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline "
+          >
+            English Wikipedia (<span className="italic">{speciesName}</span>)
+          </a>
+        </p>
+      </Info>
+    </div>
   );
 }
 

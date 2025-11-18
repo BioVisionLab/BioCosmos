@@ -21,7 +21,7 @@ function VisuallySimilarSpecies({
     return null; // Don't render anything if there are no similar species
   }
   return (
-    <div className="mt-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white/70 dark:bg-gray-800/70 backdrop-blur">
+    <div className="mt-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur">
       <div className="border-b border-gray-300 dark:border-gray-600 p-4">
         <h2 className="text-2xl font-semibold">Visually Similar Species</h2>
         <p className={`text-sm ${labelColor}`}>

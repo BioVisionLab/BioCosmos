@@ -32,6 +32,11 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
   // Remove edit links
   cleanRoot.querySelectorAll(".mw-editsection").forEach((el) => el.remove());
 
+  // Remove taxobox-edit-taxonomy to keep the content clean
+  cleanRoot
+    .querySelectorAll(".taxobox-edit-taxonomy")
+    .forEach((el) => el.remove());
+
   // Remove stub message blocks
   cleanRoot.querySelectorAll(".stub").forEach((el) => el.remove());
 
