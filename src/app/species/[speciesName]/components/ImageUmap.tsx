@@ -176,6 +176,7 @@ function ImageUmap({ species }: { species: string }) {
             tickLine={{ stroke: "#94a3b8" }} // Tick marks color (Tailwind slate-300)
           />
           <ZAxis range={[60, 60]} />
+          {/* TODO: FIX tooltip image does not match point image */}
           <Tooltip
             cursor={{ strokeDasharray: "3 3" }}
             content={({ active, payload }) => {
@@ -186,7 +187,6 @@ function ImageUmap({ species }: { species: string }) {
               return null;
             }}
           />
-
           {clusters.map((cluster) => {
             const regularData = allDataWithReps.filter(
               (point) => point.cluster === cluster && !point.isRepresentative
@@ -201,7 +201,6 @@ function ImageUmap({ species }: { species: string }) {
               />
             );
           })}
-
           {clusters.map((cluster) => {
             const repData = allDataWithReps.filter(
               (point) => point.cluster === cluster && point.isRepresentative
