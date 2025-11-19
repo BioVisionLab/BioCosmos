@@ -155,8 +155,8 @@ function ImageUmap({ species }: { species: string }) {
             }}
             stroke="#94a3b8" // Overall axis color (Tailwind slate-400)
             tick={{ fill: "#475569" }} // Tick text color (Tailwind slate-600)
-            axisLine={{ stroke: "#cbd5e1" }} // Axis line color (Tailwind slate-300)
-            tickLine={{ stroke: "#cbd5e1" }} // Tick marks color (Tailwind slate-300)
+            axisLine={{ stroke: "#94a3b8" }} // Axis line color (Tailwind slate-300)
+            tickLine={{ stroke: "#94a3b8" }} // Tick marks color (Tailwind slate-300)
           />
           <YAxis
             type="number"
@@ -172,8 +172,8 @@ function ImageUmap({ species }: { species: string }) {
             }} // Tailwind gray-700 for label text
             stroke="#94a3b8" // Overall axis color (Tailwind slate-400)
             tick={{ fill: "#475569" }} // Tick text color (Tailwind slate-600)
-            axisLine={{ stroke: "#cbd5e1" }} // Axis line color (Tailwind slate-300)
-            tickLine={{ stroke: "#cbd5e1" }} // Tick marks color (Tailwind slate-300)
+            axisLine={{ stroke: "#94a3b8" }} // Axis line color (Tailwind slate-300)
+            tickLine={{ stroke: "#94a3b8" }} // Tick marks color (Tailwind slate-300)
           />
           <ZAxis range={[60, 60]} />
           <Tooltip

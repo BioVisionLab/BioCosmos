@@ -203,7 +203,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                       <div className="sticky top-8 mx-auto flex justify-center items-center">
                         <div
                           className="rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
-                          bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-500/50
+                          bg-gradient-to-r from-teal-50 to-emerald-50 
                             dark:bg-gradient-to-r dark:from-teal-800 dark:to-emerald-600/50 dark:text-gray-100"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
                         />
