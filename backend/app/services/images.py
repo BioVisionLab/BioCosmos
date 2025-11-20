@@ -1,4 +1,6 @@
 import glob
+from pickle import TRUE
+from flask import config
 import numpy as np
 import io
 
@@ -434,6 +436,8 @@ class ImageEmbedder:
     ):
         self.embedder_config = EmbedderConfig()
         self.config = ImageConfig()
+        self.img_format = self.config.format.upper()
+        self.max_resolution = self.config.max_resolution
         self.clip = ClipEmbedder(
             model=clip_model,
             processor=clip_processor,
@@ -543,10 +547,14 @@ class ImageEmbedder:
                 "No valid images found for batch addition."
             )
             return
-        image_bytes = [
-            open(path, "rb").read() for path in successful_paths
-        ]
-        species = self.get_species_name_from_path(successful_paths)
+        image_bytes, original_size_flags = self._get_image_bytes(
+            valid_images
+        )
+        if not image_bytes or len(image_bytes) == 0:
+            self.logger.error(
+                "No valid image bytes found for batch addition."
+            )
+            return
         clip_embeddings: list[np.ndarray] = (
             self._get_all_clip_embeddings(valid_images)
         )
@@ -561,12 +569,12 @@ class ImageEmbedder:
             return
         data = pl.DataFrame(
             {
-                "img_id": [
-                    os.path.splitext(os.path.basename(path))[0]
-                    for path in successful_paths
-                ],
-                "species": species,
+                "img_id": self._get_image_ids_from_paths(
+                    successful_paths
+                ),
                 "img_bytes": image_bytes,
+                "file_format": config.format,
+                "original_size": original_size_flags,
                 "clip_embeddings": clip_embeddings,
                 "unicom_embeddings": unicom_embeddings,
             }
@@ -579,11 +587,50 @@ class ImageEmbedder:
             )
             return
 
+    def _get_image_ids_from_paths(
+        self, img_paths: list[str]
+    ) -> list[str]:
+        """Get image IDs from a list of image paths."""
+        return [
+            os.path.splitext(os.path.basename(path))[0]
+            for path in img_paths
+        ]
+
+    def _get_image_bytes(
+        self, images: list[Image]
+    ) -> tuple[list[bytes], list[bool]]:
+        """Get the image bytes from a list of PIL Images.
+        It will resize the image if setup in the config to a maximum resolution.
+        Returns image bytes for successfully processed images and a flag indicating
+        if all images are of original size.
+        """
+        valid_image_bytes = []
+        all_original_size = []
+        for img in images:
+            try:
+                img_byte_arr = io.BytesIO()
+                if max(img.size) > self.max_resolution:
+                    img.thumbnail(
+                        (self.max_resolution, self.max_resolution),
+                        resample=Image.LANCZOS,
+                    )
+                    all_original_size.append(False)
+                else:
+                    all_original_size.append(True)
+                img.save(img_byte_arr, format=self.img_format)
+                valid_image_bytes.append(img_byte_arr.getvalue())
+            except Exception as e:
+                self.logger.error(
+                    f"Error converting image to bytes: {e}",
+                    exc_info=True,
+                )
+        return valid_image_bytes, all_original_size
+
     def _get_imgs(
         self, img_paths: list[str]
-    ) -> tuple[list[str], list[Image]]:
+    ) -> tuple[list[int], list[Image]]:
         """Get the image embeddings from a list of image paths.
-        Returns a tuple of successfully processed image paths and their embeddings.
+        Returns a tuple of successfully processed image resolution and the image_file.
         """
         valid_images = []
         successful_paths = []
