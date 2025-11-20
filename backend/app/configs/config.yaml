@@ -6,10 +6,10 @@ db:
 images:
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
-  limit: 20
+  limit: null
   # Maximum resolution in pixels for images to ingest, set to null for no limit
   # With limit, use numerical value only. Example values: 512, 1024, 2048
-  max_resolution: 1024
+  max_resolution: 800
   # File format to use when storing images in the database
   # Options: "jpeg", "png", "webp"
   format: "webp"
