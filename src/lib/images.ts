@@ -17,11 +17,17 @@ function cleanSpeciesName(name: string): string {
  */
 async function fetchSpeciesImageIds(
   speciesName: string,
-  limit: number
+  limit?: number,
+  offset?: number
 ): Promise<string[]> {
   const cleanName = cleanSpeciesName(speciesName);
+  // pass limit/offset to the server so it can control how many IDs are returned
+  const qs: string[] = [];
+  if (typeof limit === "number") qs.push(`limit=${encodeURIComponent(String(limit))}`);
+  if (typeof offset === "number") qs.push(`offset=${encodeURIComponent(String(offset))}`);
+  const qsStr = qs.length > 0 ? `&${qs.join("&")}` : "";
   const response = await fetch(
-    `${IMAGE_API_BASE}/metadata?scientificName=${encodeURIComponent(cleanName)}`
+    `${IMAGE_API_BASE}/metadata?scientificName=${encodeURIComponent(cleanName)}${qsStr}`
   );
 
   if (!response.ok) {
@@ -35,7 +41,9 @@ async function fetchSpeciesImageIds(
   if (!Array.isArray(ids)) {
     throw new Error("Invalid data format: imageIds is not an array");
   }
-  if (ids.length > limit) {
+  // Defensive: server should respect the requested `limit`, but slice client-side
+  // as a fallback if a larger list is returned.
+  if (typeof limit === "number" && ids.length > limit) {
     return ids.slice(0, limit);
   }
   return ids;

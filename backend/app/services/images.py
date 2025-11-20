@@ -103,25 +103,33 @@ class ImagePersistData:
 
     # Function to fetch a list of image IDs for a given species
     # Returns species name and list of image IDs, or empty list if none found
-    def fetch_image_ids(self, species_name: str) -> list:
+    def fetch_image_ids(self, species_name: str, limit: int | None = None, offset: int | None = None) -> list:
         """
         Returns a list of image IDs for the given species name.
+
+        If `limit` is provided, limit the number of rows returned by the
+        underlying LanceDB query. If `limit` is None, return all matching
+        rows (deduplicated by `img_id`).
         """
         species = species_name.lower().replace(" ", "_")
         query = f"species == '{species}'"
         try:
-            results = (
-                self.db_table.search()
-                .where(query)
-                .limit(10)
-                .to_polars()
-            )
+            search_obj = self.db_table.search().where(query)
+            if offset is not None:
+                # apply offset if provided
+                search_obj = search_obj.offset(int(offset))
+            if limit is not None:
+                # apply limit on the DB query if requested
+                results = search_obj.limit(int(limit)).to_polars()
+            else:
+                results = search_obj.to_polars()
+
             if "img_id" not in results.columns or results.is_empty():
                 self.logger.warning(
                     f"No image IDs found for species '{species_name}'."
                 )
                 return []
-            # Result may contain duplicates image IDs, so we deduplicate
+            # Result may contain duplicate image IDs, so deduplicate
             dedup_results = results.unique(subset=["img_id"])
             return SpeciesImage(
                 species=species,

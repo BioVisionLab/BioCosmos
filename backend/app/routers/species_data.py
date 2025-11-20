@@ -71,7 +71,7 @@ async def fetch_species_biology(
     tags=["Species Data", "Taxon Images"],
 )
 async def fetch_species_image_ids(
-    request: Request, scientific_name: str
+    request: Request, scientific_name: str, limit: int | None = None, offset: int | None = None
 ):
     """
     Takes in a species name.
@@ -82,10 +82,29 @@ async def fetch_species_image_ids(
     logger.info(f"Fetching image IDs for species: {scientific_name}")
 
     try:
+        # Enforce a safe default and a hard maximum to avoid excessive queries
+        MAX_LIMIT = 2000
+        DEFAULT_LIMIT = 10
+        if limit is None:
+            effective_limit = DEFAULT_LIMIT
+        else:
+            # clamp to [1, MAX_LIMIT]
+            try:
+                effective_limit = max(1, min(int(limit), MAX_LIMIT))
+            except Exception:
+                effective_limit = DEFAULT_LIMIT
+
+        # normalize offset
+        try:
+            effective_offset = max(0, int(offset)) if offset is not None else 0
+        except Exception:
+            effective_offset = 0
+
         # Using method that returns image IDs: fetch_image_ids
+        # Pass the effective (clamped/defaulted) limit and offset to the service.
         image_ids = ImagePersistData(
             lance_db=request.app.state.lance_db
-        ).fetch_image_ids(scientific_name)
+        ).fetch_image_ids(scientific_name, effective_limit, effective_offset)
         if not image_ids:
             logger.warning(
                 f"No images found for species: {scientific_name}"

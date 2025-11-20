@@ -21,7 +21,7 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
       setItems([]);
 
       try {
-        const image_ids = await fetchSpeciesImageIds(speciesName, 6);
+        const image_ids = await fetchSpeciesImageIds(speciesName, 8);
         if (image_ids.length === 0) {
           setItems([]);
           return;
