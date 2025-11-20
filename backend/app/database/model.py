@@ -1,8 +1,5 @@
-from gc import collect
-from pyexpat import model
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 import os
-from pydantic import BaseModel, Field
 from typing import Optional
 import logging
 from PIL import Image

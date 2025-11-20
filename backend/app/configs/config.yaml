@@ -6,7 +6,8 @@ db:
 images:
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
-  limit: null
+  # The backend checks for existing images first, so this limit only applies to new images
+  limit: 20
   # Maximum resolution in pixels for images to ingest, set to null for no limit
   # With limit, use numerical value only. Example values: 512, 1024, 2048
   max_resolution: 800
@@ -19,7 +20,7 @@ image_metadata:
   file: "nymphalidae-image-metadata.csv"
   table: "image_meta"
   # Skip image metadata ingestion if set to true
-  skip: true
+  skip: false
 # UMAP configuration for visualizing image embeddings
 umap_data:
   file: "umap-nymphalidae-embeddings.csv"

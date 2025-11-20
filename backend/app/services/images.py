@@ -101,38 +101,6 @@ class ImagePersistData:
             return None
         return result
 
-    # Function to fetch a list of image IDs for a given species
-    # Returns species name and list of image IDs, or empty list if none found
-    def fetch_image_ids(self, species_name: str) -> list:
-        """
-        Returns a list of image IDs for the given species name.
-        """
-        species = species_name.lower().replace(" ", "_")
-        query = f"species == '{species}'"
-        try:
-            results = (
-                self.db_table.search()
-                .where(query)
-                .limit(10)
-                .to_polars()
-            )
-            if "img_id" not in results.columns or results.is_empty():
-                self.logger.warning(
-                    f"No image IDs found for species '{species_name}'."
-                )
-                return []
-            # Result may contain duplicates image IDs, so we deduplicate
-            dedup_results = results.unique(subset=["img_id"])
-            return SpeciesImage(
-                species=species,
-                imageIds=dedup_results["img_id"].to_list(),
-            ).to_dict()
-        except Exception as e:
-            self.logger.error(
-                f"Error fetching image IDs for species '{species_name}': {e}"
-            )
-            return []
-
     def get_img_by_id(
         self,
         img_id: str,
@@ -470,9 +438,17 @@ class ImageEmbedder:
                 )
                 return
 
-        self.logger.info(f"Ingesting {len(img_paths)} images.")
-        img_paths = self._limit_entries(img_paths)
-        self.batch_add_embeddings(img_paths)
+        filtered_paths = self._filter_existing_imgs(img_paths)
+        if filtered_paths is None or len(filtered_paths) == 0:
+            self.logger.info(
+                "All images in the batch already exist in the database. Skipping batch."
+            )
+            return
+        self.logger.info(
+            f"Proceeding to ingest {len(filtered_paths)} new images."
+        )
+        self.batch_add_embeddings(self._limit_entries(filtered_paths))
+        self.logger.info("Image ingestion completed.")
 
     def get_species_name_from_path(
         self, img_paths: list[str]
@@ -519,16 +495,19 @@ class ImageEmbedder:
         Determines the img paths based on the file extension for quick filtering.
         Later stages will validate the actual image files and skip invalid ones.
         """
+        valid_image_paths = [
+            path for path in img_paths if self._valid_img_path(path)
+        ]
         if (
             self.config.limit is not None
             and self.config.limit > 0
-            and len(img_paths) > self.config.limit
+            and len(valid_image_paths) > self.config.limit
         ):
             self.logger.info(
                 f"Limiting image ingestion to {self.config.limit} images."
             )
-            return img_paths[: self.config.limit]
-        return img_paths
+            return valid_image_paths[: self.config.limit]
+        return valid_image_paths
 
     def _get_images_from_path(self, img_dir: str) -> list[str]:
         """Get a list of image paths from the specified directory."""
@@ -539,15 +518,19 @@ class ImageEmbedder:
         img_paths = [
             f
             for f in glob.glob(pattern, recursive=True)
-            if f.lower().endswith(
-                (".png", ".jpg", ".jpeg", ".webp", ".bmp")
-            )
-            and os.path.isfile(f)
+            if self._valid_img_path(f)
         ]
         self.logger.info(
             f"Found {len(img_paths)} images in {img_dir}."
         )
         return img_paths
+
+    def _valid_img_path(self, img_path: str) -> bool:
+        """Check if the image path is valid and points to an image file."""
+        valid_extensions = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+        return os.path.isfile(img_path) and img_path.lower().endswith(
+            valid_extensions
+        )
 
     def _add_batch_to_db(self, img_paths: list[str]):
         """Batch add image embeddings to the database."""
@@ -556,15 +539,8 @@ class ImageEmbedder:
                 "No image paths provided for batch addition."
             )
             return
-        filtered_paths = self._filter_existing_imgs(img_paths)
-        if filtered_paths is None or len(filtered_paths) == 0:
-            self.logger.info(
-                "All images in the batch already exist in the database. Skipping batch."
-            )
-            return
-        successful_paths, valid_images = self._get_imgs(
-            filtered_paths
-        )
+
+        successful_paths, valid_images = self._get_imgs(img_paths)
         if not valid_images or len(successful_paths) == 0:
             self.logger.error(
                 "No valid images found for batch addition."
@@ -614,6 +590,9 @@ class ImageEmbedder:
         self, img_paths: list[str]
     ) -> list[str]:
         """Filter out image paths that already exist in the database."""
+        self.logger.info(
+            f"Checking {len(img_paths)} images for existing entries in the database."
+        )
         filtered_paths = []
         for path in img_paths:
             img_id = self._get_image_id(path)
