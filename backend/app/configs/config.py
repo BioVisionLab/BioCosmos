@@ -40,9 +40,14 @@ def get_lance_db_path() -> str:
 
 
 class ImageMetaConfig:
+    """
+    Configuration for image metadata CSV file.
+    This file includes information such as mask_name, uuid, species, class_dv, etc.
+    """
+
     def __init__(self):
         config = load_config()
-        self._image_meta_config = config.get("image_meta", {})
+        self._image_meta_config = config.get("image_metadata", {})
 
     def path(self) -> str:
         parent_dir = os.getenv("IMAGE_META_DIR", ".")
@@ -181,13 +186,55 @@ class LepTraitConfig:
 
 
 class ImageConfig:
+    """
+    Configuration for image ingestion.
+
+    For embedding generation configurations, refer to EmbedderConfig.
+    """
+
     def __init__(self):
         config = load_config()
         self._image_config = config.get("images", {})
 
     @property
     def dir(self) -> str:
+        """
+        Directory where images are stored.
+        Use the .env IMAGE_DIR to override the default path.
+        Default is './images'.
+        """
         return os.getenv("IMAGE_DIR", "./images")
+
+    @property
+    def format(self) -> str:
+        """
+        Image file format to use when storing images in the database.
+        Options: "jpeg", "png", "webp"
+        Default is "webp".
+        """
+        return self._image_config.get("format", "webp")
+
+    @property
+    def max_resolution(self) -> int | None:
+        """
+        Maximum resolution for images. If set, images will be resized to this resolution.
+        """
+        max_res = self._image_config.get("max_resolution", None)
+        if max_res is not None:
+            try:
+                max_res = int(max_res)
+                if max_res <= 0:
+                    logger.info(
+                        f"Max resolution must be positive, got: {max_res}. Ignoring limit."
+                    )
+                    return None
+                return max_res
+            except ValueError:
+                logger.info(
+                    f"Max resolution is not a valid integer: {max_res}. Ignoring limit."
+                )
+                return None
+        return None
 
     @property
     def table(self) -> str:
