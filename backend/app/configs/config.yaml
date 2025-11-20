@@ -6,10 +6,10 @@ db:
 images:
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
-  limit: null
+  limit: 20
   # Maximum resolution in pixels for images to ingest, set to null for no limit
   # With limit, use numerical value only. Example values: 512, 1024, 2048
-  max_resolution: null
+  max_resolution: 1024
   # File format to use when storing images in the database
   # Options: "jpeg", "png", "webp"
   format: "webp"
@@ -38,7 +38,7 @@ leptrait:
   skip: true
 embedder:
   # Skip embedding process if set to true
-  skip: true
+  skip: false
   # Options: "default", "cpu", "cuda", "mps"
   # "default" will detect the best available accelerator
   device: "default"

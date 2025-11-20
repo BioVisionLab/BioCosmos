@@ -1,3 +1,4 @@
+from gc import collect
 from pyexpat import model
 from pydantic import BaseModel, ConfigDict
 import os
@@ -403,3 +404,20 @@ class UmapData(BaseModel):
 
     def __repr__(self):
         return f"UmapData(species={self.species}, umap_embeddings_count={len(self.umap_embeddings)})"
+
+
+class ImageMetadata(BaseModel):
+    """
+    Metadata for an image file.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    img_id: str
+    species: str
+    source: str
+    collection_id: str
+    # Dorso ventral view of the image: dorsal or ventral
+    class_dv: str

@@ -1,6 +1,4 @@
 import glob
-from pickle import TRUE
-from flask import config
 import numpy as np
 import io
 
@@ -473,6 +471,7 @@ class ImageEmbedder:
                 return
 
         self.logger.info(f"Ingesting {len(img_paths)} images.")
+        img_paths = self._limit_entries(img_paths)
         self.batch_add_embeddings(img_paths)
 
     def get_species_name_from_path(
@@ -515,6 +514,22 @@ class ImageEmbedder:
                         exc_info=True,
                     )
 
+    def _limit_entries(self, img_paths: list[str]) -> list[str]:
+        """Limit the number of image paths based on configuration.
+        Determines the img paths based on the file extension for quick filtering.
+        Later stages will validate the actual image files and skip invalid ones.
+        """
+        if (
+            self.config.limit is not None
+            and self.config.limit > 0
+            and len(img_paths) > self.config.limit
+        ):
+            self.logger.info(
+                f"Limiting image ingestion to {self.config.limit} images."
+            )
+            return img_paths[: self.config.limit]
+        return img_paths
+
     def _get_images_from_path(self, img_dir: str) -> list[str]:
         """Get a list of image paths from the specified directory."""
         if not os.path.isdir(img_dir):
@@ -541,8 +556,16 @@ class ImageEmbedder:
                 "No image paths provided for batch addition."
             )
             return
-        successful_paths, valid_images = self._get_imgs(img_paths)
-        if not valid_images or len(valid_images) == 0:
+        filtered_paths = self._filter_existing_imgs(img_paths)
+        if filtered_paths is None or len(filtered_paths) == 0:
+            self.logger.info(
+                "All images in the batch already exist in the database. Skipping batch."
+            )
+            return
+        successful_paths, valid_images = self._get_imgs(
+            filtered_paths
+        )
+        if not valid_images or len(successful_paths) == 0:
             self.logger.error(
                 "No valid images found for batch addition."
             )
@@ -573,7 +596,7 @@ class ImageEmbedder:
                     successful_paths
                 ),
                 "img_bytes": image_bytes,
-                "file_format": config.format,
+                "file_format": self.config.format,
                 "original_size": original_size_flags,
                 "clip_embeddings": clip_embeddings,
                 "unicom_embeddings": unicom_embeddings,
@@ -587,14 +610,47 @@ class ImageEmbedder:
             )
             return
 
+    def _filter_existing_imgs(
+        self, img_paths: list[str]
+    ) -> list[str]:
+        """Filter out image paths that already exist in the database."""
+        filtered_paths = []
+        for path in img_paths:
+            img_id = self._get_image_id(path)
+            if not self._img_exists_in_db(img_id):
+                filtered_paths.append(path)
+        self.logger.info(
+            f"Filtered {len(img_paths) - len(filtered_paths)} existing images."
+        )
+        return filtered_paths
+
+    def _img_exists_in_db(self, img_id: str) -> bool:
+        """Check if an image ID exists in the database."""
+        try:
+            exists = (
+                self.db_table.search()
+                .where(f"img_id == '{img_id}'")
+                .limit(1)
+                .to_polars()
+                .is_empty()
+                is False
+            )
+            return exists
+        except Exception as e:
+            self.logger.error(
+                f"Error checking existence of image ID '{img_id}': {e}"
+            )
+            return False
+
     def _get_image_ids_from_paths(
         self, img_paths: list[str]
     ) -> list[str]:
         """Get image IDs from a list of image paths."""
-        return [
-            os.path.splitext(os.path.basename(path))[0]
-            for path in img_paths
-        ]
+        return [self._get_image_id(path) for path in img_paths]
+
+    def _get_image_id(self, img_path: str) -> str:
+        """Get image ID from an image path."""
+        return os.path.splitext(os.path.basename(img_path))[0]
 
     def _get_image_bytes(
         self, images: list[Image]
