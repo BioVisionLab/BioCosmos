@@ -1,17 +1,30 @@
 from io import BytesIO
 import os
-from ..database.model import LanceSchema
 from fastapi import Request
 from PIL import Image
 from ..services.images import ImagePersistData
 
 STATIC_PATH = "static/"
+THUMBNAIL_MAX_RESOLUTION = 128
+FULL_RES_MAX_RESOLUTION = 800
 
 
 class ImageFileRetrieval:
     """
     A class to handle image retrieval operations.
-    Return file path to static image.
+    This class retrieves images from the LanceDB database,
+    saves them as static files if they don't already exist,
+    and provides paths to these static files.
+    Attributes:
+        lance_db: The LanceDB database instance.
+        file_format: The image file format to use (e.g., "webp").
+    Methods:
+        get_thumbnail(image_id): Retrieve the thumbnail image file path.
+        get_full_res(image_id): Retrieve the full-resolution image file path.
+
+    Maximum resolutions:
+        - Thumbnail: 128 pixels
+        - Full-resolution: 400 pixels
     """
 
     def __init__(self, request: Request):
@@ -62,22 +75,40 @@ class ImageFileRetrieval:
         ).get_img_by_id(image_id)
         return img_bytes
 
-    def _write_to_file(self, path, img_bytes: bytes) -> None:
+    def _write_to_file(
+        self,
+        path,
+        img_bytes: bytes,
+        max_resolution: int = FULL_RES_MAX_RESOLUTION,
+    ) -> None:
         """
         Write image bytes to a static file.
+        Resize the image if it exceeds max_resolution.
         """
-        Image.open(BytesIO(img_bytes)).save(
-            path, format=self.file_format.upper()
-        )
+        img = Image.open(BytesIO(img_bytes))
+        if max(img.size) > max_resolution:
+            img.thumbnail(
+                (max_resolution, max_resolution),
+                resample=Image.LANCZOS,
+            )
+        img.save(path, format=self.file_format.upper())
 
     def _write_thumbnail_to_file(
-        self, path, img_bytes: bytes
+        self,
+        path,
+        img_bytes: bytes,
+        max_resolution: int = THUMBNAIL_MAX_RESOLUTION,
     ) -> None:
         """
         Write thumbnail image bytes to a static file.
+        Resize the thumbnail if it exceeds 128 pixels.
         """
         img = Image.open(BytesIO(img_bytes))
-        img.thumbnail((128, 128), resample=Image.LANCZOS)
+        if max(img.size) > max_resolution:
+            img.thumbnail(
+                (max_resolution, max_resolution),
+                resample=Image.LANCZOS,
+            )
         img.save(path, format=self.file_format.upper())
 
     def _get_static_image_path(self, image_id: str) -> str:

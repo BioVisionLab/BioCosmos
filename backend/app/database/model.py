@@ -1,3 +1,4 @@
+from pyexpat import model
 from pydantic import BaseModel, ConfigDict
 import os
 from pydantic import BaseModel, Field
@@ -86,9 +87,14 @@ class LanceSchema(LanceModel):
         img_bytes: Raw image bytes.
     """
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
     img_id: str
-    species: str
     img_bytes: bytes
+    file_format: str
+    max_resolution: Optional[int]
     clip_embeddings: Vector(clip.get_clip_ndims())
     unicom_embeddings: Vector(unicom.get_unicom_ndims())
 
@@ -113,6 +119,8 @@ class LanceSchema(LanceModel):
     @property
     def image_bytes_png(self):
         """Get the image as PNG bytes."""
+        if self.file_format.lower() == "png" and self.img_bytes:
+            return self.img_bytes
         if self.image:
             with BytesIO() as output:
                 self.image.save(output, format="PNG")
@@ -122,6 +130,9 @@ class LanceSchema(LanceModel):
     @property
     def image_bytes_webp(self):
         """Get the image as WEBP bytes."""
+        # We check the file format to avoid unnecessary conversion
+        if self.file_format.lower() == "webp" and self.img_bytes:
+            return self.img_bytes
         if self.image:
             with BytesIO() as output:
                 self.image.save(output, format="WEBP")

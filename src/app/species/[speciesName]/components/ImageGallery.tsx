@@ -137,7 +137,7 @@ function GalleryFullImage({
       src={imgUrl}
       alt={`Image of ${speciesName}`}
       fill
-      sizes="(max-width:768px) 100vw, 600px"
+      sizes="(max-width:768px) 100vw, 800px"
       className="object-contain"
     />
   );
