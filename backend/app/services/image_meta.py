@@ -48,6 +48,23 @@ class ImageMetaService:
             )
             raise e
 
+    def count_entries(self) -> int | None:
+        """
+        Count the number of entries in the image metadata table.
+
+        :return: The count of entries or None if an error occurs.
+        """
+        try:
+            query = f"SELECT COUNT(*) FROM {self.table}"
+            result = self.db_client.execute_query(query)
+            count = result[0][0] if result else 0
+            return count
+        except Exception as e:
+            logger.error(
+                f"Error counting entries in table '{self.table}': {e}"
+            )
+            return None
+
     def get_image_meta_by_species(
         self, species: str
     ) -> list[ImageMetadata] | None:
