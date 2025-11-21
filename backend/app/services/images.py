@@ -603,9 +603,11 @@ class ImageEmbedder:
             img_id = self._get_image_id(path)
             if not self._img_exists_in_db(img_id):
                 filtered_paths.append(path)
-        self.logger.info(
-            f"Filtered {len(img_paths) - len(filtered_paths)} existing images."
-        )
+        filtered_counts = len(img_paths) - len(filtered_paths)
+        if filtered_counts > 0:
+            self.logger.info(
+                f"Filtered {filtered_counts} existing images."
+            )
         return filtered_paths
 
     def _img_exists_in_db(self, img_id: str) -> bool:
