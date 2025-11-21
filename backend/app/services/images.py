@@ -232,10 +232,10 @@ class ImagePersistData:
             self.logger.error(f"Error fetching similar images: {e}")
             return None
 
-    def fetch_id_similar_images(
-        self, species_name: str, limit: int = 20
-    ) -> list[dict] | None:
-        """Find images from other species similar to the given species using UNICOM embeddings.
+    def find_similar_images(
+        self, image_ids: list[str], limit: int = 20
+    ) -> list[LanceSchema] | None:
+        """Find images from other species similar to the given image list using UNICOM embeddings.
 
         Process:
           1. Fetch a representative image record for the species (currently only one via _query_image()).
@@ -252,10 +252,7 @@ class ImagePersistData:
             list of dicts with keys: imgId, species, distance (smaller = more similar),
             or None if no similar images were found.
         """
-        self.logger.info(
-            f"Fetching images similar to species '{species_name}'"
-        )
-        query = self._query_image(species_name)
+        query = self._query_images(image_ids)
         if query is None:
             return None
         # Compute the centroid of the embeddings
@@ -270,26 +267,17 @@ class ImagePersistData:
                 limit=limit,
             )
             self.logger.info(
-                f"Found {len(similar_images)} similar images for species '{species_name}'."
+                f"Found {len(similar_images)} similar images for image IDs '{image_ids}'."
             )
             if similar_images is None or similar_images.is_empty():
                 self.logger.warning(
-                    f"No unique species found in similar images for '{species_name}'."
+                    f"No unique species found in similar images for image IDs '{image_ids}'."
                 )
                 return None
-            filtered_imgs = self._filter_by_species(similar_images)
-
-            filtered_imgs = filtered_imgs.filter(
-                pl.col("species")
-                != species_name.lower().replace(" ", "_")
-            ).sort("species")
-            self.logger.info(
-                f"Found {len(filtered_imgs)} similar images after filtering."
-            )
-            return filtered_imgs.to_dicts()
+            return similar_images
         except Exception as e:
             self.logger.error(
-                f"Error fetching similar images for species '{species_name}': {e}"
+                f"Error fetching similar images for image IDs '{image_ids}': {e}"
             )
             return None
 
@@ -363,28 +351,45 @@ class ImagePersistData:
         """Compute the Euclidean distance between two embeddings."""
         return np.linalg.norm(source_emb - target_emb)
 
-    def _query_image(
-        self, species_name: str
+    def _query_images(
+        self, image_ids: list[str]
     ) -> list[LanceSchema] | None:
         """Construct a query string for fetching images."""
-        species = species_name.lower().replace(" ", "_")
-        query = f"species == '{species}'"
+        image_data: list[LanceSchema] = []
+        for img_id in image_ids:
+            img_record = self._get_image_data_by_id(img_id)
+            if img_record is not None:
+                image_data.append(img_record)
+        if not image_data:
+            self.logger.warning(
+                "No images found for the provided image IDs."
+            )
+            return None
+        return image_data
+
+    def _get_image_data_by_id(
+        self, img_id: str
+    ) -> LanceSchema | None:
+        """Fetch an image record by its ID."""
         try:
             img: list[LanceSchema] = (
                 self.db_table.search()
-                .where(query)
+                .where(f"img_id == '{img_id}'")
+                .limit(1)
                 .to_pydantic(LanceSchema)
             )
             if not img:
                 self.logger.warning(
-                    f"No images found for species '{species_name}'."
+                    f"No image found with ID '{img_id}'."
                 )
                 return None
-            return img
+            return img[0]
+
         except Exception as e:
             self.logger.error(
-                f"Error fetching images for species '{species_name}': {e}"
+                f"Error fetching image with ID '{img_id}': {e}"
             )
+            return None
 
 
 class ImageEmbedder:

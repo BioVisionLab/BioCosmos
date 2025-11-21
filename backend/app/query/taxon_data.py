@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from email.mime import image
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 from fastapi import Request
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
@@ -46,7 +48,7 @@ class TaxonStatPayload(BaseModel):
             gbif_entries (int): The number of entries in the GBIF data table.
             lep_traits_entries (int): The number of entries in the Leptraits.
             image_entries (int): The number of image entries
-            gbif_species_count (int): The number of unique GBIF species in the occurence
+            gbif_species_count (int): The number of unique GBIF species in the occurrence
 
         Returns:
             TaxonStatPayload: An instance of TaxonStatPayload.
@@ -103,6 +105,21 @@ class SpeciesPayload(BaseModel):
             traits=traits,
             similarSpecies=similarSpecies,
         )
+
+
+class SimilarSpeciesPayload(BaseModel):
+    """
+    A class to represent similar species data.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    species_name: str
+    side: str
+    image_id: str
+    distance: float
 
 
 class ClassificationPayload(BaseModel):
@@ -409,3 +426,42 @@ class TaxonSearch:
                 exc_info=True,
             )
             return None
+
+
+class SpeciesSimilarity:
+    """
+    A class to handle species similarity search operations.
+    """
+
+    def __init__(self, request: Request):
+        """
+        Initialize the SpeciesSimilarity class.
+        Args:
+            request (Request): The FastAPI request object.
+        """
+        self.request = request
+
+    def find_similar_species(
+        self, species_name: str, limit: int = 20
+    ) -> list[dict] | None:
+        """
+        Find species similar to the given species name using image similarity.
+
+        Args:
+            species_name (str): The species name to find similar species for.
+            limit (int): The maximum number of similar species to return.
+
+        Returns:
+            list[LanceSchema] | None: A
+            list of dicts with keys: imgId, species, distance (smaller = more similar),
+            or None if no similar species were found.
+        similar_images: list[dict] = (
+                ImagePersistData(
+                    lance_db=self.request.app.state.lance_db
+                ).find_similar_images(
+                    species_name=species_name,
+                    limit=limit,
+                )
+                or []
+            )
+        """

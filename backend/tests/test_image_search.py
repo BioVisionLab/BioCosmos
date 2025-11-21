@@ -2,7 +2,7 @@
 # To test run: `uv run pytest tests` from the backend directory
 from fastapi.testclient import TestClient
 from app.main import app
-import base64
+
 
 client = TestClient(app)
 
