@@ -45,7 +45,7 @@ embedder:
   # Select GPU for CUDA device, if multiple GPUs are available
   cuda_device: 0
   # Number of samples to process in each batch. Set according to your GPU memory
-  batch_size: 20
+  batch_size: 200
   # Reset the inserted images, set to true to re-insert all images
   reset: true
 openai:
