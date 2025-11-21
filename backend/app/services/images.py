@@ -578,11 +578,12 @@ class ImageEmbedder:
                 "unicom_embeddings": unicom_embeddings,
             }
         )
+        arrow_table = data.to_arrow().cast(self.db_table.schema)
         try:
             # Use merge_insert to avoid duplicates based on img_id
             self.db_table.merge_insert(
-                data, key_columns=["img_id"], insert_only=True
-            )
+                "img_id"
+            ).when_not_matched_insert_all().execute(arrow_table)
         except Exception as e:
             self.logger.error(
                 f"Error adding batch embeddings: {e}", exc_info=True
