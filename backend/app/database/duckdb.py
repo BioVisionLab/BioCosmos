@@ -44,6 +44,7 @@ class DuckDBClient:
             table_name (str): The name of the table to create or replace.
             csv_path (str): The path to the CSV file.
         """
+        logger.info(f"Creating '{table_name}' from '{csv_path}'.")
         self.conn.execute(
             f"""
             CREATE OR REPLACE TABLE {table_name} AS 

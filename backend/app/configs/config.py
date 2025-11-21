@@ -49,6 +49,7 @@ class ImageMetaConfig:
         config = load_config()
         self._image_meta_config = config.get("image_metadata", {})
 
+    @property
     def path(self) -> str:
         parent_dir = os.getenv("IMAGE_META_DIR", ".")
         file_name = self._image_meta_config.get(
