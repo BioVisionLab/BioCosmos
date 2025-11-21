@@ -2,7 +2,7 @@ import glob
 import numpy as np
 import io
 
-from PIL import Image
+from PIL.Image import Image
 from pydantic import BaseModel
 
 from ..configs.config import EmbedderConfig, ImageConfig
