@@ -12,6 +12,7 @@ from .database.lance import LanceDB
 from .services.clip import ClipModel
 from .services.images import ImageEmbedder
 from .services.umap import SpeciesImageUmap
+from .services.image_meta import ImageMetaService
 
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
@@ -140,11 +141,9 @@ def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
     LepTraits(app.state.duck_db).ingest()
-    logger.info("LepTraits data ingested.")
     GbifPersistData(app.state.duck_db).ingest()
-    logger.info("GBIF data ingested.")
     SpeciesImageUmap(app.state.duck_db).ingest()
-    logger.info("UMAP data ingested.")
+    ImageMetaService(app.state.duck_db).ingest()
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -163,7 +162,6 @@ def run_data_ingestion(app: FastAPI):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-
     Application lifespan manager.
 
     This context manager handles the startup and shutdown logic for the FastAPI
@@ -173,6 +171,7 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Application starting up...")
 
+    # Startup logic
     try:
         settings = get_app_settings()
         app.state.settings = settings
@@ -184,21 +183,29 @@ async def lifespan(app: FastAPI):
         run_data_ingestion(app)
 
         logger.info("Application startup completed successfully.")
-        yield
-
-    except (EnvironmentError, Exception) as e:
+    except Exception as e:
         logger.critical(
             f"A critical error occurred during application startup: {e}"
         )
         raise
 
-    finally:
-        logger.info("Application shutting down...")
-        app.state.duck_db.close()
+    # Yield control - application is now running
+    yield
+
+    # Shutdown logic (only runs if startup succeeded)
+    logger.info("Application shutting down...")
+    try:
+        if (
+            hasattr(app.state, "duck_db")
+            and app.state.duck_db is not None
+        ):
+            app.state.duck_db.close()
         app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None
         logger.info("Application shutdown completed.")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 app = FastAPI(

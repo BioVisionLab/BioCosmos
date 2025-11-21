@@ -5,11 +5,10 @@ import io
 from fastapi import APIRouter, HTTPException, Request
 from starlette.responses import StreamingResponse
 from ..query.taxon_data import TaxonSearch
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-from fastapi.responses import JSONResponse
 
 
 @router.get(
