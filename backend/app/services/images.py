@@ -1,3 +1,4 @@
+from encodings.punycode import insertion_unsort
 import glob
 import numpy as np
 import io
@@ -442,17 +443,13 @@ class ImageEmbedder:
                     "Image entries already exist in the database. Skipping ingestion."
                 )
                 return
-
-        filtered_paths = self._filter_existing_imgs(img_paths)
-        if filtered_paths is None or len(filtered_paths) == 0:
+        if self.config.limit is not None:
             self.logger.info(
-                "All images in the batch already exist in the database. Skipping batch."
+                f"Limiting image ingestion to {self.config.limit} images."
             )
-            return
-        self.logger.info(
-            f"Proceeding to ingest {len(filtered_paths)} new images."
-        )
-        self.batch_add_embeddings(self._limit_entries(filtered_paths))
+            self.batch_add_embeddings(self._limit_entries(img_paths))
+        else:
+            self.batch_add_embeddings(img_paths)
         self.logger.info("Image ingestion completed.")
 
     def get_species_name_from_path(
@@ -500,19 +497,16 @@ class ImageEmbedder:
         Determines the img paths based on the file extension for quick filtering.
         Later stages will validate the actual image files and skip invalid ones.
         """
-        valid_image_paths = [
-            path for path in img_paths if self._valid_img_path(path)
-        ]
         if (
             self.config.limit is not None
             and self.config.limit > 0
-            and len(valid_image_paths) > self.config.limit
+            and len(img_paths) > self.config.limit
         ):
             self.logger.info(
                 f"Limiting image ingestion to {self.config.limit} images."
             )
-            return valid_image_paths[: self.config.limit]
-        return valid_image_paths
+            return img_paths[: self.config.limit]
+        return img_paths
 
     def _get_images_from_path(self, img_dir: str) -> list[str]:
         """Get a list of image paths from the specified directory."""
@@ -584,31 +578,15 @@ class ImageEmbedder:
             }
         )
         try:
-            self.db_table.add(data)
+            # Use merge_insert to avoid duplicates based on img_id
+            self.db_table.merge_insert(
+                data, key_columns=["img_id"], insert_only=True
+            )
         except Exception as e:
             self.logger.error(
                 f"Error adding batch embeddings: {e}", exc_info=True
             )
             return
-
-    def _filter_existing_imgs(
-        self, img_paths: list[str]
-    ) -> list[str]:
-        """Filter out image paths that already exist in the database."""
-        self.logger.info(
-            f"Checking {len(img_paths)} images for existing entries in the database."
-        )
-        filtered_paths = []
-        for path in img_paths:
-            img_id = self._get_image_id(path)
-            if not self._img_exists_in_db(img_id):
-                filtered_paths.append(path)
-        filtered_counts = len(img_paths) - len(filtered_paths)
-        if filtered_counts > 0:
-            self.logger.info(
-                f"Filtered {filtered_counts} existing images."
-            )
-        return filtered_paths
 
     def _img_exists_in_db(self, img_id: str) -> bool:
         """Check if an image ID exists in the database."""
