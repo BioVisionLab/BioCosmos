@@ -1,4 +1,3 @@
-from email.mime import image
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from fastapi import Request

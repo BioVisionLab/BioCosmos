@@ -1,9 +1,10 @@
-from encodings.punycode import insertion_unsort
 import glob
 import numpy as np
 import io
 
-from PIL.Image import Image
+from PIL.Image import Image as PILImage
+from PIL import Image
+
 from pydantic import BaseModel
 
 from ..configs.config import EmbedderConfig, ImageConfig
@@ -617,7 +618,7 @@ class ImageEmbedder:
         return os.path.splitext(os.path.basename(img_path))[0]
 
     def _get_image_bytes(
-        self, images: list[Image]
+        self, images: list[PILImage]
     ) -> tuple[list[bytes], list[bool]]:
         """Get the image bytes from a list of PIL Images.
         It will resize the image if setup in the config to a maximum resolution.
@@ -648,7 +649,7 @@ class ImageEmbedder:
 
     def _get_imgs(
         self, img_paths: list[str]
-    ) -> tuple[list[int], list[Image]]:
+    ) -> tuple[list[int], list[PILImage]]:
         """Get the image embeddings from a list of image paths.
         Returns a tuple of successfully processed image resolution and the image_file.
         """
