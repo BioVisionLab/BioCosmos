@@ -1,6 +1,12 @@
+from curses import meta
+from email.mime import image
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from fastapi import Request
+
+from backend.app.database.model import LanceSchema
+
+from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
@@ -464,3 +470,61 @@ class SpeciesSimilarity:
                 or []
             )
         """
+        # Get image ID for the species
+        try:
+            image_ids = self._get_image_ids_for_species(species_name)
+            if image_ids is None:
+                logger.info(
+                    f"No image IDs found for species: {species_name}"
+                )
+                return None
+            similar_images: list[LanceSchema] = ImagePersistData(
+                lance_db=self.request.app.state.lance_db
+            ).find_similar_images_by_ids(
+                image_ids=image_ids,
+                limit=limit,
+            )
+            if similar_images is None or len(similar_images) == 0:
+                logger.info(
+                    f"No similar species found for species: {species_name}"
+                )
+                return None
+            # Convert to list of dicts
+            similar_images_dicts = [
+                {
+                    "imageId": img.img_id,
+                    "species": img.species,
+                    "distance": img.distance,
+                }
+                for img in similar_images
+            ]
+            return similar_images_dicts
+        except Exception as e:
+            logger.error(
+                f"Error retrieving image IDs for species {species_name}: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def _get_image_ids_for_species(
+        self, species_name: str
+    ) -> list[str] | None:
+        try:
+            meta_service = ImagePersistData(
+                lance_db=self.request.app.state.lance_db
+            )
+            image_ids = meta_service.fetch_image_ids_by_species(
+                species_name=species_name
+            )
+            if image_ids is None or len(image_ids) == 0:
+                logger.info(
+                    f"No images found for species: {species_name}"
+                )
+                return None
+            return image_ids
+        except Exception as e:
+            logger.error(
+                f"Error fetching image IDs for species {species_name}: {e}",
+                exc_info=True,
+            )
+            return None
