@@ -56,7 +56,7 @@ class ImageMetaService:
         """
         try:
             query = f"SELECT COUNT(*) FROM {self.table}"
-            result = self.db_client.execute_query(query)
+            result = self.db_client.execute(query)
             count = result[0][0] if result else 0
             return count
         except Exception as e:
