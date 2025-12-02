@@ -1,0 +1,37 @@
+# Dockerfile for the frontend
+
+# Stage 1: Build the Next.js application
+FROM node:20-slim AS builder
+WORKDIR /app
+
+# Copy configuration and dependency files
+COPY package.json yarn.lock ./
+COPY next.config.ts ./
+COPY tsconfig.json ./
+COPY postcss.config.mjs ./
+COPY tailwind.config.ts ./
+
+# Copy source code and public assets
+COPY src ./src
+COPY public ./public
+
+# Install dependencies and build the application
+RUN yarn install --frozen-lockfile
+RUN yarn build
+
+# Stage 2: Create the production image
+FROM node:20-slim
+WORKDIR /app
+
+# Copy built application from the builder stage
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.ts ./
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Start the application
+CMD ["yarn", "start"]

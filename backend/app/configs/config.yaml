@@ -1,0 +1,42 @@
+db:
+  duck:
+    file: "biocosmos.duckdb"
+  lance:
+    file: "biocosmos.lance"
+images:
+  table: "nymphalidae"
+  # Limit number of images to ingest into the database, set to null for no
+  limit: 100 # null
+gbif:
+  file: "gbif-lepi-2024-occurrence.tsv"
+  table: "gbif_meta"
+leptrait:
+  url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
+  table: "lep_traits_consensus"
+embedder:
+  # Skip embedding process if set to true
+  skip: true
+  # Options: "default", "cpu", "cuda", "mps"
+  # "default" will detect the best available accelerator
+  device: "default"
+  # Select GPU for CUDA device, if multiple GPUs are available
+  cuda_device: 0
+  # Number of samples to process in each batch. Set according to your GPU memory
+  batch_size: 20
+  # Reset the inserted images, set to true to re-insert all images
+  reset: false
+openai:
+  # OpenAI model to use for text summarization and other multi-modal tasks
+  # Available models:
+  # Llama (Meta): llama-3.1-70b-instruct, llama-3.1-8b-instruct, llama-3.1-nemotron-nano-8B-v1, llama-3.3-70b-instruct
+  # Mistral / Derivatives: mistral-7b-instruct, mistral-small-3.1, mistral-small, mistral-large, mistral-large-2, codestral-22b
+  # OpenAI GPT (chat / reasoning): gpt-3.5-turbo, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-5, gpt-5-mini, gpt-5-nano
+  # OpenAI Reasoning (o-series): o1, o1-mini, o3, o3-mini, o3-mini-high, o3-mini-medium, o4-mini, o4-mini-high, o4-mini-medium
+  # Anthropic Claude: claude-3-haiku, claude-3-sonnet, claude-3-opus, claude-3.5-haiku, claude-3.5-sonnet, claude-3.5-sonnet-v2, claude-3.7-sonnet, claude-3.7-sonnet-thinking, claude-4-sonnet
+  # Google Gemini: gemini-1.5-flash-001, gemini-1.5-flash-002, gemini-1.5-pro-001, gemini-1.5-pro-002, gemini-2.0-flash, gemini-2.5-flash-exp, gemini-2.5-pro-exp, gemini-2.5-flash, gemini-2.5-pro
+  # Amazon Nova: nova-lite, nova-micro, nova-pro
+  # Gemma / Granite / Gemma-like: gemma-3-27b-it, granite-3.3-8b-instruct
+  # Image / Multimodal Gen: flux.1-dev, flux.1-schnell
+  # Audio / Speech / TTS: whisper-large-v3, kokoro
+  # Embeddings: sfr-embedding-mistral, nomic-embed-text-v1.5, text-embedding-3-large, text-embedding-3-small
+  model: "gpt-5"
