@@ -34,36 +34,36 @@ class ImageMetaService:
             self.db_client.create_or_replace_table_csv(
                 table_name=self.table, csv_path=self.path
             )
-            entries: int | None = self.count_entries()
-            if entries is not None:
-                logger.info(
-                    f"Image metadata ingested successfully from '{self.path}'."
-                )
-                logger.info(
-                    f"Total entries after ingestion: {entries}"
-                )
+            # entries: int | None = self.count_entries()
+            # if entries is not None:
+            #     logger.info(
+            #         f"Image metadata ingested successfully from '{self.path}'."
+            #     )
+            #     logger.info(
+            #         f"Total entries after ingestion: {entries}"
+            #     )
         except Exception as e:
             logger.error(
                 f"Failed to ingest image metadata into '{self.table}': {e}"
             )
             raise e
 
-    def count_entries(self) -> int | None:
-        """
-        Count the number of entries in the image metadata table.
+    # def count_entries(self) -> int | None:
+    #     """
+    #     Count the number of entries in the image metadata table.
 
-        :return: The count of entries or None if an error occurs.
-        """
-        try:
-            query = f"SELECT COUNT(*) FROM {self.table}"
-            result = self.db_client.execute(query)
-            count = result[0][0] if result else 0
-            return count
-        except Exception as e:
-            logger.error(
-                f"Error counting entries in table '{self.table}': {e}"
-            )
-            return None
+    #     :return: The count of entries or None if an error occurs.
+    #     """
+    #     try:
+    #         query = f"SELECT COUNT(*) FROM {self.table}"
+    #         result = self.db_client.execute(query)
+    #         count = result[0][0] if result else 0
+    #         return count
+    #     except Exception as e:
+    #         logger.error(
+    #             f"Error counting entries in table '{self.table}': {e}"
+    #         )
+    #         return None
 
     def get_image_meta_by_species(
         self, species: str
