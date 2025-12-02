@@ -1,12 +1,9 @@
-from curses import meta
-from email.mime import image
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from fastapi import Request
 
-from backend.app.database.model import LanceSchema
+from ..database.model import LanceSchema
 
-from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
