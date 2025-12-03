@@ -131,7 +131,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                 {otherImageUrls.map((url, index) => (
                   <div
                     key={index}
-                    className="p-2 border border-teal-400/50 dark:border-teal-700/50 rounded-lg "
+                    className="p-2  bg-teal-400/50 dark:bg-teal-700/50 rounded-lg "
                   >
                     <Image
                       key={index}
