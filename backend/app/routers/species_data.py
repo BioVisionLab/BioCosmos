@@ -191,38 +191,38 @@ async def fetch_species_high_res_image(
         )
 
 
-@router.get(
-    "/species/{scientific_name}/specimens", tags=["Species Data"]
-)
-async def fetch_species_specimen_info(
-    request: Request, scientific_name: str
-):
-    """
-    Fetches species specimens.
-    Returns a 404 error if no specimens are found.
-    """
-    logger.info(
-        f"Fetching species specimens for species: {scientific_name}"
-    )
+# @router.get(
+#     "/species/{scientific_name}/specimens", tags=["Species Data"]
+# )
+# async def fetch_species_specimen_info(
+#     request: Request, scientific_name: str
+# ):
+#     """
+#     Fetches species specimens.
+#     Returns a 404 error if no specimens are found.
+#     """
+#     logger.info(
+#         f"Fetching species specimens for species: {scientific_name}"
+#     )
 
-    try:
-        specimens = SpecimenData(request=request).summarize(
-            species=scientific_name
-        )
-        if not specimens:
-            logger.warning(
-                f"No specimens found for species: {scientific_name}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail=f"Specimens not found for species: {scientific_name}",
-            )
-        return JSONResponse(content=specimens)
-    except Exception as e:
-        logger.error(
-            f"Error fetching specimens for {scientific_name}: {e}"
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred while fetching specimens.",
-        )
+#     try:
+#         specimens = SpecimenData(request=request).summarize(
+#             species=scientific_name
+#         )
+#         if not specimens:
+#             logger.warning(
+#                 f"No specimens found for species: {scientific_name}"
+#             )
+#             raise HTTPException(
+#                 status_code=404,
+#                 detail=f"Specimens not found for species: {scientific_name}",
+#             )
+#         return JSONResponse(content=specimens)
+#     except Exception as e:
+#         logger.error(
+#             f"Error fetching specimens for {scientific_name}: {e}"
+#         )
+#         raise HTTPException(
+#             status_code=500,
+#             detail="An internal error occurred while fetching specimens.",
+#         )
