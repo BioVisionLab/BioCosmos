@@ -7,7 +7,7 @@ images:
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
   # The backend checks for existing images first, so this limit only applies to new images
-  limit: 20
+  limit: null
   # Maximum resolution in pixels for images to ingest, set to null for no limit
   # With limit, use numerical value only. Example values: 512, 1024, 2048
   max_resolution: 800
@@ -39,7 +39,7 @@ leptrait:
   skip: true
 embedder:
   # Skip embedding process if set to true
-  skip: false
+  skip: true
   # Options: "default", "cpu", "cuda", "mps"
   # "default" will detect the best available accelerator
   device: "default"
@@ -48,7 +48,7 @@ embedder:
   # Number of samples to process in each batch. Set according to your GPU memory
   batch_size: 200
   # Reset the inserted images, set to true to re-insert all images
-  reset: true
+  reset: false
 openai:
   # OpenAI model to use for text summarization and other multi-modal tasks
   # Available models:

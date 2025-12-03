@@ -1,25 +1,20 @@
 import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
-
-
-from .database.duckdb import DuckDBClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from .database.duckdb import DuckDBClient
 from .services.unicom import UnicomModel
 from .database.lance import LanceDB
 from .services.clip import ClipModel
-from .services.images import ImageEmbedder
+from .services.embedder import ImageEmbedder
 from .services.umap import SpeciesImageUmap
 from .services.image_meta import ImageMetaService
-
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
-
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
     data_stats,
     image_retrieval,
