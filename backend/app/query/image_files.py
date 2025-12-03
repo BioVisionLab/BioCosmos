@@ -2,11 +2,38 @@ from io import BytesIO
 import os
 from fastapi import Request
 from PIL import Image
+
+from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
 
 STATIC_PATH = "static/"
 THUMBNAIL_MAX_RESOLUTION = 128
 FULL_RES_MAX_RESOLUTION = 800
+
+
+class ImageMetaRetrieval:
+    """
+    A class to handle image retrieval operations.
+    This class retrieves image metadata from the database.
+    """
+
+    def __init__(self, request: Request):
+        """
+        Initialize the ImageMetaRetrieval class.
+        """
+        self.duck_db = request.app.state.duck_db
+        self.lance_db = request.app.state.lance_db
+
+    def get_species_image_ids(
+        self, scientific_name: str
+    ) -> list[str]:
+        """
+        Retrieve image IDs associated with a species.
+        """
+        image_ids: list[str] = ImageMetaService(
+            duckdb=self.duck_db
+        ).get_image_ids_by_species(scientific_name)
+        return image_ids
 
 
 class ImageFileRetrieval:
@@ -32,7 +59,40 @@ class ImageFileRetrieval:
         Initialize the ImageRetrieval class.
         """
         self.lance_db = request.app.state.lance_db
+        self.duck_db = request.app.state.duck_db
         self.file_format = "webp"
+
+    def get_species_thumbnail(
+        self, scientific_name: str
+    ) -> str | None:
+        """
+        Retrieve the thumbnail image file path for a species.
+        """
+        image_ids: list[str] = ImageMetaService(
+            duckdb=self.duck_db
+        ).get_image_ids_by_species(scientific_name)
+
+        if not image_ids:
+            return None
+
+        # For simplicity, use the first image ID for the thumbnail
+        first_image_id = image_ids[0]
+        return self.get_thumbnail(first_image_id)
+
+    def get_species_image(self, scientific_name: str) -> str | None:
+        """
+        Retrieve the full-resolution image file path for a species.
+        """
+        image_ids: list[str] = ImageMetaService(
+            duckdb=self.duck_db
+        ).get_image_ids_by_species(scientific_name)
+
+        if not image_ids:
+            return None
+
+        # For simplicity, use the first image ID for the full-resolution image
+        first_image_id = image_ids[0]
+        return self.get_full_res(first_image_id)
 
     def get_thumbnail(self, image_id: str) -> str | None:
         """
@@ -71,7 +131,8 @@ class ImageFileRetrieval:
         Retrieve an image by its ID.
         """
         img_bytes: bytes = ImagePersistData(
-            lance_db=self.lance_db
+            lance_db=self.lance_db,
+            duckdb=self.duck_db,
         ).get_img_by_id(image_id)
         return img_bytes
 

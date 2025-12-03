@@ -4,6 +4,10 @@ import io
 from pydantic import BaseModel
 from fastapi import Request
 
+from ..services.image_meta import ImageMetaService
+
+from ..database.duckdb import DuckDBClient
+
 from ..configs.config import ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
@@ -80,12 +84,13 @@ class ImageSummary:
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
-    def __init__(self, lance_db: LanceDB):
+    def __init__(self, lance_db: LanceDB, duckdb: DuckDBClient):
         self.config = ImageConfig()
         self.logger = logging.getLogger(__name__)
         self.db_table = lance_db.create_or_get_collection(
             self.config.table
         )
+        self.meta_table = duckdb
 
     def entries(self) -> int | None:
         """Count the number of entries in the image collection."""
@@ -230,7 +235,7 @@ class ImagePersistData:
 
     def find_similar_images(
         self, image_ids: list[str], limit: int = 20
-    ) -> list[LanceSchema] | None:
+    ) -> pl.DataFrame | None:
         """Find images from other species similar to the given image list using UNICOM embeddings.
 
         Process:
@@ -257,19 +262,22 @@ class ImagePersistData:
         )
         # Perform similarity search based on the centroid
         try:
-            similar_images = self._query_embedding(
+            results = self._query_embedding(
                 query_vector=centroid,
                 vector_column_name="unicom_embeddings",
                 limit=limit,
             )
             self.logger.info(
-                f"Found {len(similar_images)} similar images for image IDs '{image_ids}'."
+                f"Found {len(results)} similar images for image IDs '{image_ids}'."
             )
-            if similar_images is None or similar_images.is_empty():
+            if results is None or results.is_empty():
                 self.logger.warning(
                     f"No unique species found in similar images for image IDs '{image_ids}'."
                 )
                 return None
+            merged_results = self._merge_result_with_metadata(results)
+            # Filter to unique species and remove binary/embedding columns before JSON
+            similar_images = self._filter_by_species(merged_results)
             return similar_images
         except Exception as e:
             self.logger.error(
@@ -305,7 +313,7 @@ class ImagePersistData:
             )
             safe_cols = [
                 c
-                for c in ("img_id", "species", "_distance")
+                for c in ("img_id", "_distance")
                 if c in results.columns
             ]
             if not safe_cols:
@@ -365,3 +373,53 @@ class ImagePersistData:
                 f"Error fetching image with ID '{img_id}': {e}"
             )
             return None
+
+    def _merge_result_with_metadata(
+        self,
+        results: pl.DataFrame,
+    ) -> pl.DataFrame | None:
+        """
+        Query the DuckDB for metadata and merge with the results.
+        :param results: The polars DataFrame containing search results.
+        """
+        try:
+            if results is None:
+                self.logger.warning(
+                    "No results to merge with metadata."
+                )
+                return results
+
+            meta_service = ImageMetaService(duckdb=self.meta_table)
+            merged_results = meta_service.merge_meta_with_image_data(
+                results
+            )
+
+            return merged_results
+
+        except Exception as e:
+            self.logger.error(
+                f"Error merging results with metadata: {e}"
+            )
+            return results
+
+    def _filter_by_species(
+        self, results: pl.DataFrame
+    ) -> pl.DataFrame:
+        """Filter the results to ensure only one image per species is kept."""
+        try:
+            if results is None:
+                self.logger.warning(
+                    "No results to filter by species."
+                )
+                return results
+
+            # Keep the first occurrence of each species
+            filtered_results = results.unique(subset=["species"])
+
+            return filtered_results
+
+        except Exception as e:
+            self.logger.error(
+                f"Error filtering results by species: {e}"
+            )
+            return results

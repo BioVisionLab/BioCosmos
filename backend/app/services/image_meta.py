@@ -1,3 +1,4 @@
+import polars as pl
 from ..database.model import ImageMetadata
 from ..configs.config import ImageMetaConfig
 from ..database.duckdb import DuckDBClient
@@ -65,6 +66,33 @@ class ImageMetaService:
     #         )
     #         return None
 
+    def get_image_ids_by_species(
+        self, scientific_name: str
+    ) -> list[str]:
+        """
+        Retrieve image IDs for a given species.
+
+        :param scientific_name: The scientific name of the species.
+        :return: A list of image IDs.
+        """
+        cleaned_name = self.sanitize_species_name(scientific_name)
+        try:
+            query = f"""
+                SELECT REPLACE(mask_name, '.png', '') AS img_id FROM {self.table}
+                WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
+                LIMIT 100
+            """
+            results = self.db_client.execute_query(
+                query, cleaned_name
+            ).pl()
+            image_ids = results["img_id"].to_list()
+            return image_ids
+        except Exception as e:
+            logger.error(
+                f"Error retrieving image IDs for species '{scientific_name}': {e}"
+            )
+            return []
+
     def get_image_meta_by_species(
         self, species: str
     ) -> list[ImageMetadata] | None:
@@ -78,7 +106,7 @@ class ImageMetaService:
         try:
             query = f"""
                 SELECT mask_name AS img_id, species, source_db, class_dv FROM {self.table}
-                WHERE species = ?
+                WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '') LIMIT 100
             """
             # We export result to polars for easier handling
             results = self.db_client.execute_query(
@@ -92,6 +120,81 @@ class ImageMetaService:
         except Exception as e:
             logger.error(
                 f"Error retrieving image IDs for species '{species}': {e}"
+            )
+            return None
+
+    def get_meta_by_image_ids(
+        self, img_ids: list[str]
+    ) -> pl.DataFrame | None:
+        try:
+            if not img_ids:
+                logger.warning("No image IDs provided.")
+                return pl.DataFrame()
+
+            # Create a temporary table with the IDs
+            ids_df = pl.DataFrame({"img_id": img_ids})
+            self.db_client.register("temp_ids", ids_df)
+
+            query = f"""
+                SELECT m.mask_name AS img_id, m.species, m.source_db, m.class_dv 
+                FROM {self.table} m
+                INNER JOIN temp_ids t ON m.mask_name = t.img_id
+            """
+
+            duckdb_results = self.db_client.execute(query).pl()
+            self.db_client.unregister("temp_ids")
+
+            return duckdb_results
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving metadata for image IDs '{img_ids}': {e}"
+            )
+            return None
+
+    def merge_meta_with_image_data(
+        self, image_data: pl.DataFrame
+    ) -> pl.DataFrame | None:
+        """
+        Merge image metadata with image data DataFrame.
+        :param image_data: The polars DataFrame containing image data.
+        :return: Merged polars DataFrame or None if an error occurs.
+        """
+        try:
+            if image_data is None:
+                logger.warning(
+                    "No image data to merge with metadata."
+                )
+                return None
+
+            # Register the full image_data DataFrame as a temporary table
+            self.db_client.register("temp_image_data", image_data)
+
+            # Perform inner join directly in DuckDB with all columns
+            query = f"""
+                SELECT 
+                    t.*,
+                    m.species,
+                    m.source_db,
+                    m.class_dv
+                FROM temp_image_data t
+                INNER JOIN {self.table} m ON t.imgId = REPLACE(m.mask_name, '.png', '')
+            """
+
+            merged_results = self.db_client.execute(query).pl()
+            self.db_client.unregister("temp_image_data")
+
+            if merged_results is None or merged_results.is_empty():
+                logger.warning(
+                    "No metadata found for the given image IDs."
+                )
+                return None
+
+            return merged_results
+
+        except Exception as e:
+            logger.error(
+                f"Error merging metadata with image data: {e}"
             )
             return None
 

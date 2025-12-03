@@ -17,6 +17,23 @@ class DuckDBClient:
         self.conn = duckdb.connect(database=str(db_path))
         logger.info(f"DuckDB connected at {db_path}")
 
+    def register(self, name: str, df: pl.DataFrame):
+        """Register a Polars DataFrame as a DuckDB table.
+        Args:
+            name (str): The name of the table.
+            df (pl.DataFrame): The Polars DataFrame to register.
+        """
+        self.conn.register(name, df)
+        logger.info(f"DataFrame registered as table '{name}'.")
+
+    def unregister(self, name: str):
+        """Unregister a DuckDB table.
+        Args:
+            name (str): The name of the table to unregister.
+        """
+        self.conn.unregister(name)
+        logger.info(f"Table '{name}' unregistered.")
+
     def execute(self, query: str):
         """Execute a SQL query and return the result.
         Args:

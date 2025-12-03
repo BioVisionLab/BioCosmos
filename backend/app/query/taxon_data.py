@@ -5,7 +5,6 @@ import polars as pl
 import logging
 
 from ..services.image_meta import ImageMetaService
-from ..database.model import LanceSchema
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
@@ -181,7 +180,8 @@ class TaxonSearch:
             duckdb=self.request.app.state.duck_db
         )
         img_service = ImagePersistData(
-            lance_db=self.request.app.state.lance_db
+            lance_db=self.request.app.state.lance_db,
+            duckdb=self.request.app.state.duck_db,
         )
         try:
             counts_gbif: int | None = gbif_service.count_entries()
@@ -474,8 +474,9 @@ class SpeciesSimilarity:
                     f"No image IDs found for species: {species_name}"
                 )
                 return None
-            similar_images: list[LanceSchema] = ImagePersistData(
-                lance_db=self.request.app.state.lance_db
+            similar_images: pl.DataFrame = ImagePersistData(
+                lance_db=self.request.app.state.lance_db,
+                duckdb=self.request.app.state.duck_db,
             ).find_similar_images(
                 image_ids=image_ids,
                 limit=limit,
@@ -485,18 +486,8 @@ class SpeciesSimilarity:
                     f"No similar species found for species: {species_name}"
                 )
                 return None
-            # Convert to list of dicts
-            similar_images_dicts = [
-                {
-                    "imageId": img.img_id,
-                    "species": img.species,
-                    "distance": img.distance,
-                }
-                for img in similar_images
-            ]
-            return self._filter_by_species(
-                pl.DataFrame(similar_images_dicts)
-            ).to_dicts()
+
+            return similar_images.to_dicts()
         except Exception as e:
             logger.error(
                 f"Error retrieving image IDs for species {species_name}: {e}",
@@ -530,26 +521,3 @@ class SpeciesSimilarity:
                 exc_info=True,
             )
             return None
-
-    def _filter_by_species(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Filter the DataFrame to ensure only one image per species.
-        We keep the species with the highest distance value.
-        """
-        if df is None or df.is_empty():
-            return df
-
-        #  Lance always return distance from query.
-        # If the search uses cosine similarity, the return value
-        # will be 1 - cosine_similarity, so smaller is more similar.
-        filtered_df = (
-            df.sort("distance", descending=False)
-            .unique(subset=["species"], maintain_order=True)
-            .sort(
-                "distance", descending=False
-            )  # Final sort for output
-        )
-
-        self.logger.info(
-            f"Filtered to {len(filtered_df)} of {len(df)} species."
-        )
-        return filtered_df
