@@ -31,7 +31,7 @@ async function fetchSpeciesImageIds(
   }
 
   const data = await response.json();
-  const ids = data["imageIds"] as string[];
+  const ids = data as string[];
   if (!Array.isArray(ids)) {
     throw new Error("Invalid data format: imageIds is not an array");
   }

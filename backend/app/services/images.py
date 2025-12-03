@@ -1,3 +1,4 @@
+from heapq import merge
 import numpy as np
 import io
 
@@ -36,49 +37,6 @@ class SpeciesImage(BaseModel):
             "species": self.species,
             "imageIds": self.imageIds,
         }
-
-
-class ImageSummary:
-    """Class to represent image summary data."""
-
-    def __init__(self, lance_db: LanceDB):
-        self.logger = logging.getLogger(__name__)
-        self.config = ImageConfig()
-        self.db_table = lance_db.create_or_get_collection(
-            self.config.table
-        )
-
-    def get_count(self, species_name: str) -> int | None:
-        """Fetch image statistics for a specific species.
-
-        How it works:
-        1. Query the database for images matching the species name.
-        2. Return statistics such as number of images available.
-        :param species_name: The name of the species to fetch the image statistics for.
-        :return: A dictionary containing image statistics or None if not found."""
-        query = self._query_image(species_name)
-
-        return len(query) if query is not None else None
-
-    def _query_image(self, species_name: str) -> pl.DataFrame | None:
-        """Construct a query string for fetching images."""
-        species = species_name.lower().replace(" ", "_")
-        query = f"species == '{species}'"
-        try:
-            results = self.db_table.search().where(query).to_polars()
-            if results.is_empty():
-                self.logger.warning(
-                    f"No images found for species '{species_name}'."
-                )
-                return None
-
-            dedup_images = results.unique(subset=["img_id"])
-            return dedup_images
-        except Exception as e:
-            self.logger.error(
-                f"Error fetching images for species '{species_name}': {e}"
-            )
-            return None
 
 
 class ImagePersistData:
@@ -180,11 +138,14 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the text '{text}'."
             )
-            # Filter to unique species and remove binary/embedding columns before JSON
-            similar_images = self._filter_by_species(similar_images)
+            merged_results = self._merge_result_with_metadata(
+                similar_images
+            )
+            if merged_results is None:
+                return None
+            filtered_imgs = self._filter_by_species(merged_results)
 
-            return similar_images.to_dicts()
-
+            return filtered_imgs.to_dicts()
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")
             return None
@@ -226,7 +187,12 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the provided image."
             )
-            filtered_imgs = self._filter_by_species(similar_images)
+            merged_results = self._merge_result_with_metadata(
+                similar_images
+            )
+            if merged_results is None:
+                return None
+            filtered_imgs = self._filter_by_species(merged_results)
             return filtered_imgs.to_dicts()
 
         except Exception as e:

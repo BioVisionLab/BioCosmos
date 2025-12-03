@@ -49,6 +49,36 @@ class ImageMetaService:
             )
             raise e
 
+    def get_image_count_by_species(
+        self, scientific_name: str
+    ) -> int | None:
+        """
+        Retrieve the count of images for a given species.
+
+        :param scientific_name: The scientific name of the species.
+        :return: The count of images or None if an error occurs.
+        """
+        cleaned_name = self.sanitize_species_name(scientific_name)
+        try:
+            query = f"""
+                SELECT COUNT(*) AS image_count FROM {self.table}
+                WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
+            """
+            result = self.db_client.execute_query(
+                query, cleaned_name
+            ).pl()
+            count = (
+                result["image_count"][0]
+                if not result.is_empty()
+                else 0
+            )
+            return count
+        except Exception as e:
+            logger.error(
+                f"Error retrieving image count for species '{scientific_name}': {e}"
+            )
+            return None
+
     # def count_entries(self) -> int | None:
     #     """
     #     Count the number of entries in the image metadata table.

@@ -1,8 +1,8 @@
 from openai import BaseModel
 
+from ..services.image_meta import ImageMetaService
 from ..services.umap import SpeciesImageUmap
-from ..services.images import ImageSummary
-from starlette.requests import Request
+from fastapi import Request
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,13 +26,13 @@ class SpecimenDataPayload(BaseModel):
 
 class SpecimenData:
     def __init__(self, request: Request):
-        self.lance_db = request.app.state.lance_db
+        self.duckdb = request.app.state.duck_db
 
     def summarize(self, species: str) -> dict | None:
         try:
-            image_counts = ImageSummary(
-                lance_db=self.lance_db
-            ).get_count(species)
+            image_counts = ImageMetaService(
+                duckdb=self.duckdb
+            ).get_image_count_by_species(species)
             if image_counts is None:
                 return None
             payload = SpecimenDataPayload.from_data(
