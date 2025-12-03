@@ -77,11 +77,17 @@ class ImageMetaService:
         cleaned_species = self.sanitize_species_name(species)
         try:
             query = f"""
-                SELECT img_id FROM {self.table}
-                WHERE species = '{cleaned_species}'
+                SELECT mask_name AS img_id, species, source_db, class_dv FROM {self.table}
+                WHERE species = ?
             """
-            results = self.db_client.execute_query(query)
-            image_meta_list = [ImageMetadata(*row) for row in results]
+            # We export result to polars for easier handling
+            results = self.db_client.execute_query(
+                query, cleaned_species
+            ).pl()
+            # convert result t a list of pydantic models
+            image_meta_list = [
+                ImageMetadata(**row) for row in results.to_dicts()
+            ]
             return image_meta_list
         except Exception as e:
             logger.error(

@@ -414,7 +414,7 @@ class ImageMetadata(BaseModel):
 
     img_id: str
     species: str
-    source: str
-    collection_id: str
+    source_db: str
+    collection_id: str | None = None
     # Dorso ventral view of the image: dorsal or ventral
     class_dv: str

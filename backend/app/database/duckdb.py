@@ -26,6 +26,16 @@ class DuckDBClient:
         """
         return self.conn.execute(query)
 
+    def execute_query(self, query: str, params: str):
+        """Execute a SQL query with parameters.
+        Args:
+            query (str): The SQL query to execute.
+            params (str): The parameter to bind to the query.
+        Returns:
+            duckdb.DuckDBPyRelation: The result of the query.
+        """
+        return self.conn.execute(query, [params])
+
     def execute_prepared(self, query: str, params: list):
         """Execute a prepared SQL query with parameters.
         Args:

@@ -1,14 +1,16 @@
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from fastapi import Request
+import polars as pl
+import logging
 
+from ..services.image_meta import ImageMetaService
 from ..database.model import LanceSchema
-
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
 from ..services.openai import AiSummary
-import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -235,13 +237,10 @@ class TaxonSearch:
                     f"No traits data found for species: {self.scientific_name}"
                 )
                 return None
-            similar_images: list[dict] = (
-                ImagePersistData(
-                    lance_db=self.request.app.state.lance_db
-                ).fetch_id_similar_images(
-                    species_name=self.scientific_name, limit=50
-                )
-                or []
+            similar_images: list[dict] = SpeciesSimilarity(
+                request=self.request
+            ).find_similar_species(
+                species_name=self.scientific_name, limit=50
             )
             payload = SpeciesPayload.from_data(
                 species_id=self.scientific_name,
@@ -477,7 +476,7 @@ class SpeciesSimilarity:
                 return None
             similar_images: list[LanceSchema] = ImagePersistData(
                 lance_db=self.request.app.state.lance_db
-            ).find_similar_images_by_ids(
+            ).find_similar_images(
                 image_ids=image_ids,
                 limit=limit,
             )
@@ -495,33 +494,62 @@ class SpeciesSimilarity:
                 }
                 for img in similar_images
             ]
-            return similar_images_dicts
+            return self._filter_by_species(
+                pl.DataFrame(similar_images_dicts)
+            ).to_dicts()
         except Exception as e:
             logger.error(
                 f"Error retrieving image IDs for species {species_name}: {e}",
                 exc_info=True,
             )
-            return None
+            return []
 
     def _get_image_ids_for_species(
         self, species_name: str
     ) -> list[str] | None:
         try:
-            meta_service = ImagePersistData(
-                lance_db=self.request.app.state.lance_db
+            meta_service = ImageMetaService(
+                duckdb=self.request.app.state.duck_db
             )
-            image_ids = meta_service.fetch_image_ids_by_species(
-                species_name=species_name
+            image_meta = meta_service.get_image_meta_by_species(
+                species=species_name
             )
-            if image_ids is None or len(image_ids) == 0:
+            if image_meta is None or len(image_meta) == 0:
                 logger.info(
                     f"No images found for species: {species_name}"
                 )
                 return None
-            return image_ids
+            # Need to remove .png extension if present
+            return [
+                meta.img_id.removesuffix(".png")
+                for meta in image_meta
+            ]
         except Exception as e:
             logger.error(
                 f"Error fetching image IDs for species {species_name}: {e}",
                 exc_info=True,
             )
             return None
+
+    def _filter_by_species(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Filter the DataFrame to ensure only one image per species.
+        We keep the species with the highest distance value.
+        """
+        if df is None or df.is_empty():
+            return df
+
+        #  Lance always return distance from query.
+        # If the search uses cosine similarity, the return value
+        # will be 1 - cosine_similarity, so smaller is more similar.
+        filtered_df = (
+            df.sort("distance", descending=False)
+            .unique(subset=["species"], maintain_order=True)
+            .sort(
+                "distance", descending=False
+            )  # Final sort for output
+        )
+
+        self.logger.info(
+            f"Filtered to {len(filtered_df)} of {len(df)} species."
+        )
+        return filtered_df
