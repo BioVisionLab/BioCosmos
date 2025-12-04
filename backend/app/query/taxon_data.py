@@ -1,13 +1,14 @@
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from fastapi import Request
-
+import polars as pl
 import logging
 
 from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
-from ..services.gbif import GbifPersistData
+from ..services.gbif import GbifTaxonSearch, GbifPersistData
+from ..services.openai import AiSummary
 
 
 logger = logging.getLogger(__name__)

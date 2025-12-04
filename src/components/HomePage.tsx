@@ -36,11 +36,7 @@ function SpeciesThumbnail({
   let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
-<<<<<<< HEAD
-    <div className="w-fit h-fit justify-center bg-gray-100 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
-=======
     <div className="w-fit h-fit justify-center bg-gray-200 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
->>>>>>> api-redesign
       <Link key={index} href={linkUrl}>
         {thumbnailUrl ? (
           <>
