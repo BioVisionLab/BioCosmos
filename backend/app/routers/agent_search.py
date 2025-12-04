@@ -2,10 +2,10 @@
 Agent-based semantic search router.
 Uses OpenAI function calling to intelligently query multiple data sources.
 """
+
 import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from ..services.agent_search import AgentSearchService
 
@@ -13,13 +13,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-class AgentSearchRequest(BaseModel):
-    """Request model for agent search."""
-    query: str
-
-
 @router.post("/search/agent", tags=["ML Search"])
-async def agent_search(request: Request, search_request: AgentSearchRequest):
+async def agent_search(request: Request, query: str):
     """
     Agent-based semantic search endpoint.
 
@@ -31,11 +26,12 @@ async def agent_search(request: Request, search_request: AgentSearchRequest):
     - "find butterflies similar to danaus plexippus that live in tropical regions"
     - "show me red butterflies with high canopy affinity from south america"
     """
-    query = search_request.query
 
     if not query or not query.strip():
         return JSONResponse(
-            content={"error": "Query parameter is required and cannot be empty."},
+            content={
+                "error": "Query parameter is required and cannot be empty."
+            },
             status_code=400,
         )
 
@@ -55,15 +51,8 @@ async def agent_search(request: Request, search_request: AgentSearchRequest):
                 status_code=200,
             )
 
-        logger.info(
-            f"Agent search returned {len(results)} results for query: {query}"
-        )
         return JSONResponse(
-            content={
-                "query": query,
-                "results": results,
-                "count": len(results),
-            },
+            content=results,
             status_code=200,
         )
 

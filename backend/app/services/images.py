@@ -144,8 +144,12 @@ class ImagePersistData:
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the text '{text}'."
             )
-            # Filter to unique species and remove binary/embedding columns before JSON
-            similar_images = self._filter_by_species(similar_images)
+            merged_results = self._merge_result_with_metadata(
+                similar_images
+            )
+            if merged_results is None:
+                return None
+            similar_images = self._filter_by_species(merged_results)
 
             return similar_images.to_dicts()
 

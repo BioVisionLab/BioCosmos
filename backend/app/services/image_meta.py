@@ -95,6 +95,33 @@ class ImageMetaService:
     #             f"Error counting entries in table '{self.table}': {e}"
     #         )
     #         return None
+    def get_species_main_image_id(
+        self, scientific_name: str
+    ) -> str | None:
+        """
+        Retrieve the main image ID for a given species.
+
+        :param scientific_name: The scientific name of the species.
+        :return: The main image ID or None if not found.
+        """
+        cleaned_name = self.sanitize_species_name(scientific_name)
+        try:
+            query = f"""
+                SELECT REPLACE(mask_name, '.png', '') AS img_id FROM {self.table}
+                WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
+                LIMIT 1
+            """
+            results = self.db_client.execute_query(
+                query, cleaned_name
+            ).pl()
+            if not results.is_empty():
+                return results["img_id"][0]
+            return None
+        except Exception as e:
+            logger.error(
+                f"Error retrieving main image ID for species '{scientific_name}': {e}"
+            )
+            return None
 
     def get_image_ids_by_species(
         self, scientific_name: str

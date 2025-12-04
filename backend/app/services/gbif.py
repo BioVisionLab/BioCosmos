@@ -130,7 +130,6 @@ class GbifPersistData:
                 )
                 return []
 
-            location_lower = location.lower()
             location_upper = location.upper()
 
             # Escape single quotes for SQL
