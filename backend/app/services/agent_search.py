@@ -18,7 +18,7 @@ Key features:
 import logging
 import json
 import asyncio
-
+import polars as pl
 
 from typing import List, Dict, Any
 
@@ -34,7 +34,6 @@ from ..configs.config import OpenAIConfig
 from ..services.images import ImagePersistData
 from ..services.gbif import GbifPersistData
 from ..services.leptraits import LepTraits
-from ..query.image_search import TextToImageSearch
 
 
 logger = logging.getLogger(__name__)
@@ -317,281 +316,26 @@ class AgentSearchService:
                 f"Agent received {len(valid_results)}/{len(tool_names)} valid tool results"
             )
 
-            final_results = self._aggregate_results(
-                valid_results, query
-            )
-            return final_results.model_dump()
+            return valid_results
 
         except Exception as e:
             logger.error(f"Error in agent search: {e}", exc_info=True)
             raise
 
-    def _aggregate_results(
-        self, tool_results: List[Dict], query: str
-    ) -> AgentSearchPayload:
-        """
-        Aggregate tool results using weighted ranking formula with dynamic normalization.
-
-        Ranking Formula:
-        ----------------
-        Score = w_c * (1 - d_c/2) + w_l * m_l + w_t * m_t - penalty
-
-        Where:
-            w_c: Weight for color similarity (only if color search used)
-            w_l: Weight for location match
-            w_t: Weight for traits match
-            d_c: Cosine distance for color [0, 2] - normalized to similarity [0, 1]
-            m_l: Location match indicator (1 if found, 0 otherwise)
-            m_t: Traits match indicator (1 if found, 0 otherwise)
-            penalty: 0.15 * (num_tools_used - num_tools_for_species)
-
-        Dynamic Weight Normalization:
-        ------------------------------
-        When color search is NOT invoked by the agent:
-        - Color component is excluded from scoring
-        - Remaining weights (location, traits) are renormalized to sum to 1.0
-        - This ensures fair comparison regardless of which tools are used [web:33]
-
-        Example:
-        - Query with color: weights = {color: 0.5, location: 0.25, traits: 0.25}
-        - Query without color: weights = {location: 0.5, traits: 0.5}
-
-        Image ID Selection:
-        -------------------
-        Image IDs are selected based on search context:
-        - If color search used AND species has color match: Use image ID with best color match
-        - Otherwise: Use main/representative image ID for the species
-
-        This ensures the most contextually relevant image is returned.
-
-        The penalty ensures that:
-        - Species found by all tools get no penalty
-        - Species found by only 1 tool when 3 were used get -0.30 penalty
-        - This heavily favors multi-tool matches, improving precision
-
-        Args:
-            tool_results: List of dictionaries from tool executions, each containing:
-                         - "_tool_name": Name of the tool that produced the result
-                         - "species_list": List of species (strings) or dicts with distance/img_id
-            query: Original user query string (passed through to payload)
-
-        Returns:
-            AgentSearchPayload with:
-                - top_results: Species with score >= 0.3 (configurable threshold)
-                - other_results: Species with score < 0.3
-                Both sorted by score descending
-
-        Algorithm Details:
-        ------------------
-        1. Detect which tools were used to determine if color is available
-        2. Build species_data dict tracking all occurrences of each species
-        3. For color search: Store minimum cosine distance and corresponding image ID per species
-        4. For other searches: Set binary match flags (location_match, traits_match)
-        5. Dynamically renormalize weights if color not used
-        6. Calculate weighted score with normalization
-        7. Apply tool count penalty
-        8. Select appropriate image ID based on whether color was used
-        9. Sort and split by threshold
-        """
-        # Track species data across all tool results
-        species_data: Dict[str, Dict[str, Any]] = {}
-
-        num_tools_used = len(tool_results)
-
-        # Detect if color search was used by checking tool names
-        color_search_used = any(
-            result.get("_tool_name") == "search_by_color"
-            for result in tool_results
-        )
-
-        # First pass: Collect all species occurrences and their attributes
-        for result in tool_results:
-            tool_name = result.get("_tool_name", "unknown_tool")
-
-            # Handle color search with cosine distances and image IDs
-            # Color search returns list of {species, distance, img_id} dicts
-            if tool_name == "search_by_color" and isinstance(
-                result.get("species_list"), list
-            ):
-                for item in result["species_list"]:
-                    species = item.get("species", "")
-                    distance = item.get(
-                        "distance", 1.0
-                    )  # Default to max distance if missing
-                    img_id = item.get(
-                        "img_id", ""
-                    )  # Image ID with this color match
-
-                    if species not in species_data:
-                        species_data[species] = {
-                            "color_distance": None,
-                            "color_img_id": None,  # Image ID from best color match
-                            "location_match": 0,
-                            "traits_match": 0,
-                            "tools": set(),
-                        }
-
-                    # Store color distance and corresponding image ID (keep minimum distance)
-                    if (
-                        species_data[species]["color_distance"]
-                        is None
-                    ):
-                        species_data[species]["color_distance"] = (
-                            distance
-                        )
-                        species_data[species]["color_img_id"] = img_id
-                    else:
-                        # Keep minimum distance (best match) and its image ID
-                        if (
-                            distance
-                            < species_data[species]["color_distance"]
-                        ):
-                            species_data[species][
-                                "color_distance"
-                            ] = distance
-                            species_data[species]["color_img_id"] = (
-                                img_id
-                            )
-
-                    species_data[species]["tools"].add(tool_name)
-
-            # Handle other searches returning species lists (binary match)
-            elif isinstance(result.get("species_list"), list):
-                for species in result["species_list"]:
-                    if species not in species_data:
-                        species_data[species] = {
-                            "color_distance": None,
-                            "color_img_id": None,
-                            "location_match": 0,
-                            "traits_match": 0,
-                            "tools": set(),
-                        }
-
-                    # Set appropriate binary match flag based on tool type
-                    if tool_name == "search_by_location":
-                        species_data[species]["location_match"] = 1
-                    elif tool_name == "search_by_traits":
-                        species_data[species]["traits_match"] = 1
-                    elif tool_name == "search_by_image_similarity":
-                        # Image similarity is treated as a trait match
-                        # This is a design decision - could be adjusted
-                        species_data[species]["traits_match"] = 1
-
-                    species_data[species]["tools"].add(tool_name)
-
-        # Dynamic weight normalization based on whether color search was used
-        if color_search_used:
-            # Use standard weights when color is available
-            w_color = self.weight_color
-            w_location = self.weight_location
-            w_traits = self.weight_traits
-            logger.debug(
-                f"Using standard weights: color={w_color}, location={w_location}, traits={w_traits}"
-            )
-        else:
-            # Renormalize weights excluding color to sum to 1.0
-            # This ensures fair scoring when color is not available [web:33]
-            w_color = 0.0
-            total_weight = self.weight_location + self.weight_traits
-            if total_weight > 0:
-                w_location = self.weight_location / total_weight
-                w_traits = self.weight_traits / total_weight
-            else:
-                # Fallback if both are zero (shouldn't happen with default config)
-                w_location = 0.5
-                w_traits = 0.5
-            logger.debug(
-                f"Color not used. Renormalized weights: location={w_location}, traits={w_traits}"
-            )
-
-        # Second pass: Calculate scores for each species and select appropriate image ID
-        ranked_results = []
-
-        for species, data in species_data.items():
-            # Color component: Convert cosine distance [0,2] to similarity score [0,1]
-            # Formula: similarity = 1 - (distance / 2)
-            # This ensures:
-            #   - distance=0 (identical) -> score=1.0
-            #   - distance=1 (orthogonal) -> score=0.5
-            #   - distance=2 (opposite) -> score=0.0
-            # Only calculated if color search was used AND species has color data
-            if (
-                color_search_used
-                and data["color_distance"] is not None
-            ):
-                color_score = 1 - (data["color_distance"] / 2.0)
-            else:
-                # No color contribution if color search not used or no color data for this species
-                color_score = 0.0
-
-            # Binary matches (either present or not)
-            location_score = data["location_match"]  # 0 or 1
-            traits_score = data["traits_match"]  # 0 or 1
-
-            # Weighted linear combination with dynamically adjusted weights
-            base_score = (
-                w_color * color_score
-                + w_location * location_score
-                + w_traits * traits_score
-            )
-
-            # Penalty for using fewer tools
-            # If query triggered 3 tools but species only appears in 1: penalty = 2 * 0.15 = 0.30
-            # This strongly encourages multi-tool matches
-            num_tools_for_species = len(data["tools"])
-            tool_penalty = (
-                num_tools_used - num_tools_for_species
-            ) * 0.15
-
-            # Final score, clamped to [0, 1] range
-            final_score = max(0.0, base_score - tool_penalty)
-
-            # Select appropriate image ID based on whether color search was used
-            # Priority: color-matched image > main species image
-            if color_search_used and data["color_img_id"]:
-                # Use image ID from best color match
-                img_id = data["color_img_id"]
-            else:
-                # Use main/representative image ID for the species
-                img_id = (
-                    self.image_meta_service.get_species_main_image_id(
-                        species
-                    )
-                    or ""
-                )
-
-            ranked_results.append(
-                AgentSearchResult(
-                    img_id=img_id,
-                    species=species,
-                    tool_calls=list(data["tools"]),
-                    score=final_score,
-                )
-            )
-
-        # Sort by score descending (highest scores first)
-        ranked_results.sort(key=lambda x: x.score, reverse=True)
-
-        # Split into top and other results based on score threshold
-        # Threshold of 0.3 means species must match at least one criterion well
-        # or partially match multiple criteria
-        threshold = 0.3
-        top_results = [
-            r for r in ranked_results if r.score >= threshold
-        ]
-        other_results = [
-            r for r in ranked_results if r.score < threshold
-        ]
-
-        return AgentSearchPayload(
-            query=query,
-            top_results=top_results,
-            other_results=other_results,
-        )
+    # def _aggregate_results(
+    #     self, tool_results: List[Dict], query: str
+    # ) -> AgentSearchPayload:
+    #     """
+    #     Aggregate tool results using weighted ranking formula with dynamic normalization.
+    #     Returns one row per unique species with metadata and tool_calls as a list.
+    #     """
+    #     # Find species that match multiple tools
+    #     species_map: Dict[str, AgentSearchResult] = {}
+    #     tools_used = set()
 
     async def _execute_tool(
         self, function_name: str, function_args: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    ) -> pl.DataFrame:
         """
         Execute a specific tool function and standardize its output format.
 
@@ -661,7 +405,7 @@ class AgentSearchService:
 
     async def _search_by_image_similarity(
         self, reference_species: str, limit: int = 50
-    ) -> List[str]:
+    ) -> list[Dict[str, Any]]:
         """
         Find species visually similar to a reference species using image embeddings.
 
@@ -708,19 +452,11 @@ class AgentSearchService:
         if not similar_images:
             return []
 
-        # Extract unique species names, converting underscores to spaces
-        species_names = [
-            item.get("species", "").replace("_", " ")
-            for item in similar_images
-            if item.get("species")
-        ]
-
-        # Return unique species names (set removes duplicates)
-        return list(set(species_names))
+        return similar_images
 
     async def _search_by_location(
         self, location: str, limit: int = 100
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Search for species occurring in a specific geographic location.
 
@@ -747,11 +483,11 @@ class AgentSearchService:
         species_names = self.gbif_service.search_by_location(
             location=location, limit=limit
         )
-        return species_names or []
+        return list(set(species_names))  # Ensure uniqueness
 
     async def _search_by_color(
         self, color_description: str, limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[Dict[str, Any]]:
         """
         Search for species matching a color description using CLIP embeddings.
 
@@ -792,49 +528,16 @@ class AgentSearchService:
         - Over-fetches images to ensure species diversity after aggregation
         """
         # Over-fetch images to ensure diversity after species-level aggregation
-        image_limit = max(limit * 10, 3000)
+        image_limit = max(limit * 10, 300)
 
-        text_search = TextToImageSearch(
-            request=self.request,
-            query=color_description,
-            limit=image_limit,
+        text_to_img_results = (
+            self.image_service.fetch_similar_images_from_text(
+                request=self.request,
+                text=color_description,
+                limit=image_limit,
+            )
         )
-        results = text_search.search()
-
-        if not results:
-            return []
-
-        # Aggregate by species, keeping minimum (best) distance and corresponding image ID
-        species_data: Dict[str, Dict[str, Any]] = {}
-
-        for item in results:
-            species = item.get("species", "").replace("_", " ")
-            distance = item.get(
-                "distance", 1.0
-            )  # Default to median distance
-            img_id = item.get("img_id", "")  # Image ID for this match
-
-            if species:
-                if species not in species_data:
-                    species_data[species] = {
-                        "distance": distance,
-                        "img_id": img_id,
-                    }
-                else:
-                    # Keep minimum distance (best match) and its image ID
-                    if distance < species_data[species]["distance"]:
-                        species_data[species]["distance"] = distance
-                        species_data[species]["img_id"] = img_id
-
-        # Convert to list of dicts for consistent return format
-        return [
-            {
-                "species": species,
-                "distance": data["distance"],
-                "img_id": data["img_id"],
-            }
-            for species, data in species_data.items()
-        ]
+        return text_to_img_results
 
     async def _search_by_traits(
         self,
@@ -843,7 +546,7 @@ class AgentSearchService:
         moisture_affinity=None,
         disturbance_affinity=None,
         limit=100,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Search species by habitat preferences and ecological traits.
 
@@ -915,11 +618,8 @@ class AgentSearchService:
 
         # Execute query and return species list
         result = self.leptraits_service.db_client.execute(query).pl()
-        return (
-            result["Species"].to_list()
-            if not result.is_empty()
-            else []
-        )
+        species_names = result["Species"].to_list()
+        return list(set(species_names))  # Ensure uniqueness
 
     def _get_tools(self) -> List[Dict]:
         """

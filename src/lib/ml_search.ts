@@ -6,7 +6,7 @@ export interface MlResultItems {
 
 async function searchSemantic(query: string): Promise<MlResultItems[]> {
   const response = await fetch(
-    "/api/ml-search/text?q=" + encodeURIComponent(query),
+    "/api/ml-search/agent?q=" + encodeURIComponent(query),
     {
       method: "GET",
       headers: {
@@ -20,8 +20,16 @@ async function searchSemantic(query: string): Promise<MlResultItems[]> {
       `Semantic search request failed with status ${response.status}`
     );
   }
-  const results = await response.json();
-  return results as MlResultItems[];
+  const json = await response.json();
+  const topResults = json["top_results"];
+  const otherResults = json["other_results"];
+  const results = topResults.length > 0 ? topResults : otherResults;
+  // Iterate over result capturing imgId, species, and score (as distance)
+  return results.map((item: any) => ({
+    imgId: item.img_id,
+    species: item.species,
+    distance: item.score,
+  }));
 }
 
 async function searchFromImage(data: FormData): Promise<MlResultItems[]> {

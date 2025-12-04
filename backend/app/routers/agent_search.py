@@ -13,8 +13,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("/search/agent", tags=["ML Search"])
-async def agent_search(request: Request, query: str):
+@router.get("/search/agent", tags=["ML Search"])
+async def agent_search(request: Request, q: str):
     """
     Agent-based semantic search endpoint.
 
@@ -26,8 +26,9 @@ async def agent_search(request: Request, query: str):
     - "find butterflies similar to danaus plexippus that live in tropical regions"
     - "show me red butterflies with high canopy affinity from south america"
     """
+    query = q.strip()
 
-    if not query or not query.strip():
+    if not query:
         return JSONResponse(
             content={
                 "error": "Query parameter is required and cannot be empty."
@@ -38,7 +39,7 @@ async def agent_search(request: Request, query: str):
     try:
         logger.info(f"Received agent search query: {query}")
         agent_service = AgentSearchService(request=request)
-        results = await agent_service.search(query.strip())
+        results = await agent_service.search(query)
 
         if not results:
             logger.warning(f"No results found for query: {query}")
