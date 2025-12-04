@@ -12,6 +12,8 @@ import {
   fetchImgById,
   fetchSpeciesImageIds,
 } from "@/lib/images";
+import ImageUmap from "./ImageUmap";
+import Tips from "@/components/Tips";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -464,9 +466,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   return (
     <div>
       {/* Specimen header (icon + image count) */}
-      <div className="flex items-center gap-4 mb-4">
+      <div className="flex items-center gap-4 mb-8">
         <IconContainer>
-          <ButterflyComplex className="w-10 h-10 fill-teal-500" />
+          <ButterflyComplex className="w-16 h-16 fill-teal-500" />
         </IconContainer>
         <div className="my-2">
           {specimenLoading ? (
@@ -483,36 +485,38 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
           )}
         </div>
       </div>
+      <div id="specimen-umap">
+        <ImageUmap species={speciesName ?? ""} />
+      </div>
       <div id="specimen-thumbs" className="mt-8">
-        <h2 className="text-lg font-medium mb-3">Specimen Images</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
+        <ImageGalleryHeader />
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mb-4">
           {items.map((it) => (
-            <button
+            <div
               key={it.id}
-              onClick={() => openFull(it.id)}
-              title="Open full image"
-              className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
+              className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 p-2 hover:ring-1 hover:ring-teal-600"
             >
-              {it.thumbUrl ? (
-                <Image
-                  src={it.thumbUrl}
-                  alt={`Specimen ${it.id}`}
-                  fill
-                  sizes="(max-width:768px) 33vw, 150px"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
+              <button
+                key={it.id}
+                onClick={() => openFull(it.id)}
+                title="Open full image"
+                className="relative w-full aspect-square transition-all"
+              >
+                {it.thumbUrl ? (
                   <Image
-                    src="/leaflet/images/butterfly.svg"
-                    alt="Loading..."
-                    width={112}
-                    height={112}
-                    className="animate-pulse mx-auto"
+                    src={it.thumbUrl}
+                    alt={`Specimen ${it.id}`}
+                    fill
+                    sizes="(max-width:768px) 33vw, 150px"
+                    className="object-cover"
                   />
-                </div>
-              )}
-            </button>
+                ) : (
+                  <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
+                    <ImageLoading size={160} />
+                  </div>
+                )}
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -692,5 +696,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     </div>
   );
 };
+
+function ImageGalleryHeader() {
+  return (
+    <div className="mb-4">
+      <h2 className="text-2xl font-semibold mb-2">Specimen Images</h2>
+      <Tips message="Click on an image to view in full size" />
+    </div>
+  );
+}
 
 export default SpecimensTab;

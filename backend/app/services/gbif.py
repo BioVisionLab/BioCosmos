@@ -24,12 +24,18 @@ class GbifPersistData:
         config = GbifConfig()
         self.tsv_path = config.path
         self.table_name = config.table
+        self.skip_ingestion = config.skip
         self.db_client = duckdb
 
     def ingest(self):
         """
         Ingest GBIF data from a TSV file into DuckDB.
         """
+        if self.skip_ingestion:
+            logger.info(
+                "Skipping GBIF data ingestion as per configuration."
+            )
+            return
         try:
             # We use custom execution instead of the wrapper function
             # for table creation in the DuckDb module to avoid
@@ -64,8 +70,8 @@ class GbifPersistData:
                 f"Failed to count entries in GBIF metadata table: {e}"
             )
             return None
-    
-    def count_unique_species(self) -> int | None :
+
+    def count_unique_species(self) -> int | None:
         try:
             query = f"SELECT COUNT(DISTINCT species) FROM {self.table_name}"
             result = self.db_client.execute(query).fetchone()[0]
@@ -100,7 +106,7 @@ class GbifPersistData:
             )
         gbif_data = result.to_dicts()[0]
         return gbif_data
-    
+
     def search_by_location(
         self, location: str, limit: int = 500
     ) -> list[str]:
@@ -119,7 +125,9 @@ class GbifPersistData:
         try:
             location = (location or "").strip()
             if not location:
-                logger.warning("Empty location passed to search_by_location")
+                logger.warning(
+                    "Empty location passed to search_by_location"
+                )
                 return []
 
             location_lower = location.lower()
@@ -150,19 +158,26 @@ class GbifPersistData:
                 LIMIT {int(limit)}
             """
 
-            logger.info(f"Searching for location '{location}' in GBIF table")
+            logger.info(
+                f"Searching for location '{location}' in GBIF table"
+            )
             result = self.db_client.execute(query).pl()
 
             if result.is_empty():
-                logger.warning(f"No species found in location: {location}")
+                logger.warning(
+                    f"No species found in location: {location}"
+                )
                 return []
 
             species_list = [
-                s for s in result["species"].to_list()
+                s
+                for s in result["species"].to_list()
                 if s and str(s).strip()
             ]
 
-            logger.info(f"Found {len(species_list)} species in location: {location}")
+            logger.info(
+                f"Found {len(species_list)} species in location: {location}"
+            )
             return species_list
 
         except Exception as e:
@@ -171,7 +186,6 @@ class GbifPersistData:
                 exc_info=True,
             )
             return []
-
 
 
 class GbifTaxonSearch:

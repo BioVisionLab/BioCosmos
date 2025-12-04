@@ -1,23 +1,20 @@
 import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
-
-
-from .database.duckdb import DuckDBClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from .database.duckdb import DuckDBClient
 from .services.unicom import UnicomModel
 from .database.lance import LanceDB
 from .services.clip import ClipModel
-from .services.images import ImageEmbedder
-
+from .services.embedder import ImageEmbedder
+from .services.umap import SpeciesImageUmap
+from .services.image_meta import ImageMetaService
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
-
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
     data_stats,
     image_retrieval,
@@ -81,6 +78,9 @@ class AppSettings(BaseSettings):
     GBIF_DIR: str
     UF_AI_URL: str
     UF_AI_API_KEY: str
+    IMAGE_META_DIR: str
+    GBIF_DIR: str
+    UMAP_DIR: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -143,6 +143,8 @@ def run_data_ingestion(app: FastAPI):
     logger.info("LepTraits data ingested.")
     GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
+    SpeciesImageUmap(app.state.duck_db).ingest()
+    ImageMetaService(app.state.duck_db).ingest()
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -161,7 +163,6 @@ def run_data_ingestion(app: FastAPI):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-
     Application lifespan manager.
 
     This context manager handles the startup and shutdown logic for the FastAPI
@@ -171,6 +172,7 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Application starting up...")
 
+    # Startup logic
     try:
         settings = get_app_settings()
         app.state.settings = settings
@@ -182,21 +184,29 @@ async def lifespan(app: FastAPI):
         run_data_ingestion(app)
 
         logger.info("Application startup completed successfully.")
-        yield
-
-    except (EnvironmentError, Exception) as e:
+    except Exception as e:
         logger.critical(
             f"A critical error occurred during application startup: {e}"
         )
         raise
 
-    finally:
-        logger.info("Application shutting down...")
-        app.state.duck_db.close()
+    # Yield control - application is now running
+    yield
+
+    # Shutdown logic (only runs if startup succeeded)
+    logger.info("Application shutting down...")
+    try:
+        if (
+            hasattr(app.state, "duck_db")
+            and app.state.duck_db is not None
+        ):
+            app.state.duck_db.close()
         app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None
         logger.info("Application shutdown completed.")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 app = FastAPI(

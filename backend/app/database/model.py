@@ -1,12 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 import os
-from pydantic import BaseModel, Field
 from typing import Optional
 import logging
 from PIL import Image
 from io import BytesIO
 from ..services import clip, unicom
 from lancedb.pydantic import LanceModel, Vector
+from pydantic.alias_generators import to_camel
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +85,14 @@ class LanceSchema(LanceModel):
         img_bytes: Raw image bytes.
     """
 
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
     img_id: str
-    species: str
     img_bytes: bytes
+    file_format: str
+    original_size: bool
     clip_embeddings: Vector(clip.get_clip_ndims())
     unicom_embeddings: Vector(unicom.get_unicom_ndims())
 
@@ -112,6 +117,8 @@ class LanceSchema(LanceModel):
     @property
     def image_bytes_png(self):
         """Get the image as PNG bytes."""
+        if self.file_format.lower() == "png" and self.img_bytes:
+            return self.img_bytes
         if self.image:
             with BytesIO() as output:
                 self.image.save(output, format="PNG")
@@ -121,6 +128,9 @@ class LanceSchema(LanceModel):
     @property
     def image_bytes_webp(self):
         """Get the image as WEBP bytes."""
+        # We check the file format to avoid unnecessary conversion
+        if self.file_format.lower() == "webp" and self.img_bytes:
+            return self.img_bytes
         if self.image:
             with BytesIO() as output:
                 self.image.save(output, format="WEBP")
@@ -365,3 +375,46 @@ class LepTraitData(BaseModel):
         except ValueError:
             logger.error(f"Failed to convert {value} to int")
             return None
+
+
+class UmapEmbedding(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    img_id: str
+    umap_x: float
+    umap_y: float
+    cluster_label: Optional[int]
+
+    def __repr__(self):
+        return f"UmapEmbedding(species={self.species}, umap_x={self.umap_x}, umap_y={self.umap_y})"
+
+
+class UmapData(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    species: str
+    umap_embeddings: list[UmapEmbedding]
+
+    def __repr__(self):
+        return f"UmapData(species={self.species}, umap_embeddings_count={len(self.umap_embeddings)})"
+
+
+class ImageMetadata(BaseModel):
+    """
+    Metadata for an image file.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    img_id: str
+    species: str
+    source_db: str
+    collection_id: str | None = None
+    # Dorso ventral view of the image: dorsal or ventral
+    class_dv: str

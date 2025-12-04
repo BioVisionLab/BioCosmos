@@ -17,6 +17,23 @@ class DuckDBClient:
         self.conn = duckdb.connect(database=str(db_path))
         logger.info(f"DuckDB connected at {db_path}")
 
+    def register(self, name: str, df: pl.DataFrame):
+        """Register a Polars DataFrame as a DuckDB table.
+        Args:
+            name (str): The name of the table.
+            df (pl.DataFrame): The Polars DataFrame to register.
+        """
+        self.conn.register(name, df)
+        logger.info(f"DataFrame registered as table '{name}'.")
+
+    def unregister(self, name: str):
+        """Unregister a DuckDB table.
+        Args:
+            name (str): The name of the table to unregister.
+        """
+        self.conn.unregister(name)
+        logger.info(f"Table '{name}' unregistered.")
+
     def execute(self, query: str):
         """Execute a SQL query and return the result.
         Args:
@@ -25,6 +42,16 @@ class DuckDBClient:
             duckdb.DuckDBPyRelation: The result of the query.
         """
         return self.conn.execute(query)
+
+    def execute_query(self, query: str, params: str):
+        """Execute a SQL query with parameters.
+        Args:
+            query (str): The SQL query to execute.
+            params (str): The parameter to bind to the query.
+        Returns:
+            duckdb.DuckDBPyRelation: The result of the query.
+        """
+        return self.conn.execute(query, [params])
 
     def execute_prepared(self, query: str, params: list):
         """Execute a prepared SQL query with parameters.
@@ -35,6 +62,23 @@ class DuckDBClient:
             duckdb.DuckDBPyRelation: The result of the query.
         """
         return self.conn.execute(query, params)
+
+    def create_or_replace_table_csv(
+        self, table_name: str, csv_path: str
+    ):
+        """Create or replace a table from a CSV file.
+        Args:
+            table_name (str): The name of the table to create or replace.
+            csv_path (str): The path to the CSV file.
+        """
+        logger.info(f"Creating '{table_name}' from '{csv_path}'.")
+        self.conn.execute(
+            f"""
+            CREATE OR REPLACE TABLE {table_name} AS 
+            SELECT * FROM read_csv_auto('{csv_path}')
+            """
+        )
+        logger.info(f"Table '{table_name}' created or replaced.")
 
     def create_if_not_exists_csv(
         self, table_name: str, csv_path: str

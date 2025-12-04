@@ -37,7 +37,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   const speciesName = cleanSpeciesName(data.species);
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
+    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
@@ -93,54 +93,61 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   }
 
   return (
-    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
+    <div className="rounded-2xl w-fit border border-teal-200/50 dark:border-teal-700/50 bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl">
         <h2 className="text-lg font-semibold">The Top Result</h2>
       </div>
-      <Link href={`/species/${data.species}`}>
-        <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4 m-4">
-          {cleanSpeciesName(data.species)}
-        </h2>
-        {loading ? (
+
+      <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-100 dark:text-gray-200 mt-4 m-4">
+        {cleanSpeciesName(data.species)}
+      </h2>
+      {loading ? (
+        <div className="m-4">
           <ImageLoading size={160} />
-        ) : (
-          <div className="flex gap-12 items-center m-4">
-            <div className="flex flex-col items-start">
-              {speciesImageUrl && (
-                <Image
-                  src={speciesImageUrl}
-                  alt={`Matched image of ${data.species}`}
-                  width={260}
-                  height={260}
-                  className="rounded-lg object-contain"
-                />
-              )}
-            </div>
-            <div className="items-start">
-              <h3 className="text-sm mb-2 text-gray-400 ">Other forms</h3>
-              {otherImageUrls && (
-                <div className="gap-2 overflow-auto flex">
-                  {otherImageUrls.map((url, index) => (
-                    <div
-                      key={index}
-                      className="p-2 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
-                    >
-                      <Image
-                        key={index}
-                        src={url}
-                        alt={`Other image ${index + 1} of ${data.species}`}
-                        width={70}
-                        height={70}
-                        className="rounded-lg object-contain"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        </div>
+      ) : (
+        <div className="flex gap-12 items-center m-4">
+          <div className="flex flex-col items-start">
+            {speciesImageUrl && (
+              <Image
+                src={speciesImageUrl}
+                alt={`Matched image of ${data.species}`}
+                width={260}
+                height={260}
+                className="rounded-lg object-contain"
+              />
+            )}
           </div>
-        )}
-      </Link>
+          <div className="items-start">
+            <div className="mb-4 rounded-lg bg-gradient-to-br from-emerald-500/50 to-teal-700/50 w-fit px-4 py-2 hover:bg-teal-600/70 transition">
+              <Link className="text-gray-100" href={`/species/${data.species}`}>
+                Show species page &rarr;
+              </Link>
+            </div>
+            <h3 className="text-sm mb-2 text-gray-400 ">Other forms</h3>
+
+            {otherImageUrls && (
+              <div className="gap-2 overflow-auto flex">
+                {otherImageUrls.map((url, index) => (
+                  <div
+                    key={index}
+                    className="p-2  bg-teal-400/50 dark:bg-teal-700/50 rounded-lg "
+                  >
+                    <Image
+                      key={index}
+                      src={url}
+                      alt={`Other image ${index + 1} of ${data.species}`}
+                      width={70}
+                      height={70}
+                      className="rounded-lg object-contain"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

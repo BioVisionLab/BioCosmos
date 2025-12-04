@@ -1,6 +1,7 @@
 "use client";
 
 import { CrossRefAttribution, CrossRefLink } from "@/components/Attribution";
+import Info from "@/components/Info";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
 import { CrossRefResult, fetchCrossRefData } from "@/lib/crossref";
@@ -46,7 +47,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   if (loading) {
     return (
       <div className="mx-auto items-center">
-        <TextLoading text="Loading literature data" />
+        <TextLoading msg="Loading literature data" />
       </div>
     );
   }
@@ -62,13 +63,15 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   return (
     <div>
       <div className="mb-4">
-        <p className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-[11px] leading-snug text-gray-700 w-fit">
-          This literature list is automatically fetched from{" "}
-          <span>
-            <CrossRefLink />
-          </span>{" "}
-          ; it may contain irrelevant publications.
-        </p>
+        <Info>
+          <p>
+            This literature list is automatically fetched from{" "}
+            <span>
+              <CrossRefLink />
+            </span>{" "}
+            ; it may contain irrelevant publications.
+          </p>
+        </Info>
       </div>
       <div className="mb-2">
         <p className="text-xl font-semibold mb-2">

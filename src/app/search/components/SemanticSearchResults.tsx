@@ -6,6 +6,7 @@ import { searchSemantic, MlResultItems } from "@/lib/ml_search";
 import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
 import { FlaskConical } from "lucide-react";
+import Tips from "@/components/Tips";
 
 function SemanticSearchResults({ query }: { query: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -109,9 +110,15 @@ function SearchResults({
             </Suspense>
           </div>
           <div>
-            <p className="mb-4">
-              Found {results.length} other results for "{query}":
-            </p>
+            <div className="mb-4">
+              <h2
+                id="other-results"
+                className="text-lg text-gray-700 dark:text-gray-200"
+              >
+                Found {results.length} other results for "{query}"
+              </h2>
+              <Tips message="Click on an image to view species page" />
+            </div>
             <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
               {/* Render remaining results */}
               {results.slice(1).map((item) => (

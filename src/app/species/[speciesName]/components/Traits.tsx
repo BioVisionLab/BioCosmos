@@ -167,10 +167,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
           traits.secondary_hostplant_family.trim() !== "" && (
             <div className={boxClasses}>
               <h3 className="text-xl m-2">Secondary Host Plant Family</h3>
-              <HostPlantFamilies
-                families={traits.secondary_hostplant_family}
-                icon={<SingleLeafIcon className="w-4 h-4" />}
-              />
+              <HostPlantFamilies families={traits.secondary_hostplant_family} />
             </div>
           )}
         {typeof traits.equal_hostplant_family === "string" &&

@@ -1,5 +1,6 @@
 "use client";
 
+import Info from "@/components/Info";
 import { NoData } from "@/components/NoData";
 import {
   ParsedContent,
@@ -22,77 +23,6 @@ interface WikipediaApiParseResponse {
     code: string;
     info: string;
   };
-}
-
-/**
- * Fetches and processes a Wikipedia page's HTML content.
- * @param title The title of the Wikipedia page to fetch.
- * @returns The processed HTML content of the page.
- */
-const fetchWikipediaPage = async (
-  title: string
-): Promise<{ title: string; html: string }> => {
-  if (!title) {
-    throw new Error("Title is required");
-  }
-  const WIKIPEDIA_API_URL = `https://en.wikipedia.org/w/api.php`;
-  const params = new URLSearchParams({
-    action: "parse",
-    page: title,
-    format: "json",
-    prop: "text",
-    redirects: "true",
-    origin: "*", // Required for client-side CORS requests
-  });
-
-  const response = await fetch(`${WIKIPEDIA_API_URL}?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`Wikipedia API returned status: ${response.status}`);
-  }
-  const data: WikipediaApiParseResponse = await response.json();
-  if (data.error) {
-    throw new Error(`Wikipedia error: ${data.error.info}`);
-  }
-
-  const pageHtml = data.parse?.text["*"];
-  const pageTitle = data.parse?.title || title;
-
-  if (pageHtml) {
-    // Replace relative URLs with absolute URLs for links and images
-    const processedHtml = pageHtml
-      .replace(/href="\/wiki\//g, 'href="https://en.wikipedia.org/wiki/')
-      .replace(/src="\/\//g, 'src="https://');
-    return { title: pageTitle, html: processedHtml };
-  } else {
-    throw new Error(`Page content not found for "${title}". It may not exist.`);
-  }
-};
-
-function WikipediaAttribution({ speciesName }: { speciesName: string }) {
-  return (
-    <div className="space-y-2 text-xs">
-      <div className="rounded-md px-4 py-3 text-[12px] leading-snug
-        bg-white/80 border border-slate-200 text-slate-700
-        dark:bg-gradient-to-r dark:from-slate-900 dark:to-emerald-900 dark:border-emerald-700 dark:text-emerald-100">
-        <p>
-          Content adapted from English Wikipedia (en.wikipedia.org) and lightly
-          cleaned for readability. It may contain community-edited or unverified
-          information. Verify with primary sources.
-        </p>
-        <p>
-          Source URL:{" "}
-          <a
-            href={`https://en.wikipedia.org/wiki/${speciesName}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline text-emerald-700 dark:text-emerald-200"
-          >
-            English Wikipedia (<span className="italic">{speciesName}</span>)
-          </a>
-        </p>
-      </div>
-    </div>
-  );
 }
 
 function WikipediaPage({ speciesName }: { speciesName: string }) {
@@ -147,22 +77,49 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
           /* Use separate border model and vertical spacing between rows so each header/section breathes */
           border-collapse: separate !important;
           border-spacing: 0 0.6rem !important;
-          border-color: rgba(148,163,184,0.12) !important;
+          border-color: oklch(98.5% 0.002 247.839) !important;
         }
         /* Default (light) colors */
         .wiki-container .infobox td,
         .wiki-container .infobox th,
+        .wiki-container .infobox tr,
         .wiki-container .infobox caption {
-          color: #0f172a !important; /* slate-900 */
+          color: oklch(25% 0.02 247.839) !important;
         }
         /* Dark mode adjustments */
         @media (prefers-color-scheme: dark) {
+          .wiki-container .infobox {
+            border-color: oklch(40% 0.015 247.839) !important;
+          }
           .wiki-container .infobox td,
           .wiki-container .infobox th,
+          .wiki-container .infobox tr,
           .wiki-container .infobox caption {
-            color: #d1fae5 !important; /* emerald-100-ish */
+            color: oklch(88% 0.008 247.839) !important;
           }
         }
+          /* Override IUCN colors in dark mode */
+          .wiki-container [style*="background-color"] {
+            background-color: transparent !important;
+          }
+        }
+        
+        /* Default colors for table head background color */
+        .wiki-container table.wikitable th {
+          background-color: oklch(95% 0.01 250) !important;
+          color: oklch(20% 0.05 250) !important;
+        }
+        /* Default colors for table head background color */
+        .wiki-container table.wikitable th {
+          background-color: oklch(95% 0.01 250) !important;
+          color: oklch(20% 0.05 250) !important;
+        }
+        @media (prefers-color-scheme: dark) {
+          .wiki-container table.wikitable th {
+            background-color: oklch(25% 0.03 250) !important;
+            color: oklch(90% 0.01 250) !important;
+          }
+        }  
         /* Make wiki links inherit surrounding text color and only show an underline for clarity
            (avoids bright-blue links on dark/blue backgrounds). Scoped to wiki-container. */
         .wiki-container a,
@@ -179,7 +136,9 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
       <div className="rounded-2xl p-6">
         {isLoading && (
           <div className="text-center p-10 rounded-xl">
-            <p className="text-xl text-slate-600 dark:text-emerald-100">Loading content...</p>
+            <p className="text-xl text-slate-600 dark:text-emerald-100">
+              Loading content...
+            </p>
           </div>
         )}
 
@@ -190,7 +149,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
             <div
               className={`font-sans rounded-2xl p-6 shadow-lg backdrop-blur-sm
                 bg-white/80 text-slate-800 border border-slate-200
-                dark:bg-gradient-to-tr dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 dark:text-emerald-100 dark:border-slate-700`}
+                dark:bg-gradient-to-tr dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 dark:text-emerald-100 dark:border-slate-700`}
             >
               <WikipediaAttribution speciesName={speciesName} />
               <div className="rounded-xl overflow-hidden bg-transparent">
@@ -201,20 +160,24 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                       <div key={index}>
                         {item.type === "section" && (
                           <section>
-                            <h2 className="text-2xl font-semibold border-b pb-2 mb-4
-                              text-slate-900 dark:text-emerald-100 border-slate-200 dark:border-emerald-700">
+                            <h2
+                              className="text-2xl font-semibold border-b-2 pb-2 mb-4
+                              text-gray-900 dark:text-gray-100 border-gray-200 dark:border-teal-700"
+                            >
                               {item.title}
                             </h2>
                             <div
-                              className="dynamic-content text-slate-700 dark:text-emerald-50"
+                              className="dynamic-content text-gray-800 dark:text-gray-100"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </section>
                         )}
                         {item.type === "table" && (
                           // Full-bleed (viewport-wide) table container
-                          <div className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border
-                            border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 text-slate-700 dark:text-emerald-100">
+                          <div
+                            className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border
+                            border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 text-slate-700 dark:text-emerald-100"
+                          >
                             <div
                               className="inline-block min-w-full p-4"
                               dangerouslySetInnerHTML={{ __html: item.html }}
@@ -223,11 +186,11 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                         )}
                         {item.type === "taxonIdentifier" && (
                           <div className="rounded-2xl">
-                            <h3 className="text-lg font-semibold mb-2">
+                            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
                               Taxon Identifier
                             </h3>
                             <div
-                              className="dynamic-content pl-2 text-slate-700 dark:text-emerald-50"
+                              className="dynamic-content pl-2 text-gray-800 dark:text-gray-100"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </div>
@@ -239,9 +202,9 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                     {infobox && (
                       <div className="sticky top-8 mx-auto flex justify-center items-center">
                         <div
-                          className="border rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
-                            bg-white/80 border-slate-200 text-slate-800
-                            dark:bg-gradient-to-r dark:from-slate-800 dark:to-emerald-900 dark:border-emerald-600 dark:text-emerald-100"
+                          className="rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
+                          bg-gradient-to-r from-teal-50 to-emerald-50 
+                            dark:bg-gradient-to-r dark:from-teal-800 dark:to-emerald-600/50 dark:text-gray-100"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
                         />
                       </div>
@@ -254,6 +217,75 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Fetches and processes a Wikipedia page's HTML content.
+ * @param title The title of the Wikipedia page to fetch.
+ * @returns The processed HTML content of the page.
+ */
+const fetchWikipediaPage = async (
+  title: string
+): Promise<{ title: string; html: string }> => {
+  if (!title) {
+    throw new Error("Title is required");
+  }
+  const WIKIPEDIA_API_URL = `https://en.wikipedia.org/w/api.php`;
+  const params = new URLSearchParams({
+    action: "parse",
+    page: title,
+    format: "json",
+    prop: "text",
+    redirects: "true",
+    origin: "*", // Required for client-side CORS requests
+  });
+
+  const response = await fetch(`${WIKIPEDIA_API_URL}?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Wikipedia API returned status: ${response.status}`);
+  }
+  const data: WikipediaApiParseResponse = await response.json();
+  if (data.error) {
+    throw new Error(`Wikipedia error: ${data.error.info}`);
+  }
+
+  const pageHtml = data.parse?.text["*"];
+  const pageTitle = data.parse?.title || title;
+
+  if (pageHtml) {
+    // Replace relative URLs with absolute URLs for links and images
+    const processedHtml = pageHtml
+      .replace(/href="\/wiki\//g, 'href="https://en.wikipedia.org/wiki/')
+      .replace(/src="\/\//g, 'src="https://');
+    return { title: pageTitle, html: processedHtml };
+  } else {
+    throw new Error(`Page content not found for "${title}". It may not exist.`);
+  }
+};
+
+function WikipediaAttribution({ speciesName }: { speciesName: string }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <Info>
+        <p>
+          Content adapted from English Wikipedia (en.wikipedia.org) and lightly
+          cleaned for readability. It may contain community-edited or unverified
+          information. Verify with primary sources.
+        </p>
+        <p>
+          Source URL:{" "}
+          <a
+            href={`https://en.wikipedia.org/wiki/${speciesName}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline "
+          >
+            English Wikipedia (<span className="italic">{speciesName}</span>)
+          </a>
+        </p>
+      </Info>
+    </div>
   );
 }
 

@@ -27,6 +27,13 @@ export interface SpeciesData {
   similarSpecies: SimilarSpeciesMeta[];
 }
 
+export interface SpeciesImageUmap {
+  imgId: string;
+  umapX: number;
+  umapY: number;
+  clusterLabel?: number;
+}
+
 export interface ClassificationSearchResult {
   matchCategory: string;
   classification: TaxonomyData;
@@ -103,4 +110,25 @@ async function fetchTaxonClassification(
   }
 }
 
-export { getSpeciesData, fetchTaxonClassification };
+async function fetchSpeciesImageUmap(
+  species: string
+): Promise<SpeciesImageUmap[] | null> {
+  try {
+    const response = await fetch(
+      `/api/stats/umap?species=${encodeURIComponent(species)}`
+    );
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch UMAP data for ${species}: ${response.statusText}`
+      );
+      return null;
+    }
+    const data = await response.json();
+    return data["umapEmbeddings"] || null;
+  } catch (error) {
+    console.error(`Error fetching UMAP data for ${species}:`, error);
+    return null;
+  }
+}
+
+export { getSpeciesData, fetchTaxonClassification, fetchSpeciesImageUmap };
