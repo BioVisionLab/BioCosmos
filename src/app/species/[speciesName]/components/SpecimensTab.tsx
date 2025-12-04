@@ -633,7 +633,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
               </svg>
             </button>
 
-            {/* Formatting of popout image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
+            {/* Formatting of pop-out image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
             <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-lg p-4 w-full h-full flex items-center justify-center">
               {modalLoading ? (
                 // Loading placeholder occupies the same space as the final image to avoid layout jumps

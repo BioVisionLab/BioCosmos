@@ -58,7 +58,7 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
         <div className="flex flex-col gap-3 h-full">
           {/* add outer padding so thumbs have breathing room */}
           {/* Main image */}
-          <div className="relative w-full flex-grow rounded-xl overflow-hidden border  border-gray-200 dark:border-gray-700">
+          <div className="relative w-full grow rounded-xl overflow-hidden border  border-gray-200 dark:border-gray-700">
             <GalleryFullImage
               imageId={items[selectedIndex]}
               speciesName={speciesName}
@@ -137,11 +137,7 @@ function GalleryFullImage({
       src={imgUrl}
       alt={`Image of ${speciesName}`}
       fill
-<<<<<<< HEAD
-      sizes="(max-width:768px) 100vw, 600px"
-=======
       sizes="(max-width:768px) 100vw, 800px"
->>>>>>> api-redesign
       className="object-contain"
     />
   );

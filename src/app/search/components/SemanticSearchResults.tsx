@@ -69,7 +69,7 @@ function SemanticSearchResults({ query }: { query: string }) {
       </div>
       <div id="results-section" className="mt-2">
         <div className="mb-6 text-center">
-          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
+          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-linear-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
             Search Results
           </h1>
         </div>
