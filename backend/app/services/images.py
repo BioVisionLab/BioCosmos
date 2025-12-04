@@ -174,7 +174,7 @@ class ImagePersistData:
         return query[0].image_bytes_png
 
     def fetch_similar_images_from_text(
-        self, request: Request, text: str, limit: int = 50
+        self, request: Request, text: str, limit: int = 50, max_distance: float | None = None
     ) -> list[dict] | None:
         """Fetch images similar to the given text.
         We use CLIP embeddings for text similarity search.
@@ -182,6 +182,8 @@ class ImagePersistData:
 
         :param text: The input text to search for similar images.
         :param limit: The maximum number of similar images to return.
+        :param max_distance: Optional maximum cosine distance threshold (0-2, lower is more similar).
+                            For color searches, a more lenient threshold (e.g., 1.5) can help.
         :return: A list of dictionaries containing similar image details or None if no matches found.
         """
         try:
@@ -202,6 +204,7 @@ class ImagePersistData:
                 query_vector=query_embedding,
                 vector_column_name="clip_embeddings",
                 limit=limit,
+                max_distance=max_distance,
             )
             if similar_images is None or similar_images.is_empty():
                 self.logger.warning(
@@ -339,8 +342,17 @@ class ImagePersistData:
         query_vector: np.ndarray,
         vector_column_name: str,
         limit: int = 5,
+        max_distance: float | None = None,
     ) -> pl.DataFrame | None:
-        """Query the database for similar images based on the embedding vector."""
+        """Query the database for similar images based on the embedding vector.
+        
+        Args:
+            query_vector: The embedding vector to search for
+            vector_column_name: Name of the vector column to search
+            limit: Maximum number of results to return
+            max_distance: Optional maximum cosine distance threshold (0-2, lower is more similar).
+                         If None, no distance filtering is applied.
+        """
         try:
             results = (
                 self.db_table.search(
@@ -361,6 +373,19 @@ class ImagePersistData:
             cleaned_results = results.select(safe_cols).rename(
                 {"img_id": "imgId", "_distance": "distance"}
             )
+            
+            # Apply distance threshold if specified
+            # For cosine distance: 0 = identical, 1 = orthogonal, 2 = opposite
+            # Lower distance = more similar
+            if max_distance is not None and "distance" in cleaned_results.columns:
+                before_count = len(cleaned_results)
+                cleaned_results = cleaned_results.filter(
+                    pl.col("distance") <= max_distance
+                )
+                self.logger.info(
+                    f"Distance filter ({max_distance}): {before_count} -> {len(cleaned_results)} results"
+                )
+            
             # We filter image by unique image IDs to avoid duplicates
             cleaned_results = cleaned_results.unique(subset=["imgId"])
             return cleaned_results

@@ -25,6 +25,7 @@ from .routers import (
     species_data,
     text_summarization,
     db_search,
+    agent_search,
 )
 
 
@@ -78,8 +79,8 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    # UF_AI_URL: str
-    # UF_AI_API_KEY: str
+    UF_AI_URL: str
+    UF_AI_API_KEY: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -227,6 +228,7 @@ app.include_router(species_data.router)
 app.include_router(text_summarization.router)
 app.include_router(image_retrieval.router)
 app.include_router(db_search.router)
+app.include_router(agent_search.router)
 
 
 @app.get("/")
