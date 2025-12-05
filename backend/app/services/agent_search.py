@@ -338,54 +338,51 @@ class AgentSearchService:
                 f"Agent received {len(valid_results)}/{len(tool_names)} valid tool results"
             )
 
-            aggreated_results = self._aggregate_results(
-                valid_results, query
-            )
-            return aggreated_results[:20]
+            return valid_results[:25]
 
         except Exception as e:
             logger.error(f"Error in agent search: {e}", exc_info=True)
             raise
 
-    def _aggregate_results(
-        self, results: List[Dict], query: str
-    ) -> AgentSearchPayload:
-        """
-        Aggregate tool results using weighted ranking formula with dynamic normalization.
-        Returns one row per unique species with metadata and tool_calls as a list.
-        """
-        df = pl.DataFrame(results)
+    # def _aggregate_results(
+    #     self, results: List[Dict], query: str
+    # ) -> AgentSearchPayload:
+    #     """
+    #     Aggregate tool results using weighted ranking formula with dynamic normalization.
+    #     Returns one row per unique species with metadata and tool_calls as a list.
+    #     """
+    #     df = pl.DataFrame(results)
 
-        aggregated = (
-            df.group_by("species")
-            .agg(
-                [
-                    pl.col("score").sum().alias("total_score"),
-                    pl.col("img_id").count().alias("count"),
-                ]
-            )
-            .sort("total_score", descending=True)
-        )
-        logger.info(f"Aggregated search results: {aggregated}")
+    #     aggregated = (
+    #         df.group_by("species")
+    #         .agg(
+    #             [
+    #                 pl.col("score").sum().alias("total_score"),
+    #                 pl.col("img_id").count().alias("count"),
+    #             ]
+    #         )
+    #         .sort("total_score", descending=True)
+    #     )
+    #     logger.info(f"Aggregated search results: {aggregated}")
 
-        top_results = []
-        other_results = []
-        for row in aggregated.iter_rows(named=True):
-            result = AgentSearchResult(
-                species=row["species"],
-                img_id=row["img_id"],
-                tool_calls=[],  # Populate if needed
-                score=row["total_score"],
-            )
-            if result.score >= 0.2:
-                top_results.append(result)
-            else:
-                other_results.append(result)
-        return AgentSearchPayload(
-            query=query,
-            top_results=top_results,
-            other_results=other_results,
-        )
+    #     top_results = []
+    #     other_results = []
+    #     for row in aggregated.iter_rows(named=True):
+    #         result = AgentSearchResult(
+    #             species=row["species"],
+    #             img_id=row["img_id"],
+    #             tool_calls=[],  # Populate if needed
+    #             score=row["total_score"],
+    #         )
+    #         if result.score >= 0.2:
+    #             top_results.append(result)
+    #         else:
+    #             other_results.append(result)
+    #     return AgentSearchPayload(
+    #         query=query,
+    #         top_results=top_results,
+    #         other_results=other_results,
+    #     )
 
     async def _execute_tool(
         self, function_name: str, function_args: Dict[str, Any]
