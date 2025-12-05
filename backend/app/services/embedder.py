@@ -258,6 +258,13 @@ class ImageEmbedder:
         for img in images:
             try:
                 img_byte_arr = io.BytesIO()
+
+                # Convert images with transparency to RGBA mode
+                if img.mode in ("RGBA", "LA") or (
+                    img.mode == "P" and "transparency" in img.info
+                ):
+                    img = img.convert("RGBA")
+
                 if max(img.size) > self.max_resolution:
                     img.thumbnail(
                         (self.max_resolution, self.max_resolution),
@@ -266,7 +273,13 @@ class ImageEmbedder:
                     all_original_size.append(False)
                 else:
                     all_original_size.append(True)
-                img.save(img_byte_arr, format=self.img_format)
+
+                # Configure save parameters based on format
+                save_kwargs = {"format": self.img_format}
+                if self.img_format.upper() == "WEBP":
+                    save_kwargs["lossless"] = True
+
+                img.save(img_byte_arr, **save_kwargs)
                 valid_image_bytes.append(img_byte_arr.getvalue())
             except Exception as e:
                 self.logger.error(
