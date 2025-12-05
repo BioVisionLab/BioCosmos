@@ -338,51 +338,48 @@ class AgentSearchService:
                 f"Agent received {len(valid_results)}/{len(tool_names)} valid tool results"
             )
 
-            return valid_results[:25]
+            # Aggregate and rank results using weighted formula
+            aggregated_results = self._aggregate_results(
+                valid_results, query
+            )
+            return aggregated_results[:25]
 
         except Exception as e:
             logger.error(f"Error in agent search: {e}", exc_info=True)
             raise
 
-    # def _aggregate_results(
-    #     self, results: List[Dict], query: str
-    # ) -> AgentSearchPayload:
-    #     """
-    #     Aggregate tool results using weighted ranking formula with dynamic normalization.
-    #     Returns one row per unique species with metadata and tool_calls as a list.
-    #     """
-    #     df = pl.DataFrame(results)
+    def _aggregate_results(
+        self, results: List[Dict], query: str
+    ) -> AgentSearchPayload:
+        """
+        Aggregate tool results using weighted ranking formula with dynamic normalization.
+        Returns one row per unique species with metadata and tool_calls as a list.
+        """
+        df = pl.DataFrame(results).select(
+            [
+                pl.col("img_id"),
+                pl.col("species"),
+                pl.col("score"),
+            ]
+        )
 
-    #     aggregated = (
-    #         df.group_by("species")
-    #         .agg(
-    #             [
-    #                 pl.col("score").sum().alias("total_score"),
-    #                 pl.col("img_id").count().alias("count"),
-    #             ]
-    #         )
-    #         .sort("total_score", descending=True)
-    #     )
-    #     logger.info(f"Aggregated search results: {aggregated}")
+        aggregated = (
+            df.group_by("species")
+            .agg(
+                [
+                    pl.col("score").sum().alias("total_score"),
+                    pl.col("img_id")
+                    .sort_by("score")
+                    .last()
+                    .alias("img_id"),
+                ]
+            )
+            .sort("total_score", descending=True)
+        ).rename({"total_score": "score"})
 
-    #     top_results = []
-    #     other_results = []
-    #     for row in aggregated.iter_rows(named=True):
-    #         result = AgentSearchResult(
-    #             species=row["species"],
-    #             img_id=row["img_id"],
-    #             tool_calls=[],  # Populate if needed
-    #             score=row["total_score"],
-    #         )
-    #         if result.score >= 0.2:
-    #             top_results.append(result)
-    #         else:
-    #             other_results.append(result)
-    #     return AgentSearchPayload(
-    #         query=query,
-    #         top_results=top_results,
-    #         other_results=other_results,
-    #     )
+        logger.info(f"Aggregated search results: {aggregated}")
+
+        return aggregated.to_dicts()
 
     async def _execute_tool(
         self, function_name: str, function_args: Dict[str, Any]
@@ -496,10 +493,12 @@ class AgentSearchService:
             )
         )
 
-        return self._clean_similar_image_df(similar_images).to_dicts()
+        return self._clean_similar_image_df(
+            similar_images, tool_name="image_similarity_search"
+        ).to_dicts()
 
     def _clean_similar_image_df(
-        self, similar_images: pl.DataFrame
+        self, similar_images: pl.DataFrame, tool_name: str
     ) -> pl.DataFrame:
         """
         Clean similar images dataframe by selecting relevant columns and adding score.
@@ -511,7 +510,8 @@ class AgentSearchService:
         """
         similar_images = similar_images.with_columns(
             pl.lit(self.weight_color)
-            * (1 - similar_images["distance"]).alias("score")
+            * (1 - similar_images["distance"]).alias("score"),
+            pl.lit(tool_name).alias("tool_names"),
         )
 
         # Then we only use columns imgId, species, score
@@ -562,7 +562,10 @@ class AgentSearchService:
         unique_species = list(set(species_names))
         data = self.image_meta_service.get_species_main_image_id_from_list(
             unique_species
-        ).with_columns(pl.lit(self.weight_location).alias("score"))
+        ).with_columns(
+            pl.lit(self.weight_location).alias("score"),
+            pl.lit("location_search").alias("tool_names"),
+        )
         logger.info(f"Location search results: {data}")
         return data.to_dicts()
 
@@ -620,7 +623,9 @@ class AgentSearchService:
         )
 
         results_df = pl.DataFrame(text_to_img_results)
-        return self._clean_similar_image_df(results_df).to_dicts()
+        return self._clean_similar_image_df(
+            results_df, tool_name="color_description_search"
+        ).to_dicts()
 
     async def _search_by_traits(
         self,
@@ -705,7 +710,10 @@ class AgentSearchService:
         unique_species = list(set(species_names))
         data = self.image_meta_service.get_species_main_image_id_from_list(
             unique_species
-        ).with_columns(pl.lit(self.weight_traits).alias("score"))
+        ).with_columns(
+            pl.lit(self.weight_traits).alias("score"),
+            pl.lit("trait_search").alias("tool_names"),
+        )
         return data.to_dicts()
 
     def _get_tools(self) -> List[Dict]:

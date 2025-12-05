@@ -21,8 +21,8 @@ async function searchSemantic(query: string): Promise<MlResultItems[]> {
     );
   }
   const json = await response.json();
-  const topResults = json["top_results"] as MlResultItems[];
-  const otherResults = json["other_results"] as MlResultItems[];
+  const topResults = json as MlResultItems[];
+  const otherResults = json as MlResultItems[];
   const results = topResults.length > 0 ? topResults : otherResults;
   // Iterate over result capturing imgId, species, and score (as distance)
   return results.map((item: any) => ({
