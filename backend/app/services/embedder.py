@@ -1,40 +1,29 @@
 import glob
 import numpy as np
 import io
-import os
-import logging
-import concurrent.futures
-import itertools
-from typing import Generator, List, Tuple
 
-import polars as pl
+from PIL.Image import Image as PILImage
 from PIL import Image
 
-from tqdm import tqdm
 
 from ..configs.config import EmbedderConfig, ImageConfig
+
 from ..database.lance import LanceDB
+
+
+# We experiment with polars for better performance instead of pandas
 from .unicom import UnicomImageEmbedder
+import polars as pl
+from tqdm import tqdm
 from .clip import ClipEmbedder
+import logging
+import os
+import concurrent.futures
 
 
 class ImageEmbedder:
-    """
-    A class responsible for the end-to-end pipeline of image ingestion and embedding.
-
-    This class manages:
-    1.  **Scanning**: Efficiently finding images in a directory structure using generators.
-    2.  **Processing**: Loading images, validating formats, resizing if necessary, and converting to bytes.
-        It includes optimizations to bypass re-encoding if the source image already meets criteria.
-    3.  **Embedding**: Generating semantic vector embeddings using CLIP and UniCOM models.
-    4.  **Storage**: Storing metadata, raw image bytes, and embeddings into a LanceDB table.
-
-    Attributes:
-        embedder_config (EmbedderConfig): Configuration for embedding parameters (batch size, device, etc.).
-        config (ImageConfig): Configuration for image specifications (directory, format, resolution, table name).
-        clip (ClipEmbedder): Wrapper for the CLIP model.
-        unicom (UnicomImageEmbedder): Wrapper for the UniCOM model.
-        db_table (LanceDB.table): The database table connection.
+    """Class to handle image embedding operations.
+    Include methods for adding, updating, and deleting image data, metadata, and embeddings.
     """
 
     def __init__(
@@ -45,355 +34,315 @@ class ImageEmbedder:
         unicom_transform,
         lance_db: LanceDB,
     ):
-        """
-        Initialize the ImageEmbedder with model components and database connection.
-
-        Args:
-            clip_model: The pre-loaded CLIP model instance.
-            clip_processor: The pre-loaded CLIP processor/transform.
-            unicom_model: The pre-loaded UniCOM model instance.
-            unicom_transform: The pre-loaded UniCOM transform function.
-            lance_db (LanceDB): The LanceDB database wrapper instance.
-        """
         self.embedder_config = EmbedderConfig()
         self.config = ImageConfig()
         self.img_format = self.config.format.upper()
         self.max_resolution = self.config.max_resolution
-
         self.clip = ClipEmbedder(
-            model=clip_model, processor=clip_processor
+            model=clip_model,
+            processor=clip_processor,
         )
         self.unicom = UnicomImageEmbedder(
-            model=unicom_model, transform=unicom_transform
+            model=unicom_model,
+            transform=unicom_transform,
         )
-
         self.logger = logging.getLogger(__name__)
         self.db_table = lance_db.create_or_get_collection(
             self.config.table
         )
 
     def ingest(self):
-        """
-        Main entry point for ingesting images into the database.
-
-        This method orchestrates the ingestion process using a high-performance streaming architecture:
-        1.  **Generators**: Uses a file path generator to avoid loading millions of paths into memory.
-        2.  **Batching**: Chunks the stream of paths into manageable batches.
-        3.  **Concurrency**: Submits batches to a ThreadPoolExecutor to process I/O and embedding in parallel.
-        4.  **Sliding Window**: Manages a fixed number of active futures to keep memory usage stable.
-
-        The process respects configuration limits (e.g., `config.limit`) and handles errors gracefully per batch.
-        """
+        """Ingest images into the database."""
         if self.embedder_config.skip:
             self.logger.info(
                 "Skipping image ingestion as per configuration."
             )
             return
-
-        img_path_generator = self._get_images_generator(
-            self.config.dir
-        )
-
-        # Check database state
-        if not self.embedder_config.reset:
-            # Note: We can't easily check 'count' against a generator without consuming it.
-            # If strict count checking is needed, we might need a fast directory scan first.
-            # For performance with large datasets, we assume we process what we find.
-            pass
-
-        self.logger.info("Starting image ingestion...")
-
-        # Batch processing configuration
-        batch_size = self.embedder_config.batch_size
-
-        if self.config.limit:
-            img_path_generator = itertools.islice(
-                img_path_generator, self.config.limit
+        img_paths = self._get_images_from_path(self.config.dir)
+        if not img_paths:
+            self.logger.error(
+                "No image paths provided for ingestion."
             )
-
-        batches = self._chunked_generator(
-            img_path_generator, batch_size
-        )
-
-        logging.getLogger("watchfiles").setLevel(logging.WARNING)
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(
-                    self._process_and_add_batch, batch
-                ): batch
-                for batch in itertools.islice(
-                    batches, executor._max_workers * 2
+            return
+        if not self.embedder_config.reset:
+            entries = LanceDB().count_entries(self.config.table)
+            if entries == len(img_paths):
+                self.logger.info(
+                    "Image entries already exist in the database. Skipping ingestion."
                 )
-            }
-
-            # As futures complete, we submit more batches
-            # This implements a sliding window of active tasks
-            with tqdm(
-                desc="Processing batches", unit="batch"
-            ) as pbar:
-                while futures:
-                    done, _ = concurrent.futures.wait(
-                        futures,
-                        return_when=concurrent.futures.FIRST_COMPLETED,
-                    )
-
-                    for future in done:
-                        futures.pop(future)
-                        pbar.update(1)
-                        try:
-                            future.result()
-                        except Exception as e:
-                            self.logger.error(
-                                f"Batch processing failed: {e}",
-                                exc_info=True,
-                            )
-
-                        # Submit next batch if available
-                        try:
-                            next_batch = next(batches)
-                            futures[
-                                executor.submit(
-                                    self._process_and_add_batch,
-                                    next_batch,
-                                )
-                            ] = next_batch
-                        except StopIteration:
-                            pass
-
+                return
+        if self.config.limit is not None:
+            self.logger.info(
+                f"Limiting image ingestion to {self.config.limit} images."
+            )
+            self.batch_add_embeddings(self._limit_entries(img_paths))
+        else:
+            self.batch_add_embeddings(img_paths)
         self.logger.info("Image ingestion completed.")
 
-    def _get_images_generator(
-        self, img_dir: str
-    ) -> Generator[str, None, None]:
+    def get_species_name_from_path(
+        self, img_paths: list[str]
+    ) -> list[str]:
+        return [
+            os.path.basename(os.path.dirname(path))
+            for path in img_paths
+        ]
+
+    def batch_add_embeddings(self, img_paths: list[str]):
+        batches = self._split_batch(img_paths)
+        if not batches:
+            self.logger.error("No batches to process.")
+            return
+
+        self.logger.info(
+            f"Starting concurrent batch addition of {len(img_paths)} images."
+        )
+        # Suppress excessive logging from watchfiles during concurrent processing
+        logging.getLogger("watchfiles").setLevel(logging.WARNING)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(self._add_batch_to_db, batch)
+                for batch in batches
+            ]
+
+            progress_bar = tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(batches),
+                desc="Processing batches",
+            )
+
+            for future in progress_bar:
+                try:
+                    future.result()
+                except Exception as e:
+                    self.logger.error(
+                        f"Error in concurrent batch addition: {e}",
+                        exc_info=True,
+                    )
+
+    def _limit_entries(self, img_paths: list[str]) -> list[str]:
+        """Limit the number of image paths based on configuration.
+        Determines the img paths based on the file extension for quick filtering.
+        Later stages will validate the actual image files and skip invalid ones.
         """
-        Creates a generator that yields valid image file paths from a directory.
+        if (
+            self.config.limit is not None
+            and self.config.limit > 0
+            and len(img_paths) > self.config.limit
+        ):
+            self.logger.info(
+                f"Limiting image ingestion to {self.config.limit} images."
+            )
+            return img_paths[: self.config.limit]
+        return img_paths
 
-        Using `glob.iglob` instead of `glob.glob` ensures that we do not build a massive list of strings
-        in memory, which is critical for datasets with millions of images.
-
-        Args:
-            img_dir (str): The root directory to scan.
-
-        Yields:
-            str: Absolute path to a valid image file.
-        """
+    def _get_images_from_path(self, img_dir: str) -> list[str]:
+        """Get a list of image paths from the specified directory."""
         if not os.path.isdir(img_dir):
             self.logger.error(f"Invalid image directory: {img_dir}")
-            return
+            return []
+        pattern = os.path.join(img_dir, "**") + "/*"
+        img_paths = [
+            f
+            for f in glob.glob(pattern, recursive=True)
+            if self._valid_img_path(f)
+        ]
+        self.logger.info(
+            f"Found {len(img_paths)} images in {img_dir}."
+        )
+        return img_paths
 
-        valid_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-        pattern = os.path.join(img_dir, "**", "*")
-
-        # iglob returns an iterator, avoiding building a massive list
-        for f in glob.iglob(pattern, recursive=True):
-            if os.path.isfile(f):
-                ext = os.path.splitext(f)[1].lower()
-                if ext in valid_extensions:
-                    yield f
-
-    def _chunked_generator(self, iterable, size):
-        """
-        Splits a source iterable into smaller lists (chunks) of a specified size.
-
-        Args:
-            iterable: The source iterable (e.g., the image path generator).
-            size (int): The maximum size of each chunk.
-
-        Yields:
-            list: A list of items from the iterable.
-        """
-        it = iter(iterable)
-        while True:
-            chunk = list(itertools.islice(it, size))
-            if not chunk:
-                break
-            yield chunk
-
-    def _process_and_add_batch(self, img_paths: List[str]):
-        """
-        Orchestrates the processing of a single batch of image paths.
-
-        Steps:
-        1.  **Load & Process**: calls `_load_and_process_images` to get bytes and flags.
-        2.  **Embed**: Generates embeddings using CLIP and UniCOM models.
-        3.  **Format**: Constructs a Polars DataFrame with ID, bytes, format, and embeddings.
-        4.  **Persist**: Merges the data into the LanceDB table.
-
-        Args:
-            img_paths (List[str]): A list of file paths to process.
-        """
-        if not img_paths:
-            return
-
-        # 1. Load Images & Bytes (Optimized)
-        # We handle images and bytes together to avoid double iteration/opening
-        successful_paths, image_bytes, original_size_flags = (
-            self._load_and_process_images(img_paths)
+    def _valid_img_path(self, img_path: str) -> bool:
+        """Check if the image path is valid and points to an image file."""
+        valid_extensions = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+        return os.path.isfile(img_path) and img_path.lower().endswith(
+            valid_extensions
         )
 
-        if not successful_paths:
+    def _add_batch_to_db(self, img_paths: list[str]):
+        """Batch add image embeddings to the database."""
+        if not img_paths:
+            self.logger.error(
+                "No image paths provided for batch addition."
+            )
             return
 
-        # 2. Compute Embeddings
-        # We pass paths to embedders (assuming they handle their own loading as per original code).
-        # If embedders can accept PIL images, we could optimize this further.
-        try:
-            clip_embeddings = self._get_all_clip_embeddings(
-                successful_paths
-            )
-            unicom_embeddings = self._get_all_unicom_embeddings(
-                successful_paths
-            )
-        except Exception as e:
+        successful_paths, valid_images = self._get_imgs(img_paths)
+        if not valid_images:
             self.logger.error(
-                f"Embedding computation failed: {e}", exc_info=True
+                "No valid images found for batch addition."
             )
             return
+
+        # Process embeddings first (they need RGB), then close those images
+        # Convert to RGB only for embedding computation
+        rgb_images = [
+            img.convert("RGB") if img.mode != "RGB" else img
+            for img in valid_images
+        ]
+
+        clip_embeddings: list[np.ndarray] = (
+            self._get_all_clip_embeddings(rgb_images)
+        )
+        unicom_embeddings: list[np.ndarray] = (
+            self._get_all_unicom_embeddings(rgb_images)
+        )
+
+        # Close RGB copies if they were converted
+        for orig, rgb in zip(valid_images, rgb_images):
+            if orig is not rgb:
+                rgb.close()
 
         if any(e is None for e in clip_embeddings):
             self.logger.error(
-                "Some embeddings failed. Skipping batch."
+                "Some embeddings could not be computed. Skipping batch addition."
             )
             return
 
-        # 3. Create DataFrame
-        try:
-            data = pl.DataFrame(
-                {
-                    "img_id": [
-                        self._get_image_id(p)
-                        for p in successful_paths
-                    ],
-                    "img_bytes": image_bytes,
-                    "file_format": self.config.format,
-                    "original_size": original_size_flags,
-                    "clip_embeddings": clip_embeddings,
-                    "unicom_embeddings": unicom_embeddings,
-                }
-            )
+        # Now process image bytes (preserving transparency from original images)
+        image_bytes, original_size_flags = self._get_image_bytes(
+            valid_images
+        )
 
-            # 4. Insert to DB
-            arrow_table = data.to_arrow().cast(self.db_table.schema)
+        # Close original images after processing
+        for img in valid_images:
+            img.close()
+
+        if not image_bytes:
+            self.logger.error(
+                "No valid image bytes found for batch addition."
+            )
+            return
+
+        data = pl.DataFrame(
+            {
+                "img_id": self._get_image_ids_from_paths(
+                    successful_paths
+                ),
+                "img_bytes": image_bytes,
+                "file_format": self.config.format,
+                "original_size": original_size_flags,
+                "clip_embeddings": clip_embeddings,
+                "unicom_embeddings": unicom_embeddings,
+            }
+        )
+        arrow_table = data.to_arrow().cast(self.db_table.schema)
+        try:
             self.db_table.merge_insert(
                 "img_id"
             ).when_not_matched_insert_all().execute(arrow_table)
-
         except Exception as e:
             self.logger.error(
-                f"Error inserting batch to DB: {e}", exc_info=True
+                f"Error adding batch embeddings: {e}", exc_info=True
             )
 
-    def _load_and_process_images(
-        self, img_paths: List[str]
-    ) -> Tuple[List[str], List[bytes], List[bool]]:
-        """
-        Loads images from disk and prepares them for storage.
+    def _img_exists_in_db(self, img_id: str) -> bool:
+        """Check if an image ID exists in the database."""
+        try:
+            exists = (
+                self.db_table.search()
+                .where(f"img_id == '{img_id}'")
+                .limit(1)
+                .to_polars()
+                .is_empty()
+                is False
+            )
+            return exists
+        except Exception as e:
+            self.logger.error(
+                f"Error checking existence of image ID '{img_id}': {e}"
+            )
+            return False
 
-        **Optimization Logic:**
-        This method employs a "Fast Path" optimization. It first peeks at the image metadata (format, size)
-        without decoding the pixel data.
-        - **Fast Path**: If the file on disk matches the target format and is within the max resolution,
-          it reads the raw file bytes directly. This avoids CPU-intensive decoding and re-encoding.
-        - **Slow Path**: If the file needs resizing or format conversion (e.g., PNG to WEBP, or large to small),
-          it fully loads the image, processes it, and encodes it to the target format.
-
-        Args:
-            img_paths (List[str]): List of file paths.
-
-        Returns:
-            Tuple containing:
-            - List[str]: Paths that were successfully processed.
-            - List[bytes]: The image data as bytes.
-            - List[bool]: Flags indicating if the image retained its original size (True) or was resized (False).
-        """
-        successful_paths = []
-        valid_image_bytes = []
-        all_original_size = []
-
-        for img_path in img_paths:
-            try:
-                # Open lazily - does not read pixel data yet
-                with Image.open(img_path) as img:
-                    # --- Optimization Start ---
-                    # Check if we can skip the expensive decode/resize/encode cycle
-                    # We need the format on disk to match the config format (e.g., storing JPEG as JPEG)
-                    # And dimensions must be within limits.
-                    # We also avoid this optimization if format conversion (like PNG -> JPG) is needed for transparency handling
-
-                    is_format_match = (
-                        img.format
-                        and img.format.upper() == self.img_format
-                    )
-                    is_within_size = (
-                        max(img.size) <= self.max_resolution
-                    )
-
-                    # Basic check for transparency if we are enforcing a format that doesn't support it well (optional safety)
-                    # But mainly, if we are storing as WEBP and file is WEBP, we are good.
-
-                    if is_format_match and is_within_size:
-                        # Fast path: Read file directly
-                        # Reset file pointer or just read from path again safely
-                        with open(img_path, "rb") as f:
-                            valid_image_bytes.append(f.read())
-                        all_original_size.append(True)
-                        successful_paths.append(img_path)
-                        continue
-                    # --- Optimization End ---
-
-                    # Slow path: Must process
-                    # Convert to RGB (or RGBA for transparency handling)
-                    if img.mode in ("RGBA", "LA") or (
-                        img.mode == "P" and "transparency" in img.info
-                    ):
-                        img_loaded = img.convert("RGBA")
-                    else:
-                        img_loaded = img.convert("RGB")
-
-                    # Resize if needed
-                    if max(img_loaded.size) > self.max_resolution:
-                        img_loaded.thumbnail(
-                            (
-                                self.max_resolution,
-                                self.max_resolution,
-                            ),
-                            resample=Image.LANCZOS,
-                        )
-                        all_original_size.append(False)
-                    else:
-                        all_original_size.append(True)
-
-                    # Save to bytes
-                    img_byte_arr = io.BytesIO()
-                    save_kwargs = {"format": self.img_format}
-                    if self.img_format == "WEBP":
-                        save_kwargs["lossless"] = True
-
-                    img_loaded.save(img_byte_arr, **save_kwargs)
-                    valid_image_bytes.append(img_byte_arr.getvalue())
-                    successful_paths.append(img_path)
-
-            except Exception as e:
-                self.logger.warning(
-                    f"Error processing image {img_path}: {e}"
-                )
-                continue
-
-        return successful_paths, valid_image_bytes, all_original_size
+    def _get_image_ids_from_paths(
+        self, img_paths: list[str]
+    ) -> list[str]:
+        """Get image IDs from a list of image paths."""
+        return [self._get_image_id(path) for path in img_paths]
 
     def _get_image_id(self, img_path: str) -> str:
-        """Extracts the unique image ID from the file path (filename without extension)."""
+        """Get image ID from an image path."""
         return os.path.splitext(os.path.basename(img_path))[0]
+
+    def _get_image_bytes(
+        self, images: list[PILImage]
+    ) -> tuple[list[bytes], list[bool]]:
+        """Get the image bytes from a list of PIL Images.
+        It will resize the image if setup in the config to a maximum resolution.
+        Returns image bytes for successfully processed images and a flag indicating
+        if all images are of original size.
+        """
+        valid_image_bytes = []
+        all_original_size = []
+        for img in images:
+            try:
+                img_byte_arr = io.BytesIO()
+                if max(img.size) > self.max_resolution:
+                    img.thumbnail(
+                        (self.max_resolution, self.max_resolution),
+                        resample=Image.LANCZOS,
+                    )
+                    all_original_size.append(False)
+                else:
+                    all_original_size.append(True)
+                img.save(img_byte_arr, format=self.img_format)
+                valid_image_bytes.append(img_byte_arr.getvalue())
+            except Exception as e:
+                self.logger.error(
+                    f"Error converting image to bytes: {e}",
+                    exc_info=True,
+                )
+        return valid_image_bytes, all_original_size
+
+    def _get_imgs(
+        self, img_paths: list[str]
+    ) -> tuple[list[str], list[PILImage]]:
+        """Get the image embeddings from a list of image paths.
+        Returns a tuple of successfully processed image paths and the image files.
+        """
+        valid_images = []
+        successful_paths = []
+        for img_path in img_paths:
+            try:
+                img = Image.open(img_path)
+                # Don't convert to RGB here - do it only when needed for embeddings
+                valid_images.append(img)
+                successful_paths.append(img_path)
+            except FileNotFoundError:
+                self.logger.warning(
+                    f"Image file not found, skipping: {img_path}"
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"Error opening image {img_path}: {e}",
+                    exc_info=True,
+                )
+        return successful_paths, valid_images
+
+    def _split_batch(self, img_paths: list[str]):
+        """Split the list of image paths into smaller batches."""
+        if not img_paths:
+            self.logger.error(
+                "No image paths provided for splitting."
+            )
+            return []
+        batches = [
+            img_paths[i : i + self.embedder_config.batch_size]
+            for i in range(
+                0, len(img_paths), self.embedder_config.batch_size
+            )
+        ]
+        self.logger.info(
+            f"Split {len(img_paths)} image paths into {len(batches)} batches."
+        )
+        return batches
 
     def _get_all_clip_embeddings(
         self, img_paths: list[str]
     ) -> list[np.ndarray]:
-        """Wrapper to get CLIP embeddings for a batch of images."""
         return self.clip.batch_get_embeddings(img_paths)
 
     def _get_all_unicom_embeddings(
         self, img_paths: list[str]
     ) -> list[np.ndarray]:
-        """Wrapper to get UniCOM embeddings for a batch of images."""
         return self.unicom.batch_get_embeddings(img_paths)
