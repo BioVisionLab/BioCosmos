@@ -370,14 +370,14 @@ class OpenAIConfig:
 
     @property
     def api_url(self) -> str | None:
-        api_url = os.getenv("UF_AI_URL", None)
+        api_url = os.getenv("LLM_API_URL", None)
         if api_url:
             return api_url
         return None
 
     @property
     def api_key(self) -> str | None:
-        api_key = os.getenv("UF_AI_API_KEY", None)
+        api_key = os.getenv("LLM_API_KEY", None)
         if api_key:
             return api_key
         return None

@@ -76,8 +76,8 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    UF_AI_URL: str
-    UF_AI_API_KEY: str
+    LLM_API_URL: str
+    LLM_API_KEY: str
     IMAGE_META_DIR: str
     GBIF_DIR: str
     UMAP_DIR: str
