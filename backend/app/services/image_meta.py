@@ -95,6 +95,40 @@ class ImageMetaService:
     #             f"Error counting entries in table '{self.table}': {e}"
     #         )
     #         return None
+    def get_species_main_image_id_from_list(
+        self, scientific_names: list[str]
+    ) -> pl.DataFrame | None:
+        """
+        Retrieve the main image IDs for a list of species.
+
+        :param scientific_names: A list of scientific names of the species.
+        :return: A dictionary mapping species names to their main image IDs or None if not found.
+        """
+        # We use duck directly to handle multiple species in one query
+        try:
+            # Create a temporary table with the species names
+            names_df = pl.DataFrame({"species": scientific_names})
+            self.db_client.register("temp_species", names_df)
+
+            query = f"""
+                SELECT 
+                    REPLACE(m.mask_name, '.png', '') AS img_id,
+                    m.species
+                FROM {self.table} m
+                INNER JOIN temp_species t 
+                ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+            """
+
+            results = self.db_client.execute(query).pl()
+            self.db_client.unregister("temp_species")
+
+            return results
+        except Exception as e:
+            logger.error(
+                f"Error retrieving main image IDs for species list '{scientific_names}': {e}"
+            )
+            return None
+
     def get_species_main_image_id(
         self, scientific_name: str
     ) -> str | None:

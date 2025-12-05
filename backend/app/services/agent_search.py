@@ -18,6 +18,7 @@ Key features:
 import logging
 import json
 import asyncio
+
 import polars as pl
 
 from typing import List, Dict, Any
@@ -27,7 +28,6 @@ from pydantic import BaseModel, ConfigDict, field_serializer
 from pydantic.alias_generators import to_camel
 from fastapi import Request
 from openai import OpenAI
-
 
 from ..services.image_meta import ImageMetaService
 from ..configs.config import OpenAIConfig
@@ -69,6 +69,26 @@ class AgentSearchResult(BaseModel):
     def serialize_score(self, score: float) -> float:
         """Serialize score to 4 decimal places for cleaner output."""
         return round(score, 4)
+
+
+class FunctionCallResult(BaseModel):
+    """
+    Represents the result from a single tool function call.
+
+    Attributes:
+        species_list: List of species results returned by the tool.
+                      Format varies by tool:
+                      - For color search: List of dicts with {species, distance, img_id}
+                      - For other tools: List of species name strings
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    species: str
+    img_id: str
+    score: float
 
 
 class AgentSearchPayload(BaseModel):
@@ -294,7 +314,7 @@ class AgentSearchService:
                 *tasks, return_exceptions=True
             )
 
-            # Process results and filter out errors
+            # Process results, filter out errors, and flatten nested lists
             valid_results = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
@@ -308,34 +328,68 @@ class AgentSearchService:
                     )
                     continue
 
-                # Tag the result with the tool name for ranking metadata
-                result["_tool_name"] = tool_names[i]
-                valid_results.append(result)
+                # Flatten if result is a list, otherwise append as-is
+                if isinstance(result, list):
+                    valid_results.extend(result)
+                else:
+                    valid_results.append(result)
 
             logger.info(
                 f"Agent received {len(valid_results)}/{len(tool_names)} valid tool results"
             )
 
-            return valid_results
+            aggreated_results = self._aggregate_results(
+                valid_results, query
+            )
+            return aggreated_results[:20]
 
         except Exception as e:
             logger.error(f"Error in agent search: {e}", exc_info=True)
             raise
 
-    # def _aggregate_results(
-    #     self, tool_results: List[Dict], query: str
-    # ) -> AgentSearchPayload:
-    #     """
-    #     Aggregate tool results using weighted ranking formula with dynamic normalization.
-    #     Returns one row per unique species with metadata and tool_calls as a list.
-    #     """
-    #     # Find species that match multiple tools
-    #     species_map: Dict[str, AgentSearchResult] = {}
-    #     tools_used = set()
+    def _aggregate_results(
+        self, results: List[Dict], query: str
+    ) -> AgentSearchPayload:
+        """
+        Aggregate tool results using weighted ranking formula with dynamic normalization.
+        Returns one row per unique species with metadata and tool_calls as a list.
+        """
+        df = pl.DataFrame(results)
+
+        aggregated = (
+            df.group_by("species")
+            .agg(
+                [
+                    pl.col("score").sum().alias("total_score"),
+                    pl.col("img_id").count().alias("count"),
+                ]
+            )
+            .sort("total_score", descending=True)
+        )
+        logger.info(f"Aggregated search results: {aggregated}")
+
+        top_results = []
+        other_results = []
+        for row in aggregated.iter_rows(named=True):
+            result = AgentSearchResult(
+                species=row["species"],
+                img_id=row["img_id"],
+                tool_calls=[],  # Populate if needed
+                score=row["total_score"],
+            )
+            if result.score >= 0.2:
+                top_results.append(result)
+            else:
+                other_results.append(result)
+        return AgentSearchPayload(
+            query=query,
+            top_results=top_results,
+            other_results=other_results,
+        )
 
     async def _execute_tool(
         self, function_name: str, function_args: Dict[str, Any]
-    ) -> pl.DataFrame:
+    ) -> list[dict]:
         """
         Execute a specific tool function and standardize its output format.
 
@@ -368,14 +422,14 @@ class AgentSearchService:
                 ),
                 limit=function_args.get("limit", 400),
             )
-            return {"species_list": species_list}
+            return species_list
 
         elif function_name == "search_by_location":
             species_list = await self._search_by_location(
                 location=function_args.get("location"),
                 limit=function_args.get("limit", 400),
             )
-            return {"species_list": species_list}
+            return species_list
 
         elif function_name == "search_by_color":
             species_with_distances = await self._search_by_color(
@@ -384,7 +438,7 @@ class AgentSearchService:
                 ),
                 limit=function_args.get("limit", 50),
             )
-            return {"species_list": species_with_distances}
+            return species_with_distances
 
         elif function_name == "search_by_traits":
             species_list = await self._search_by_traits(
@@ -398,7 +452,7 @@ class AgentSearchService:
                 ),
                 limit=function_args.get("limit", 400),
             )
-            return {"species_list": species_list}
+            return species_list
 
         else:
             return {"error": f"Unknown function: {function_name}"}
@@ -439,24 +493,46 @@ class AgentSearchService:
         )
 
         # Pass IDs to find visual lookalikes using vector similarity
-        similar_images = self.image_service.find_similar_images(
-            image_ids=image_ids, limit=limit
+        similar_images: pl.DataFrame = (
+            self.image_service.find_similar_images(
+                image_ids=image_ids, limit=limit
+            )
         )
 
-        # Convert Polars DataFrame to dicts if necessary
-        if similar_images is not None and hasattr(
-            similar_images, "to_dicts"
-        ):
-            similar_images = similar_images.to_dicts()
+        return self._clean_similar_image_df(similar_images).to_dicts()
 
-        if not similar_images:
-            return []
+    def _clean_similar_image_df(
+        self, similar_images: pl.DataFrame
+    ) -> pl.DataFrame:
+        """
+        Clean similar images dataframe by selecting relevant columns and adding score.
+
+        Args:
+            similar_images: DataFrame containing similar images with distance scores.
+        Returns:
+            Cleaned DataFrame with columns img_id, species, and score.
+        """
+        similar_images = similar_images.with_columns(
+            pl.lit(self.weight_color)
+            * (1 - similar_images["distance"]).alias("score")
+        )
+
+        # Then we only use columns imgId, species, score
+        similar_images = similar_images.select(
+            [
+                pl.col("img_id"),
+                pl.col("species"),
+                pl.col("score"),
+            ]
+        )
+
+        logger.info(f"Similar image search results: {similar_images}")
 
         return similar_images
 
     async def _search_by_location(
         self, location: str, limit: int = 100
-    ) -> list[str]:
+    ) -> list[dict]:
         """
         Search for species occurring in a specific geographic location.
 
@@ -483,11 +559,19 @@ class AgentSearchService:
         species_names = self.gbif_service.search_by_location(
             location=location, limit=limit
         )
-        return list(set(species_names))  # Ensure uniqueness
+        logger.info(
+            f"Location search found {len(species_names)} species"
+        )
+        unique_species = list(set(species_names))
+        data = self.image_meta_service.get_species_main_image_id_from_list(
+            unique_species
+        ).with_columns(pl.lit(self.weight_location).alias("score"))
+        logger.info(f"Location search results: {data}")
+        return data.to_dicts()
 
     async def _search_by_color(
         self, color_description: str, limit: int = 50
-    ) -> list[Dict[str, Any]]:
+    ) -> list[dict]:
         """
         Search for species matching a color description using CLIP embeddings.
 
@@ -537,7 +621,9 @@ class AgentSearchService:
                 limit=image_limit,
             )
         )
-        return text_to_img_results
+
+        results_df = pl.DataFrame(text_to_img_results)
+        return self._clean_similar_image_df(results_df).to_dicts()
 
     async def _search_by_traits(
         self,
@@ -546,7 +632,7 @@ class AgentSearchService:
         moisture_affinity=None,
         disturbance_affinity=None,
         limit=100,
-    ) -> list[str]:
+    ) -> list[dict]:
         """
         Search species by habitat preferences and ecological traits.
 
@@ -619,7 +705,11 @@ class AgentSearchService:
         # Execute query and return species list
         result = self.leptraits_service.db_client.execute(query).pl()
         species_names = result["Species"].to_list()
-        return list(set(species_names))  # Ensure uniqueness
+        unique_species = list(set(species_names))
+        data = self.image_meta_service.get_species_main_image_id_from_list(
+            unique_species
+        ).with_columns(pl.lit(self.weight_traits).alias("score"))
+        return data.to_dicts()
 
     def _get_tools(self) -> List[Dict]:
         """

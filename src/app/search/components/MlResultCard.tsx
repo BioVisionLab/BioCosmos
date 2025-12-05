@@ -54,7 +54,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
             {speciesName}
           </h2>
           <p className="text-xs text-gray-500">
-            Scores: {data.distance.toPrecision(3)}
+            Scores: {data.score.toPrecision(3)}
           </p>
         </Link>
       )}

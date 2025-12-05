@@ -1,7 +1,7 @@
 export interface MlResultItems {
   imgId: string;
   species: string;
-  distance: number;
+  score: number;
 }
 
 async function searchSemantic(query: string): Promise<MlResultItems[]> {
@@ -21,14 +21,14 @@ async function searchSemantic(query: string): Promise<MlResultItems[]> {
     );
   }
   const json = await response.json();
-  const topResults = json["top_results"];
-  const otherResults = json["other_results"];
+  const topResults = json as MlResultItems[];
+  const otherResults = json as MlResultItems[];
   const results = topResults.length > 0 ? topResults : otherResults;
   // Iterate over result capturing imgId, species, and score (as distance)
   return results.map((item: any) => ({
     imgId: item.img_id,
     species: item.species,
-    distance: item.score,
+    score: item.score,
   }));
 }
 
