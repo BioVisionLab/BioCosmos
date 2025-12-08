@@ -176,10 +176,14 @@ class ImageEmbedder:
 
         # Process embeddings first (they need RGB), then close those images
         # Convert to RGB only for embedding computation
-        rgb_images = [
-            img.convert("RGB") if img.mode != "RGB" else img
-            for img in valid_images
-        ]
+        # Resize to 512px max to save memory during embedding
+        rgb_images = []
+        for img in valid_images:
+            if img.mode != "RGB":
+                rgb_img = img.convert("RGB")
+            else:
+                rgb_img = img
+            rgb_images.append(rgb_img)
 
         clip_embeddings: list[np.ndarray] = (
             self._get_all_clip_embeddings(rgb_images)

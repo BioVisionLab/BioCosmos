@@ -4,11 +4,11 @@ import logging
 import numpy as np
 import torch
 
-from fastapi import Request
 from ..configs.config import EmbedderConfig
 from transformers import CLIPModel, CLIPProcessor
 from PIL import Image
 import os
+from PIL.Image import Image as PILImage
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
+MAX_CLIP_RESOLUTION = 512
 
 
 class ClipModel:
@@ -97,6 +98,7 @@ class ClipEmbedder:
             return None
         try:
             images: Image = Image.open(img_path).convert("RGB")
+            images = self._resize_image(images)
             return self.get_embeddings([images])[0]
         except FileNotFoundError as e:
             self.logger.error(
@@ -111,14 +113,14 @@ class ClipEmbedder:
             return None
 
     def batch_get_embeddings(
-        self, images: list[Image]
+        self, images: list[PILImage]
     ) -> list[np.ndarray]:
         if self.model is None:
             self.logger.error(
                 "CLIP model not available for image embedding."
             )
             return []
-
+        images = [self._resize_image(img) for img in images]
         try:
             inputs = self.processor(
                 images=images, return_tensors="pt", padding=True
@@ -160,3 +162,15 @@ class ClipEmbedder:
             f"Text embedding computed successfully for: {text}"
         )
         return text_features.cpu().numpy().squeeze()
+
+    def _resize_image(self, image: Image) -> Image:
+        """Resize image to fit within MAX_CLIP_RESOLUTION while maintaining aspect ratio."""
+        max_dimension = max(image.size)
+        if max_dimension > MAX_CLIP_RESOLUTION:
+            scale = MAX_CLIP_RESOLUTION / max_dimension
+            new_size = (
+                int(image.size[0] * scale),
+                int(image.size[1] * scale),
+            )
+            return image.resize(new_size, Image.ANTIALIAS)
+        return image
