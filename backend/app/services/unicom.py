@@ -166,13 +166,11 @@ class UnicomImageEmbedder:
             return None
 
     def _resize_image(self, image: Image) -> Image:
-        """Resize image to fit within MAX_CLIP_RESOLUTION while maintaining aspect ratio."""
+        """Resize image to fit within MAX_UNICOM_RESOLUTION while maintaining aspect ratio."""
         max_dimension = max(image.size)
         if max_dimension > MAX_UNICOM_RESOLUTION:
-            scale = MAX_UNICOM_RESOLUTION / max_dimension
-            new_size = (
-                int(image.size[0] * scale),
-                int(image.size[1] * scale),
+            image.thumbnail(
+                (MAX_UNICOM_RESOLUTION, MAX_UNICOM_RESOLUTION),
+                Image.LANCZOS,
             )
-            return image.resize(new_size, Image.ANTIALIAS)
         return image

@@ -167,10 +167,8 @@ class ClipEmbedder:
         """Resize image to fit within MAX_CLIP_RESOLUTION while maintaining aspect ratio."""
         max_dimension = max(image.size)
         if max_dimension > MAX_CLIP_RESOLUTION:
-            scale = MAX_CLIP_RESOLUTION / max_dimension
-            new_size = (
-                int(image.size[0] * scale),
-                int(image.size[1] * scale),
+            image.thumbnail(
+                (MAX_CLIP_RESOLUTION, MAX_CLIP_RESOLUTION),
+                Image.LANCZOS,
             )
-            return image.resize(new_size, Image.ANTIALIAS)
         return image
