@@ -192,10 +192,6 @@ class ImageEmbedder:
             valid_images
         )
 
-        # Close original images after processing
-        for img in valid_images:
-            img.close()
-
         if not image_bytes:
             self.logger.error(
                 "No valid image bytes found for batch addition."

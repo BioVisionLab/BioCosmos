@@ -130,9 +130,6 @@ class UnicomImageEmbedder:
                 dim=-1, keepdim=True
             )
             embeddings_array = image_features.cpu().numpy()
-            # Close images to free memory
-            for img in images:
-                img.close()
             return [embedding for embedding in embeddings_array]
         except Exception as e:
             self.logger.error(
@@ -161,7 +158,6 @@ class UnicomImageEmbedder:
             image_features /= image_features.norm(
                 dim=-1, keepdim=True
             )
-            image.close()
             return image_features.cpu().numpy().squeeze()
         except Exception as e:
             self.logger.error(

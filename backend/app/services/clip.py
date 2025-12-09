@@ -134,9 +134,6 @@ class ClipEmbedder:
                 dim=-1, keepdim=True
             )  # Normalize the embeddings
             embedding_array = image_features.cpu().numpy().squeeze()
-            # Close images to free memory
-            for img in images:
-                img.close()
             if len(images) == 1:
                 return [embedding_array]
             return embedding_array
