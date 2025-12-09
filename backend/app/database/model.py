@@ -91,9 +91,9 @@ class LanceSchema(LanceModel):
 
     img_id: str
     img_bytes: bytes
-    # species: str
-    file_format: str
-    original_size: bool
+    species: str
+    # file_format: str
+    # original_size: bool
     clip_embeddings: Vector(clip.get_clip_ndims())
     unicom_embeddings: Vector(unicom.get_unicom_ndims())
 

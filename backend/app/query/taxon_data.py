@@ -486,7 +486,9 @@ class SpeciesSimilarity:
                     f"No similar species found for species: {species_name}"
                 )
                 return None
-
+            similar_images = self._filter_similar_images(
+                similar_images, species_name
+            )
             return similar_images.to_dicts()
         except Exception as e:
             logger.error(
@@ -494,6 +496,26 @@ class SpeciesSimilarity:
                 exc_info=True,
             )
             return []
+
+    def _filter_similar_images(
+        self,
+        similar_images: pl.DataFrame,
+        species_name: str,
+    ) -> pl.DataFrame:
+        """
+        Filter out images that belong to the same species as the query species.
+
+        Args:
+            similar_images (pl.DataFrame): DataFrame containing similar images.
+            species_name (str): The species name to filter out.
+        Returns:
+            pl.DataFrame: Filtered DataFrame with images not belonging to the query species.
+        """
+        filtered_images = similar_images.filter(
+            pl.col("species").str.to_lowercase().replace(" ", "_")
+            != species_name.lower().replace(" ", "_")
+        )
+        return filtered_images
 
     def _get_image_ids_for_species(
         self, species_name: str
