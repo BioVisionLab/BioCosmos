@@ -97,9 +97,10 @@ class ClipEmbedder:
             )
             return None
         try:
-            images: Image = Image.open(img_path).convert("RGB")
-            images = self._resize_image(images)
-            return self.get_embeddings([images])[0]
+            image: Image = Image.open(img_path).convert("RGB")
+            image = self._resize_image(image)
+            image.close()
+            return self.get_embeddings([image])[0]
         except FileNotFoundError as e:
             self.logger.error(
                 f"Image file not found: {e}", exc_info=True
@@ -133,6 +134,9 @@ class ClipEmbedder:
                 dim=-1, keepdim=True
             )  # Normalize the embeddings
             embedding_array = image_features.cpu().numpy().squeeze()
+            # Close images to free memory
+            for img in images:
+                img.close()
             if len(images) == 1:
                 return [embedding_array]
             return embedding_array

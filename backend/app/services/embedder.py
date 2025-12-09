@@ -174,28 +174,12 @@ class ImageEmbedder:
             )
             return
 
-        # Process embeddings first (they need RGB), then close those images
-        # Convert to RGB only for embedding computation
-        # Resize to 512px max to save memory during embedding
-        rgb_images = []
-        for img in valid_images:
-            if img.mode != "RGB":
-                rgb_img = img.convert("RGB")
-            else:
-                rgb_img = img
-            rgb_images.append(rgb_img)
-
         clip_embeddings: list[np.ndarray] = (
-            self._get_all_clip_embeddings(rgb_images)
+            self._get_all_clip_embeddings(valid_images)
         )
         unicom_embeddings: list[np.ndarray] = (
-            self._get_all_unicom_embeddings(rgb_images)
+            self._get_all_unicom_embeddings(valid_images)
         )
-
-        # Close RGB copies if they were converted
-        for orig, rgb in zip(valid_images, rgb_images):
-            if orig is not rgb:
-                rgb.close()
 
         if any(e is None for e in clip_embeddings):
             self.logger.error(
@@ -291,6 +275,7 @@ class ImageEmbedder:
                     all_original_size.append(True)
                 img.save(img_byte_arr, format=self.img_format)
                 valid_image_bytes.append(img_byte_arr.getvalue())
+                img.close()
             except Exception as e:
                 self.logger.error(
                     f"Error converting image to bytes: {e}",
@@ -309,6 +294,8 @@ class ImageEmbedder:
         for img_path in img_paths:
             try:
                 img = Image.open(img_path)
+                # Load image to memory to avoid file handle issues
+                img.load()
                 # Don't convert to RGB here - do it only when needed for embeddings
                 valid_images.append(img)
                 successful_paths.append(img_path)
