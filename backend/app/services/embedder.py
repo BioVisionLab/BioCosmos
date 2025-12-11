@@ -173,20 +173,25 @@ class ImageEmbedder:
                 "No valid images found for batch addition."
             )
             return
+        try:
+            clip_embeddings: list[np.ndarray] = (
+                self._get_all_clip_embeddings(valid_images)
+            )
+            unicom_embeddings: list[np.ndarray] = (
+                self._get_all_unicom_embeddings(valid_images)
+            )
 
-        clip_embeddings: list[np.ndarray] = (
-            self._get_all_clip_embeddings(valid_images)
-        )
-        unicom_embeddings: list[np.ndarray] = (
-            self._get_all_unicom_embeddings(valid_images)
-        )
-
-        if any(e is None for e in clip_embeddings):
+            if any(e is None for e in clip_embeddings):
+                self.logger.error(
+                    "Some embeddings could not be computed. Skipping batch addition."
+                )
+                return
+        except Exception as e:
             self.logger.error(
-                "Some embeddings could not be computed. Skipping batch addition."
+                f"Error computing embeddings for batch: {e}",
+                exc_info=True,
             )
             return
-
         # Now process image bytes (preserving transparency from original images)
         image_bytes, original_size_flags = self._get_image_bytes(
             valid_images
@@ -210,14 +215,19 @@ class ImageEmbedder:
                 "unicom_embeddings": unicom_embeddings,
             }
         )
-        arrow_table = data.to_arrow().cast(self.db_table.schema)
+        self._insert_batch_to_db(data)
+
+    def _insert_batch_to_db(self, data: pl.DataFrame):
+        """Insert a batch of data into the database."""
         try:
+            arrow_table = data.to_arrow().cast(self.db_table.schema)
             self.db_table.merge_insert(
                 "img_id"
             ).when_not_matched_insert_all().execute(arrow_table)
         except Exception as e:
             self.logger.error(
-                f"Error adding batch embeddings: {e}", exc_info=True
+                f"Error inserting batch to database: {e}",
+                exc_info=True,
             )
 
     def _img_exists_in_db(self, img_id: str) -> bool:
