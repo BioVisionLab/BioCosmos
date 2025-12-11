@@ -82,7 +82,7 @@ function SimilarSpeciesImage({
 
   return (
     <Link key={index} href={`/species/${meta.species}`}>
-      <div className="item-center text-center">
+      <div className="item-center text-center h-fit">
         {thumbnailUrl ? (
           <>
             <Image
@@ -90,7 +90,7 @@ function SimilarSpeciesImage({
               alt={`Similar species image ${meta.imgId}`}
               width={IMAGE_SIZE}
               height={IMAGE_SIZE}
-              className="object-fill mx-auto"
+              className="object-contain"
             />
             <p className="text-sm text-gray-500 dark:text-gray-400 italic">
               {speciesName}

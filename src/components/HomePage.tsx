@@ -36,19 +36,20 @@ function SpeciesThumbnail({
   let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
-    <div className="w-fit h-fit justify-center bg-gray-200 dark:bg-gray-700 rounded-2xl items-center text-center p-4">
+    <div className="w-full my-auto flex flex-col justify-center items-center text-center">
       <Link key={index} href={linkUrl}>
         {thumbnailUrl ? (
           <>
+          <div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
             <Image
               src={thumbnailUrl}
               alt={`Species Thumbnail ${index + 1}`}
-              width={150}
-              height={150}
+              width={140}
+              height={140}
               className="mx-auto object-contain"
-            />
+            /></div>
             <h2
-              className="text-sm truncate italic text-center text-gray-400"
+              className="text-md truncate italic text-center text-gray-400 mt-2"
               title={speciesName}
             >
               {speciesName}
