@@ -48,7 +48,7 @@ function SimilarSpeciesImageGallery({
   return (
     <div className="p-4 mt-2">
       <h3 className={`text-md ${labelColor}`}>{label}</h3>
-      <div className="overflow-x-auto rounded-xl flex flex-row gap-4">
+      <div className="overflow-x-auto rounded-xl flex flex-row gap-4 items-stretch">
         {speciesData.map((item, index) => (
           <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
         ))}
@@ -82,9 +82,9 @@ function SimilarSpeciesImage({
 
   return (
     <Link key={index} href={`/species/${meta.species}`}>
-      <div className="item-center text-center h-fit">
+      <div className="w-full item-center text-center">
         {thumbnailUrl ? (
-          <>
+          <><div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
             <Image
               src={thumbnailUrl}
               alt={`Similar species image ${meta.imgId}`}
@@ -92,6 +92,7 @@ function SimilarSpeciesImage({
               height={IMAGE_SIZE}
               className="object-contain"
             />
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 italic">
               {speciesName}
             </p>
