@@ -38,6 +38,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
   const PAGE_SIZE = 24; // images per page
   const INITIAL_PAGES = 5; // initial pages to request (24 * 5 = 120)
   const [currentPage, setCurrentPage] = useState<number>(1); // 1-based
+  // `displayPage` is the visual page highlighted in the UI. We update it
+  // immediately on user actions to provide instant feedback; `currentPage`
+  // represents the committed page once data has been loaded.
+  const [displayPage, setDisplayPage] = useState<number>(1);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [exhaustedIds, setExhaustedIds] = useState<boolean>(false);
 
@@ -137,6 +141,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     setAllIds(null);
     allIdsRef.current = null;
     setCurrentPage(1);
+    setDisplayPage(1);
     setExhaustedIds(false);
 
     try {
@@ -190,6 +195,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
       // determine deduped additions and new full list
       const deduped = fetched.filter((id) => !existing.includes(id));
+      // if backend returned only duplicates (no progress), treat as exhausted
+      if (deduped.length === 0) {
+        setExhaustedIds(true);
+        return;
+      }
       const newAll = [...existing, ...deduped];
       // update state with the new list (use functional set to avoid race)
       setAllIds(newAll);
@@ -252,6 +262,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
         thumbCache.current.set(r.id, r.url);
       });
       if (mountedFlag) setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
+      // sync display/committed page
+      setCurrentPage(1);
+      setDisplayPage(1);
       // prefetch next two pages for client-provided specimen lists
       void prefetchNextPages(1, 2);
     } catch (err) {
@@ -271,16 +284,21 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
   // helper to load thumbnails for a given page (1-based)
   const loadPage = async (page: number) => {
-    if (!allIds) return;
-    const total = allIds.length;
+    // Use the ref (synchronously updated) when available to avoid stale
+    // `allIds` state during rapid append operations. Fallback to `allIds`.
+    const idsSource = allIdsRef.current ?? allIds ?? [];
+    if (idsSource.length === 0) return;
+    const total = idsSource.length;
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const p = Math.max(1, Math.min(pageCount, page));
-    setCurrentPage(p);
+    // Do not aggressively change the displayed page here — we'll commit
+    // both `currentPage` and `displayPage` after data is loaded to keep the
+    // UI stable and avoid flicker/back-and-forth highlights.
     setLoading(true);
     setError(null);
 
     const start = (p - 1) * PAGE_SIZE;
-    const pageIds = allIds.slice(start, start + PAGE_SIZE);
+    const pageIds = idsSource.slice(start, start + PAGE_SIZE);
 
     // fetch thumbnails for ids not in cache
     const fetchPromises = pageIds.map((id) => {
@@ -305,6 +323,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       // Prefetch thumbnails for the next 2 pages in the background to make
       // short hops feel instant.
       void prefetchNextPages(p, 2);
+      // commit the page after successful load
+      setCurrentPage(p);
+      setDisplayPage(p);
     } catch (err) {
       console.error("Failed to load page thumbnails.", err);
       setError("Failed to load thumbnails for page.");
@@ -315,12 +336,13 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
   // Prefetch thumbnails for up to `count` pages after `page`
   const prefetchNextPages = async (page: number, count = 2) => {
-    if (!allIds) return;
+    const idsSource = allIdsRef.current ?? allIds ?? [];
+    if (idsSource.length === 0) return;
     const startPage = page + 1;
-    const endPage = Math.min(Math.ceil(allIds.length / PAGE_SIZE), page + count);
+    const endPage = Math.min(Math.ceil(idsSource.length / PAGE_SIZE), page + count);
     for (let p = startPage; p <= endPage; p++) {
       const start = (p - 1) * PAGE_SIZE;
-      const ids = allIds.slice(start, start + PAGE_SIZE);
+      const ids = idsSource.slice(start, start + PAGE_SIZE);
       const toFetch = ids.filter((id) => !thumbCache.current.has(id));
       if (toFetch.length === 0) continue;
       try {
@@ -523,33 +545,65 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     if (!allIds) return;
     const requested = Math.max(1, p);
 
-    // immediate UX: show requested page and loading placeholders while we fetch
-    setCurrentPage(requested);
-    setLoading(true);
-    setError(null);
-
     // compute currently loaded pages from available ids
     const currentLoadedPages = Math.max(1, Math.ceil((allIds ? allIds.length : items.length) / PAGE_SIZE));
 
-    // if the requested page is already loaded, just load it
+    // If the requested page is already loaded, show it immediately.
     if (requested <= currentLoadedPages) {
-      if (requested === currentPage) return;
+      if (requested === currentPage) return; // already viewing
+      // displayPage gives immediate feedback; actual commit happens in loadPage
+      setDisplayPage(requested);
+      setLoading(true);
+      setError(null);
       loadPage(requested);
       return;
     }
 
+    // When requesting a page beyond what's currently loaded, avoid jumping
+    // the pagination window too far. Show the next available page (loaded
+    // pages + 1) immediately as a placeholder so the pagination shifts only
+    // one step to the right instead of leaping to `requested`.
+    const immediate = Math.min(requested, currentLoadedPages + 1);
+    setDisplayPage(immediate);
+    setLoading(true);
+    setError(null);
+
     // otherwise, we need to load additional chunks until we have enough ids
     const neededCount = requested * PAGE_SIZE;
     const ensureIdsAndLoad = async () => {
-      // keep requesting chunks until we have enough or the backend reports exhaustion
-      while ((allIdsRef.current ? allIdsRef.current.length : 0) < neededCount && !exhaustedIds) {
-        // eslint-disable-next-line no-await-in-loop
-        await loadNextChunk();
+      // Try to fetch the remaining IDs in a single request instead of looping
+      // to reduce round trips and avoid races.
+      const existing = allIdsRef.current ? allIdsRef.current : [];
+      let remaining = neededCount - existing.length;
+      if (remaining > 0 && speciesName) {
+        setIsLoadingMore(true);
+        try {
+          const fetched = await fetchSpeciesImageIds(speciesName, remaining, existing.length);
+          if (!fetched || fetched.length === 0) {
+            setExhaustedIds(true);
+          } else {
+            const deduped = fetched.filter((id) => !existing.includes(id));
+            if (deduped.length > 0) {
+              const newAll = [...existing, ...deduped];
+              setAllIds(newAll);
+              allIdsRef.current = newAll;
+            } else {
+              // no progress -> mark exhausted to avoid infinite retries
+              setExhaustedIds(true);
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching IDs for jump:", err);
+        } finally {
+          setIsLoadingMore(false);
+        }
       }
-      // after loading, compute the page we can actually show (cap to available pages)
+
+      // after fetching, compute the page we can actually show (cap to available pages)
       const availablePages = Math.max(1, Math.ceil((allIdsRef.current ? allIdsRef.current.length : 0) / PAGE_SIZE));
       const toShow = Math.min(requested, availablePages);
-      loadPage(toShow);
+      // Ensure we load the page that actually exists now (may be less than requested if exhausted)
+      await loadPage(toShow);
     };
     void ensureIdsAndLoad();
   };
@@ -589,7 +643,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               layout shift. If a thumbnail isn't available yet, show the
               placeholder but keep the tile size fixed so the page doesn't jump. */}
           {(() => {
-            const start = (currentPage - 1) * PAGE_SIZE;
+            const start = (displayPage - 1) * PAGE_SIZE;
             const pageIds = allIds
               ? allIds.slice(start, start + PAGE_SIZE)
               : items.map((it) => it.id);
@@ -609,25 +663,19 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
                   title={id ? "Open full image" : undefined}
                   className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
                 >
-                  {cached ? (
-                    <Image
-                      src={cached}
-                      alt={id ? `Specimen ${id}` : "Loading..."}
-                      fill
-                      sizes="(max-width:768px) 33vw, 150px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 h-full">
-                      <Image
-                        src="/leaflet/images/butterfly.svg"
-                        alt="Loading..."
-                        width={112}
-                        height={112}
-                        className="animate-pulse mx-auto"
-                      />
-                    </div>
-                  )}
+                      {cached ? (
+                        <Image
+                          src={cached}
+                          alt={id ? `Specimen ${id}` : "Loading..."}
+                          fill
+                          sizes="(max-width:768px) 33vw, 150px"
+                          className="object-cover"
+                        />
+                          ) : (
+                        <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-400 h-full">
+                          <ImageLoading size={110} msg={"Images loading"} />
+                        </div>
+                      )}
                 </button>
               );
             });
@@ -636,28 +684,29 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       </div>
       {/* Pagination bar */}
       <div className="flex items-center justify-center gap-3 mt-3">
-        {/* Navigation container styled similar to PageTabs: rounded, dark background */}
-        <div className="inline-flex items-center rounded-full bg-gray-800/80 p-1">
-          <button
-            onClick={() => gotoPage(currentPage - 1)}
-            disabled={currentPage <= 1 || isLoadingMore || loading}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              currentPage <= 1 || isLoadingMore
-                ? "text-gray-500 cursor-not-allowed"
-                : "text-gray-200 hover:bg-gray-700"
-            }`}
-          >
-            Prev
-          </button>
+        {/* Prev pill on the left */}
+        <button
+          onClick={() => gotoPage(displayPage - 1)}
+          disabled={displayPage <= 1 || isLoadingMore || loading}
+          className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
+            displayPage <= 1 || isLoadingMore
+              ? "text-gray-500 cursor-not-allowed"
+              : "text-gray-200 hover:bg-gray-700"
+          }`}
+        >
+          Prev
+        </button>
 
+        {/* Central page index pill */}
+        <div className="inline-flex items-center rounded-full bg-gray-800/80 p-1 border border-gray-600/50 shadow-sm">
           {(() => {
             const elems: React.ReactNode[] = [];
             const displayTotal = speciesTotalPages;
             const windowSize = 10;
             const half = Math.floor(windowSize / 2);
 
-            // compute sliding window around currentPage
-            let start = currentPage - half;
+            // compute sliding window around displayPage
+            let start = displayPage - half;
             if (start < 1) start = 1;
             let end = start + windowSize - 1;
             if (end > displayTotal) {
@@ -666,12 +715,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
             }
 
             for (let p = start; p <= end; p++) {
-              const isCurrent = p === currentPage;
+              const isCurrent = p === displayPage;
               elems.push(
                 <button
                   key={`p-${p}`}
                   onClick={() => gotoPage(p)}
-                  className={`px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
+                  className={`h-9 flex items-center px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
                     isCurrent ? "bg-emerald-500 text-white" : "text-gray-200 hover:bg-gray-700"
                   }`}
                   aria-current={isCurrent ? "page" : undefined}
@@ -683,19 +732,20 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
             return elems;
           })()}
-
-          <button
-            onClick={() => gotoPage(currentPage + 1)}
-            disabled={currentPage >= speciesTotalPages || isLoadingMore || loading}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              currentPage >= speciesTotalPages || isLoadingMore
-                ? "text-gray-500 cursor-not-allowed"
-                : "text-gray-200 hover:bg-gray-700"
-            }`}
-          >
-            Next
-          </button>
         </div>
+
+        {/* Next pill on the right */}
+        <button
+          onClick={() => gotoPage(displayPage + 1)}
+          disabled={displayPage >= speciesTotalPages || isLoadingMore || loading}
+          className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
+            displayPage >= speciesTotalPages || isLoadingMore
+              ? "text-gray-500 cursor-not-allowed"
+              : "text-gray-200 hover:bg-gray-700"
+          }`}
+        >
+          Next
+        </button>
       </div>
 
       {/* Modal/lightbox for full-size image */}
@@ -768,7 +818,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
                 // Loading placeholder occupies the same space as the final image to avoid layout jumps
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="w-full h-full flex items-center justify-center max-w-full max-h-full">
-                    <ImageLoading size={200} />
+                    <ImageLoading size={250} />
                   </div>
                 </div>
               ) : modalImageUrl ? (
