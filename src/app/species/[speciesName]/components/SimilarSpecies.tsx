@@ -32,7 +32,7 @@ function VisuallySimilarSpecies({
 
       <SimilarSpeciesImageGallery
         speciesData={meta}
-        label="Based on mean color and pattern similarity"
+        label="Mean color and pattern similarity"
       />
     </div>
   );
