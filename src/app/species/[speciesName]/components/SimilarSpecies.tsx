@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { cleanSpeciesName } from "@/lib/names";
 
-const IMAGE_SIZE = 128;
+const IMAGE_SIZE = 120;
 
 const labelColor = "text-gray-500 dark:text-gray-400";
 
@@ -48,7 +48,7 @@ function SimilarSpeciesImageGallery({
   return (
     <div className="p-4 mt-2">
       <h3 className={`text-md ${labelColor}`}>{label}</h3>
-      <div className="overflow-x-auto rounded-xl flex flex-row gap-4 items-stretch">
+      <div className="overflow-x-auto flex flex-row gap-4 items-stretch mt-2">
         {speciesData.map((item, index) => (
           <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
         ))}
@@ -82,18 +82,19 @@ function SimilarSpeciesImage({
 
   return (
     <Link key={index} href={`/species/${meta.species}`}>
-      <div className="w-full item-center text-center">
+      <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-4">
         {thumbnailUrl ? (
-          <><div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
-            <Image
-              src={thumbnailUrl}
-              alt={`Similar species image ${meta.imgId}`}
-              width={IMAGE_SIZE}
-              height={IMAGE_SIZE}
-              className="object-contain"
-            />
+          <>
+            <div className="flex w-[120px] h-[120px] relative my-auto bg-gray-200 dark:bg-gray-700 rounded-xl p-2 items-center justify-center">
+              <Image
+                src={thumbnailUrl}
+                alt={`Similar species image ${meta.imgId}`}
+                width={IMAGE_SIZE}
+                height={IMAGE_SIZE}
+                className="object-contain"
+              />
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+            <p className="text-sm text-center text-gray-500 dark:text-gray-400 italic">
               {speciesName}
             </p>
           </>

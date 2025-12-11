@@ -11,58 +11,6 @@ import { cleanSpeciesName } from "@/lib/names";
 import { ButterflyAiIcon } from "./ui/Butterfly";
 import { isBackendAlive } from "@/lib/backend";
 
-function SpeciesThumbnail({
-  species,
-  index,
-}: {
-  species: string;
-  index: number;
-}) {
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchThumbnail = async () => {
-      try {
-        const thumbnailUrl = await fetchSpeciesThumbnail(species);
-        setThumbnailUrl(thumbnailUrl);
-      } catch (error) {
-        console.error("Failed to fetch species thumbnail:", error);
-      }
-    };
-
-    fetchThumbnail();
-  }, [species]);
-
-  let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
-  const speciesName = cleanSpeciesName(species);
-  return (
-    <div className="w-full my-auto flex flex-col justify-center items-center text-center">
-      <Link key={index} href={linkUrl}>
-        {thumbnailUrl ? (
-          <>
-          <div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
-            <Image
-              src={thumbnailUrl}
-              alt={`Species Thumbnail ${index + 1}`}
-              width={140}
-              height={140}
-              className="mx-auto object-contain"
-            /></div>
-            <h2
-              className="text-md truncate italic text-center text-gray-400 mt-2"
-              title={speciesName}
-            >
-              {speciesName}
-            </h2>
-          </>
-        ) : (
-          <ImageLoading size={150} />
-        )}
-      </Link>
-    </div>
-  );
-}
-
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center min-h-screen">
@@ -149,6 +97,59 @@ function HomeContent() {
           <SpeciesThumbnail key={index} species={species} index={index} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function SpeciesThumbnail({
+  species,
+  index,
+}: {
+  species: string;
+  index: number;
+}) {
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchThumbnail = async () => {
+      try {
+        const thumbnailUrl = await fetchSpeciesThumbnail(species);
+        setThumbnailUrl(thumbnailUrl);
+      } catch (error) {
+        console.error("Failed to fetch species thumbnail:", error);
+      }
+    };
+
+    fetchThumbnail();
+  }, [species]);
+
+  let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
+  const speciesName = cleanSpeciesName(species);
+  return (
+    <div className="w-full my-auto flex flex-col justify-center items-center text-center">
+      <Link key={index} href={linkUrl}>
+        {thumbnailUrl ? (
+          <>
+            <div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
+              <Image
+                src={thumbnailUrl}
+                alt={`Species Thumbnail ${index + 1}`}
+                width={140}
+                height={140}
+                className="mx-auto object-contain"
+              />
+            </div>
+            <h2
+              className="text-md truncate italic text-center text-gray-400 mt-2"
+              title={speciesName}
+            >
+              {speciesName}
+            </h2>
+          </>
+        ) : (
+          <ImageLoading size={150} />
+        )}
+      </Link>
     </div>
   );
 }

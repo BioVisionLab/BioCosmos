@@ -177,12 +177,14 @@ function GalleryThumbnail({
   return loading ? (
     <ImageLoading size={48} msg="" />
   ) : (
-    <Image
-      src={thumbUrl}
-      alt={`Thumbnail ${idx + 1} of ${speciesName}`}
-      fill
-      sizes="96px"
-      className="object-contain"
-    />
+    <div className="p-4">
+      <Image
+        src={thumbUrl}
+        alt={`Thumbnail ${idx + 1} of ${speciesName}`}
+        fill
+        sizes="96px"
+        className="object-contain"
+      />
+    </div>
   );
 }
