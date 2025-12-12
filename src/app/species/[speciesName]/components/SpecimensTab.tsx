@@ -47,6 +47,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
   // simple cache of fetched thumbnail URLs by image id
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
+  // track which thumbnails have finished loading (by id)
+  const [loadedThumbIds, setLoadedThumbIds] = useState<Set<string>>(new Set());
   // cache for fetched full-size images while modal is open
   const fullCache = useRef<Map<string, string>>(new Map());
 
@@ -638,7 +640,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       </div>
       <div id="specimen-thumbs" className="mt-8">
         <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-3">Specimen Images</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-6">
           {/* Render a stable grid for the current page using thumbCache to avoid
               layout shift. If a thumbnail isn't available yet, show the
               placeholder but keep the tile size fixed so the page doesn't jump. */}
@@ -656,6 +658,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               const id = isPlaceholder ? undefined : idOrPlaceholder;
               const cached = id ? thumbCache.current.get(id) : undefined;
 
+              // For each tile we render the thumbnail (if available) and an
+              // overlaying placeholder that remains visible until that tile's
+              // image has fired its load event. This ensures each box always
+              // shows the loading UI until its specific image is ready.
+              const isLoaded = id ? loadedThumbIds.has(id) : false;
+
               return (
                 <button
                   key={id ?? String(idOrPlaceholder)}
@@ -663,19 +671,37 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
                   title={id ? "Open full image" : undefined}
                   className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
                 >
-                      {cached ? (
-                        <Image
-                          src={cached}
-                          alt={id ? `Specimen ${id}` : "Loading..."}
-                          fill
-                          sizes="(max-width:768px) 33vw, 150px"
-                          className="object-cover"
-                        />
-                          ) : (
-                        <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-400 h-full">
-                          <ImageLoading size={110} msg={"Images loading"} />
-                        </div>
-                      )}
+                  {cached ? (
+                    // render the image but keep a placeholder overlay until it loads
+                    <>
+                      <img
+                        src={cached}
+                        alt={id ? `Specimen ${id}` : "Loading..."}
+                        className="object-cover w-full h-full"
+                        onLoad={() => {
+                          if (!id) return;
+                          setLoadedThumbIds((s) => {
+                            if (s.has(id)) return s;
+                            const n = new Set(s);
+                            n.add(id);
+                            return n;
+                          });
+                        }}
+                      />
+
+                      <div
+                        className={`absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 transition-opacity ${
+                          isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                        }`}
+                      >
+                        <ImageLoading size={110} msg={"Images loading"} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-400 h-full">
+                      <ImageLoading size={110} msg={"Images loading"} />
+                    </div>
+                  )}
                 </button>
               );
             });
