@@ -44,6 +44,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
   const [displayPage, setDisplayPage] = useState<number>(1);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [exhaustedIds, setExhaustedIds] = useState<boolean>(false);
+  // stable highlighted page in the pagination UI to avoid flashing.
+  const [highlightPage, setHighlightPage] = useState<number>(1);
 
   // simple cache of fetched thumbnail URLs by image id
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
@@ -172,6 +174,17 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
       // prefetch next two pages after initial load
       void prefetchNextPages(1, 2);
+      // initialize stable highlight for pagination
+      {
+        const total = ids.length;
+        const displayTotal = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const windowSize = 10;
+        const half = Math.floor(windowSize / 2);
+        const p = 1;
+        const inMiddleRange = p > half && p <= displayTotal - half;
+        const newHighlight = inMiddleRange ? Math.max(1, 1 - half) + half : p;
+        setHighlightPage(newHighlight);
+      }
     } catch (err) {
       console.error("SpecimensTab load error:", err);
       if (mountedFlag) setError("Failed to load specimen thumbnails.");
@@ -267,6 +280,17 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       // sync display/committed page
       setCurrentPage(1);
       setDisplayPage(1);
+      // initialize stable highlight for pagination
+      {
+        const total = idsFromSpecimens.length;
+        const displayTotal = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const windowSize = 10;
+        const half = Math.floor(windowSize / 2);
+        const p = 1;
+        const inMiddleRange = p > half && p <= displayTotal - half;
+        const newHighlight = inMiddleRange ? Math.max(1, p - half) + half : p;
+        setHighlightPage(newHighlight);
+      }
       // prefetch next two pages for client-provided specimen lists
       void prefetchNextPages(1, 2);
     } catch (err) {
@@ -328,6 +352,21 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       // commit the page after successful load
       setCurrentPage(p);
       setDisplayPage(p);
+      // update the stable highlight so the pagination doesn't flash.
+      const total = allIdsRef.current ? allIdsRef.current.length : items.length;
+      const displayTotal = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      const windowSize = 10;
+      const half = Math.floor(windowSize / 2);
+      let start = p - half;
+      if (start < 1) start = 1;
+      let end = start + windowSize - 1;
+      if (end > displayTotal) {
+        end = displayTotal;
+        start = Math.max(1, end - windowSize + 1);
+      }
+      const inMiddleRange = p > half && p <= displayTotal - half;
+      const newHighlight = inMiddleRange ? start + half : p;
+      setHighlightPage(newHighlight);
     } catch (err) {
       console.error("Failed to load page thumbnails.", err);
       setError("Failed to load thumbnails for page.");
@@ -714,7 +753,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
         <button
           onClick={() => gotoPage(displayPage - 1)}
           disabled={displayPage <= 1 || isLoadingMore || loading}
-          className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
+          className={`h-8 flex items-center px-4 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
             displayPage <= 1 || isLoadingMore
               ? "text-gray-500 cursor-not-allowed"
               : "text-gray-200 hover:bg-gray-700"
@@ -731,7 +770,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
             const windowSize = 10;
             const half = Math.floor(windowSize / 2);
 
-            // compute sliding window around displayPage
+            // compute sliding window around displayPage (same as before)
             let start = displayPage - half;
             if (start < 1) start = 1;
             let end = start + windowSize - 1;
@@ -740,16 +779,35 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               start = Math.max(1, end - windowSize + 1);
             }
 
+            // Ensure the stable highlightPage remains inside the rendered window.
+            // If it's outside, shift the window so the highlight is visible
+            // (preferably centered when possible) to avoid flicker where no
+            // pill is highlighted during transitions.
+            if (highlightPage < start) {
+              start = Math.max(1, highlightPage - half);
+              end = Math.min(displayTotal, start + windowSize - 1);
+            } else if (highlightPage > end) {
+              start = Math.max(1, Math.min(highlightPage - half, displayTotal - windowSize + 1));
+              end = Math.min(displayTotal, start + windowSize - 1);
+            }
+
+            // Decide which page number to visually highlight.
+            // When we're comfortably in the middle (not within `half` pages
+            // of either end), keep the middle pill highlighted so the
+            // highlighted position doesn't jump during range updates.
+            const inMiddleRange = displayPage > half && displayPage <= displayTotal - half;
+            const renderHighlight = inMiddleRange ? start + half : displayPage;
+
             for (let p = start; p <= end; p++) {
-              const isCurrent = p === displayPage;
+              const isHighlighted = p === renderHighlight;
               elems.push(
                 <button
                   key={`p-${p}`}
                   onClick={() => gotoPage(p)}
-                  className={`h-9 flex items-center px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
-                    isCurrent ? "bg-emerald-500 text-white" : "text-gray-200 hover:bg-gray-700"
+                  className={`h-8 flex items-center px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
+                    isHighlighted ? "bg-emerald-500 text-white" : "text-gray-200 hover:bg-gray-700"
                   }`}
-                  aria-current={isCurrent ? "page" : undefined}
+                  aria-current={isHighlighted ? "page" : undefined}
                 >
                   {p}
                 </button>
