@@ -88,11 +88,9 @@ class SpeciesSimilarity:
                 )
             )
             payload = VisuallySimilarSpeciesPayload(
-                all_morphotypes=all_morphotypes.to_dicts()
-                if all_morphotypes
-                else [],
-                dorsal=dorsal.to_dicts() if dorsal else [],
-                ventral=ventral.to_dicts() if ventral else [],
+                all_morphotypes=all_morphotypes,
+                dorsal=dorsal,
+                ventral=ventral,
             )
             return payload.model_dump(by_alias=True)
         except Exception as e:
@@ -157,7 +155,7 @@ class SpeciesSimilarity:
         self,
         similar_images: pl.DataFrame,
         species_name: str,
-    ) -> pl.DataFrame:
+    ) -> list[dict]:
         """
         Filter out images that belong to the same species as the query species.
 
@@ -171,7 +169,12 @@ class SpeciesSimilarity:
             pl.col("species").str.to_lowercase().replace(" ", "_")
             != species_name.lower().replace(" ", "_")
         )
-        return filtered_images
+        if filtered_images is None or len(filtered_images) == 0:
+            logger.info(
+                f"No similar images found for species different than: {species_name}"
+            )
+            return []
+        return filtered_images.to_dicts()
 
     def _get_image_ids_for_species(
         self, species_name: str
