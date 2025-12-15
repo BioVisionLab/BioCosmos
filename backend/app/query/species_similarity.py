@@ -75,14 +75,14 @@ class SpeciesSimilarity:
             )
             dorsal: pl.DataFrame | None = (
                 self._get_similar_images_by_side(
-                    similar_images=all_morphotypes,
+                    similar_images=image_ids,
                     species_name=species_name,
                     side="dorsal",
                 )
             )
             ventral: pl.DataFrame | None = (
                 self._get_similar_images_by_side(
-                    similar_images=all_morphotypes,
+                    similar_images=image_ids,
                     species_name=species_name,
                     side="ventral",
                 )
@@ -120,6 +120,31 @@ class SpeciesSimilarity:
         except Exception as e:
             logger.error(
                 f"Error retrieving similar images: {e}",
+                exc_info=True,
+            )
+            return []
+
+    def _get_similar_images_all_morphotypes(
+        self,
+        similar_images: pl.DataFrame,
+        species_name: str,
+    ) -> list[dict]:
+        try:
+            image_ids = (
+                similar_images.select(pl.col("imgId"))
+                .to_series()
+                .to_list()
+            )
+            similar_images = self._get_similar_images(
+                species_name=species_name,
+                image_ids=image_ids,
+            )
+            return self._filter_similar_images(
+                similar_images, species_name
+            )
+        except Exception as e:
+            logger.error(
+                f"Error retrieving all morphotype similar images: {e}",
                 exc_info=True,
             )
             return []
@@ -178,11 +203,13 @@ class SpeciesSimilarity:
 
     def _get_image_ids_for_species(
         self, species_name: str
-    ) -> list[str] | None:
+    ) -> pl.DataFrame | None:
         try:
             meta_service = ImageMetaService(duckdb=self.duck_db)
-            image_meta = meta_service.get_image_meta_by_species(
-                species=species_name
+            image_meta: pl.DataFrame | None = (
+                meta_service.get_image_meta_by_species(
+                    species=species_name
+                )
             )
             if image_meta is None or len(image_meta) == 0:
                 logger.info(
@@ -190,10 +217,7 @@ class SpeciesSimilarity:
                 )
                 return None
             # Need to remove .png extension if present
-            return [
-                meta.img_id.removesuffix(".png")
-                for meta in image_meta
-            ]
+            return image_meta
         except Exception as e:
             logger.error(
                 f"Error fetching image IDs for species {species_name}: {e}",
