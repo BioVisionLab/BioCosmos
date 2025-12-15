@@ -19,7 +19,7 @@ class VisuallySimilarSpeciesPayload(BaseModel):
         alias_generator=to_camel, populate_by_name=True
     )
 
-    all_morphotypes: list[dict]
+    any_sides: list[dict]
     dorsal: list[dict]
     ventral: list[dict]
 
@@ -58,7 +58,7 @@ class SpeciesSimilarity:
                     f"No image IDs found for species: {species_name}"
                 )
                 return None
-            all_morphotypes: list[dict] = (
+            any_sides: list[dict] = (
                 self._get_similar_images_all_morphotypes(
                     species_images=image_ids,
                     species_name=species_name,
@@ -75,7 +75,7 @@ class SpeciesSimilarity:
                 side="ventral",
             )
             payload = VisuallySimilarSpeciesPayload(
-                all_morphotypes=all_morphotypes,
+                any_sides=any_sides,
                 dorsal=dorsal,
                 ventral=ventral,
             )
