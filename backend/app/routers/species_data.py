@@ -68,7 +68,7 @@ async def fetch_species_biology(
 
 
 def get_species_similarity(request: Request) -> SpeciesSimilarity:
-    return SpeciesSimilarity(request=request, limit=20)
+    return SpeciesSimilarity(request=request, limit=10)
 
 
 @router.get(

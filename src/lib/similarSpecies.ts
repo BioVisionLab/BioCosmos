@@ -1,5 +1,5 @@
 export interface SimilarSpeciesList {
-  anySides: SimilarSpeciesMeta[];
+  //   anySides: SimilarSpeciesMeta[];
   dorsal: SimilarSpeciesMeta[];
   ventral: SimilarSpeciesMeta[];
 }

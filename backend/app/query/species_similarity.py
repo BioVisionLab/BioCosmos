@@ -19,7 +19,6 @@ class VisuallySimilarSpeciesPayload(BaseModel):
         alias_generator=to_camel, populate_by_name=True
     )
 
-    any_sides: list[dict]
     dorsal: list[dict]
     ventral: list[dict]
 
@@ -29,7 +28,7 @@ class SpeciesSimilarity:
     A class to handle species similarity search operations.
     """
 
-    def __init__(self, request: Request, limit: int = 20):
+    def __init__(self, request: Request, limit: int = 10):
         """
         Initialize the SpeciesSimilarity class.
         Args:
@@ -58,12 +57,12 @@ class SpeciesSimilarity:
                     f"No image IDs found for species: {species_name}"
                 )
                 return None
-            any_sides: list[dict] = (
-                self._get_similar_images_all_morphotypes(
-                    species_images=image_ids,
-                    species_name=species_name,
-                )
-            )
+            # any_sides: list[dict] = (
+            #     self._get_similar_images_all_morphotypes(
+            #         species_images=image_ids,
+            #         species_name=species_name,
+            #     )
+            # )
             dorsal: list[dict] = self._get_similar_images_by_side(
                 species_images=image_ids,
                 species_name=species_name,
@@ -75,7 +74,6 @@ class SpeciesSimilarity:
                 side="ventral",
             )
             payload = VisuallySimilarSpeciesPayload(
-                any_sides=any_sides,
                 dorsal=dorsal,
                 ventral=ventral,
             )
@@ -111,24 +109,24 @@ class SpeciesSimilarity:
             )
             return []
 
-    def _get_similar_images_all_morphotypes(
-        self,
-        species_images: pl.DataFrame,
-        species_name: str,
-    ) -> list[dict]:
-        try:
-            image_ids = self._get_image_ids(species_images)
-            similar_images = self._get_similar_images(
-                species_name=species_name,
-                image_ids=image_ids,
-            )
-            return similar_images
-        except Exception as e:
-            logger.error(
-                f"Error retrieving all morphotype similar images: {e}",
-                exc_info=True,
-            )
-            return []
+    # def _get_similar_images_all_morphotypes(
+    #     self,
+    #     species_images: pl.DataFrame,
+    #     species_name: str,
+    # ) -> list[dict]:
+    #     try:
+    #         image_ids = self._get_image_ids(species_images)
+    #         similar_images = self._get_similar_images(
+    #             species_name=species_name,
+    #             image_ids=image_ids,
+    #         )
+    #         return similar_images
+    #     except Exception as e:
+    #         logger.error(
+    #             f"Error retrieving all morphotype similar images: {e}",
+    #             exc_info=True,
+    #         )
+    #         return []
 
     def _get_similar_images_by_side(
         self,

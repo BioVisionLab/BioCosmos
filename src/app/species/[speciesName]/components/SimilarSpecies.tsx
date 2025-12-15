@@ -42,9 +42,7 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
 
   const isNotFound =
     !similarSpecies ||
-    (similarSpecies.anySides.length === 0 &&
-      similarSpecies.dorsal.length === 0 &&
-      similarSpecies.ventral.length === 0);
+    (similarSpecies.dorsal.length === 0 && similarSpecies.ventral.length === 0);
   return (
     <div className="mt-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur">
       <div className="border-b border-gray-300 dark:border-gray-600 p-4">
