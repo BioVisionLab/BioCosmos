@@ -102,7 +102,7 @@ class SpeciesSimilarity:
 
     def _get_similar_images(
         self, species_name: str, image_ids: list[str]
-    ) -> pl.DataFrame | None:
+    ) -> list[dict]:
         try:
             similar_images: pl.DataFrame = ImagePersistData(
                 lance_db=self.lance_db,
@@ -113,7 +113,7 @@ class SpeciesSimilarity:
             )
             if similar_images is None or len(similar_images) == 0:
                 logger.info("No similar images found.")
-                return None
+                return []
             return self._filter_similar_images(
                 similar_images, species_name
             )
@@ -122,21 +122,21 @@ class SpeciesSimilarity:
                 f"Error retrieving similar images: {e}",
                 exc_info=True,
             )
-            return None
+            return []
 
     def _get_similar_images_by_side(
         self,
         similar_images: pl.DataFrame,
         species_name: str,
         side: str,
-    ) -> pl.DataFrame | None:
+    ) -> list[dict]:
         try:
             dorsal_images = self._filter_by_side(
                 similar_images, side=side
             )
             if dorsal_images is None or len(dorsal_images) == 0:
                 logger.info("No dorsal similar images found.")
-                return None
+                return []
             similar_images = self._get_similar_images(
                 species_name=species_name,
                 image_ids=dorsal_images,
@@ -149,7 +149,7 @@ class SpeciesSimilarity:
                 f"Error retrieving dorsal similar images: {e}",
                 exc_info=True,
             )
-            return None
+            return []
 
     def _filter_similar_images(
         self,
