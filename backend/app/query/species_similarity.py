@@ -60,17 +60,17 @@ class SpeciesSimilarity:
                 return None
             all_morphotypes: list[dict] = (
                 self._get_similar_images_all_morphotypes(
-                    similar_images=image_ids,
+                    species_images=image_ids,
                     species_name=species_name,
                 )
             )
             dorsal: list[dict] = self._get_similar_images_by_side(
-                similar_images=image_ids,
+                species_images=image_ids,
                 species_name=species_name,
                 side="dorsal",
             )
             ventral: list[dict] = self._get_similar_images_by_side(
-                similar_images=image_ids,
+                species_images=image_ids,
                 species_name=species_name,
                 side="ventral",
             )
@@ -141,15 +141,15 @@ class SpeciesSimilarity:
         side: str,
     ) -> list[dict]:
         try:
-            dorsal_images = self._filter_by_side(
+            side_images: list[str] | None = self._filter_by_side(
                 species_images, side=side
             )
-            if dorsal_images is None or len(dorsal_images) == 0:
-                logger.info("No dorsal similar images found.")
+            if side_images is None or len(side_images) == 0:
+                logger.info(f"No {side} similar images found.")
                 return []
             similar_images = self._get_similar_images(
                 species_name=species_name,
-                image_ids=dorsal_images,
+                image_ids=side_images,
             )
             return similar_images
         except Exception as e:
@@ -194,7 +194,7 @@ class SpeciesSimilarity:
         Args:
             species_name (str): The species name to get image IDs for.
         Returns:
-            list[str] | None: List of image IDs or None if no images found.
+            pl.DataFrame | None: DataFrame containing image IDs or None if not found.
         """
         try:
             meta_service = ImageMetaService(duckdb=self.duck_db)
@@ -221,7 +221,7 @@ class SpeciesSimilarity:
         self, similar_images: pl.DataFrame, side: str
     ) -> list[str] | None:
         """
-        Filter similar images to only include dorsal views.
+        Filter similar images by side (dorsal or ventral).
 
         Args:
             similar_images (pl.DataFrame): DataFrame containing similar images.
