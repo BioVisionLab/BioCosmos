@@ -1,10 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from fastapi import Request
-import polars as pl
 import logging
 
-from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.gbif import GbifTaxonSearch, GbifPersistData
@@ -12,20 +10,6 @@ from ..services.openai import AiSummary
 
 
 logger = logging.getLogger(__name__)
-
-
-class VisuallySimilarSpeciesPayload(BaseModel):
-    """
-    A class to represent visually similar species data.
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
-
-    all_morphotypes: list[dict]
-    dorsal: list[dict]
-    ventral: list[dict]
 
 
 class TaxonStatPayload(BaseModel):
@@ -418,122 +402,6 @@ class TaxonSearch:
         except Exception as e:
             logger.error(
                 f"Error fetching traits for species {self.scientific_name}: {e}",
-                exc_info=True,
-            )
-            return None
-
-
-class SpeciesSimilarity:
-    """
-    A class to handle species similarity search operations.
-    """
-
-    def __init__(self, request: Request):
-        """
-        Initialize the SpeciesSimilarity class.
-        Args:
-            request (Request): The FastAPI request object.
-        """
-        self.request = request
-
-    def find_similar_species(
-        self, species_name: str, limit: int = 20
-    ) -> list[dict] | None:
-        """
-        Find species similar to the given species name using image similarity.
-
-        Args:
-            species_name (str): The species name to find similar species for.
-            limit (int): The maximum number of similar species to return.
-
-        Returns:
-            list[LanceSchema] | None: A
-            list of dicts with keys: imgId, species, distance (smaller = more similar),
-            or None if no similar species were found.
-        similar_images: list[dict] = (
-                ImagePersistData(
-                    lance_db=self.request.app.state.lance_db
-                ).find_similar_images(
-                    species_name=species_name,
-                    limit=limit,
-                )
-                or []
-            )
-        """
-        # Get image ID for the species
-        try:
-            image_ids = self._get_image_ids_for_species(species_name)
-            if image_ids is None:
-                logger.info(
-                    f"No image IDs found for species: {species_name}"
-                )
-                return None
-            similar_images: pl.DataFrame = ImagePersistData(
-                lance_db=self.request.app.state.lance_db,
-                duckdb=self.request.app.state.duck_db,
-            ).find_similar_images(
-                image_ids=image_ids,
-                limit=limit,
-            )
-            if similar_images is None or len(similar_images) == 0:
-                logger.info(
-                    f"No similar species found for species: {species_name}"
-                )
-                return None
-            similar_images = self._filter_similar_images(
-                similar_images, species_name
-            )
-            return similar_images.to_dicts()
-        except Exception as e:
-            logger.error(
-                f"Error retrieving image IDs for species {species_name}: {e}",
-                exc_info=True,
-            )
-            return []
-
-    def _filter_similar_images(
-        self,
-        similar_images: pl.DataFrame,
-        species_name: str,
-    ) -> pl.DataFrame:
-        """
-        Filter out images that belong to the same species as the query species.
-
-        Args:
-            similar_images (pl.DataFrame): DataFrame containing similar images.
-            species_name (str): The species name to filter out.
-        Returns:
-            pl.DataFrame: Filtered DataFrame with images not belonging to the query species.
-        """
-        filtered_images = similar_images.filter(
-            pl.col("species").str.to_lowercase().replace(" ", "_")
-            != species_name.lower().replace(" ", "_")
-        )
-        return filtered_images
-
-    def _get_image_ids_for_species(
-        self, species_name: str
-    ) -> list[str] | None:
-        try:
-            meta_service = ImageMetaService(
-                duckdb=self.request.app.state.duck_db
-            )
-            image_meta = meta_service.get_image_meta_by_species(
-                species=species_name
-            )
-            if image_meta is None or len(image_meta) == 0:
-                logger.info(
-                    f"No images found for species: {species_name}"
-                )
-                return None
-            # Need to remove .png extension if present
-            return [
-                meta.img_id.removesuffix(".png")
-                for meta in image_meta
-            ]
-        except Exception as e:
-            logger.error(
-                f"Error fetching image IDs for species {species_name}: {e}",
                 exc_info=True,
             )
             return None

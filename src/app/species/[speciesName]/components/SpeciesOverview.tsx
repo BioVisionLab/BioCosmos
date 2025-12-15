@@ -4,7 +4,7 @@ import { SpeciesImageGallery } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
 import { SpeciesClassification } from "./TaxonClassification";
 import { RedListStatus } from "./IucnRedlist";
-import { SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
+import { TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 import { LepTraits } from "@/lib/leptraits";
 import { NoData } from "@/components/NoData";

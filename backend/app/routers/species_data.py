@@ -2,7 +2,8 @@ from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 from ..query.specimen_data import SpecimenData
 import logging
 from fastapi import APIRouter, HTTPException, Request
-from ..query.taxon_data import SpeciesSimilarity, TaxonSearch
+from ..query.taxon_data import TaxonSearch
+from ..query.species_similarity import SpeciesSimilarity
 from fastapi.responses import FileResponse, JSONResponse
 
 router = APIRouter()
@@ -80,8 +81,8 @@ async def fetch_visually_similar_species(
 
     try:
         similar_species = SpeciesSimilarity(
-            request=request
-        ).find_similar_species(scientific_name, limit=20)
+            request=request, limit=20
+        ).find_similar_species(scientific_name)
         if not similar_species:
             logger.warning(
                 f"No visually similar species found for: {scientific_name}"
