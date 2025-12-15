@@ -117,11 +117,7 @@ class SpeciesSimilarity:
         species_name: str,
     ) -> list[dict]:
         try:
-            image_ids = (
-                species_images.select(pl.col("imgId"))
-                .to_series()
-                .to_list()
-            )
+            image_ids = self._get_image_ids(species_images)
             similar_images = self._get_similar_images(
                 species_name=species_name,
                 image_ids=image_ids,
@@ -234,8 +230,17 @@ class SpeciesSimilarity:
         if filtered_images is None or filtered_images.is_empty():
             logger.info(f"No {side} images found in similar images.")
             return None
+        return self._get_image_ids(filtered_images)
+
+    def _get_image_ids(self, image_meta: pl.DataFrame) -> list[str]:
+        """
+        Extract image IDs from image metadata.
+
+        Args:
+            image_meta (pl.DataFrame): DataFrame containing image metadata.
+        Returns:
+            list[str]: List of image IDs.
+        """
         return (
-            filtered_images.select(pl.col("img_id"))
-            .to_series()
-            .to_list()
+            image_meta.select(pl.col("img_id")).to_series().to_list()
         )
