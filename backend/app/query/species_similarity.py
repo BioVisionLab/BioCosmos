@@ -64,28 +64,26 @@ class SpeciesSimilarity:
         # Get image ID for the species
         try:
             image_ids = self._get_image_ids_for_species(species_name)
-            if image_ids is None:
+            if image_ids is None or image_ids.is_empty():
                 logger.info(
                     f"No image IDs found for species: {species_name}"
                 )
                 return None
-            all_morphotypes: pl.DataFrame = self._get_similar_images(
+            all_morphotypes: list[dict] = (
+                self._get_similar_images_all_morphotypes(
+                    similar_images=image_ids,
+                    species_name=species_name,
+                )
+            )
+            dorsal: list[dict] = self._get_similar_images_by_side(
+                similar_images=image_ids,
                 species_name=species_name,
-                image_ids=image_ids,
+                side="dorsal",
             )
-            dorsal: pl.DataFrame | None = (
-                self._get_similar_images_by_side(
-                    similar_images=image_ids,
-                    species_name=species_name,
-                    side="dorsal",
-                )
-            )
-            ventral: pl.DataFrame | None = (
-                self._get_similar_images_by_side(
-                    similar_images=image_ids,
-                    species_name=species_name,
-                    side="ventral",
-                )
+            ventral: list[dict] = self._get_similar_images_by_side(
+                similar_images=image_ids,
+                species_name=species_name,
+                side="ventral",
             )
             payload = VisuallySimilarSpeciesPayload(
                 all_morphotypes=all_morphotypes,
@@ -98,7 +96,7 @@ class SpeciesSimilarity:
                 f"Error retrieving image IDs for species {species_name}: {e}",
                 exc_info=True,
             )
-            return []
+            return None
 
     def _get_similar_images(
         self, species_name: str, image_ids: list[str]
@@ -111,7 +109,7 @@ class SpeciesSimilarity:
                 image_ids=image_ids,
                 limit=self.limit,
             )
-            if similar_images is None or len(similar_images) == 0:
+            if similar_images is None or similar_images.is_empty():
                 logger.info("No similar images found.")
                 return []
             return self._filter_similar_images(
@@ -126,12 +124,12 @@ class SpeciesSimilarity:
 
     def _get_similar_images_all_morphotypes(
         self,
-        similar_images: pl.DataFrame,
+        species_images: pl.DataFrame,
         species_name: str,
     ) -> list[dict]:
         try:
             image_ids = (
-                similar_images.select(pl.col("imgId"))
+                species_images.select(pl.col("imgId"))
                 .to_series()
                 .to_list()
             )
@@ -139,9 +137,7 @@ class SpeciesSimilarity:
                 species_name=species_name,
                 image_ids=image_ids,
             )
-            return self._filter_similar_images(
-                similar_images, species_name
-            )
+            return similar_images
         except Exception as e:
             logger.error(
                 f"Error retrieving all morphotype similar images: {e}",
@@ -151,13 +147,13 @@ class SpeciesSimilarity:
 
     def _get_similar_images_by_side(
         self,
-        similar_images: pl.DataFrame,
+        species_images: pl.DataFrame,
         species_name: str,
         side: str,
     ) -> list[dict]:
         try:
             dorsal_images = self._filter_by_side(
-                similar_images, side=side
+                species_images, side=side
             )
             if dorsal_images is None or len(dorsal_images) == 0:
                 logger.info("No dorsal similar images found.")
@@ -166,12 +162,10 @@ class SpeciesSimilarity:
                 species_name=species_name,
                 image_ids=dorsal_images,
             )
-            return self._filter_similar_images(
-                similar_images, species_name
-            )
+            return similar_images
         except Exception as e:
             logger.error(
-                f"Error retrieving dorsal similar images: {e}",
+                f"Error retrieving {side} similar images: {e}",
                 exc_info=True,
             )
             return []
@@ -194,7 +188,7 @@ class SpeciesSimilarity:
             pl.col("species").str.to_lowercase().replace(" ", "_")
             != species_name.lower().replace(" ", "_")
         )
-        if filtered_images is None or len(filtered_images) == 0:
+        if filtered_images is None or filtered_images.is_empty():
             logger.info(
                 f"No similar images found for species different than: {species_name}"
             )
@@ -211,7 +205,7 @@ class SpeciesSimilarity:
                     species=species_name
                 )
             )
-            if image_meta is None or len(image_meta) == 0:
+            if image_meta is None or image_meta.is_empty():
                 logger.info(
                     f"No images found for species: {species_name}"
                 )
@@ -239,7 +233,7 @@ class SpeciesSimilarity:
         filtered_images = similar_images.filter(
             pl.col("class_dv").str.to_lowercase() == side.lower()
         )
-        if filtered_images is None or len(filtered_images) == 0:
+        if filtered_images is None or filtered_images.is_empty():
             logger.info(f"No {side} images found in similar images.")
             return None
         return (
