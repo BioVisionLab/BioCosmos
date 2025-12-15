@@ -1,9 +1,12 @@
 from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 from ..query.specimen_data import SpecimenData
 import logging
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from ..query.taxon_data import TaxonSearch
-from ..query.species_similarity import SpeciesSimilarity
+from ..query.species_similarity import (
+    SpeciesSimilarity,
+    VisuallySimilarSpeciesPayload,
+)
 from fastapi.responses import FileResponse, JSONResponse
 
 router = APIRouter()
@@ -64,26 +67,32 @@ async def fetch_species_biology(
         )
 
 
+def get_species_similarity(request: Request) -> SpeciesSimilarity:
+    return SpeciesSimilarity(request=request, limit=20)
+
+
 @router.get(
     "/species/{scientific_name}/similar",
     tags=["Species Data", "ML Search"],
+    response_model=VisuallySimilarSpeciesPayload,
 )
 async def fetch_visually_similar_species(
-    request: Request, scientific_name: str
-):
+    scientific_name: str,
+    service: SpeciesSimilarity = Depends(get_species_similarity),
+) -> dict:
     """
-    Fetches visually similar species based on image similarity analyses.
-    Returns a 404 error if no similar species are found.
+    Fetch visually similar species based on image similarity analyses.
+    Returns 404 if no similar species are found.
     """
     logger.info(
-        f"Fetching visually similar species for: {scientific_name}"
+        "Fetching visually similar species for: %s", scientific_name
     )
 
     try:
-        similar_species = SpeciesSimilarity(
-            request=request, limit=20
-        ).find_similar_species(scientific_name)
-        if not similar_species:
+        similar_species = service.find_similar_species(
+            scientific_name
+        )
+        if similar_species is None:
             logger.warning(
                 f"No visually similar species found for: {scientific_name}"
             )
@@ -91,10 +100,14 @@ async def fetch_visually_similar_species(
                 status_code=404,
                 detail=f"Visually similar species not found for: {scientific_name}",
             )
-        return JSONResponse(content=similar_species)
-    except Exception as e:
-        logger.error(
-            f"Error fetching visually similar species for {scientific_name}: {e}"
+
+        return similar_species
+    except HTTPException:
+        raise
+    except Exception:
+        # Includes stack trace.
+        logger.exception(
+            f"Unhandled error fetching visually similar species for: {scientific_name}"
         )
         raise HTTPException(
             status_code=500,

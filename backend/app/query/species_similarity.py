@@ -48,18 +48,7 @@ class SpeciesSimilarity:
             limit (int): The maximum number of similar species to return.
 
         Returns:
-            list[LanceSchema] | None: A
-            list of dicts with keys: imgId, species, distance (smaller = more similar),
-            or None if no similar species were found.
-        similar_images: list[dict] = (
-                ImagePersistData(
-                    lance_db=self.request.app.state.lance_db
-                ).find_similar_images(
-                    species_name=species_name,
-                    limit=limit,
-                )
-                or []
-            )
+            dict | None: A dictionary containing similar species data or None if not found.
         """
         # Get image ID for the species
         try:
@@ -182,10 +171,12 @@ class SpeciesSimilarity:
             similar_images (pl.DataFrame): DataFrame containing similar images.
             species_name (str): The species name to filter out.
         Returns:
-            pl.DataFrame: Filtered DataFrame with images not belonging to the query species.
+            list[dict]: List of similar images not belonging to the query species.
         """
         filtered_images = similar_images.filter(
-            pl.col("species").str.to_lowercase().replace(" ", "_")
+            pl.col("species")
+            .str.to_lowercase()
+            .str.replace_all(" ", "_", literal=True)
             != species_name.lower().replace(" ", "_")
         )
         if filtered_images is None or filtered_images.is_empty():
@@ -198,6 +189,13 @@ class SpeciesSimilarity:
     def _get_image_ids_for_species(
         self, species_name: str
     ) -> pl.DataFrame | None:
+        """
+        Get image IDs for a given species.
+        Args:
+            species_name (str): The species name to get image IDs for.
+        Returns:
+            list[str] | None: List of image IDs or None if no images found.
+        """
         try:
             meta_service = ImageMetaService(duckdb=self.duck_db)
             image_meta: pl.DataFrame | None = (
