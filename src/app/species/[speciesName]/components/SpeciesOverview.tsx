@@ -24,14 +24,9 @@ const SpeciesDistribution = dynamic(
 interface SpeciesOverviewProps {
   taxonomy: TaxonomyData | null;
   traits: LepTraits | null;
-  similarSpecies: SimilarSpeciesMeta[];
 }
 
-export function SpeciesOverview({
-  taxonomy,
-  traits,
-  similarSpecies,
-}: SpeciesOverviewProps) {
+export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
   if (!taxonomy) {
     return (
       <section className="container mx-auto px-4 py-8">
@@ -66,10 +61,7 @@ export function SpeciesOverview({
         </div>
       </div>
       <div className="mt-6">
-        <VisuallySimilarSpecies
-          species={taxonomy?.species ?? ""}
-          meta={similarSpecies}
-        />
+        <VisuallySimilarSpecies species={taxonomy?.species ?? ""} />
       </div>
     </div>
   );

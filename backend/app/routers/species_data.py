@@ -2,7 +2,7 @@ from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 from ..query.specimen_data import SpecimenData
 import logging
 from fastapi import APIRouter, HTTPException, Request
-from ..query.taxon_data import TaxonSearch
+from ..query.taxon_data import SpeciesSimilarity, TaxonSearch
 from fastapi.responses import FileResponse, JSONResponse
 
 router = APIRouter()
@@ -60,6 +60,44 @@ async def fetch_species_biology(
                 "message": f"An error occurred while searching for taxon: {str(e)}"
             },
             status_code=500,
+        )
+
+
+@router.get(
+    "/species/{scientific_name}/similar",
+    tags=["Species Data", "ML Search"],
+)
+async def fetch_visually_similar_species(
+    request: Request, scientific_name: str
+):
+    """
+    Fetches visually similar species based on image similarity analyses.
+    Returns a 404 error if no similar species are found.
+    """
+    logger.info(
+        f"Fetching visually similar species for: {scientific_name}"
+    )
+
+    try:
+        similar_species = SpeciesSimilarity(
+            request=request
+        ).find_similar_species(scientific_name, limit=20)
+        if not similar_species:
+            logger.warning(
+                f"No visually similar species found for: {scientific_name}"
+            )
+            raise HTTPException(
+                status_code=404,
+                detail=f"Visually similar species not found for: {scientific_name}",
+            )
+        return JSONResponse(content=similar_species)
+    except Exception as e:
+        logger.error(
+            f"Error fetching visually similar species for {scientific_name}: {e}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred while fetching visually similar species.",
         )
 
 

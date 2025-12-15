@@ -10,14 +10,42 @@ const IMAGE_SIZE = 120;
 
 const labelColor = "text-gray-500 dark:text-gray-400";
 
-function VisuallySimilarSpecies({
-  species,
-  meta,
-}: {
-  species: string;
-  meta: SimilarSpeciesMeta[];
-}) {
-  if (meta.length === 0) {
+function VisuallySimilarSpecies({ species }: { species: string }) {
+  const [similarSpecies, setSimilarSpecies] = useState<SimilarSpeciesMeta[]>(
+    []
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const fetchSimilarSpecies = async () => {
+      try {
+        // const response = [];
+        // if (!response.ok) {
+        //   console.error(
+        //     `Failed to fetch similar species for ${species}: ${response.statusText}`
+        //   );
+        //   setIsLoading(false);
+        //   return;
+        // }
+        const data: SimilarSpeciesMeta[] = [];
+        setSimilarSpecies(data);
+      } catch (error) {
+        console.error("Error fetching similar species:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSimilarSpecies();
+  }, [species]);
+
+  if (isLoading) {
+    return (
+      <div className="mt-4 p-4">
+        <p className={labelColor}>Loading visually similar species...</p>
+      </div>
+    );
+  }
+  if (similarSpecies.length === 0) {
     return null; // Don't render anything if there are no similar species
   }
   return (
@@ -25,13 +53,13 @@ function VisuallySimilarSpecies({
       <div className="border-b border-gray-300 dark:border-gray-600 p-4">
         <h2 className="text-2xl font-semibold">Visually Similar Species</h2>
         <p className={`text-sm ${labelColor}`}>
-          Found {meta.length} species similar to{" "}
+          Found {similarSpecies.length} species similar to{" "}
           <span className="italic">{species}</span>.
         </p>
       </div>
 
       <SimilarSpeciesImageGallery
-        speciesData={meta}
+        speciesData={similarSpecies}
         label="Mean color and pattern similarity"
       />
     </div>

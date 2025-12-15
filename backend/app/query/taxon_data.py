@@ -13,17 +13,19 @@ from ..services.openai import AiSummary
 
 logger = logging.getLogger(__name__)
 
-# class TaxonStatPayload(BaseModel):
-#    """
-#    A class to represent taxon statistics from GBIF and LepTraits entries.
-#    """
-#    gbifEntries: int
-#    lepTraitsEntries: int
-#    imageEntries: int
-#    gbifSpeciesCount: int
-#    return cls(
-#        gbifEntries =
-#    )
+
+class VisuallySimilarSpeciesPayload(BaseModel):
+    """
+    A class to represent visually similar species data.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    all_morphotypes: list[dict]
+    dorsal: list[dict]
+    ventral: list[dict]
 
 
 class TaxonStatPayload(BaseModel):
@@ -81,7 +83,6 @@ class SpeciesPayload(BaseModel):
     speciesId: str
     taxonomy: dict
     traits: dict
-    similarSpecies: list[dict] = []
 
     @classmethod
     def from_data(
@@ -89,7 +90,6 @@ class SpeciesPayload(BaseModel):
         species_id: str,
         taxonomy: dict,
         traits: dict,
-        similarSpecies: list[dict],
     ):
         """
         Create a SpeciesPayload instance from the provided data.
@@ -106,7 +106,6 @@ class SpeciesPayload(BaseModel):
             speciesId=species_id,
             taxonomy=taxonomy,
             traits=traits,
-            similarSpecies=similarSpecies,
         )
 
 
@@ -237,16 +236,11 @@ class TaxonSearch:
                     f"No traits data found for species: {self.scientific_name}"
                 )
                 return None
-            similar_images: list[dict] = SpeciesSimilarity(
-                request=self.request
-            ).find_similar_species(
-                species_name=self.scientific_name, limit=50
-            )
+
             payload = SpeciesPayload.from_data(
                 species_id=self.scientific_name,
                 taxonomy=taxon_data,
                 traits=trait_data,
-                similarSpecies=similar_images,
             )
             return payload.model_dump()
 
