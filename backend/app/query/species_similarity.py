@@ -235,7 +235,7 @@ class SpeciesSimilarity:
             logger.info(f"No {side} images found in similar images.")
             return None
         return (
-            filtered_images.select(pl.col("imgId"))
+            filtered_images.select(pl.col("img_id"))
             .to_series()
             .to_list()
         )
