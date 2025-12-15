@@ -15,27 +15,33 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
-    const loadIdsAndImages = async () => {
+    if (!speciesName) {
+      setItems([]);
+      setSelectedIndex(0);
+      setLoading(false);
+      return;
+    }
+
+    let ignore = false; // React docs pattern for race conditions
+    const run = async () => {
       setLoading(true);
       setSelectedIndex(0);
       setItems([]);
 
       try {
-        const image_ids = await fetchSpeciesImageIds(speciesName, 6);
-        if (image_ids.length === 0) {
-          setItems([]);
-          return;
-        }
-        setItems(image_ids);
-      } catch (err) {
-        console.error("SpeciesImages load error:", err);
-        setItems([]);
+        const ids = await fetchSpeciesImageIds(speciesName, 6);
+        if (!ignore) setItems(ids);
+      } catch (e) {
+        if (!ignore) setItems([]);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
-    loadIdsAndImages();
+    run();
+    return () => {
+      ignore = true;
+    };
   }, [speciesName]);
 
   const handleThumbnailClick = (index: number) => {

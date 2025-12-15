@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { SpeciesImageGallery } from "./ImageGallery";
@@ -47,6 +48,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <SpeciesImageGallery speciesName={taxonomy?.species ?? ""} />
+
           <SpeciesDescription
             traits={traits}
             species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
