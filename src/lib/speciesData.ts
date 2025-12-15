@@ -15,14 +15,6 @@ export interface TaxonomyData {
   taxonomicStatus: string;
 }
 
-export interface SimilarSpeciesMeta {
-  imgId: string;
-  distance: number;
-  species: string;
-  source_db: string;
-  class_dv: string;
-}
-
 export interface SpeciesData {
   taxonomy: TaxonomyData;
   traits: LepTraits;
