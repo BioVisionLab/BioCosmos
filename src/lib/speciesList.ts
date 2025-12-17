@@ -1,5 +1,4 @@
 const INITIAL_SPECIES = [
-  "anaeomorpha_splendida",
   "agrias_narcissus",
   "athyma_libnites",
   "danaus_gilippus",

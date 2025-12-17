@@ -18,6 +18,9 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
 
   useEffect(() => {
     const fetchSimilarSpecies = async () => {
+      // We add a small delay to avoid this expensive call happening too quickly
+      // after the main species data fetch.
+      await new Promise((resolve) => setTimeout(resolve, 500));
       try {
         const response = await fetch(
           `/api/ml-search/similarity?species=${encodeURIComponent(species)}`
