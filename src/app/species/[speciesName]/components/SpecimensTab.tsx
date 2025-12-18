@@ -246,6 +246,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     }
   };
 
+  
+
   // fallback when a specimens array is passed in (client-provided data)
   async function loadFromSpecimensFallback(specimensArr: any[], mountedFlag = true) {
     const idsFromSpecimens: string[] = specimensArr
@@ -415,6 +417,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
         if (allIds) {
           const idx = allIds.indexOf(id);
           setModalIndex(idx >= 0 ? idx : null);
+          // limit modal navigation to the currently displayed page
+          const pageStart = (displayPage - 1) * PAGE_SIZE;
+          const pageEnd = Math.min(allIds.length - 1, pageStart + PAGE_SIZE - 1);
+          setModalPageRange({ start: pageStart, end: pageEnd });
         } else {
           setModalIndex(null);
         }
@@ -432,6 +438,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       if (allIds) {
         const idx = allIds.indexOf(id);
         setModalIndex(idx >= 0 ? idx : null);
+        const pageStart = (displayPage - 1) * PAGE_SIZE;
+        const pageEnd = Math.min(allIds.length - 1, pageStart + PAGE_SIZE - 1);
+        setModalPageRange({ start: pageStart, end: pageEnd });
       } else {
         setModalIndex(null);
       }
@@ -474,6 +483,19 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalIndex, setModalIndex] = useState<number | null>(null); // index into allIds
+  // modal navigation limited to the currently displayed page's index range
+  const [modalPageRange, setModalPageRange] = useState<{ start: number; end: number } | null>(null);
+
+  // keep modal page range in sync when modal/displayPage/allIds change
+  useEffect(() => {
+    if (!modalOpen || !allIds) {
+      setModalPageRange(null);
+      return;
+    }
+    const pageStart = (displayPage - 1) * PAGE_SIZE;
+    const pageEnd = Math.min(allIds.length - 1, pageStart + PAGE_SIZE - 1);
+    setModalPageRange({ start: pageStart, end: pageEnd });
+  }, [modalOpen, displayPage, allIds]);
 
   const revokeUrl = (url?: string | null) => {
     if (!url) return;
@@ -539,6 +561,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     if (!allIds) return;
     const cappedTotal = allIds.length;
     if (newIndex < 0 || newIndex >= cappedTotal) return;
+    // prevent navigating outside the currently displayed page range
+    if (modalPageRange) {
+      if (newIndex < modalPageRange.start || newIndex > modalPageRange.end) return;
+    }
     const id = allIds[newIndex];
     // if cached, use it immediately
     const cached = fullCache.current.get(id);
@@ -594,6 +620,24 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       if (requested === currentPage) return; // already viewing
       // displayPage gives immediate feedback; actual commit happens in loadPage
       setDisplayPage(requested);
+      // update stable highlight immediately to avoid flashing between
+      // the old highlight and the newly requested display page while
+      // `loadPage` is still fetching thumbnails.
+      {
+        const displayTotal = Math.max(1, Math.ceil((specimenData?.imageCounts ?? (allIds ? allIds.length : items.length)) / PAGE_SIZE));
+        const windowSize = 10;
+        const half = Math.floor(windowSize / 2);
+        let start = requested - half;
+        if (start < 1) start = 1;
+        let end = start + windowSize - 1;
+        if (end > displayTotal) {
+          end = displayTotal;
+          start = Math.max(1, end - windowSize + 1);
+        }
+        const inMiddleRange = requested > half && requested <= displayTotal - half;
+        const newHighlight = inMiddleRange ? start + half : requested;
+        setHighlightPage(newHighlight);
+      }
       setLoading(true);
       setError(null);
       loadPage(requested);
@@ -608,6 +652,26 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     setDisplayPage(immediate);
     setLoading(true);
     setError(null);
+
+    // set a stable highlight immediately so the pagination UI doesn't
+    // flash between the previous highlight and the newly requested one
+    // while additional IDs/thumbnails are being fetched.
+    {
+      const displayTotal = Math.max(1, Math.ceil((specimenData?.imageCounts ?? (allIds ? allIds.length : items.length)) / PAGE_SIZE));
+      const windowSize = 10;
+      const half = Math.floor(windowSize / 2);
+      // prefer to center the highlight when possible
+      let start = requested - half;
+      if (start < 1) start = 1;
+      let end = start + windowSize - 1;
+      if (end > displayTotal) {
+        end = displayTotal;
+        start = Math.max(1, end - windowSize + 1);
+      }
+      const inMiddleRange = requested > half && requested <= displayTotal - half;
+      const newHighlight = inMiddleRange ? start + half : requested;
+      setHighlightPage(newHighlight);
+    }
 
     // otherwise, we need to load additional chunks until we have enough ids
     const neededCount = requested * PAGE_SIZE;
@@ -770,33 +834,16 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
             const windowSize = 10;
             const half = Math.floor(windowSize / 2);
 
-            // compute sliding window around displayPage (same as before)
-            let start = displayPage - half;
-            if (start < 1) start = 1;
+            // Compute sliding window centered on `highlightPage` when
+            // possible. This keeps the highlighted pill stable in the
+            // middle slot and avoids visual flashing when `displayPage`
+            // or other state updates happen asynchronously.
+            let start = Math.max(1, Math.min(highlightPage - half, Math.max(1, displayTotal - windowSize + 1)));
             let end = start + windowSize - 1;
-            if (end > displayTotal) {
-              end = displayTotal;
-              start = Math.max(1, end - windowSize + 1);
-            }
+            if (end > displayTotal) end = displayTotal;
 
-            // Ensure the stable highlightPage remains inside the rendered window.
-            // If it's outside, shift the window so the highlight is visible
-            // (preferably centered when possible) to avoid flicker where no
-            // pill is highlighted during transitions.
-            if (highlightPage < start) {
-              start = Math.max(1, highlightPage - half);
-              end = Math.min(displayTotal, start + windowSize - 1);
-            } else if (highlightPage > end) {
-              start = Math.max(1, Math.min(highlightPage - half, displayTotal - windowSize + 1));
-              end = Math.min(displayTotal, start + windowSize - 1);
-            }
-
-            // Decide which page number to visually highlight.
-            // When we're comfortably in the middle (not within `half` pages
-            // of either end), keep the middle pill highlighted so the
-            // highlighted position doesn't jump during range updates.
-            const inMiddleRange = displayPage > half && displayPage <= displayTotal - half;
-            const renderHighlight = inMiddleRange ? start + half : displayPage;
+            // clamp highlight to visible window as a safety net
+            const renderHighlight = Math.min(Math.max(highlightPage, start), end);
 
             for (let p = start; p <= end; p++) {
               const isHighlighted = p === renderHighlight;
@@ -849,10 +896,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               onClick={() =>
                 modalIndex != null ? navigateModalTo(modalIndex - 1) : null
               }
-              disabled={modalIndex == null || modalIndex <= 0}
+              disabled={
+                modalIndex == null ||
+                (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0)
+              }
               aria-label="Previous image"
               className={`absolute left-[-48px] z-30 rounded-full p-2 transition-colors ${
-                modalIndex == null || modalIndex <= 0
+                (modalIndex == null ||
+                  (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0))
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-white bg-black/30 hover:bg-white/10"
               }`}
@@ -926,11 +977,16 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               }
               disabled={
                 modalIndex == null ||
-                modalIndex >= (allIds || []).length - 1
+                (modalPageRange
+                  ? modalIndex >= modalPageRange.end
+                  : modalIndex >= (allIds || []).length - 1)
               }
               aria-label="Next image"
               className={`absolute right-[-48px] z-30 rounded-full p-2 transition-colors ${
-                modalIndex == null || modalIndex >= (allIds || []).length - 1
+                (modalIndex == null ||
+                  (modalPageRange
+                    ? modalIndex >= modalPageRange.end
+                    : modalIndex >= (allIds || []).length - 1))
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-white bg-black/30 hover:bg-white/10"
               }`}
