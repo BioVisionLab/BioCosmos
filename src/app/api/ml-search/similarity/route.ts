@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { SpeciesData } from "@/lib/speciesData";
 import { API_HOST } from "@/lib/config";
-import { headers } from "next/headers";
 
 const SIMILARITY_SERVICE_URL = `${API_HOST}/species`;
 
