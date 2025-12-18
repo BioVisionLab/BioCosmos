@@ -1,7 +1,8 @@
 # Query taxonomy data based on the species name
 # Use GBIF Species Search API to find species taxonomy data
+from ..database.model import UmapEmbedding
 from ..query.specimen_data import SpeciesUmap
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 import logging
 from ..query.taxon_data import TaxonSearch
@@ -33,16 +34,25 @@ async def get_taxon_counts(request: Request):
         )
 
 
-@router.get("/stats/umap/{species}", tags=["Data Statistics"])
-async def get_umap_stats(species: str, request: Request):
+def get_species_umap(request: Request) -> UmapEmbedding:
+    return SpeciesUmap(request=request)
+
+
+@router.get(
+    "/stats/umap/{species}",
+    tags=["Data Statistics"],
+    response_model=UmapEmbedding,
+)
+async def get_umap_stats(
+    species: str,
+    service: UmapEmbedding = Depends(get_species_umap),
+):
     """
     Get UMAP statistics for a given species.
     """
     logger.info(f"Received UMAP stats request for species: {species}")
     try:
-        data = SpeciesUmap(request=request).get_umap_embeddings(
-            species
-        )
+        data = service.get_umap_embeddings(species)
         if data is None:
             logger.info(f"No UMAP stats found for species: {species}")
             return JSONResponse(

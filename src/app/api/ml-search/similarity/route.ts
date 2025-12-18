@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SpeciesData } from "@/lib/speciesData";
 import { API_HOST } from "@/lib/config";
+import { headers } from "next/headers";
 
 const SIMILARITY_SERVICE_URL = `${API_HOST}/species`;
 
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
       );
     }
     const similarityData: SpeciesData = await response.json();
+    // Add caching logic to return
     return NextResponse.json(similarityData);
   } catch (error) {
     console.error(

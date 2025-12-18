@@ -1,5 +1,5 @@
 from ..database.model import UmapEmbedding, UmapData
-from ..configs.config import UmapDataConfig
+from ..configs.config import ImageMetaConfig, UmapDataConfig
 from ..database.duckdb import DuckDBClient
 import polars as pl
 import logging
@@ -63,15 +63,44 @@ class SpeciesImageUmap:
             )
             return None
 
-    def get_embeddings(self, species: str) -> dict:
+    def get_embeddings(self, species: str) -> dict | None:
         """
         Retrieve UMAP embeddings for a given species.
         """
+        image_meta_table = ImageMetaConfig().table
         # We trim and replace a space with underscore to match the database format
-        species = species.strip().replace(" ", "_")
+        species = self.sanitize_species(species)
         try:
-            query = f"SELECT * FROM {self.table} WHERE species = LOWER('{species}')"
-            results = self.db_client.execute(query).pl()
+            # Construct the SQL query to retrieve UMAP embeddings for the given species
+            # The query ranks the UMAP embeddings for each species and cluster label,
+            # prioritizing entries with non-null latitude and longitude values.
+            query = f"""
+                WITH ranked AS (
+                    SELECT 
+                        a.*,
+                        m.lat,
+                        m.lon,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY a.species, a.cluster_label 
+                            ORDER BY 
+                                CASE WHEN m.lat IS NOT NULL AND m.lon IS NOT NULL 
+                                    THEN 1 ELSE 0 END DESC
+                        ) AS row_num
+                    FROM {self.table} a
+                    JOIN {image_meta_table} m
+                    ON a.img_id = REPLACE(m.mask_name, '.png', '')
+                    WHERE a.species = ?
+                )
+                SELECT *
+                FROM ranked
+                WHERE row_num <= 5
+            """
+            results = self.db_client.execute_prepared_to_pl(
+                query, [species]
+            )
+
+            if results.is_empty():
+                return None
 
             results = results.rename(
                 {"UMAP1": "umap_x", "UMAP2": "umap_y"}
@@ -84,11 +113,26 @@ class SpeciesImageUmap:
                 for row in results.to_dicts()
             ]
 
+            # We count the number of clusters by counting the unique cluster labels in the UMAP embeddings
+            cluster_counts = len(
+                set([embedding.cluster_label for embedding in umap])
+            )
+
             return UmapData.model_validate(
-                {"species": species, "umap_embeddings": umap}
+                {
+                    "species": species,
+                    "cluster_counts": cluster_counts,
+                    "umap_embeddings": umap,
+                }
             ).model_dump(by_alias=True)
         except Exception as e:
             logger.error(
                 f"Failed to retrieve UMAP embeddings for species '{species}': {e}"
             )
             raise e
+
+    def sanitize_species(self, species: str) -> str:
+        """
+        Sanitize the species name to match the database format.
+        """
+        return species.lower().strip().replace(" ", "_")

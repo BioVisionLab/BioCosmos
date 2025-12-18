@@ -24,7 +24,7 @@ image_metadata:
   skip: false
 # UMAP configuration for visualizing image embeddings
 umap_data:
-  file: "umap-nymphalidae-embeddings-filtered.csv"
+  file: "umap-nymphalidae-embeddings-all.csv"
   table: "umap_embeddings"
   # Skip UMAP ingestion if set to true
   skip: false
