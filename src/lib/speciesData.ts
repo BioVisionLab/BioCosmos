@@ -26,6 +26,7 @@ export interface SpeciesImageUmap {
   umapY: number;
   lat: number;
   lon: number;
+  classDv: string;
   clusterLabel?: number;
 }
 

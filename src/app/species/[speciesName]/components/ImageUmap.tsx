@@ -17,6 +17,7 @@ import {
 import { getClusterColor, parseUmapCoordinates } from "@/lib/map";
 import dynamic from "next/dynamic";
 import { NoData } from "@/components/NoData";
+import { toSentenceCase } from "@/lib/textUtils";
 
 const TOOLTIP_IMAGE_SIZE = 80;
 const CLUSTER_IMAGE_SIZE = 60;
@@ -128,6 +129,7 @@ function UmapScatterPlot({
         y: point.umapY,
         imgId: point.imgId,
         cluster: cluster,
+        classDv: point.classDv,
         fill: clusterColors[cluster % clusterColors.length],
         isRepresentative: clusterReps.get(cluster) === point.imgId,
       };
@@ -192,6 +194,7 @@ function UmapScatterPlot({
                     <UmapTooltipImage
                       imgId={data.imgId}
                       cluster={data.cluster}
+                      classDv={data.classDv}
                     />
                   );
                 }
@@ -298,9 +301,11 @@ function ClusterImage({ imgId }: { imgId: string }) {
 function UmapTooltipImage({
   imgId,
   cluster,
+  classDv,
 }: {
   imgId: string;
   cluster: number;
+  classDv: string;
 }) {
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -346,6 +351,9 @@ function UmapTooltipImage({
       />
       <p className="mt-2 text-center text-sm text-gray-200 dark:text-gray-400">
         Cluster {cluster}
+      </p>
+      <p className="mt-1 text-center text-sm text-gray-200 dark:text-gray-400">
+        {toSentenceCase(classDv)}
       </p>
     </div>
   );

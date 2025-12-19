@@ -47,6 +47,7 @@ export interface UmapOccurrence {
   key: string | number;
   decimalLatitude: number;
   decimalLongitude: number;
+  classDv: string;
   cluster: number;
 }
 
@@ -149,6 +150,7 @@ function parseUmapCoordinates(umapData: SpeciesImageUmap[]): UmapOccurrence[] {
     key: umap.imgId,
     decimalLatitude: umap.lat,
     decimalLongitude: umap.lon,
+    classDv: umap.classDv ?? "Unknown",
     cluster: umap.clusterLabel ?? -1,
   }));
 }

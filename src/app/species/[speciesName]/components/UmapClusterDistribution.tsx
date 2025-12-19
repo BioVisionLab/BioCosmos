@@ -20,6 +20,7 @@ import {
 import { fetchThumbnailById } from "@/lib/images";
 import { ImageLoading } from "@/components/Loadings";
 import Image from "next/image";
+import { toTitleCase } from "@/lib/textUtils";
 
 const MAP_IMAGE_SIZE = 120;
 
@@ -175,6 +176,7 @@ export default function UmapClusterDistribution({
               <div>
                 <MapImage imgId={occ.key.toString()} />
                 <p className="font-semibold">Cluster {occ.cluster}</p>
+                <p>{toTitleCase(occ.classDv)}</p>
                 <p>
                   Lat: {occ.decimalLatitude.toFixed(4)} <br />
                   Lon: {occ.decimalLongitude.toFixed(4)}
