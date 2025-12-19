@@ -17,7 +17,6 @@ import {
 import { getClusterColor, parseUmapCoordinates } from "@/lib/map";
 import dynamic from "next/dynamic";
 import { NoData } from "@/components/NoData";
-import { No } from "zod/v4/locales";
 
 const TOOLTIP_IMAGE_SIZE = 80;
 const CLUSTER_IMAGE_SIZE = 60;
@@ -141,90 +140,83 @@ function UmapScatterPlot({
     };
   }, [umapCoords, clusterColors]);
 
-  // Separate data into two series: background dots and prominent representatives
-  const regularPoints = processedData.filter((p) => !p.isRepresentative);
-  const repPoints = processedData.filter((p) => p.isRepresentative);
-
   const formatAxisTick = (value: number) => value.toFixed(2);
 
   return (
     <div
       id="umap-scatter-plot"
-      className="mb-4 w-full h-[500px] bg-transparent p-4 rounded-xl border border-gray-500"
+      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-gray-500"
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
-          <XAxis
-            type="number"
-            dataKey="x"
-            domain={xDomain}
-            tickFormatter={formatAxisTick}
-            name="UMAP 1"
-            stroke="#94a3b8"
-            tick={{ fill: "#475569", fontSize: 12 }}
-            label={{
-              value: "UMAP 1",
-              position: "bottom",
-              offset: 0,
-              fill: "#64748b",
-            }}
-          />
-          <YAxis
-            type="number"
-            dataKey="y"
-            domain={yDomain}
-            tickFormatter={formatAxisTick}
-            name="UMAP 2"
-            stroke="#94a3b8"
-            tick={{ fill: "#475569", fontSize: 12 }}
-            label={{
-              value: "UMAP 2",
-              angle: -90,
-              position: "left",
-              offset: 0,
-              fill: "#64748b",
-            }}
-          />
-          <ZAxis type="number" range={[50, 50]} />
-
-          <Tooltip
-            cursor={{ strokeDasharray: "3 3" }}
-            isAnimationActive={false}
-            content={({ active, payload }) => {
-              // Ensure we pick the actual hovered item from the payload
-              if (active && payload && payload.length) {
-                const data = payload[0].payload;
-                return (
-                  <UmapTooltipImage imgId={data.imgId} cluster={data.cluster} />
-                );
-              }
-              return null;
-            }}
-          />
-
-          {/* Main Data Layer: High performance, lower opacity */}
-          <Scatter name="Species Points" data={regularPoints}>
-            {regularPoints.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.fill} fillOpacity={0.6} />
-            ))}
-          </Scatter>
-
-          {/* Representative Layer: Custom shapes and higher prominence */}
-          <Scatter
-            name="Cluster Representatives"
-            data={repPoints}
-            shape={(props: any) => (
-              <CustomDot {...props} imgId={props.payload?.imgId} />
-            )}
-          >
-            {repPoints.map((entry, index) => (
-              <Cell key={`rep-cell-${index}`} fill={entry.fill} />
-            ))}
-          </Scatter>
-        </ScatterChart>
-      </ResponsiveContainer>
-
-      <div className="flex justify-between items-center text-xs text-slate-500 px-2">
+      <div className="p-4 h-[calc(100%-2rem)]">
+        <ResponsiveContainer width="100%" height="100%">
+          <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+            <XAxis
+              type="number"
+              dataKey="x"
+              domain={xDomain}
+              tickFormatter={formatAxisTick}
+              name="UMAP 1"
+              stroke="#94a3b8"
+              tick={{ fill: "#475569", fontSize: 12 }}
+              label={{
+                value: "UMAP 1",
+                position: "bottom",
+                offset: 0,
+                fill: "#64748b",
+              }}
+            />
+            <YAxis
+              type="number"
+              dataKey="y"
+              domain={yDomain}
+              tickFormatter={formatAxisTick}
+              name="UMAP 2"
+              stroke="#94a3b8"
+              tick={{ fill: "#475569", fontSize: 12 }}
+              label={{
+                value: "UMAP 2",
+                angle: -90,
+                position: "left",
+                offset: 0,
+                fill: "#64748b",
+              }}
+            />
+            <ZAxis type="number" range={[50, 50]} />
+            <Tooltip
+              cursor={{ strokeDasharray: "3 3" }}
+              isAnimationActive={false}
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload;
+                  return (
+                    <UmapTooltipImage
+                      imgId={data.imgId}
+                      cluster={data.cluster}
+                    />
+                  );
+                }
+                return null;
+              }}
+            />
+            <Scatter
+              name="Species Points"
+              data={processedData}
+              shape={(props: any) => {
+                const isRep = props.payload?.isRepresentative;
+                if (isRep) {
+                  return <CustomDot {...props} imgId={props.payload?.imgId} />;
+                }
+                return <circle {...props} r={5} fillOpacity={0.6} />;
+              }}
+            >
+              {processedData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fill} />
+              ))}
+            </Scatter>
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex justify-between items-center text-xs text-slate-500 p-2">
         <span>
           Total samples: <b>{umapCoords.length}</b>
         </span>
@@ -243,9 +235,9 @@ function UmapHeader() {
       <h1 className="text-2xl font-bold">Image Similarity</h1>
       <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
         Specimen image similarity in a 2D space using UMAP dimensionality
-        reduction.
+        reduction and their geographic location.
       </p>
-      <Tips message="Hover on a point to preview a specimen image; colors show cluster groups" />
+      <Tips message="Hover on a point to preview a specimen image; colors show cluster groups. The geographic distribution shows only records with valid coordinates." />
     </div>
   );
 }

@@ -1,6 +1,12 @@
 // Render Species Map based on GBIF occurrences
 // Use client
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMap,
+  Tooltip,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -19,6 +25,7 @@ const MAP_IMAGE_SIZE = 120;
 
 function MapImage({ imgId }: { imgId: string }) {
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchImageUrl = async () => {
@@ -27,6 +34,8 @@ function MapImage({ imgId }: { imgId: string }) {
         setImgUrl(url);
       } catch (err) {
         console.error("Error fetching cluster image:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -34,6 +43,10 @@ function MapImage({ imgId }: { imgId: string }) {
   }, [imgId]);
 
   if (!imgUrl) {
+    return <ImageLoading size={MAP_IMAGE_SIZE} />;
+  }
+
+  if (loading) {
     return <ImageLoading size={MAP_IMAGE_SIZE} />;
   }
 
@@ -90,13 +103,12 @@ export default function UmapClusterDistribution({
 
   // Function to create icon for each cluster
   const createClusterIcon = (cluster: number) => {
-    const size = 10;
+    const size = 14;
     const color = clusterColors[cluster % clusterColors.length];
     const html = `<div style="
       width:${size}px;
       height:${size}px;
       background:${color};
-      opacity:0.8;
       border-radius:50%;
       border:2px solid ${color};
     "></div>`;
@@ -155,8 +167,9 @@ export default function UmapClusterDistribution({
             key={occ.key}
             position={[occ.decimalLatitude, occ.decimalLongitude]}
             icon={createClusterIcon(occ.cluster)}
+            opacity={0.8}
           >
-            <Popup>
+            <Tooltip>
               <div>
                 <MapImage imgId={occ.key.toString()} />
                 <p className="font-semibold">Cluster {occ.cluster}</p>
@@ -165,7 +178,7 @@ export default function UmapClusterDistribution({
                   Lon: {occ.decimalLongitude.toFixed(4)}
                 </p>
               </div>
-            </Popup>
+            </Tooltip>
           </Marker>
         );
       })}
