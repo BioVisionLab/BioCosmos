@@ -232,10 +232,12 @@ function UmapScatterPlot({
 function UmapHeader() {
   return (
     <div className="mb-4">
-      <h1 className="text-2xl font-bold">Image Similarity</h1>
+      <h1 className="text-2xl font-bold">
+        Image Similarity & Geographic Distribution
+      </h1>
       <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
         Specimen image similarity in a 2D space using UMAP dimensionality
-        reduction and their geographic location.
+        reduction and the geographic location of sampled specimens.
       </p>
       <Tips message="Hover on a point to preview a specimen image; colors show cluster groups. The geographic distribution shows only records with valid coordinates." />
     </div>
