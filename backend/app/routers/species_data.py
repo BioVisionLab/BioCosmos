@@ -1,4 +1,3 @@
-from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 from ..query.specimen_data import SpecimenData
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -7,7 +6,7 @@ from ..query.species_similarity import (
     SpeciesSimilarity,
     VisuallySimilarSpeciesPayload,
 )
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -112,134 +111,6 @@ async def fetch_visually_similar_species(
         raise HTTPException(
             status_code=500,
             detail="An internal error occurred while fetching visually similar species.",
-        )
-
-
-@router.get(
-    "/species/{scientific_name}/ids",
-    tags=["Species Data", "Taxon Images"],
-)
-async def fetch_species_image_ids(
-    request: Request, scientific_name: str
-):
-    """
-    Takes in a species name.
-    Fetches all the corresponding image IDs.
-    Return a list of image IDs.
-    Returns a 404 error if images are not found.
-    """
-    logger.info(f"Fetching image IDs for species: {scientific_name}")
-
-    try:
-        # Using method that returns image IDs: fetch_image_ids
-        image_ids = ImageMetaRetrieval(
-            request=request
-        ).get_species_image_ids(scientific_name)
-        if not image_ids:
-            logger.warning(
-                f"No images found for species: {scientific_name}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail=f"Images not found for species: {scientific_name}",
-            )
-        return JSONResponse(content=image_ids)
-        # returning the IDs in a JSON response
-    except Exception as e:
-        # Catch potential errors from the data fetching logic itself
-        logger.error(
-            f"Error fetching image IDs for {scientific_name}: {e}"
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred while fetching image IDs.",
-        )
-
-
-@router.get(
-    "/species/{scientific_name}/thumbnail",
-    tags=["Species Data", "Taxon Images"],
-)
-async def fetch_taxon_thumbnail(
-    request: Request, scientific_name: str
-):
-    """
-    Fetches a taxon thumbnail image.
-    Returns a 404 error if the thumbnail is not found.
-    """
-    logger.info(
-        f"Fetching taxon thumbnail for species: {scientific_name}"
-    )
-
-    try:
-        # It's also good practice to wrap calls that might fail
-        img_path = ImageFileRetrieval(
-            request=request
-        ).get_species_thumbnail(scientific_name)
-    except Exception as e:
-        # Catch potential errors from the data fetching logic itself
-        logger.error(
-            f"Error fetching data for {scientific_name}: {e}"
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred while fetching the image data.",
-        )
-
-    if img_path is None:
-        logger.warning(
-            f"No thumbnail found for species: {scientific_name}"
-        )
-        # Correct way to return a 404 error
-        raise HTTPException(
-            status_code=404,
-            detail=f"Thumbnail not found for species: {scientific_name}",
-        )
-
-    # Correctly stream the image bytes
-    return FileResponse(img_path)
-
-
-@router.get(
-    "/species/{scientific_name}/image",
-    tags=["Species Data", "Taxon Images"],
-)
-async def fetch_species_high_res_image(
-    request: Request, scientific_name: str
-):
-    """
-    Fetches a species high-resolution image.
-    Returns a 404 error if the image is not found.
-    """
-    logger.info(
-        f"Fetching species high-resolution image for species: {scientific_name}"
-    )
-
-    try:
-        # It's also good practice to wrap calls that might fail
-        img_path = ImageFileRetrieval(
-            request=request
-        ).get_species_image(scientific_name)
-        if img_path is None:
-            logger.warning(
-                f"No image found for species: {scientific_name}"
-            )
-            # Correct way to return a 404 error
-            raise HTTPException(
-                status_code=404,
-                detail=f"Image not found for species: {scientific_name}",
-            )
-
-        # Correctly stream the image bytes
-        return FileResponse(img_path)
-    except Exception as e:
-        # Catch potential errors from the data fetching logic itself
-        logger.error(
-            f"Error fetching data for {scientific_name}: {e}"
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred while fetching the image data.",
         )
 
 

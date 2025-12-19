@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { API_HOST } from "@/lib/config";
 
-const IMAGE_API_URL = `${API_HOST}/species`;
+const IMAGE_API_URL = `${API_HOST}/image`;
 
 /**
  * This route is responsible for serving images related to a specific species.
@@ -23,7 +23,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   console.log(`API: Fetching image metadata for species: ${species}`);
 
   try {
-    const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(species)}/ids`;
+    const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(
+      species
+    )}/metadata`;
     const response = await fetch(metadataUri, {
       method: "GET",
     });
