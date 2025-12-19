@@ -388,6 +388,7 @@ class UmapEmbedding(BaseModel):
     umap_y: float
     lat: Optional[float]
     lon: Optional[float]
+    class_dv: Optional[str]
     cluster_label: Optional[int]
 
     def __repr__(self):

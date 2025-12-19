@@ -80,6 +80,7 @@ class SpeciesImageUmap:
                         a.*,
                         m.lat,
                         m.lon,
+                        m.class_dv,
                         ROW_NUMBER() OVER (
                             PARTITION BY a.species, a.cluster_label 
                             ORDER BY 
