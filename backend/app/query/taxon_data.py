@@ -174,16 +174,13 @@ class TaxonSearch:
         Get the counts of species in each taxon.
         """
         gbif_service = GbifPersistData(
-            # duckdb=self.request.app.state.duck_db
             duckdb=self.request.app.state.duckdb
         )
         leptraits_service = LepTraits(
-            # duckdb=self.request.app.state.duck_db
             duckdb=self.request.app.state.duckdb
         )
         img_service = ImagePersistData(
             lance_db=self.request.app.state.lance_db,
-            # duckdb=self.request.app.state.duck_db,
             duckdb=self.request.app.state.duckdb,
         )
         try:
@@ -412,8 +409,6 @@ class TaxonSearch:
         """
         try:
             leptraits = LepTraits(
-                # Old line:
-                # duckdb=self.request.app.state.duck_db
                 duckdb=self.request.app.state.duckdb
             )
             leptraits_data = leptraits.get(self.scientific_name)
@@ -481,7 +476,6 @@ class SpeciesSimilarity:
                 return None
             similar_images: pl.DataFrame = ImagePersistData(
                 lance_db=self.request.app.state.lance_db,
-                # duckdb=self.request.app.state.duck_db,
                 duckdb=self.request.app.state.duckdb,
             ).find_similar_images(
                 image_ids=image_ids,
@@ -506,7 +500,6 @@ class SpeciesSimilarity:
     ) -> list[str] | None:
         try:
             meta_service = ImageMetaService(
-                # duckdb=self.request.app.state.duck_db
                 duckdb=self.request.app.state.duckdb
             )
             image_meta = meta_service.get_image_meta_by_species(

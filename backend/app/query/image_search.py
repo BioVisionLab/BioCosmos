@@ -54,7 +54,6 @@ class TextToImageSearch:
         logger.info(
             f"Performing text to image search for query: {self.query}"
         )
-        # search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duck_db,)
         search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duckdb,)
         results = search_img.fetch_similar_images_from_text(
             self.request,
@@ -93,7 +92,6 @@ class ImageToImageSearch:
         # Placeholder for actual search logic
         logger.info("Performing image to image search for query.")
 
-        # search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duck_db,)
         search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duckdb,)
         results = search_img.fetch_similar_images_from_bytes(
             request=self.request,

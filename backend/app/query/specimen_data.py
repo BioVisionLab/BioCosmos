@@ -26,7 +26,6 @@ class SpecimenDataPayload(BaseModel):
 
 class SpecimenData:
     def __init__(self, request: Request):
-        # self.duckdb = request.app.state.duck_db
         self.duckdb = request.app.state.duckdb
 
     def summarize(self, species: str) -> dict | None:
@@ -50,7 +49,6 @@ class SpecimenData:
 
 class SpeciesUmap:
     def __init__(self, request: Request):
-        # self.duckdb = request.app.state.duck_db
         self.duckdb = request.app.state.duckdb
 
     def get_umap_embeddings(self, species: str) -> dict | None:

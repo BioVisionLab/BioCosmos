@@ -186,19 +186,15 @@ class AgentSearchService:
         # Initialize data access services for different search modalities
         self.image_service = ImagePersistData(
             lance_db=request.app.state.lance_db,
-            # duckdb=request.app.state.duck_db,
             duckdb=request.app.state.duckdb,
         )
         self.image_meta_service = ImageMetaService(
-            # duckdb=request.app.state.duck_db
             duckdb=request.app.state.duckdb
         )
         self.gbif_service = GbifPersistData(
-            # duckdb=request.app.state.duck_db
             duckdb=request.app.state.duckdb
         )
         self.leptraits_service = LepTraits(
-            # duckdb=request.app.state.duck_db
             duckdb=request.app.state.duckdb
         )
 

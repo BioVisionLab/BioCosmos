@@ -21,7 +21,6 @@ class ImageMetaRetrieval:
         """
         Initialize the ImageMetaRetrieval class.
         """
-        # self.duck_db = request.app.state.duck_db
         self.duckdb = request.app.state.duckdb
         self.lance_db = request.app.state.lance_db
 
@@ -32,7 +31,7 @@ class ImageMetaRetrieval:
         Retrieve image IDs associated with a species.
         """
         image_ids: list[str] = ImageMetaService(
-            duckdb=self.duck_db
+            duckdb=self.duckdb
         ).get_image_ids_by_species(scientific_name)
         return image_ids
 
@@ -60,7 +59,6 @@ class ImageFileRetrieval:
         Initialize the ImageRetrieval class.
         """
         self.lance_db = request.app.state.lance_db
-        # self.duck_db = request.app.state.duck_db
         self.duckdb = request.app.state.duckdb
         self.file_format = "webp"
 
@@ -70,7 +68,6 @@ class ImageFileRetrieval:
         """
         Retrieve the thumbnail image file path for a species.
         """
-        # image_ids: list[str] = ImageMetaService(duckdb=self.duck_db).get_image_ids_by_species(scientific_name)
         image_ids: list[str] = ImageMetaService(duckdb=self.duckdb).get_image_ids_by_species(scientific_name)
 
         if not image_ids:
@@ -84,7 +81,6 @@ class ImageFileRetrieval:
         """
         Retrieve the full-resolution image file path for a species.
         """
-        # image_ids: list[str] = ImageMetaService(duckdb=self.duck_db).get_image_ids_by_species(scientific_name)
         image_ids: list[str] = ImageMetaService(duckdb=self.duckdb).get_image_ids_by_species(scientific_name)
 
         if not image_ids:
@@ -130,7 +126,6 @@ class ImageFileRetrieval:
         """
         Retrieve an image by its ID.
         """
-        # img_bytes: bytes = ImagePersistData(lance_db=self.lance_db,duckdb=self.duck_db,).get_img_by_id(image_id)
         img_bytes: bytes = ImagePersistData(lance_db=self.lance_db,duckdb=self.duckdb,).get_img_by_id(image_id)
         return img_bytes
 
