@@ -12,6 +12,8 @@ import {
   fetchImgById,
   fetchSpeciesImageIds,
 } from "@/lib/images";
+import ImageUmap from "./ImageUmap";
+import Tips from "@/components/Tips";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -722,9 +724,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
   return (
     <div>
       {/* Specimen header (icon + image count) */}
-      <div className="flex items-center gap-4 mb-4">
+      <div className="flex items-center gap-4 mb-8">
         <IconContainer>
-          <ButterflyComplex className="w-10 h-10 fill-teal-500" />
+          <ButterflyComplex className="w-16 h-16 fill-teal-500" />
         </IconContainer>
         <div className="my-2">
           {specimenLoading ? (
@@ -740,6 +742,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
             <p className="text-sm text-gray-500">Image count unavailable</p>
           )}
         </div>
+      </div>
+      <div id="specimen-umap">
+        <ImageUmap species={speciesName ?? ""} />
       </div>
       <div id="specimen-thumbs" className="mt-8">
         <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-3">Specimen Images</h2>
@@ -947,7 +952,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               </svg>
             </button>
 
-            {/* Formatting of popout image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
+            {/* Formatting of pop-out image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
             <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-lg p-4 w-full h-full flex items-center justify-center">
               {modalLoading ? (
                 // Loading placeholder occupies the same space as the final image to avoid layout jumps
@@ -1012,5 +1017,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     </div>
   );
 };
+
+function ImageGalleryHeader() {
+  return (
+    <div className="mb-4">
+      <h2 className="text-2xl font-semibold mb-2">Specimen Images</h2>
+      <Tips message="Click on an image to view in full size" />
+    </div>
+  );
+}
 
 export default SpecimensTab;

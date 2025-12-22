@@ -1,23 +1,20 @@
 import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
-
-
-from .database.duckdb import DuckDBClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from .database.duckdb import DuckDBClient
 from .services.unicom import UnicomModel
 from .database.lance import LanceDB
 from .services.clip import ClipModel
-from .services.images import ImageEmbedder
-
+from .services.embedder import ImageEmbedder
+from .services.umap import SpeciesImageUmap
+from .services.image_meta import ImageMetaService
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
-
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from .routers import (
     data_stats,
     image_retrieval,
@@ -25,6 +22,7 @@ from .routers import (
     species_data,
     text_summarization,
     db_search,
+    agent_search,
 )
 
 
@@ -78,8 +76,11 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    # UF_AI_URL: str
-    # UF_AI_API_KEY: str
+    UF_AI_URL: str
+    UF_AI_API_KEY: str
+    IMAGE_META_DIR: str
+    GBIF_DIR: str
+    UMAP_DIR: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -131,17 +132,24 @@ def initialize_lance(app: FastAPI):
 def initialize_duckdb(app: FastAPI):
     """Initializes and attaches the DuckDB to the app state."""
     logger.info("Initializing DuckDB...")
-    app.state.duck_db = DuckDBClient()
+    # app.state.duck_db = DuckDBClient()
+    app.state.duckdb = DuckDBClient()
     logger.info("DuckDB initialized successfully.")
 
 
 def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
-    LepTraits(app.state.duck_db).ingest()
+    # LepTraits(app.state.duck_db).ingest()
+    LepTraits(app.state.duckdb).ingest()
     logger.info("LepTraits data ingested.")
-    GbifPersistData(app.state.duck_db).ingest()
+    # GbifPersistData(app.state.duck_db).ingest()
+    GbifPersistData(app.state.duckdb).ingest()
     logger.info("GBIF data ingested.")
+    # SpeciesImageUmap(app.state.duck_db).ingest()
+    SpeciesImageUmap(app.state.duckdb).ingest()
+    # ImageMetaService(app.state.duck_db).ingest()
+    ImageMetaService(app.state.duckdb).ingest()
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -160,7 +168,6 @@ def run_data_ingestion(app: FastAPI):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-
     Application lifespan manager.
 
     This context manager handles the startup and shutdown logic for the FastAPI
@@ -170,6 +177,7 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Application starting up...")
 
+    # Startup logic
     try:
         settings = get_app_settings()
         app.state.settings = settings
@@ -181,21 +189,32 @@ async def lifespan(app: FastAPI):
         run_data_ingestion(app)
 
         logger.info("Application startup completed successfully.")
-        yield
-
-    except (EnvironmentError, Exception) as e:
+    except Exception as e:
         logger.critical(
             f"A critical error occurred during application startup: {e}"
         )
         raise
 
-    finally:
-        logger.info("Application shutting down...")
-        app.state.duck_db.close()
+    # Yield control - application is now running
+    yield
+
+    # Shutdown logic (only runs if startup succeeded)
+    logger.info("Application shutting down...")
+    try:
+        if (
+            # hasattr(app.state, "duck_db")
+            hasattr(app.state, "duckdb")
+            # and app.state.duck_db is not None
+            and app.state.duckdb is not None
+        ):
+            # app.state.duck_db.close()
+            app.state.duckdb.close()
         app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None
         logger.info("Application shutdown completed.")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 app = FastAPI(
@@ -227,6 +246,7 @@ app.include_router(species_data.router)
 app.include_router(text_summarization.router)
 app.include_router(image_retrieval.router)
 app.include_router(db_search.router)
+app.include_router(agent_search.router)
 
 
 @app.get("/")

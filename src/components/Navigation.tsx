@@ -22,7 +22,11 @@ export default function Navigation() {
         <div
           className={
             `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
+<<<<<<< HEAD
             `bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 text-black shadow border-transparent ` +
+=======
+            `bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 text-black border-transparent ` +
+>>>>>>> api-redesign
             `dark:from-emerald-900 dark:via-teal-900 dark:to-cyan-900 dark:text-white`
           }
           role="tablist"

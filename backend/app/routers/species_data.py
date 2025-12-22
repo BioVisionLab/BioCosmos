@@ -1,15 +1,14 @@
+from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 from ..query.specimen_data import SpecimenData
-from ..services.images import ImagePersistData
 import logging
-import io
 from fastapi import APIRouter, HTTPException, Request
-from starlette.responses import StreamingResponse
 from ..query.taxon_data import TaxonSearch
+from fastapi.responses import FileResponse, JSONResponse
+# New import:
+from ..services.images import ImagePersistData
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-from fastapi.responses import JSONResponse
 
 
 @router.get(
@@ -102,9 +101,10 @@ async def fetch_species_image_ids(
 
         # Using method that returns image IDs: fetch_image_ids
         # Pass the effective (clamped/defaulted) limit and offset to the service.
-        image_ids = ImagePersistData(
-            lance_db=request.app.state.lance_db
-        ).fetch_image_ids(scientific_name, effective_limit, effective_offset)
+        # Old line:
+        # image_ids = ImagePersistData(lance_db=request.app.state.lance_db).fetch_image_ids(scientific_name, effective_limit, effective_offset)
+        # New line:
+        image_ids = ImagePersistData(lance_db=request.app.state.lance_db, duckdb=request.app.state.duckdb,).fetch_image_ids(scientific_name, effective_limit, effective_offset,)
         if not image_ids:
             logger.warning(
                 f"No images found for species: {scientific_name}"
@@ -143,9 +143,9 @@ async def fetch_taxon_thumbnail(
 
     try:
         # It's also good practice to wrap calls that might fail
-        img_bytes = ImagePersistData(
-            lance_db=request.app.state.lance_db
-        ).fetch_thumbnail(scientific_name)
+        img_path = ImageFileRetrieval(
+            request=request
+        ).get_species_thumbnail(scientific_name)
     except Exception as e:
         # Catch potential errors from the data fetching logic itself
         logger.error(
@@ -156,7 +156,7 @@ async def fetch_taxon_thumbnail(
             detail="An internal error occurred while fetching the image data.",
         )
 
-    if img_bytes is None:
+    if img_path is None:
         logger.warning(
             f"No thumbnail found for species: {scientific_name}"
         )
@@ -167,9 +167,7 @@ async def fetch_taxon_thumbnail(
         )
 
     # Correctly stream the image bytes
-    return StreamingResponse(
-        io.BytesIO(img_bytes), media_type="image/png"
-    )
+    return FileResponse(img_path)
 
 
 @router.get(
@@ -189,10 +187,10 @@ async def fetch_species_high_res_image(
 
     try:
         # It's also good practice to wrap calls that might fail
-        img_bytes = ImagePersistData(
-            lance_db=request.app.state.lance_db
-        ).fetch_image(scientific_name)
-        if img_bytes is None:
+        img_path = ImageFileRetrieval(
+            request=request
+        ).get_species_image(scientific_name)
+        if img_path is None:
             logger.warning(
                 f"No image found for species: {scientific_name}"
             )
@@ -203,9 +201,7 @@ async def fetch_species_high_res_image(
             )
 
         # Correctly stream the image bytes
-        return StreamingResponse(
-            io.BytesIO(img_bytes), media_type="image/png"
-        )
+        return FileResponse(img_path)
     except Exception as e:
         # Catch potential errors from the data fetching logic itself
         logger.error(

@@ -37,9 +37,17 @@ async function fetchSpeciesImageIds(
   }
 
   const data = await response.json();
-  const ids = data["imageIds"] as string[];
-  if (!Array.isArray(ids)) {
-    throw new Error("Invalid data format: imageIds is not an array");
+  let ids: string[] = [];
+  if (Array.isArray(data)) {
+    ids = data as string[];
+  } else if (data && Array.isArray((data as any).imageIds)) {
+    ids = (data as any).imageIds as string[];
+  } else if (data && Array.isArray((data as any).ids)) {
+    ids = (data as any).ids as string[];
+  } else {
+    console.warn("Unexpected image metadata response shape:", data);
+    // Return empty array so callers can handle 'no images' gracefully
+    return [];
   }
   // Defensive: server should respect the requested `limit`, but slice client-side
   // as a fallback if a larger list is returned.

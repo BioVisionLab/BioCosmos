@@ -42,8 +42,8 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
 
   const speciesName = cleanSpeciesName(data.species);
 
-  // Format similarity (0..1) as a percentage for display
-  const matchPercent = computeMatchPercent(data.distance);
+  // Format similarity (0..1) as a percentage for display (now uses `score`)
+  const matchPercent = computeMatchPercent(data.score);
 
   // Return Tailwind classes for a colored pill (bg + text) with dark-mode variants
   const getMatchPillClass = (pct: number) => {
@@ -61,7 +61,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   };
 
   return (
-    <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
+    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
@@ -90,36 +90,38 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   const [speciesImageUrl, setSpeciesImageUrl] = useState<string | null>(null);
   const [otherImageUrls, setOtherImageUrl] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
+    let mounted = true;
     const fetchImages = async () => {
+      setLoading(true);
       try {
         const speciesImage = await fetchImgById(data.imgId);
+        if (!mounted) return;
         setSpeciesImageUrl(speciesImage);
         const imageIds = await fetchSpeciesImageIds(data.species, 5);
         if (imageIds.length > 0) {
           const otherImages = await Promise.all(
             imageIds.map((id) => fetchThumbnailById(id))
           );
+          if (!mounted) return;
           setOtherImageUrl(otherImages);
         }
       } catch (error) {
         console.error("Error fetching images for TopResultCard:", error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     fetchImages();
+    return () => {
+      mounted = false;
+    };
   }, [data.species, data.imgId]);
 
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
 
-  // Compute match percent for the top result (reuse helper)
-  const matchPercent = computeMatchPercent(data.distance);
+  const matchPercent = computeMatchPercent(data.score);
 
-  // Reuse the same pill styling logic as the other result cards
   const getMatchPillClass = (pct: number) => {
     const base = "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
     if (pct < 65)
@@ -139,14 +141,18 @@ function TopResultCard({ data }: { data: MlResultItems }) {
         <h2 className="text-lg font-semibold p-1">Top Result</h2>
         <span className={getMatchPillClass(matchPercent)}>Match: {matchPercent}%</span>
       </div>
-      <Link href={`/species/${data.species}`}>
-        <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4 m-4 p-2">
-          {cleanSpeciesName(data.species)}
-        </h2>
+
+      <div className="p-4">
+        <Link href={`/species/${data.species}`}>
+          <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4">
+            {cleanSpeciesName(data.species)}
+          </h2>
+        </Link>
+
         {loading ? (
           <ImageLoading size={160} />
         ) : (
-          <div className="flex gap-12 items-center m-4 p-3">
+          <div className="flex gap-12 items-start m-4 p-3">
             <div className="flex flex-col items-start">
               {speciesImageUrl && (
                 <Image
@@ -158,17 +164,17 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                 />
               )}
             </div>
-            <div className="items-start">
-                  <h3 className="text-sm mb-2 text-gray-400">Other forms:</h3>
+
+            <div className="flex flex-col items-start">
+              <h3 className="text-sm mb-2 text-gray-400">Other forms:</h3>
               {otherImageUrls && (
                 <div className="gap-2 overflow-auto flex">
                   {otherImageUrls.map((url, index) => (
-                        <div
-                          key={index}
-                          className="p-3 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
-                        >
+                    <div
+                      key={index}
+                      className="p-3 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
+                    >
                       <Image
-                        key={index}
                         src={url}
                         alt={`Other image ${index + 1} of ${data.species}`}
                         width={70}
@@ -179,10 +185,16 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                   ))}
                 </div>
               )}
+
+              <div className="mt-4">
+                <Link href={`/species/${data.species}`} className="mb-2 inline-block rounded-lg bg-gradient-to-br from-emerald-500/50 to-teal-700/50 w-fit px-4 py-2 hover:bg-teal-600/70 transition text-gray-100">
+                  Show species page →
+                </Link>
+              </div>
             </div>
           </div>
         )}
-      </Link>
+      </div>
     </div>
   );
 }

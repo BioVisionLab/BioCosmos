@@ -39,10 +39,97 @@ def get_lance_db_path() -> str:
     return os.path.join(parent_dir, lance_config["file"])
 
 
+class ImageMetaConfig:
+    """
+    Configuration for image metadata CSV file.
+    This file includes information such as mask_name, uuid, species, class_dv, etc.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._image_meta_config = config.get("image_metadata", {})
+
+    @property
+    def path(self) -> str:
+        parent_dir = os.getenv("IMAGE_META_DIR", ".")
+        file_name = self._image_meta_config.get(
+            "file", "image_metadata.csv"
+        )
+        full_path = os.path.join(parent_dir, file_name)
+        if not os.path.exists(full_path):
+            logger.info(
+                f"Failed to find image metadata file at: {full_path}"
+            )
+        return full_path
+
+    @property
+    def skip(self) -> bool:
+        skip = self._image_meta_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Image meta skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def table(self) -> str:
+        return self._image_meta_config.get("table", "image_meta")
+
+
+class UmapDataConfig:
+    def __init__(self):
+        config = load_config()
+        self._umap_data_config = config.get("umap_data", {})
+
+    @property
+    def path(self) -> str:
+        parent_dir = os.getenv("UMAP_DIR", ".")
+        file_name = self._umap_data_config.get(
+            "file", "umap_embeddings.csv"
+        )
+        full_path = os.path.join(parent_dir, file_name)
+        if not os.path.exists(full_path):
+            logger.info(
+                f"Failed to find UMAP data file at: {full_path}"
+            )
+        return full_path
+
+    @property
+    def skip(self) -> bool:
+        skip = self._umap_data_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"UMAP skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def table(self) -> str:
+        return self._umap_data_config.get("table", "umap_embeddings")
+
+
 class GbifConfig:
     def __init__(self):
         config = load_config()
         self._gbif_config = config.get("gbif", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._gbif_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"GBIF skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
 
     @property
     def path(self) -> str:
@@ -75,6 +162,18 @@ class LepTraitConfig:
             logger.info(f"LepTrait URL does not look remote: {url}")
         return url
 
+    @property
+    def skip(self) -> bool:
+        skip = self._leptrait_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"LepTrait skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
     # Backward compatibility if existing code still calls .path
     @property
     def path(self) -> str:
@@ -88,13 +187,55 @@ class LepTraitConfig:
 
 
 class ImageConfig:
+    """
+    Configuration for image ingestion.
+
+    For embedding generation configurations, refer to EmbedderConfig.
+    """
+
     def __init__(self):
         config = load_config()
         self._image_config = config.get("images", {})
 
     @property
     def dir(self) -> str:
+        """
+        Directory where images are stored.
+        Use the .env IMAGE_DIR to override the default path.
+        Default is './images'.
+        """
         return os.getenv("IMAGE_DIR", "./images")
+
+    @property
+    def format(self) -> str:
+        """
+        Image file format to use when storing images in the database.
+        Options: "jpeg", "png", "webp"
+        Default is "webp".
+        """
+        return self._image_config.get("format", "webp")
+
+    @property
+    def max_resolution(self) -> int | None:
+        """
+        Maximum resolution for images. If set, images will be resized to this resolution.
+        """
+        max_res = self._image_config.get("max_resolution", None)
+        if max_res is not None:
+            try:
+                max_res = int(max_res)
+                if max_res <= 0:
+                    logger.info(
+                        f"Max resolution must be positive, got: {max_res}. Ignoring limit."
+                    )
+                    return None
+                return max_res
+            except ValueError:
+                logger.info(
+                    f"Max resolution is not a valid integer: {max_res}. Ignoring limit."
+                )
+                return None
+        return None
 
     @property
     def table(self) -> str:

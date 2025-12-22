@@ -24,12 +24,18 @@ class GbifPersistData:
         config = GbifConfig()
         self.tsv_path = config.path
         self.table_name = config.table
+        self.skip_ingestion = config.skip
         self.db_client = duckdb
 
     def ingest(self):
         """
         Ingest GBIF data from a TSV file into DuckDB.
         """
+        if self.skip_ingestion:
+            logger.info(
+                "Skipping GBIF data ingestion as per configuration."
+            )
+            return
         try:
             # We use custom execution instead of the wrapper function
             # for table creation in the DuckDb module to avoid
@@ -64,8 +70,8 @@ class GbifPersistData:
                 f"Failed to count entries in GBIF metadata table: {e}"
             )
             return None
-    
-    def count_unique_species(self) -> int | None :
+
+    def count_unique_species(self) -> int | None:
         try:
             query = f"SELECT COUNT(DISTINCT species) FROM {self.table_name}"
             result = self.db_client.execute(query).fetchone()[0]
@@ -100,6 +106,85 @@ class GbifPersistData:
             )
         gbif_data = result.to_dicts()[0]
         return gbif_data
+
+    def search_by_location(
+        self, location: str, limit: int = 500
+    ) -> list[str]:
+        """
+        Search for species by geographic location.
+
+        Based on the GBIF TSV structure:
+        - level0Name: Country name (e.g., "Colombia", "Ecuador")
+        - countryCode: ISO country code (e.g., "CO", "EC")
+        - stateProvince: State/province name
+        - level1Name: First-level administrative division
+        - continent: Continent (usually uppercase like "SOUTH_AMERICA")
+        - locality: Specific locality
+        - verbatimLocality: Verbatim locality from source
+        """
+        try:
+            location = (location or "").strip()
+            if not location:
+                logger.warning(
+                    "Empty location passed to search_by_location"
+                )
+                return []
+
+            location_upper = location.upper()
+
+            # Escape single quotes for SQL
+            loc_esc = location.replace("'", "''")
+            loc_upper_esc = location_upper.replace("'", "''")
+
+            conditions = [
+                f"LOWER(level0Name)      LIKE LOWER('%{loc_esc}%')",
+                f"LOWER(countryCode)     LIKE LOWER('%{loc_esc}%')",
+                f"LOWER(stateProvince)   LIKE LOWER('%{loc_esc}%')",
+                f"LOWER(level1Name)      LIKE LOWER('%{loc_esc}%')",
+                f"LOWER(locality)        LIKE LOWER('%{loc_esc}%')",
+                f"LOWER(verbatimLocality)LIKE LOWER('%{loc_esc}%')",
+                (
+                    f"(continent LIKE '%{loc_upper_esc}%' "
+                    f" OR LOWER(continent) LIKE LOWER('%{loc_esc}%'))"
+                ),
+            ]
+
+            where_clause = " OR ".join(conditions)
+            query = f"""
+                SELECT DISTINCT species
+                FROM {self.table_name}
+                WHERE {where_clause}
+                LIMIT {int(limit)}
+            """
+
+            logger.info(
+                f"Searching for location '{location}' in GBIF table"
+            )
+            result = self.db_client.execute(query).pl()
+
+            if result.is_empty():
+                logger.warning(
+                    f"No species found in location: {location}"
+                )
+                return []
+
+            species_list = [
+                s
+                for s in result["species"].to_list()
+                if s and str(s).strip()
+            ]
+
+            logger.info(
+                f"Found {len(species_list)} species in location: {location}"
+            )
+            return species_list
+
+        except Exception as e:
+            logger.error(
+                f"Error searching by location '{location}': {e}",
+                exc_info=True,
+            )
+            return []
 
 
 class GbifTaxonSearch:

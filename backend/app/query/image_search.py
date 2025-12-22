@@ -27,7 +27,11 @@ class TextToImageSearch:
     """
 
     def __init__(
-        self, request: Request, query: str = "", limit: int = 50
+        self,
+        request: Request,
+        query: str = "",
+        limit: int = 50,
+        max_distance: float | None = None,
     ):
         """
         Initialize the TextToImageSearch class.
@@ -35,6 +39,7 @@ class TextToImageSearch:
         self.request = request
         self.query = query.strip().lower()
         self.limit = limit
+        self.max_distance = max_distance
 
     def search(self) -> list[dict] | None:
         """
@@ -49,11 +54,13 @@ class TextToImageSearch:
         logger.info(
             f"Performing text to image search for query: {self.query}"
         )
-        search_img = ImagePersistData(
-            lance_db=self.request.app.state.lance_db
-        )
+        # search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duck_db,)
+        search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duckdb,)
         results = search_img.fetch_similar_images_from_text(
-            self.request, self.query, limit=self.limit
+            self.request,
+            self.query,
+            limit=self.limit,
+            max_distance=self.max_distance,
         )
         return results
 
@@ -86,9 +93,8 @@ class ImageToImageSearch:
         # Placeholder for actual search logic
         logger.info("Performing image to image search for query.")
 
-        search_img = ImagePersistData(
-            lance_db=self.request.app.state.lance_db
-        )
+        # search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duck_db,)
+        search_img = ImagePersistData(lance_db=self.request.app.state.lance_db,duckdb=self.request.app.state.duckdb,)
         results = search_img.fetch_similar_images_from_bytes(
             request=self.request,
             image_bytes=image_bytes,

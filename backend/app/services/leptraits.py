@@ -18,12 +18,18 @@ class LepTraits:
         config = LepTraitConfig()
         self.path = config.path
         self.table = config.table
+        self.skip_ingestion = config.skip
         self.db_client = duckdb
 
     def ingest(self):
         """
         Ingests the LepTraits consensus CSV data into the DuckDB database.
         """
+        if self.skip_ingestion:
+            logger.info(
+                "Skipping LepTraits data ingestion as per configuration."
+            )
+            return
         try:
             self.db_client.create_if_not_exists_csv(
                 table_name=self.table, csv_path=self.path

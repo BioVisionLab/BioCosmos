@@ -1,5 +1,6 @@
 import { NcbiAttribution, NcbiLink } from "@/components/Attribution";
 import { IconContainer } from "@/components/IconContainer";
+import Info from "@/components/Info";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
 import {
@@ -72,10 +73,12 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
   return (
     <div id="genetics-section">
       <div className="mb-4">
-        <p className="rounded-md border border-teal-300/30 bg-gradient-to-br from-teal-500/20 to-emerald-300/10 px-3 py-2 text-[13px] leading-snug text-gray-600 dark:text-gray-400 w-fit">
-          Genetic information is fetched automatically from <NcbiLink />. It
-          includes only sequenced genes currently available for this species.
-        </p>
+        <Info>
+          <p>
+            Genetic information is fetched automatically from <NcbiLink />. It
+            includes only sequenced genes currently available for this species.
+          </p>
+        </Info>
       </div>
       <div className="mx-auto items-center">
         <div>
