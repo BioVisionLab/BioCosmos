@@ -68,12 +68,17 @@ class ImageFileRetrieval:
         """
         Retrieve the thumbnail image file path for a species.
         """
-        image_ids: list[str] = ImageMetaService(duckdb=self.duckdb).get_image_ids_by_species(scientific_name)
+        # Prefer IDs from the Lance collection (images actually ingested)
+        persisted = ImagePersistData(lance_db=self.lance_db, duckdb=self.duckdb).fetch_image_ids(scientific_name)
+        # fetch_image_ids may return a dict { species, imageIds } or a plain list
+        if isinstance(persisted, dict):
+            image_ids = persisted.get("imageIds", [])
+        else:
+            image_ids = persisted or []
 
         if not image_ids:
             return None
 
-        # For simplicity, use the first image ID for the thumbnail
         first_image_id = image_ids[0]
         return self.get_thumbnail(first_image_id)
 
@@ -81,12 +86,16 @@ class ImageFileRetrieval:
         """
         Retrieve the full-resolution image file path for a species.
         """
-        image_ids: list[str] = ImageMetaService(duckdb=self.duckdb).get_image_ids_by_species(scientific_name)
+        # Prefer IDs from the Lance collection (images actually ingested)
+        persisted = ImagePersistData(lance_db=self.lance_db, duckdb=self.duckdb).fetch_image_ids(scientific_name)
+        if isinstance(persisted, dict):
+            image_ids = persisted.get("imageIds", [])
+        else:
+            image_ids = persisted or []
 
         if not image_ids:
             return None
 
-        # For simplicity, use the first image ID for the full-resolution image
         first_image_id = image_ids[0]
         return self.get_full_res(first_image_id)
 
