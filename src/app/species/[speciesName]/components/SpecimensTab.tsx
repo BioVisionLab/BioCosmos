@@ -14,12 +14,17 @@ import {
 } from "@/lib/images";
 import ImageUmap from "./ImageUmap";
 import Tips from "@/components/Tips";
+import GalleryPagination from "./GalleryPagination";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
   specimens?: any[] | undefined;
   // preferred: pass speciesName to fetch image IDs from backend
   speciesName?: string;
+  // when true, show full gallery with pagination; when false show only first 16 images
+  showAll?: boolean;
+  // when false, hide the Image UMAP / similarity box
+  showUmap?: boolean;
 }
 
 type ThumbItem = {
@@ -27,7 +32,7 @@ type ThumbItem = {
   thumbUrl?: string;
 };
 
-const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) => {
+const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, showAll: propsShowAll, showUmap: propsShowUmap }) => {
   const [items, setItems] = useState<ThumbItem[]>([]); // current page items
   const [specimenData, setSpecimenData] = useState<SpecimenData | null>(null);
   const [specimenLoading, setSpecimenLoading] = useState(false);
@@ -39,6 +44,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
   // pagination
   const PAGE_SIZE = 24; // images per page
   const INITIAL_PAGES = 5; // initial pages to request (24 * 5 = 120)
+  // preview size for species overview (two rows)
+  const MAX_PREVIEW = 16;
   const [currentPage, setCurrentPage] = useState<number>(1); // 1-based
   // `displayPage` is the visual page highlighted in the UI. We update it
   // immediately on user actions to provide instant feedback; `currentPage`
@@ -51,6 +58,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
 
   // simple cache of fetched thumbnail URLs by image id
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
+  const showAll = propsShowAll ?? false;
+  const showUmap = propsShowUmap ?? true;
   // track which thumbnails have finished loading (by id)
   const [loadedThumbIds, setLoadedThumbIds] = useState<Set<string>>(new Set());
   // cache for fetched full-size images while modal is open
@@ -67,7 +76,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       if (!mounted) return;
 
       if (speciesName) {
-        await loadFromSpecies(nameOr(speciesName), mounted);
+        if (showAll) {
+          await loadFromSpecies(nameOr(speciesName), mounted);
+        } else {
+          await loadPreview(nameOr(speciesName), mounted);
+        }
       } else if (!speciesName && specimens && specimens.length > 0) {
         await loadFromSpecimensFallback(specimens, mounted);
       } else {
@@ -83,7 +96,52 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
       mountedMeta = false;
       revokeAll();
     };
-  }, [speciesName, specimens]);
+  }, [speciesName, specimens, showAll]);
+
+  // load a small preview (first `MAX_PREVIEW` ids) for the overview page
+  async function loadPreview(name: string, mountedFlag = true) {
+    setLoading(true);
+    setError(null);
+    setItems([]);
+    revokeAll();
+    thumbCache.current.clear();
+    setAllIds(null);
+    allIdsRef.current = null;
+    setCurrentPage(1);
+    setDisplayPage(1);
+    setExhaustedIds(false);
+
+    try {
+      const limit = MAX_PREVIEW;
+      const ids = await fetchSpeciesImageIds(name, limit, 0);
+      if (!mountedFlag) return;
+
+      if (!ids || ids.length === 0) {
+        setError("No image IDs returned for this species.");
+        setItems([]);
+        return;
+      }
+
+      setAllIds(ids);
+      allIdsRef.current = ids;
+      // if backend returned fewer than the requested preview, we've loaded all available ids
+      if (ids.length < limit) setExhaustedIds(true);
+      if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts) setExhaustedIds(true);
+      const toUse = ids.slice(0, limit);
+      const results = await fetchThumbnailsForIds(toUse);
+      if (!mountedFlag) return;
+      results.forEach((r) => {
+        if (r.url) createdUrls.current.push(r.url);
+        thumbCache.current.set(r.id, r.url);
+      });
+      setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
+    } catch (err) {
+      console.error("SpecimensTab preview load error:", err);
+      if (mountedFlag) setError("Failed to load specimen thumbnails.");
+    } finally {
+      if (mountedFlag) setLoading(false);
+    }
+  }
 
   // helper to normalize a name string
   const nameOr = (n?: string) => n ?? "";
@@ -743,9 +801,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
           )}
         </div>
       </div>
-      <div id="specimen-umap">
-        <ImageUmap species={speciesName ?? ""} />
-      </div>
+      {showUmap && (
+        <div id="specimen-umap">
+          <ImageUmap species={speciesName ?? ""} />
+        </div>
+      )}
       <div id="specimen-thumbs" className="mt-8">
         <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-3">Specimen Images</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-6">
@@ -753,6 +813,59 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
               layout shift. If a thumbnail isn't available yet, show the
               placeholder but keep the tile size fixed so the page doesn't jump. */}
           {(() => {
+            // If we're showing a preview (not full gallery), render only two rows (16 images)
+            if (!showAll) {
+              const MAX_PREVIEW = 16;
+              const pageIds = allIds ? allIds.slice(0, MAX_PREVIEW) : items.map((it) => it.id).slice(0, MAX_PREVIEW);
+              const renderIds = pageIds.length > 0 ? pageIds : Array.from({ length: MAX_PREVIEW }).map((_, i) => `ph-${i}`);
+
+              return renderIds.map((idOrPlaceholder) => {
+                const isPlaceholder = typeof idOrPlaceholder !== "string" || idOrPlaceholder.startsWith("ph-");
+                const id = isPlaceholder ? undefined : idOrPlaceholder;
+                const cached = id ? thumbCache.current.get(id) : undefined;
+                const isLoaded = id ? loadedThumbIds.has(id) : false;
+
+                return (
+                  <button
+                    key={id ?? String(idOrPlaceholder)}
+                    onClick={() => (id ? openFull(id) : undefined)}
+                    title={id ? "Open full image" : undefined}
+                    className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
+                  >
+                    {cached ? (
+                      <>
+                        <img
+                          src={cached}
+                          alt={id ? `Specimen ${id}` : "Loading..."}
+                          className="object-cover w-full h-full"
+                          onLoad={() => {
+                            if (!id) return;
+                            setLoadedThumbIds((s) => {
+                              if (s.has(id)) return s;
+                              const n = new Set(s);
+                              n.add(id);
+                              return n;
+                            });
+                          }}
+                        />
+                        <div
+                          className={`absolute inset-0 flex items-center justify-center bg-gray-100/70 dark:bg-gray-800/70 transition-opacity ${
+                            isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                          }`}
+                        >
+                          <ImageLoading size={110} msg={"Images loading"} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-400 h-full">
+                        <ImageLoading size={110} msg={"Images loading"} />
+                      </div>
+                    )}
+                  </button>
+                );
+              });
+            }
+
             const start = (displayPage - 1) * PAGE_SIZE;
             const pageIds = allIds
               ? allIds.slice(start, start + PAGE_SIZE)
@@ -816,73 +929,35 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
           })()}
         </div>
       </div>
-      {/* Pagination bar */}
-      <div className="flex items-center justify-center gap-3 mt-3">
-        {/* Prev pill on the left */}
-        <button
-          onClick={() => gotoPage(displayPage - 1)}
-          disabled={displayPage <= 1 || isLoadingMore || loading}
-          className={`h-8 flex items-center px-4 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
-            displayPage <= 1 || isLoadingMore
-              ? "text-gray-500 cursor-not-allowed"
-              : "text-gray-200 hover:bg-gray-700"
-          }`}
-        >
-          Prev
-        </button>
-
-        {/* Central page index pill */}
-        <div className="inline-flex items-center rounded-full bg-gray-800/80 p-1 border border-gray-600/50 shadow-sm">
-          {(() => {
-            const elems: React.ReactNode[] = [];
-            const displayTotal = speciesTotalPages;
-            const windowSize = 10;
-            const half = Math.floor(windowSize / 2);
-
-            // Compute sliding window centered on `highlightPage` when
-            // possible. This keeps the highlighted pill stable in the
-            // middle slot and avoids visual flashing when `displayPage`
-            // or other state updates happen asynchronously.
-            let start = Math.max(1, Math.min(highlightPage - half, Math.max(1, displayTotal - windowSize + 1)));
-            let end = start + windowSize - 1;
-            if (end > displayTotal) end = displayTotal;
-
-            // clamp highlight to visible window as a safety net
-            const renderHighlight = Math.min(Math.max(highlightPage, start), end);
-
-            for (let p = start; p <= end; p++) {
-              const isHighlighted = p === renderHighlight;
-              elems.push(
-                <button
-                  key={`p-${p}`}
-                  onClick={() => gotoPage(p)}
-                  className={`h-8 flex items-center px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
-                    isHighlighted ? "bg-emerald-500 text-white" : "text-gray-200 hover:bg-gray-700"
-                  }`}
-                  aria-current={isHighlighted ? "page" : undefined}
-                >
-                  {p}
-                </button>
-              );
-            }
-
-            return elems;
-          })()}
+      {/* If we're showing only a preview, render a "View more images" button when more images exist */}
+      {!showAll && speciesTotalImages > 16 && nameOr(speciesName) && (
+        <div className="flex items-center justify-center mt-4">
+          <a
+            href={`/species/${encodeURIComponent(nameOr(speciesName))}/gallery`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-all bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white shadow hover:opacity-90 hover:shadow-md`}
+          >
+            View more images
+          </a>
         </div>
+      )}
 
-        {/* Next pill on the right */}
-        <button
-          onClick={() => gotoPage(displayPage + 1)}
-          disabled={displayPage >= speciesTotalPages || isLoadingMore || loading}
-          className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
-            displayPage >= speciesTotalPages || isLoadingMore
-              ? "text-gray-500 cursor-not-allowed"
-              : "text-gray-200 hover:bg-gray-700"
-          }`}
-        >
-          Next
-        </button>
-      </div>
+      {/* Pagination bar (moved to GalleryPagination component) */}
+      {showAll && (
+        <React.Suspense>
+          {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+          {/* @ts-ignore */}
+          <GalleryPagination
+            displayPage={displayPage}
+            gotoPage={gotoPage}
+            isLoadingMore={isLoadingMore}
+            loading={loading}
+            speciesTotalPages={speciesTotalPages}
+            highlightPage={highlightPage}
+          />
+        </React.Suspense>
+      )}
 
       {/* Modal/lightbox for full-size image */}
       {modalOpen && (
@@ -1017,14 +1092,5 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName }) =
     </div>
   );
 };
-
-function ImageGalleryHeader() {
-  return (
-    <div className="mb-4">
-      <h2 className="text-2xl font-semibold mb-2">Specimen Images</h2>
-      <Tips message="Click on an image to view in full size" />
-    </div>
-  );
-}
 
 export default SpecimensTab;

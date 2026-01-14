@@ -87,7 +87,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
           />
 
           <div className="mt-8">
-            <TabsComponent speciesData={speciesData} />
+            <TabsComponent speciesData={speciesData} speciesSlug={speciesName} />
           </div>
         </div>
       )}
