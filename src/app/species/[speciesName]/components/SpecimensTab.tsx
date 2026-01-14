@@ -788,7 +788,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         </IconContainer>
         <div className="my-2">
           {specimenLoading ? (
-            <ImageLoading size={72} />
+            <ImageLoading size={72} msg={"Loading image count"} />
           ) : specimenData ? (
             <>
               <p className="text-sm text-gray-500">Image count</p>

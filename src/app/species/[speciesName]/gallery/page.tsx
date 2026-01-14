@@ -7,13 +7,43 @@ import { getSpeciesData, SpeciesData } from "@/lib/speciesData";
 import { ImageLoading } from "@/components/Loadings";
 
 export default function Page({ params }: { params: { speciesName: string } }) {
-  const slug = params.speciesName ?? "";
+  const [slug, setSlug] = useState<string>("");
   const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // `params` may be a Promise in newer Next.js versions. Resolve it
+  // inside an effect and store `speciesName` in state instead of
+  // accessing `params.speciesName` synchronously.
   useEffect(() => {
     let mounted = true;
+    const resolveParams = async () => {
+      try {
+        const p = await Promise.resolve(params as any);
+        if (!mounted) return;
+        setSlug(p?.speciesName ?? "");
+      } catch (err) {
+        if (!mounted) return;
+        setSlug("");
+      }
+    };
+    void resolveParams();
+    return () => {
+      mounted = false;
+    };
+  }, [params]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!slug) {
+      // no slug yet; stop loading spinner
+      setLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     const fetchData = async () => {
+      setLoading(true);
       try {
         const data = await getSpeciesData(slug);
         if (!mounted) return;
@@ -44,7 +74,7 @@ export default function Page({ params }: { params: { speciesName: string } }) {
       <header className="mb-6 mt-4 text-center mx-auto">
         {loading ? (
           <div className="flex items-center justify-center">
-            <ImageLoading size={64} />
+            <ImageLoading size={64} msg={"Loading species details"} />
           </div>
         ) : speciesData && speciesData.taxonomy ? (
           <SpeciesHeader taxonomy={speciesData.taxonomy} name={speciesData.taxonomy.species} />
