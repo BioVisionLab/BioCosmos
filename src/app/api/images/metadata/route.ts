@@ -23,7 +23,13 @@ export async function GET(request: Request): Promise<NextResponse> {
   console.log(`API: Fetching image metadata for species: ${species}`);
 
   try {
-    const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(species)}/ids`;
+    const limit = searchParams.get("limit");
+    const offset = searchParams.get("offset");
+    let metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(species)}/ids`;
+    const qs: string[] = [];
+    if (limit) qs.push(`limit=${encodeURIComponent(limit)}`);
+    if (offset) qs.push(`offset=${encodeURIComponent(offset)}`);
+    if (qs.length > 0) metadataUri += `?${qs.join("&")}`;
     const response = await fetch(metadataUri, {
       method: "GET",
     });

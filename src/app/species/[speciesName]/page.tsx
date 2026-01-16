@@ -78,7 +78,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
         </nav>
       )}
       {loading || !speciesData ? (
-        <ImageLoading size={240} msg="Fetching species details" />
+        <ImageLoading size={300} msg="Fetching species details" />
       ) : (
         <div>
           <SpeciesHeader
@@ -87,7 +87,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
           />
 
           <div className="mt-8">
-            <TabsComponent speciesData={speciesData} />
+            <TabsComponent speciesData={speciesData} speciesSlug={speciesName} />
           </div>
         </div>
       )}

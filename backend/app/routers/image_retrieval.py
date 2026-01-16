@@ -1,4 +1,5 @@
-from http.client import HTTPException
+# from http.client import HTTPException
+from fastapi import APIRouter, Request, HTTPException
 from ..query.image_files import ImageFileRetrieval
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
@@ -34,6 +35,8 @@ async def image_search_by_id(
             )
         # Correctly stream the image bytes
         return FileResponse(img_path)
+    except HTTPException:
+        raise  # preserve 404, 400, etc
     except Exception as e:
         logger.error(
             f"Error during image fetch by ID {image_id}: {e}",
@@ -72,12 +75,14 @@ async def image_search_thumbnail_by_id(
             )
         # Correctly stream the image bytes
         return FileResponse(img_path)
+    except HTTPException:
+        raise  # preserve 404, 400, etc
     except Exception as e:
         logger.error(
-            f"Error during thumbnail image fetch by ID {image_id}: {e}",
+            f"Error during image fetch by ID {image_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=500,
-            detail="An internal error occurred during thumbnail image fetch by ID.",
+            detail="An internal error occurred during image fetch by ID.",
         )

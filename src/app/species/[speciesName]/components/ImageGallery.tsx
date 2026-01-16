@@ -21,7 +21,7 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
       setItems([]);
 
       try {
-        const image_ids = await fetchSpeciesImageIds(speciesName, 6);
+        const image_ids = await fetchSpeciesImageIds(speciesName, 8);
         if (image_ids.length === 0) {
           setItems([]);
           return;
@@ -58,14 +58,45 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
         <div className="flex flex-col gap-3 h-full">
           {/* add outer padding so thumbs have breathing room */}
           {/* Main image */}
-          <div className="relative w-full grow rounded-xl overflow-hidden border  border-gray-200 dark:border-gray-700">
+          <div className="relative w-full flex-grow rounded-xl overflow-hidden border  border-gray-200 dark:border-gray-700">
+            {/* Left/right circular nav buttons (scroll through the 8 images) */}
+            <button
+              aria-label="Previous image"
+              onClick={() => handleThumbnailClick(Math.max(0, selectedIndex - 1))}
+              disabled={selectedIndex <= 0}
+              className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
+                selectedIndex <= 0
+                  ? "text-gray-400 cursor-not-allowed bg-transparent"
+                  : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
             <GalleryFullImage
               imageId={items[selectedIndex]}
               speciesName={speciesName}
             />
+
+            <button
+              aria-label="Next image"
+              onClick={() => handleThumbnailClick(Math.min(items.length - 1, selectedIndex + 1))}
+              disabled={selectedIndex >= items.length - 1}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
+                selectedIndex >= items.length - 1
+                  ? "text-gray-400 cursor-not-allowed bg-transparent"
+                  : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
 
-          {/* Thumbnails (show up to 6 total images, keeping order) */}
+          {/* Thumbnails (show up to 8 total images, keeping order) */}
           {items.length > 1 && (
             <div className="flex gap-3 overflow-x-auto">
               {/* increased gap and top padding */}

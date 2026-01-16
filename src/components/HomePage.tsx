@@ -88,6 +88,8 @@ export default function HomePage() {
       </div>
 
       <HomeContent />
+      {/* spacer between homepage content and the site footer */}
+      <div className="h-8 md:h-14 lg:h-16" aria-hidden="true" />
     </div>
   );
 }

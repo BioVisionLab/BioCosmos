@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ImageSearchResult } from "./components/ImageSearchResult";
 import SemanticSearchResults from "./components/SemanticSearchResults";
-import TextSearchResults from "./components/TextSearchResults";
 
 const MODE_OPTIONS = ["semantic", "text", "image"] as const;
 type SearchMode = (typeof MODE_OPTIONS)[number];
@@ -52,7 +51,7 @@ function SearchContent() {
     case "semantic":
       return <SemanticSearchResults query={query} />;
     case "text":
-      return <TextSearchResults query={query} />;
+      return <SemanticSearchResults query={query} />;
     case "image":
       return <ImageSearchResult imageUrl={query} />;
   }
@@ -61,7 +60,11 @@ function SearchContent() {
 export default function SearchPage() {
   return (
     <Suspense fallback={<div className="p-4">Loading search results...</div>}>
-      <SearchContent />
+      <div>
+        <SearchContent />
+        {/* spacer between search results and the site footer */}
+        <div className="h-9 md:h-16 lg:h-18" aria-hidden="true" />
+      </div>
     </Suspense>
   );
 }

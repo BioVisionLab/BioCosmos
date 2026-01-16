@@ -11,9 +11,11 @@ import SpecimensTab from "./SpecimensTab";
 // Define the props for the TabsComponent
 interface TabsComponentProps {
   speciesData: SpeciesData;
+  // route slug (folder name) like 'zeuxidia_amethystus'
+  speciesSlug?: string;
 }
 
-const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
+const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData, speciesSlug }) => {
   // Tab data with placeholders for Traits and Specimens
   const tabsData = [
     {
@@ -43,7 +45,10 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData }) => {
       id: "specimens",
       label: "Specimens",
       content: (
-        <SpecimensTab speciesName={speciesData.taxonomy?.species ?? ""} />
+        <SpecimensTab
+          // prefer the route slug when available so gallery links use correct folder name
+          speciesName={speciesSlug ?? speciesData.taxonomy?.species ?? ""}
+        />
       ),
     },
     {
