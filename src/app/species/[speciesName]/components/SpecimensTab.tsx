@@ -25,6 +25,10 @@ interface SpecimensTabProps {
   showAll?: boolean;
   // when false, hide the Image UMAP / similarity box
   showUmap?: boolean;
+  // when false, hide the image-count header (used by the standalone gallery)
+  showImageCount?: boolean;
+  // optional: preloaded specimen metadata to avoid refetching on gallery pages
+  initialSpecimenData?: SpecimenData | null;
 }
 
 type ThumbItem = {
@@ -32,9 +36,10 @@ type ThumbItem = {
   thumbUrl?: string;
 };
 
-const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, showAll: propsShowAll, showUmap: propsShowUmap }) => {
+const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, showAll: propsShowAll, showUmap: propsShowUmap, showImageCount: propsShowImageCount, initialSpecimenData }) => {
   const [items, setItems] = useState<ThumbItem[]>([]); // current page items
-  const [specimenData, setSpecimenData] = useState<SpecimenData | null>(null);
+  // initialize specimen metadata from optional prop to avoid re-fetching
+  const [specimenData, setSpecimenData] = useState<SpecimenData | null>(initialSpecimenData ?? null);
   const [specimenLoading, setSpecimenLoading] = useState(false);
   const [allIds, setAllIds] = useState<string[] | null>(null); // all image ids for species
   const allIdsRef = useRef<string[] | null>(null);
@@ -60,6 +65,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
   const showAll = propsShowAll ?? false;
   const showUmap = propsShowUmap ?? true;
+  const showImageCount = propsShowImageCount ?? true;
   // track which thumbnails have finished loading (by id)
   const [loadedThumbIds, setLoadedThumbIds] = useState<Set<string>>(new Set());
   // cache for fetched full-size images while modal is open
@@ -71,7 +77,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     let mounted = true;
 
     const run = async () => {
-      await loadMeta(speciesName, mountedMeta);
+      // Only load remote metadata when an initial specimen metadata object
+      // hasn't been provided by the parent (e.g. gallery page).
+      if (!initialSpecimenData) await loadMeta(speciesName, mountedMeta);
 
       if (!mounted) return;
 
@@ -782,32 +790,36 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   return (
     <div>
       {/* Specimen header (icon + image count) */}
-      <div className="flex items-center gap-4 mb-8">
-        <IconContainer>
-          <ButterflyComplex className="w-16 h-16 fill-teal-500" />
-        </IconContainer>
-        <div className="my-2">
-          {specimenLoading ? (
-            <ImageLoading size={72} msg={"Loading image count"} />
-          ) : specimenData ? (
-            <>
-              <p className="text-sm text-gray-500">Image count</p>
-              <p className="text-xl font-semibold">
-                {formatNumberToLocaleString(specimenData.imageCounts)}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">Image count unavailable</p>
-          )}
+      {showImageCount && (
+        <div className="flex items-center gap-4 mb-8">
+          <IconContainer>
+            <ButterflyComplex className="w-16 h-16 fill-teal-500" />
+          </IconContainer>
+          <div className="my-2">
+            {specimenLoading ? (
+              <ImageLoading size={72} msg={"Loading image count"} />
+            ) : specimenData ? (
+              <>
+                <p className="text-sm text-gray-500">Image count</p>
+                <p className="text-xl font-semibold">
+                  {formatNumberToLocaleString(specimenData.imageCounts)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">Image count unavailable</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {showUmap && (
         <div id="specimen-umap">
           <ImageUmap species={speciesName ?? ""} />
         </div>
       )}
       <div id="specimen-thumbs" className="mt-8">
-        <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-3">Specimen Images</h2>
+        {!showAll && (
+          <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-3">Specimen Images</h2>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-6">
           {/* Render a stable grid for the current page using thumbCache to avoid
               layout shift. If a thumbnail isn't available yet, show the

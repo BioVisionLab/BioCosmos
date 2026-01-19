@@ -45,9 +45,28 @@ export default function Page({ params }: { params: { speciesName: string } }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await getSpeciesData(slug);
-        if (!mounted) return;
-        setSpeciesData(data);
+        // Try to reuse cached species data saved by the main species page
+        let cached: SpeciesData | null = null;
+        try {
+          const raw = sessionStorage.getItem(`speciesData:${slug}`);
+          if (raw) cached = JSON.parse(raw) as SpeciesData;
+        } catch (e) {
+          /* ignore parse/storage errors */
+        }
+
+        if (cached) {
+          if (!mounted) return;
+          setSpeciesData(cached);
+        } else {
+          const data = await getSpeciesData(slug);
+          if (!mounted) return;
+          setSpeciesData(data);
+          try {
+            if (data) sessionStorage.setItem(`speciesData:${slug}`, JSON.stringify(data));
+          } catch (e) {
+            /* ignore storage errors */
+          }
+        }
       } catch (err) {
         // ignore, leave speciesData null
       } finally {
@@ -72,19 +91,16 @@ export default function Page({ params }: { params: { speciesName: string } }) {
   return (
     <main className="p-6 max-w-7xl mx-auto">
       <header className="mb-6 mt-4 text-center mx-auto">
-        {loading ? (
-          <div className="flex items-center justify-center">
-            <ImageLoading size={64} msg={"Loading species details"} />
-          </div>
-        ) : speciesData && speciesData.taxonomy ? (
+        {speciesData && speciesData.taxonomy ? (
           <SpeciesHeader taxonomy={speciesData.taxonomy} name={speciesData.taxonomy.species} />
         ) : (
+          // show a fallback title immediately from the slug while taxonomy loads
           <p className="text-4xl font-semibold">
             <span className="italic">{formatSlugToName(slug)}</span>
           </p>
         )}
       </header>
-      <SpecimensTab speciesName={slug} showAll={true} showUmap={false} />
+      <SpecimensTab speciesName={slug} showAll={true} showUmap={false} showImageCount={false} />
     </main>
   );
 }

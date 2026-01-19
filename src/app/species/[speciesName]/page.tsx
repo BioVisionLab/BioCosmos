@@ -32,6 +32,12 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
         const data = await getSpeciesData(speciesName);
         if (data) {
           setSpeciesData(data);
+          try {
+            // cache species data in sessionStorage so gallery pages can reuse it
+            sessionStorage.setItem(`speciesData:${speciesName}`, JSON.stringify(data));
+          } catch (e) {
+            // ignore storage errors
+          }
         } else {
           setError("Species data not found.");
         }

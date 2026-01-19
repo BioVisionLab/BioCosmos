@@ -1,17 +1,33 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Navigation() {
   const navItems = [
     { id: "home", label: "Home", href: "/" },
-    { id: "resources", label: "Resources", href: "/resources" },
     { id: "collections", label: "Collections", href: "/collections" },
+    { id: "resources", label: "Resources", href: "/resources" },
     { id: "about", label: "About", href: "/about" },
   ];
 
   const [activeTab, setActiveTab] = useState(navItems[0].id);
+
+  // keep active tab in sync with the current pathname so the highlight
+  // updates when navigation occurs outside this component
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!pathname) return;
+    const p = pathname;
+    let id = "home";
+    if (p === "/") id = "home";
+    else if (p.startsWith("/collections")) id = "collections";
+    else if (p.startsWith("/resources")) id = "resources";
+    else if (p.startsWith("/about")) id = "about";
+    setActiveTab(id);
+  }, [pathname]);
 
   const baseBtn =
     "inline-flex items-center justify-center px-8 py-1 rounded-full text-1xl font-semibold transition-all";
@@ -22,11 +38,7 @@ export default function Navigation() {
         <div
           className={
             `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
-<<<<<<< HEAD
-            `bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 text-black shadow border-transparent ` +
-=======
             `bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 text-black border-transparent ` +
->>>>>>> api-redesign
             `dark:from-emerald-900 dark:via-teal-900 dark:to-cyan-900 dark:text-white`
           }
           role="tablist"

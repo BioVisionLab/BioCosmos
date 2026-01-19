@@ -9,5 +9,5 @@ interface SpecimenGalleryProps {
 
 export default function SpecimenGallery({ speciesName }: SpecimenGalleryProps) {
   // Render the full gallery (SpecimensTab will fetch all IDs when showAll is true)
-  return <SpecimensTab speciesName={speciesName} showAll={true} showUmap={false} />;
+  return <SpecimensTab speciesName={speciesName} showAll={true} showUmap={false} showImageCount={false} />;
 }
