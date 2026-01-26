@@ -1,14 +1,17 @@
 import logging
 import torch
+
 from ..configs.config import EmbedderConfig
 import unicom
 import io
 import numpy as np
 from PIL import Image
+from PIL.Image import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
 UNICOM_MODEL_NAME = "ViT-L/14@336px"  # UNICOM model
+MAX_UNICOM_RESOLUTION = 336
 
 
 class UnicomModel:
@@ -80,7 +83,9 @@ class UnicomImageEmbedder:
             return None
         try:
             image: Image = Image.open(image_path).convert("RGB")
-            return self._get_embedding(image)
+            image = self._resize_image(image)
+            image.close()
+            return self.get_embedding(image)
         except Exception as e:
             self.logger.error(
                 f"Could not process image {image_path} with UNICOM: {e}",
@@ -96,6 +101,7 @@ class UnicomImageEmbedder:
             return None
         try:
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            image = self._resize_image(image)
             return self.get_embedding(image)
         except Exception as e:
             self.logger.error(
@@ -105,7 +111,7 @@ class UnicomImageEmbedder:
             return None
 
     def batch_get_embeddings(
-        self, images: list[Image]
+        self, images: list[PILImage]
     ) -> list[np.ndarray]:
         """Get embeddings for a batch of PIL Images."""
         if self.model is None:
@@ -114,6 +120,7 @@ class UnicomImageEmbedder:
             )
             return []
         try:
+            images = [self._resize_image(img) for img in images]
             inputs = torch.stack(
                 [self.transform(img) for img in images]
             ).to(self.device)
@@ -158,3 +165,13 @@ class UnicomImageEmbedder:
                 exc_info=True,
             )
             return None
+
+    def _resize_image(self, image: Image) -> Image:
+        """Resize image to fit within MAX_UNICOM_RESOLUTION while maintaining aspect ratio."""
+        max_dimension = max(image.size)
+        if max_dimension > MAX_UNICOM_RESOLUTION:
+            image.thumbnail(
+                (MAX_UNICOM_RESOLUTION, MAX_UNICOM_RESOLUTION),
+                Image.LANCZOS,
+            )
+        return image

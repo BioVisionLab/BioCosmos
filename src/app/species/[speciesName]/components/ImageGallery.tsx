@@ -15,27 +15,33 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
-    const loadIdsAndImages = async () => {
+    if (!speciesName) {
+      setItems([]);
+      setSelectedIndex(0);
+      setLoading(false);
+      return;
+    }
+
+    let ignore = false; // React docs pattern for race conditions
+    const run = async () => {
       setLoading(true);
       setSelectedIndex(0);
       setItems([]);
 
       try {
-        const image_ids = await fetchSpeciesImageIds(speciesName, 8);
-        if (image_ids.length === 0) {
-          setItems([]);
-          return;
-        }
-        setItems(image_ids);
-      } catch (err) {
-        console.error("SpeciesImages load error:", err);
-        setItems([]);
+        const ids = await fetchSpeciesImageIds(speciesName, 6);
+        if (!ignore) setItems(ids);
+      } catch (e) {
+        if (!ignore) setItems([]);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
-    loadIdsAndImages();
+    run();
+    return () => {
+      ignore = true;
+    };
   }, [speciesName]);
 
   const handleThumbnailClick = (index: number) => {
@@ -62,7 +68,9 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
             {/* Left/right circular nav buttons (scroll through the 8 images) */}
             <button
               aria-label="Previous image"
-              onClick={() => handleThumbnailClick(Math.max(0, selectedIndex - 1))}
+              onClick={() =>
+                handleThumbnailClick(Math.max(0, selectedIndex - 1))
+              }
               disabled={selectedIndex <= 0}
               className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex <= 0
@@ -70,8 +78,19 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
                   : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
               }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
 
@@ -82,7 +101,11 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
 
             <button
               aria-label="Next image"
-              onClick={() => handleThumbnailClick(Math.min(items.length - 1, selectedIndex + 1))}
+              onClick={() =>
+                handleThumbnailClick(
+                  Math.min(items.length - 1, selectedIndex + 1),
+                )
+              }
               disabled={selectedIndex >= items.length - 1}
               className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex >= items.length - 1
@@ -90,8 +113,19 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
                   : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
               }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
           </div>
@@ -147,7 +181,7 @@ function GalleryFullImage({
       } catch (err) {
         console.error(
           `Failed to load full image for image ID ${imageId}:`,
-          err
+          err,
         );
       } finally {
         setLoading(false);
@@ -208,12 +242,14 @@ function GalleryThumbnail({
   return loading ? (
     <ImageLoading size={48} msg="" />
   ) : (
-    <Image
-      src={thumbUrl}
-      alt={`Thumbnail ${idx + 1} of ${speciesName}`}
-      fill
-      sizes="96px"
-      className="object-cover"
-    />
+    <div className="p-4">
+      <Image
+        src={thumbUrl}
+        alt={`Thumbnail ${idx + 1} of ${speciesName}`}
+        fill
+        sizes="96px"
+        className="object-contain"
+      />
+    </div>
   );
 }

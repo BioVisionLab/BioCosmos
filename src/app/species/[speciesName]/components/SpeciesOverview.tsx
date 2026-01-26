@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
@@ -6,7 +7,7 @@ import { SpeciesImageGallery } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
 import { SpeciesClassification } from "./TaxonClassification";
 import { RedListStatus } from "./IucnRedlist";
-import { SimilarSpeciesMeta, TaxonomyData } from "@/lib/speciesData";
+import { TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 import { LepTraits } from "@/lib/leptraits";
 import { NoData } from "@/components/NoData";
@@ -26,14 +27,9 @@ const SpeciesDistribution = dynamic(
 interface SpeciesOverviewProps {
   taxonomy: TaxonomyData | null;
   traits: LepTraits | null;
-  similarSpecies: SimilarSpeciesMeta[];
 }
 
-export function SpeciesOverview({
-  taxonomy,
-  traits,
-  similarSpecies,
-}: SpeciesOverviewProps) {
+export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
   if (!taxonomy) {
     return (
       <section className="container mx-auto px-4 py-8">
@@ -54,6 +50,7 @@ export function SpeciesOverview({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <SpeciesImageGallery speciesName={taxonomy?.species ?? ""} />
+
           <SpeciesDescription
             traits={traits}
             species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
@@ -68,6 +65,7 @@ export function SpeciesOverview({
         </div>
       </div>
       <div className="mt-6">
+<<<<<<< HEAD
         {/* Render placeholders immediately; mount the similar-species gallery after first paint */}
         <DeferredSimilar species={taxonomy?.species ?? ""} meta={similarSpecies} />
       </div>
@@ -128,6 +126,9 @@ function DeferredSimilar({ species, meta }: { species: string; meta: SimilarSpec
             </div>
           ))}
         </div>
+=======
+        <VisuallySimilarSpecies species={taxonomy?.species ?? ""} />
+>>>>>>> api-redesign
       </div>
     </div>
   );

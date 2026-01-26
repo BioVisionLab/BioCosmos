@@ -91,9 +91,9 @@ class LanceSchema(LanceModel):
 
     img_id: str
     img_bytes: bytes
-    species: str
-    # file_format: str
-    # original_size: bool
+    # species: str
+    file_format: str
+    original_size: bool
     clip_embeddings: Vector(clip.get_clip_ndims())
     unicom_embeddings: Vector(unicom.get_unicom_ndims())
 
@@ -386,6 +386,9 @@ class UmapEmbedding(BaseModel):
     img_id: str
     umap_x: float
     umap_y: float
+    lat: Optional[float]
+    lon: Optional[float]
+    class_dv: Optional[str]
     cluster_label: Optional[int]
 
     def __repr__(self):
@@ -398,6 +401,7 @@ class UmapData(BaseModel):
     )
 
     species: str
+    cluster_counts: int
     umap_embeddings: list[UmapEmbedding]
 
     def __repr__(self):

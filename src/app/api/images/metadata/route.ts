@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { API_HOST } from "@/lib/config";
 
-const IMAGE_API_URL = `${API_HOST}/species`;
+const IMAGE_API_URL = `${API_HOST}/image`;
 
 /**
  * This route is responsible for serving images related to a specific species.
@@ -16,20 +16,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!species) {
     return NextResponse.json(
       { error: "Query parameter 'scientificName' is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   console.log(`API: Fetching image metadata for species: ${species}`);
 
   try {
-    const limit = searchParams.get("limit");
-    const offset = searchParams.get("offset");
-    let metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(species)}/ids`;
-    const qs: string[] = [];
-    if (limit) qs.push(`limit=${encodeURIComponent(limit)}`);
-    if (offset) qs.push(`offset=${encodeURIComponent(offset)}`);
-    if (qs.length > 0) metadataUri += `?${qs.join("&")}`;
+    const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(
+      species,
+    )}/metadata`;
     const response = await fetch(metadataUri, {
       method: "GET",
     });
@@ -37,7 +33,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     if (!response.ok) {
       return NextResponse.json(
         { error: `Failed to fetch image metadata: ${response.statusText}` },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -47,13 +43,13 @@ export async function GET(request: Request): Promise<NextResponse> {
   } catch (error) {
     console.error(
       `Error fetching image metadata for species ${species}:`,
-      error
+      error,
     );
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
       { error: `Failed to fetch image metadata: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

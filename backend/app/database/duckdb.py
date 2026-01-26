@@ -63,6 +63,18 @@ class DuckDBClient:
         """
         return self.conn.execute(query, params)
 
+    def execute_prepared_to_pl(
+        self, query: str, params: list
+    ) -> pl.DataFrame:
+        """Execute a prepared SQL query with parameters and return the result as a Polars DataFrame.
+        Args:
+            query (str): The SQL query to execute.
+            params (list): The list of parameters to bind to the query.
+        Returns:
+            pl.DataFrame: The result of the query as a Polars DataFrame.
+        """
+        return self.conn.execute(query, params).pl()
+
     def create_or_replace_table_csv(
         self, table_name: str, csv_path: str
     ):

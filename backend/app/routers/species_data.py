@@ -1,11 +1,12 @@
-from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 from ..query.specimen_data import SpecimenData
 import logging
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from ..query.taxon_data import TaxonSearch
-from fastapi.responses import FileResponse, JSONResponse
-# New import:
-from ..services.images import ImagePersistData
+from ..query.species_similarity import (
+    SpeciesSimilarity,
+    VisuallySimilarSpeciesPayload,
+)
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -65,151 +66,51 @@ async def fetch_species_biology(
         )
 
 
-@router.get(
-    "/species/{scientific_name}/ids",
-    tags=["Species Data", "Taxon Images"],
-)
-async def fetch_species_image_ids(
-    request: Request, scientific_name: str, limit: int | None = None, offset: int | None = None
-):
-    """
-    Takes in a species name.
-    Fetches all the corresponding image IDs.
-    Return a list of image IDs.
-    Returns a 404 error if images are not found.
-    """
-    logger.info(f"Fetching image IDs for species: {scientific_name}")
-
-    try:
-        # Enforce a safe default and a hard maximum to avoid excessive queries
-        MAX_LIMIT = 2000
-        DEFAULT_LIMIT = 10
-        if limit is None:
-            effective_limit = DEFAULT_LIMIT
-        else:
-            # clamp to [1, MAX_LIMIT]
-            try:
-                effective_limit = max(1, min(int(limit), MAX_LIMIT))
-            except Exception:
-                effective_limit = DEFAULT_LIMIT
-
-        # normalize offset
-        try:
-            effective_offset = max(0, int(offset)) if offset is not None else 0
-        except Exception:
-            effective_offset = 0
-
-        # Using method that returns image IDs: fetch_image_ids
-        # Pass the effective (clamped/defaulted) limit and offset to the service.
-        # Old line:
-        # image_ids = ImagePersistData(lance_db=request.app.state.lance_db).fetch_image_ids(scientific_name, effective_limit, effective_offset)
-        # New line:
-        image_ids = ImagePersistData(lance_db=request.app.state.lance_db, duckdb=request.app.state.duckdb,).fetch_image_ids(scientific_name, effective_limit, effective_offset,)
-        if not image_ids:
-            logger.warning(
-                f"No images found for species: {scientific_name}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail=f"Images not found for species: {scientific_name}",
-            )
-        return JSONResponse(content=image_ids)
-        # returning the IDs in a JSON response
-    except Exception as e:
-        # Catch potential errors from the data fetching logic itself
-        logger.error(
-            f"Error fetching image IDs for {scientific_name}: {e}"
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred while fetching image IDs.",
-        )
+def get_species_similarity(request: Request) -> SpeciesSimilarity:
+    return SpeciesSimilarity(request=request, limit=10)
 
 
 @router.get(
-    "/species/{scientific_name}/thumbnail",
-    tags=["Species Data", "Taxon Images"],
+    "/species/{scientific_name}/similar",
+    tags=["Species Data", "ML Search"],
+    response_model=VisuallySimilarSpeciesPayload,
 )
-async def fetch_taxon_thumbnail(
-    request: Request, scientific_name: str
-):
+async def fetch_visually_similar_species(
+    scientific_name: str,
+    service: SpeciesSimilarity = Depends(get_species_similarity),
+) -> dict:
     """
-    Fetches a taxon thumbnail image.
-    Returns a 404 error if the thumbnail is not found.
+    Fetch visually similar species based on image similarity analyses.
+    Returns 404 if no similar species are found.
     """
     logger.info(
-        f"Fetching taxon thumbnail for species: {scientific_name}"
+        "Fetching visually similar species for: %s", scientific_name
     )
 
     try:
-        # It's also good practice to wrap calls that might fail
-        img_path = ImageFileRetrieval(
-            request=request
-        ).get_species_thumbnail(scientific_name)
-    except Exception as e:
-        # Catch potential errors from the data fetching logic itself
-        logger.error(
-            f"Error fetching data for {scientific_name}: {e}"
+        similar_species = service.find_similar_species(
+            scientific_name
         )
-        raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred while fetching the image data.",
-        )
-
-    if img_path is None:
-        logger.warning(
-            f"No thumbnail found for species: {scientific_name}"
-        )
-        # Correct way to return a 404 error
-        raise HTTPException(
-            status_code=404,
-            detail=f"Thumbnail not found for species: {scientific_name}",
-        )
-
-    # Correctly stream the image bytes
-    return FileResponse(img_path)
-
-
-@router.get(
-    "/species/{scientific_name}/image",
-    tags=["Species Data", "Taxon Images"],
-)
-async def fetch_species_high_res_image(
-    request: Request, scientific_name: str
-):
-    """
-    Fetches a species high-resolution image.
-    Returns a 404 error if the image is not found.
-    """
-    logger.info(
-        f"Fetching species high-resolution image for species: {scientific_name}"
-    )
-
-    try:
-        # It's also good practice to wrap calls that might fail
-        img_path = ImageFileRetrieval(
-            request=request
-        ).get_species_image(scientific_name)
-        if img_path is None:
+        if similar_species is None:
             logger.warning(
-                f"No image found for species: {scientific_name}"
+                f"No visually similar species found for: {scientific_name}"
             )
-            # Correct way to return a 404 error
             raise HTTPException(
                 status_code=404,
-                detail=f"Image not found for species: {scientific_name}",
+                detail=f"Visually similar species not found for: {scientific_name}",
             )
 
-        # Correctly stream the image bytes
-        return FileResponse(img_path)
-    except Exception as e:
-        # Catch potential errors from the data fetching logic itself
-        logger.error(
-            f"Error fetching data for {scientific_name}: {e}"
+        return similar_species
+    except HTTPException:
+        raise
+    except Exception:
+        # Includes stack trace.
+        logger.exception(
+            f"Unhandled error fetching visually similar species for: {scientific_name}"
         )
         raise HTTPException(
             status_code=500,
-            detail="An internal error occurred while fetching the image data.",
+            detail="An internal error occurred while fetching visually similar species.",
         )
 
 
