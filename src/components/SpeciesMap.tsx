@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-"use client";
-
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-=======
 // Render Species Map based on GBIF occurrences
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
->>>>>>> api-redesign
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -91,7 +85,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
         ) {
           console.error(
             `Invalid coordinates for occurrence key ${occ.key}:`,
-            occ
+            occ,
           );
           return null; // Skip rendering this marker if coordinates are invalid
         }
