@@ -132,19 +132,19 @@ def initialize_lance(app: FastAPI):
 def initialize_duckdb(app: FastAPI):
     """Initializes and attaches the DuckDB to the app state."""
     logger.info("Initializing DuckDB...")
-    app.state.duckdb = DuckDBClient()
+    app.state.duck_db = DuckDBClient()
     logger.info("DuckDB initialized successfully.")
 
 
 def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
-    LepTraits(app.state.duckdb).ingest()
+    LepTraits(app.state.duck_db).ingest()
     logger.info("LepTraits data ingested.")
-    GbifPersistData(app.state.duckdb).ingest()
+    GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
-    SpeciesImageUmap(app.state.duckdb).ingest()
-    ImageMetaService(app.state.duckdb).ingest()
+    SpeciesImageUmap(app.state.duck_db).ingest()
+    ImageMetaService(app.state.duck_db).ingest()
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -197,10 +197,10 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down...")
     try:
         if (
-            hasattr(app.state, "duckdb")
-            and app.state.duckdb is not None
+            hasattr(app.state, "duck_db")
+            and app.state.duck_db is not None
         ):
-            app.state.duckdb.close()
+            app.state.duck_db.close()
         app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None
