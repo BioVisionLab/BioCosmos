@@ -32,7 +32,7 @@ class ImageMetaRetrieval:
         """
         Initialize the ImageMetaRetrieval class.
         """
-        self.duckdb = request.app.state.duckdb
+        self.duckdb = request.app.state.duck_db
         self.lance_db = request.app.state.lance_db
 
     def get_species_image_ids(
@@ -70,7 +70,7 @@ class ImageFileRetrieval:
         Initialize the ImageRetrieval class.
         """
         self.lance_db = request.app.state.lance_db
-        self.duckdb = request.app.state.duckdb
+        self.duckdb = request.app.state.duck_db
         self.file_format = "webp"
 
     def get_species_thumbnail(

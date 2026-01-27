@@ -139,12 +139,12 @@ def initialize_duckdb(app: FastAPI):
 def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
-    LepTraits(app.state.duckdb).ingest()
+    LepTraits(app.state.duck_db).ingest()
     logger.info("LepTraits data ingested.")
-    GbifPersistData(app.state.duckdb).ingest()
+    GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
-    SpeciesImageUmap(app.state.duckdb).ingest()
-    ImageMetaService(app.state.duckdb).ingest()
+    SpeciesImageUmap(app.state.duck_db).ingest()
+    ImageMetaService(app.state.duck_db).ingest()
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -198,9 +198,9 @@ async def lifespan(app: FastAPI):
     try:
         if (
             hasattr(app.state, "duckdb")
-            and app.state.duckdb is not None
+            and app.state.duck_db is not None
         ):
-            app.state.duckdb.close()
+            app.state.duck_db.close()
         app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None

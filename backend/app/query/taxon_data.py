@@ -157,14 +157,14 @@ class TaxonSearch:
         Get the counts of species in each taxon.
         """
         gbif_service = GbifPersistData(
-            duckdb=self.request.app.state.duckdb
+            duckdb=self.request.app.state.duck_db
         )
         leptraits_service = LepTraits(
-            duckdb=self.request.app.state.duckdb
+            duckdb=self.request.app.state.duck_db
         )
         img_service = ImagePersistData(
             lance_db=self.request.app.state.lance_db,
-            duckdb=self.request.app.state.duckdb,
+            duckdb=self.request.app.state.duck_db,
         )
         try:
             counts_gbif: int | None = gbif_service.count_entries()
@@ -387,7 +387,7 @@ class TaxonSearch:
         """
         try:
             leptraits = LepTraits(
-                duckdb=self.request.app.state.duckdb
+                duckdb=self.request.app.state.duck_db
             )
             leptraits_data = leptraits.get(self.scientific_name)
             if leptraits_data is None:
