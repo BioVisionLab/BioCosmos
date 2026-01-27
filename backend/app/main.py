@@ -132,7 +132,7 @@ def initialize_lance(app: FastAPI):
 def initialize_duckdb(app: FastAPI):
     """Initializes and attaches the DuckDB to the app state."""
     logger.info("Initializing DuckDB...")
-    app.state.duckdb = DuckDBClient()
+    app.state.duck_db = DuckDBClient()
     logger.info("DuckDB initialized successfully.")
 
 
