@@ -25,7 +25,6 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData, speciesSlug 
         <SpeciesOverview
           taxonomy={speciesData.taxonomy}
           traits={speciesData.traits}
-          similarSpecies={speciesData.similarSpecies}
         />
       ),
     },

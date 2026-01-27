@@ -1,5 +1,4 @@
 import polars as pl
-from ..database.model import ImageMetadata
 from ..configs.config import ImageMetaConfig
 from ..database.duckdb import DuckDBClient
 import logging
@@ -186,7 +185,7 @@ class ImageMetaService:
 
     def get_image_meta_by_species(
         self, species: str
-    ) -> list[ImageMetadata] | None:
+    ) -> pl.DataFrame | None:
         """
         Retrieve image IDs for a given species.
 
@@ -196,18 +195,14 @@ class ImageMetaService:
         cleaned_species = self.sanitize_species_name(species)
         try:
             query = f"""
-                SELECT mask_name AS img_id, species, source_db, class_dv FROM {self.table}
+                SELECT REPLACE(mask_name, '.png', '') AS img_id, species, source_db, class_dv FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '') LIMIT 100
             """
             # We export result to polars for easier handling
             results = self.db_client.execute_query(
                 query, cleaned_species
             ).pl()
-            # convert result t a list of pydantic models
-            image_meta_list = [
-                ImageMetadata(**row) for row in results.to_dicts()
-            ]
-            return image_meta_list
+            return results
         except Exception as e:
             logger.error(
                 f"Error retrieving image IDs for species '{species}': {e}"

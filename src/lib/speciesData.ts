@@ -15,22 +15,18 @@ export interface TaxonomyData {
   taxonomicStatus: string;
 }
 
-export interface SimilarSpeciesMeta {
-  imgId: string;
-  species: string;
-  distance: number;
-}
-
 export interface SpeciesData {
   taxonomy: TaxonomyData;
   traits: LepTraits;
-  similarSpecies: SimilarSpeciesMeta[];
 }
 
 export interface SpeciesImageUmap {
   imgId: string;
   umapX: number;
   umapY: number;
+  lat: number;
+  lon: number;
+  classDv: string;
   clusterLabel?: number;
 }
 
@@ -63,13 +59,6 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
     }
     const dataRaw = await response.json();
     const traits: LepTraits = dataRaw["traits"] || {};
-    const similarSpecies: SimilarSpeciesMeta[] =
-      dataRaw["similarSpecies"] || [];
-    const cleanedSimilarSpecies = similarSpecies.map((item) => ({
-      imgId: item.imgId,
-      species: item.species,
-      distance: parseFloat(item.distance.toFixed(4)), // Round distance to 4 decimal places
-    }));
     // Use taxonomy data directly if available, otherwise fallback to the root
     const taxonomy = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
     console.log(`Fetched taxonomy data for ${formattedName}:`, taxonomy);
@@ -81,7 +70,6 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
     return {
       taxonomy,
       traits,
-      similarSpecies: cleanedSimilarSpecies,
     };
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);

@@ -1,27 +1,32 @@
-"use client";
+// Render Species Map based on GBIF occurrences
 
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { useMemo } from "react";
-
-const TILE_LAYER_URL =
-  "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";
-
-const TILE_LAYER_ATTRIBUTION_URL =
-  '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
-interface Occurrence {
-  key: string | number;
-  decimalLatitude: number;
-  decimalLongitude: number;
-  // Add other fields you might fetch from GBIF later, e.g., eventDate, basisOfRecord
-}
+import { useEffect, useMemo } from "react";
+import { getTileLayerAttributionUrl, getTileLayerUrl } from "@/lib/map";
+import { Occurrence } from "@/lib/map";
 
 interface SpeciesMapProps {
   occurrences?: Occurrence[]; // Make occurrences optional
+}
+
+function MapRecenter({
+  center,
+  zoom,
+}: {
+  center: L.LatLngExpression;
+  zoom: number;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+
+  return null;
 }
 
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
@@ -45,15 +50,6 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
     });
   }, []);
 
-  // Prevent server-side rendering for MapContainer
-  if (typeof window === "undefined") {
-    return (
-      <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
-        <span className="text-gray-500">Map loading...</span>
-      </div>
-    ); // Show placeholder during SSR
-  }
-
   // Calculate center and zoom based on occurrences later
   // For now, keep default center/zoom but adjust slightly if there are occurrences
   const mapCenter: L.LatLngExpression =
@@ -66,12 +62,14 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
     <MapContainer
       center={mapCenter}
       zoom={mapZoom}
+      maxZoom={18}
+      minZoom={2}
       scrollWheelZoom={true}
       style={{ height: "400px", width: "100%", borderRadius: "12px" }}
     >
       <TileLayer
-        attribution={TILE_LAYER_ATTRIBUTION_URL}
-        url={TILE_LAYER_URL}
+        attribution={getTileLayerAttributionUrl()}
+        url={getTileLayerUrl()}
       />
 
       {/* Map over occurrences to add Markers */}
@@ -87,7 +85,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
         ) {
           console.error(
             `Invalid coordinates for occurrence key ${occ.key}:`,
-            occ
+            occ,
           );
           return null; // Skip rendering this marker if coordinates are invalid
         }

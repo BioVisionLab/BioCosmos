@@ -161,38 +161,48 @@ class ImageEmbedder:
 
     def _add_batch_to_db(self, img_paths: list[str]):
         """Batch add image embeddings to the database."""
-        if img_paths is None or len(img_paths) == 0:
+        if not img_paths:
             self.logger.error(
                 "No image paths provided for batch addition."
             )
             return
 
         successful_paths, valid_images = self._get_imgs(img_paths)
-        if not valid_images or len(successful_paths) == 0:
+        if not valid_images:
             self.logger.error(
                 "No valid images found for batch addition."
             )
             return
+        try:
+            clip_embeddings: list[np.ndarray] = (
+                self._get_all_clip_embeddings(valid_images)
+            )
+            unicom_embeddings: list[np.ndarray] = (
+                self._get_all_unicom_embeddings(valid_images)
+            )
+
+            if any(e is None for e in clip_embeddings):
+                self.logger.error(
+                    "Some embeddings could not be computed. Skipping batch addition."
+                )
+                return
+        except Exception as e:
+            self.logger.error(
+                f"Error computing embeddings for batch: {e}",
+                exc_info=True,
+            )
+            return
+        # Now process image bytes (preserving transparency from original images)
         image_bytes, original_size_flags = self._get_image_bytes(
             valid_images
         )
-        if not image_bytes or len(image_bytes) == 0:
+
+        if not image_bytes:
             self.logger.error(
                 "No valid image bytes found for batch addition."
             )
             return
-        clip_embeddings: list[np.ndarray] = (
-            self._get_all_clip_embeddings(valid_images)
-        )
-        unicom_embeddings: list[np.ndarray] = (
-            self._get_all_unicom_embeddings(valid_images)
-        )
-        # Fix: Use explicit check for None in list of arrays
-        if any(e is None for e in clip_embeddings):
-            self.logger.error(
-                "Some embeddings could not be computed. Skipping batch addition."
-            )
-            return
+
         data = pl.DataFrame(
             {
                 "img_id": self._get_image_ids_from_paths(
@@ -205,17 +215,20 @@ class ImageEmbedder:
                 "unicom_embeddings": unicom_embeddings,
             }
         )
-        arrow_table = data.to_arrow().cast(self.db_table.schema)
+        self._insert_batch_to_db(data)
+
+    def _insert_batch_to_db(self, data: pl.DataFrame):
+        """Insert a batch of data into the database."""
         try:
-            # Use merge_insert to avoid duplicates based on img_id
+            arrow_table = data.to_arrow().cast(self.db_table.schema)
             self.db_table.merge_insert(
                 "img_id"
             ).when_not_matched_insert_all().execute(arrow_table)
         except Exception as e:
             self.logger.error(
-                f"Error adding batch embeddings: {e}", exc_info=True
+                f"Error inserting batch to database: {e}",
+                exc_info=True,
             )
-            return
 
     def _img_exists_in_db(self, img_id: str) -> bool:
         """Check if an image ID exists in the database."""
@@ -268,6 +281,7 @@ class ImageEmbedder:
                     all_original_size.append(True)
                 img.save(img_byte_arr, format=self.img_format)
                 valid_image_bytes.append(img_byte_arr.getvalue())
+                img.close()
             except Exception as e:
                 self.logger.error(
                     f"Error converting image to bytes: {e}",
@@ -277,15 +291,18 @@ class ImageEmbedder:
 
     def _get_imgs(
         self, img_paths: list[str]
-    ) -> tuple[list[int], list[PILImage]]:
+    ) -> tuple[list[str], list[PILImage]]:
         """Get the image embeddings from a list of image paths.
-        Returns a tuple of successfully processed image resolution and the image_file.
+        Returns a tuple of successfully processed image paths and the image files.
         """
         valid_images = []
         successful_paths = []
         for img_path in img_paths:
             try:
-                img: Image = Image.open(img_path).convert("RGB")
+                img = Image.open(img_path)
+                # Load image to memory to avoid file handle issues
+                img.load()
+                # Don't convert to RGB here - do it only when needed for embeddings
                 valid_images.append(img)
                 successful_paths.append(img_path)
             except FileNotFoundError:

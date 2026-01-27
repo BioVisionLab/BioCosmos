@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import { GbifAttribution } from "../../../../components/Attribution";
-import { Occurrence } from "@/lib/types";
+import { Occurrence } from "@/lib/map";
 import SpeciesMap from "@/components/SpeciesMap";
 import { fetchGbifOccurrences } from "@/lib/map";
 import { TextLoading } from "@/components/Loadings";
@@ -33,8 +33,8 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
         <>
           {occurrences.length > 0 ? (
             <p className="text-xs mb-2 text-gray-700 dark:text-gray-300">
-              Showing {occurrences.length} occurrences. Use the zoom and pan
-              controls to explore the map.
+              Showing {occurrences.length} GBIF occurrences. Use the zoom and
+              pan controls to explore the map.
             </p>
           ) : (
             <p className="text-xs mb-2 text-gray-700 dark:text-gray-300">

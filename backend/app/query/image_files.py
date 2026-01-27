@@ -1,5 +1,6 @@
 from io import BytesIO
 import os
+import threading
 from fastapi import Request
 from PIL import Image
 
@@ -9,6 +10,16 @@ from ..services.images import ImagePersistData
 STATIC_PATH = "static/"
 THUMBNAIL_MAX_RESOLUTION = 128
 FULL_RES_MAX_RESOLUTION = 800
+
+_LOCK: dict[str, threading.Lock] = {}
+_LOCK_GUARD = threading.Lock()
+
+
+def _get_lock(key: str) -> threading.Lock:
+    with _LOCK_GUARD:
+        if key not in _LOCK:
+            _LOCK[key] = threading.Lock()
+        return _LOCK[key]
 
 
 class ImageMetaRetrieval:
@@ -107,13 +118,17 @@ class ImageFileRetrieval:
         if os.path.exists(static_path):
             return static_path
 
-        img_bytes = self._get_image_by_id(image_id)
-        if img_bytes is None:
-            return None
+        lock = _get_lock(f"thumbnail_{image_id}")
+        with lock:
+            if os.path.exists(static_path):
+                return static_path
+            img_bytes = self._get_image_by_id(image_id)
+            if img_bytes is None:
+                return None
 
-        os.makedirs(os.path.dirname(static_path), exist_ok=True)
-        self._write_thumbnail_to_file(static_path, img_bytes)
-        return static_path
+            os.makedirs(os.path.dirname(static_path), exist_ok=True)
+            self._write_thumbnail_to_file(static_path, img_bytes)
+            return static_path
 
     def get_full_res(self, image_id: str) -> str | None:
         """
@@ -123,13 +138,18 @@ class ImageFileRetrieval:
         if os.path.exists(static_path):
             return static_path
 
-        img_bytes = self._get_image_by_id(image_id)
-        if img_bytes is None:
-            return None
+        lock = _get_lock(f"full_res_{image_id}")
+        with lock:
+            if os.path.exists(static_path):
+                return static_path
 
-        os.makedirs(os.path.dirname(static_path), exist_ok=True)
-        self._write_to_file(static_path, img_bytes)
-        return static_path
+            img_bytes = self._get_image_by_id(image_id)
+            if img_bytes is None:
+                return None
+
+            os.makedirs(os.path.dirname(static_path), exist_ok=True)
+            self._write_to_file(static_path, img_bytes)
+            return static_path
 
     def _get_image_by_id(self, image_id: str) -> bytes | None:
         """

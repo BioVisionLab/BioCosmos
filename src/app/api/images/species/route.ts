@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { API_HOST } from "@/lib/config";
 
-const IMAGE_API_URL = `${API_HOST}/species`;
+const IMAGE_API_URL = `${API_HOST}/image`;
 
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
@@ -19,7 +19,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     const imageUri = `${IMAGE_API_URL}/${encodeURIComponent(species)}${
-      type === "thumbnail" ? "/thumbnail" : "/image"
+      type === "thumbnail" ? "/thumbnail" : "/high-resolution"
     }`;
 
     const response = await fetch(imageUri, {

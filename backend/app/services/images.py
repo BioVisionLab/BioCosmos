@@ -452,7 +452,11 @@ class ImagePersistData:
                 return results
 
             # Keep the first occurrence of each species
-            filtered_results = results.unique(subset=["species"])
+            filtered_results = (
+                results.sort("distance")
+                .unique(subset=["species"], maintain_order=True)
+                .sort("distance")
+            )
 
             return filtered_results
 
