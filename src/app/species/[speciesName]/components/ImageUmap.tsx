@@ -209,7 +209,16 @@ function UmapScatterPlot({
                 if (isRep) {
                   return <CustomDot {...props} imgId={props.payload?.imgId} />;
                 }
-                return <circle {...props} r={5} fillOpacity={0.6} />;
+                // Avoid spreading unknown props onto DOM elements (causes React warnings)
+                return (
+                  <circle
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={5}
+                    fill={props.fill}
+                    fillOpacity={0.6}
+                  />
+                );
               }}
             >
               {processedData.map((entry, index) => (

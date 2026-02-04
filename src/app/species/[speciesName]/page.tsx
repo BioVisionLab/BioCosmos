@@ -33,11 +33,12 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
         if (data) {
           setSpeciesData(data);
           try {
-            // cache species data in sessionStorage so gallery pages can reuse it
-            sessionStorage.setItem(`speciesData:${speciesName}`, JSON.stringify(data));
-          } catch (e) {
-            // ignore storage errors
-          }
+              // cache species data in localStorage so gallery pages (even new tabs)
+              // can reuse it without refetching
+              localStorage.setItem(`speciesData:${speciesName}`, JSON.stringify(data));
+            } catch (e) {
+              // ignore storage errors
+            }
         } else {
           setError("Species data not found.");
         }
