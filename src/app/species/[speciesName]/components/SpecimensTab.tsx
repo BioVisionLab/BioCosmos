@@ -482,6 +482,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         const cached = fullCache.current.get(id)!;
         setModalImageUrl(cached);
         setModalOpen(true);
+        // fetch metadata for cached image
+        void fetchAndSetModalMeta(id);
         if (allIds) {
           const idx = allIds.indexOf(id);
           setModalIndex(idx >= 0 ? idx : null);
@@ -503,6 +505,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       createdUrls.current.push(url);
       fullCache.current.set(id, url);
       setModalImageUrl(url);
+      // fetch metadata for this image
+      void fetchAndSetModalMeta(id);
       if (allIds) {
         const idx = allIds.indexOf(id);
         setModalIndex(idx >= 0 ? idx : null);
@@ -543,6 +547,25 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
           // ignore prefetch failures
         });
     });
+  };
+
+  // metadata for currently shown modal image
+  const [modalMeta, setModalMeta] = useState<any | null>(null);
+
+  const fetchAndSetModalMeta = async (id: string) => {
+    try {
+      setModalMeta(null);
+      const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        console.debug("Failed to fetch image metadata", res.status, txt);
+        return;
+      }
+      const data = await res.json();
+      setModalMeta(data ?? null);
+    } catch (err) {
+      console.error("Error fetching image metadata:", err);
+    }
   };
 
   // modal state for full-size image viewer
@@ -616,6 +639,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     fullCache.current.clear();
     setModalImageUrl(null);
     setModalOpen(false);
+    setModalMeta(null);
     setModalError(null);
     setModalLoading(false);
     setModalIndex(null);
@@ -662,6 +686,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       setModalIndex(newIndex);
       // ensure modal is open
       setModalOpen(true);
+      // fetch metadata for this image
+      void fetchAndSetModalMeta(id);
       // prefetch neighbors
       prefetchNeighbors(id);
       return;
@@ -677,6 +703,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       // now swap to new image
       if (modalImageUrl) revokeUrl(modalImageUrl);
       setModalImageUrl(url);
+      // fetch metadata for this image
+      void fetchAndSetModalMeta(id);
       setModalIndex(newIndex);
       // prefetch neighbors
       prefetchNeighbors(id);
@@ -1005,40 +1033,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="relative w-[30vw] max-w-[65vw] max-h-[100vh] flex items-center justify-center">
-            {/* left nav */}
-            <button
-              onClick={() =>
-                modalIndex != null ? navigateModalTo(modalIndex - 1) : null
-              }
-              disabled={
-                modalIndex == null ||
-                (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0)
-              }
-              aria-label="Previous image"
-              className={`absolute left-[-48px] z-30 rounded-full p-2 transition-colors ${
-                (modalIndex == null ||
-                  (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0))
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-white bg-black/30 hover:bg-white/10"
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-
+          <div className="relative w-[45vw] max-w-[95vw] max-h-[95vh] flex flex-col items-center justify-center gap-4">
             <button
               onClick={closeModal}
               aria-label="Close full image"
@@ -1063,7 +1058,37 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             </button>
 
             {/* Formatting of pop-out image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
-            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-lg p-4 w-full h-full flex items-center justify-center">
+            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-lg p-4 w-full h-full flex-1 flex items-center justify-center relative">
+              {/* left nav (aligned to image) */}
+              <button
+                onClick={() => (modalIndex != null ? navigateModalTo(modalIndex - 1) : null)}
+                disabled={
+                  modalIndex == null ||
+                  (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0)
+                }
+                aria-label="Previous image"
+                className={`absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
+                  (modalIndex == null ||
+                    (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0))
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-white bg-black/30 hover:bg-white/10"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
               {modalLoading ? (
                 // Loading placeholder occupies the same space as the final image to avoid layout jumps
                 <div className="w-full h-full flex items-center justify-center">
@@ -1071,7 +1096,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                     <ImageLoading size={250} />
                   </div>
                 </div>
-              ) : modalImageUrl ? (
+                ) : modalImageUrl ? (
                 // use native img for blob URLs; constrain to the container so the box doesn't resize
                 <img
                   src={modalImageUrl}
@@ -1083,44 +1108,111 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                   {modalError ?? "Unable to load image"}
                 </div>
               )}
-            </div>
-
-            {/* right nav */}
-            <button
-              onClick={() =>
-                modalIndex != null ? navigateModalTo(modalIndex + 1) : null
-              }
-              disabled={
-                modalIndex == null ||
-                (modalPageRange
-                  ? modalIndex >= modalPageRange.end
-                  : modalIndex >= (allIds || []).length - 1)
-              }
-              aria-label="Next image"
-              className={`absolute right-[-48px] z-30 rounded-full p-2 transition-colors ${
-                (modalIndex == null ||
+              {/* right nav (aligned to image) */}
+              <button
+                onClick={() => (modalIndex != null ? navigateModalTo(modalIndex + 1) : null)}
+                disabled={
+                  modalIndex == null ||
                   (modalPageRange
                     ? modalIndex >= modalPageRange.end
-                    : modalIndex >= (allIds || []).length - 1))
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-white bg-black/30 hover:bg-white/10"
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+                    : modalIndex >= (allIds || []).length - 1)
+                }
+                aria-label="Next image"
+                className={`absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
+                  (modalIndex == null ||
+                    (modalPageRange
+                      ? modalIndex >= modalPageRange.end
+                      : modalIndex >= (allIds || []).length - 1))
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-white bg-black/30 hover:bg-white/10"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+            {/* Metadata box below the image */}
+            {modalMeta && (
+              <div className="mt-2 w-full max-w-[28vw]">
+                <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-2xl p-4 text-xs text-gray-800 dark:text-white">
+                  <div className="flex flex-col gap-2">
+                    {/* License */}
+                    {modalMeta.license && (
+                      <div>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-500">License: </span>
+                        {typeof modalMeta.license === "string" && modalMeta.license.startsWith("http") ? (
+                          <a href={modalMeta.license} target="_blank" rel="noopener noreferrer" className="text-black dark:text-white break-words">
+                            {modalMeta.license}
+                          </a>
+                        ) : (
+                          <span className="text-gray-700 dark:text-white">{modalMeta.license}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Links (side-by-side): Source & Image */}
+                    <div className="flex items-center gap-4">
+                      {modalMeta.uuid && (
+                        <a
+                          href={modalMeta.uuid}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-700 dark:text-emerald-500 underline"
+                        >
+                          Source Link
+                        </a>
+                      )}
+                      {modalMeta.uri && (
+                        <a
+                          href={modalMeta.uri}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-700 dark:text-emerald-500 underline"
+                        >
+                          Image Link
+                        </a>
+                      )}
+                    </div>
+
+                    {/* class_dv */}
+                    {modalMeta.class_dv && (
+                      <div>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-500">View: </span>
+                        <span className="text-gray-700 dark:text-white">{typeof modalMeta.class_dv === 'string' ? modalMeta.class_dv.charAt(0).toUpperCase() + modalMeta.class_dv.slice(1) : modalMeta.class_dv}</span>
+                      </div>
+                    )}
+                    {/* lat/lon */}
+                    {(modalMeta.lat || modalMeta.lon) && (
+                      <div>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-500">Location: </span>
+                        <span className="text-gray-700 dark:text-white">{modalMeta.lat ?? "—"}, {modalMeta.lon ?? "—"}</span>
+                      </div>
+                    )}
+                    {/* source_db */}
+                    {modalMeta.source_db && (
+                      <div>
+                        <span className="font-medium text-emerald-700 dark:text-emerald-500">Source DB: </span>
+                        <span className="text-gray-700 dark:text-white">{typeof modalMeta.source_db === 'string' ? modalMeta.source_db.charAt(0).toUpperCase() + modalMeta.source_db.slice(1) : modalMeta.source_db}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* right nav has been moved inside the image container to align vertically with the image */}
           </div>
         </div>
       )}
