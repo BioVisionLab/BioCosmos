@@ -197,7 +197,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down...")
     try:
         if (
-            hasattr(app.state, "duckdb")
+            hasattr(app.state, "duck_db")
             and app.state.duck_db is not None
         ):
             app.state.duck_db.close()
