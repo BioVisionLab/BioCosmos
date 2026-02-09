@@ -1,3 +1,5 @@
+// Proxy API route that forwards taxon search queries to the backend.
+// Validates the `q` query parameter and returns taxon classification results.
 import { API_HOST } from "@/lib/config";
 import { NextResponse } from "next/server";
 

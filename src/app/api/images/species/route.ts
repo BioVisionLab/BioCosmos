@@ -1,3 +1,5 @@
+// Proxy API route that fetches a species image (thumbnail or high-resolution)
+// from the backend image service and returns it with appropriate headers.
 import { NextResponse } from "next/server";
 import { API_HOST } from "@/lib/config";
 
