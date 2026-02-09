@@ -554,6 +554,26 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   // modal navigation limited to the currently displayed page's index range
   const [modalPageRange, setModalPageRange] = useState<{ start: number; end: number } | null>(null);
 
+  // prevent background scrolling when the modal is open; restore previous overflow on close
+  const originalBodyOverflow = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (modalOpen) {
+      originalBodyOverflow.current = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } else if (originalBodyOverflow.current !== null) {
+      document.body.style.overflow = originalBodyOverflow.current;
+      originalBodyOverflow.current = null;
+    }
+
+    return () => {
+      if (originalBodyOverflow.current !== null) {
+        document.body.style.overflow = originalBodyOverflow.current;
+        originalBodyOverflow.current = null;
+      }
+    };
+  }, [modalOpen]);
+
   // keep modal page range in sync when modal/displayPage/allIds change
   useEffect(() => {
     if (!modalOpen || !allIds) {
@@ -812,7 +832,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         </div>
       )}
       {showUmap && (
-        <div id="specimen-umap">
+        <div
+          id="specimen-umap"
+          className={`transition-opacity duration-200 ${modalOpen ? "opacity-30 pointer-events-none" : "opacity-100"}`}
+        >
           <ImageUmap species={speciesName ?? ""} />
         </div>
       )}
@@ -974,7 +997,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       {/* Modal/lightbox for full-size image */}
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60"
           role="dialog"
           aria-modal="true"
           onClick={(e) => {
@@ -1027,7 +1050,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-700"
+                className="h-5 w-5 text-white"
                 viewBox="0 0 20 20"
                 fill="currentColor"
               >
