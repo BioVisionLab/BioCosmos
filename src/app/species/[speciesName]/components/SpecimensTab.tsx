@@ -551,20 +551,26 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
 
   // metadata for currently shown modal image
   const [modalMeta, setModalMeta] = useState<any | null>(null);
+  const [modalMetaLoading, setModalMetaLoading] = useState(false);
 
   const fetchAndSetModalMeta = async (id: string) => {
     try {
       setModalMeta(null);
+      setModalMetaLoading(true);
       const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
         console.debug("Failed to fetch image metadata", res.status, txt);
+        setModalMetaLoading(false);
         return;
       }
       const data = await res.json();
       setModalMeta(data ?? null);
     } catch (err) {
       console.error("Error fetching image metadata:", err);
+    }
+    finally {
+      setModalMetaLoading(false);
     }
   };
 
@@ -640,6 +646,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     setModalImageUrl(null);
     setModalOpen(false);
     setModalMeta(null);
+    setModalMetaLoading(false);
     setModalError(null);
     setModalLoading(false);
     setModalIndex(null);
@@ -1144,68 +1151,73 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
               </button>
             </div>
             {/* Metadata box below the image */}
-            {modalMeta && (
-              <div className="mt-2 w-full max-w-[28vw]">
+            {(modalMeta || modalMetaLoading) && (
+              <div className="mt-2 w-fit mx-auto">
                 <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-2xl p-4 text-xs text-gray-800 dark:text-white">
                   <div className="flex flex-col gap-2">
-                    {/* License */}
-                    {modalMeta.license && (
-                      <div>
-                        <span className="font-medium text-emerald-700 dark:text-emerald-500">License: </span>
-                        {typeof modalMeta.license === "string" && modalMeta.license.startsWith("http") ? (
-                          <a href={modalMeta.license} target="_blank" rel="noopener noreferrer" className="text-black dark:text-white break-words">
-                            {modalMeta.license}
-                          </a>
-                        ) : (
-                          <span className="text-gray-700 dark:text-white">{modalMeta.license}</span>
+                    {modalMetaLoading ? (
+                      <div className="text-center text-sm text-gray-500">Loading metadata…</div>
+                    ) : (
+                      <>
+                        {/* class_dv */}
+                        {modalMeta?.class_dv && (
+                          <div>
+                            <span className="font-medium text-emerald-700 dark:text-emerald-500">View: </span>
+                            <span className="text-gray-700 dark:text-white">{typeof modalMeta.class_dv === 'string' ? modalMeta.class_dv.charAt(0).toUpperCase() + modalMeta.class_dv.slice(1) : modalMeta.class_dv}</span>
+                          </div>
                         )}
-                      </div>
-                    )}
+                        {/* lat/lon */}
+                        {(modalMeta?.lat || modalMeta?.lon) && (
+                          <div>
+                            <span className="font-medium text-emerald-700 dark:text-emerald-500">Location: </span>
+                            <span className="text-gray-700 dark:text-white">{modalMeta?.lat ?? "—"}, {modalMeta?.lon ?? "—"}</span>
+                          </div>
+                        )}
+                        {/* source_db */}
+                        {modalMeta?.source_db && (
+                          <div>
+                            <span className="font-medium text-emerald-700 dark:text-emerald-500">Source DB: </span>
+                            <span className="text-gray-700 dark:text-white">{typeof modalMeta.source_db === 'string' ? modalMeta.source_db.charAt(0).toUpperCase() + modalMeta.source_db.slice(1) : modalMeta.source_db}</span>
+                          </div>
+                        )}
 
-                    {/* Links (side-by-side): Source & Image */}
-                    <div className="flex items-center gap-4">
-                      {modalMeta.uuid && (
-                        <a
-                          href={modalMeta.uuid}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-emerald-700 dark:text-emerald-500 underline"
-                        >
-                          Source Link
-                        </a>
-                      )}
-                      {modalMeta.uri && (
-                        <a
-                          href={modalMeta.uri}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-emerald-700 dark:text-emerald-500 underline"
-                        >
-                          Image Link
-                        </a>
-                      )}
-                    </div>
-
-                    {/* class_dv */}
-                    {modalMeta.class_dv && (
-                      <div>
-                        <span className="font-medium text-emerald-700 dark:text-emerald-500">View: </span>
-                        <span className="text-gray-700 dark:text-white">{typeof modalMeta.class_dv === 'string' ? modalMeta.class_dv.charAt(0).toUpperCase() + modalMeta.class_dv.slice(1) : modalMeta.class_dv}</span>
-                      </div>
-                    )}
-                    {/* lat/lon */}
-                    {(modalMeta.lat || modalMeta.lon) && (
-                      <div>
-                        <span className="font-medium text-emerald-700 dark:text-emerald-500">Location: </span>
-                        <span className="text-gray-700 dark:text-white">{modalMeta.lat ?? "—"}, {modalMeta.lon ?? "—"}</span>
-                      </div>
-                    )}
-                    {/* source_db */}
-                    {modalMeta.source_db && (
-                      <div>
-                        <span className="font-medium text-emerald-700 dark:text-emerald-500">Source DB: </span>
-                        <span className="text-gray-700 dark:text-white">{typeof modalMeta.source_db === 'string' ? modalMeta.source_db.charAt(0).toUpperCase() + modalMeta.source_db.slice(1) : modalMeta.source_db}</span>
-                      </div>
+                        {/* Action buttons (License, Source, Image) - pill-shaped */}
+                        <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                          {typeof modalMeta?.license === "string" && modalMeta.license.startsWith("http") && (
+                            <a
+                              href={modalMeta.license}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
+                              aria-label="Open license"
+                            >
+                              License
+                            </a>
+                          )}
+                          {modalMeta?.uuid && (
+                            <a
+                              href={modalMeta.uuid}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
+                              aria-label="Open source link"
+                            >
+                              Source Link
+                            </a>
+                          )}
+                          {modalMeta?.uri && (
+                            <a
+                              href={modalMeta.uri}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
+                              aria-label="Open image link"
+                            >
+                              Image Link
+                            </a>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
