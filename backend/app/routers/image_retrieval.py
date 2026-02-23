@@ -47,6 +47,32 @@ async def image_search_by_id(
         )
 
 
+@router.get("/image/id/{image_id}/metadata", tags=["Taxon Images"])
+async def image_metadata_by_id(request: Request, image_id: str):
+    """
+    Fetch metadata for a single image ID.
+    Returns a JSON object of metadata fields or 404 if not found.
+    """
+    logger.info(f"Fetching metadata for image ID: {image_id}")
+    try:
+        meta = ImageMetaRetrieval(request=request).get_meta_by_id(image_id)
+        if not meta:
+            logger.warning(f"No metadata found for image ID: {image_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Metadata not found for image ID: {image_id}",
+            )
+        return JSONResponse(content=meta, status_code=200)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching metadata for {image_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred while fetching image metadata.",
+        )
+
+
 @router.get("/image/id/{image_id}/thumbnail", tags=["Taxon Images"])
 async def image_search_thumbnail_by_id(
     request: Request, image_id: str

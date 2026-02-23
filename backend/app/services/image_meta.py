@@ -238,6 +238,32 @@ class ImageMetaService:
             )
             return None
 
+    def get_meta_by_image_id(
+        self, img_id: str
+    ) -> pl.DataFrame | None:
+        """
+        Retrieve metadata for a single image ID.
+
+        :param img_id: The image identifier (without or with .png).
+        :return: A Polars DataFrame with a single row of metadata or None if not found.
+        """
+        try:
+            cleaned_id = img_id.replace(".png", "")
+            query = f"""
+                SELECT * FROM {self.table}
+                WHERE REPLACE(mask_name, '.png', '') = ?
+                LIMIT 1
+            """
+            result = self.db_client.execute_query(query, cleaned_id).pl()
+            if result is None or result.is_empty():
+                return None
+            return result
+        except Exception as e:
+            logger.error(
+                f"Error retrieving metadata for image ID '{img_id}': {e}"
+            )
+            return None
+
     def merge_meta_with_image_data(
         self, image_data: pl.DataFrame
     ) -> pl.DataFrame | None:

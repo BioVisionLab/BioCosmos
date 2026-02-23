@@ -3,6 +3,7 @@ import os
 import threading
 from fastapi import Request
 from PIL import Image
+import logging
 
 from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
@@ -13,6 +14,8 @@ FULL_RES_MAX_RESOLUTION = 800
 
 _LOCK: dict[str, threading.Lock] = {}
 _LOCK_GUARD = threading.Lock()
+
+logger = logging.getLogger(__name__)
 
 
 def _get_lock(key: str) -> threading.Lock:
@@ -45,6 +48,28 @@ class ImageMetaRetrieval:
             duckdb=self.duckdb
         ).get_image_ids_by_species(scientific_name)
         return image_ids
+
+    def get_meta_by_id(self, image_id: str) -> dict | None:
+        """
+        Retrieve metadata for a single image ID.
+
+        Returns a dict of metadata fields if found, otherwise None.
+        """
+        try:
+            df = ImageMetaService(duckdb=self.duckdb).get_meta_by_image_id(image_id)
+            if df is None or df.is_empty():
+                return None
+            rows = df.to_dicts()
+            if not rows:
+                return None
+            row = rows[0]
+            # Only return a minimal set of fields to avoid exposing internal data
+            allowed = ["license", "uuid", "uri", "class_dv", "lat", "lon", "source_db"]
+            filtered = {k: row.get(k) for k in allowed if k in row}
+            return filtered
+        except Exception as e:
+            logger.error(f"Error fetching metadata for image id {image_id}: {e}")
+            return None
 
 
 class ImageFileRetrieval:

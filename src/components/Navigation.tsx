@@ -14,8 +14,6 @@ export default function Navigation() {
 
   const [activeTab, setActiveTab] = useState(navItems[0].id);
 
-  // keep active tab in sync with the current pathname so the highlight
-  // updates when navigation occurs outside this component
   const pathname = usePathname();
 
   useEffect(() => {
