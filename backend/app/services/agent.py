@@ -29,11 +29,11 @@ from pydantic.alias_generators import to_camel
 from fastapi import Request
 from openai import OpenAI
 
-from ..services.image_meta import ImageMetaService
+from .image_meta import ImageMetaService
 from ..configs.config import OpenAIConfig
-from ..services.images import ImagePersistData
-from ..services.gbif import GbifPersistData
-from ..services.leptraits import LepTraits
+from .images import ImagePersistData
+from .gbif import GbifPersistData
+from .leptraits import LepTraits
 
 
 logger = logging.getLogger(__name__)
@@ -89,27 +89,6 @@ class FunctionCallResult(BaseModel):
     species: str
     img_id: str
     score: float
-
-
-class AgentSearchPayload(BaseModel):
-    """
-    Complete search response payload containing ranked results.
-
-    Attributes:
-        query: Original user query string
-        top_results: High-confidence results (score >= threshold, typically 0.3)
-                     Sorted by score in descending order
-        other_results: Lower-confidence results (score < threshold)
-                       Sorted by score in descending order
-    """
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
-
-    query: str
-    top_results: List[AgentSearchResult]
-    other_results: List[AgentSearchResult]
 
 
 class AgentSearchService:
@@ -208,7 +187,7 @@ class AgentSearchService:
         )
         self.weight_traits = 0.25  # Weight for habitat/trait matching
 
-    async def search(self, query: str) -> AgentSearchPayload:
+    async def search(self, query: str) -> List[AgentSearchResult]:
         """
         Perform agent-based search on a natural language query.
 
@@ -228,10 +207,12 @@ class AgentSearchService:
         Returns:
             AgentSearchPayload containing:
                 - query: Original query string
-                - top_results: High-scoring species (score >= 0.3)
-                - other_results: Lower-scoring species (score < 0.3)
+                - combined: Combined results from all tools
+                - location: Location-based results
+                - traits: Trait-based results
+                - similarity: Similarity-based results
 
-            Both lists are sorted by score in descending order.
+            All lists are sorted by score in descending order.
 
         Raises:
             Exception: If OpenAI API call fails or tool execution encounters errors
@@ -240,8 +221,8 @@ class AgentSearchService:
         Example:
             >>> service = AgentSearchService(request)
             >>> results = await service.search("blue butterflies in Costa Rica")
-            >>> for result in results.top_results:
-            ...     print(f"{result.species}: {result.score:.3f} (tools: {result.tool_calls})")
+            >>> for result in results.combined:
+            ...     print(f"{result['species']}: {result['score']:.3f} (tools: {result['tool_calls']})")
         """
         tools = self._get_tools()
 
@@ -280,9 +261,7 @@ class AgentSearchService:
             # If no tools called, return empty results
             # This happens when query is unclear or outside biodiversity domain
             if not message.tool_calls:
-                return AgentSearchPayload(
-                    query=query, top_results=[], other_results=[]
-                )
+                return []
 
             # Execute all requested tools in parallel for performance
             tasks = []
@@ -342,44 +321,78 @@ class AgentSearchService:
             aggregated_results = self._aggregate_results(
                 valid_results, query
             )
-            return aggregated_results[:25]
+            return aggregated_results
 
         except Exception as e:
             logger.error(f"Error in agent search: {e}", exc_info=True)
             raise
 
-    def _aggregate_results(
-        self, results: List[Dict], query: str
-    ) -> AgentSearchPayload:
-        """
-        Aggregate tool results using weighted ranking formula with dynamic normalization.
-        Returns one row per unique species with metadata and tool_calls as a list.
-        """
-        df = pl.DataFrame(results).select(
-            [
-                pl.col("img_id"),
-                pl.col("species"),
-                pl.col("score"),
-            ]
-        )
+    # def _aggregate_results(
+    #     self, results: List[Dict], query: str
+    # ) -> AgentSearchPayload:
+    #     """
+    #     Aggregate tool results using weighted ranking formula with dynamic normalization.
+    #     Returns one row per unique species with metadata and tool_calls as a list.
+    #     """
+    #     if not results:
+    #         return AgentSearchPayload(
+    #             query=query, top_results=[], other_results=[]
+    #         )
 
-        aggregated = (
-            df.group_by("species")
-            .agg(
-                [
-                    pl.col("score").sum().alias("total_score"),
-                    pl.col("img_id")
-                    .sort_by("score")
-                    .last()
-                    .alias("img_id"),
-                ]
-            )
-            .sort("total_score", descending=True)
-        ).rename({"total_score": "score"})
+    #     df = pl.DataFrame(results).select(
+    #         [
+    #             pl.col("img_id"),
+    #             pl.col("species"),
+    #             pl.col("score"),
+    #             pl.col("tool_names"),
+    #         ]
+    #     )
 
-        logger.info(f"Aggregated search results: {aggregated}")
+    #     aggregated = (
+    #         df.group_by("species")
+    #         .agg(
+    #             [
+    #                 pl.col("score").sum().alias("total_score"),
+    #                 pl.col("img_id")
+    #                 .sort_by("score")
+    #                 .last()
+    #                 .alias("img_id"),
+    #                 pl.col("tool_names").unique().alias("tool_calls"),
+    #             ]
+    #         )
+    #         .sort("total_score", descending=True)
+    #     ).rename({"total_score": "score"})
 
-        return aggregated.to_dicts()
+    #     logger.info(f"Aggregated search results: {aggregated}")
+
+    #     threshold = 0.3
+    #     rows = aggregated.to_dicts()
+    #     top_results = [
+    #         AgentSearchResult(
+    #             img_id=r["img_id"],
+    #             species=r["species"],
+    #             score=r["score"],
+    #             tool_calls=r["tool_calls"],
+    #         )
+    #         for r in rows
+    #         if r["score"] >= threshold
+    #     ]
+    #     other_results = [
+    #         AgentSearchResult(
+    #             img_id=r["img_id"],
+    #             species=r["species"],
+    #             score=r["score"],
+    #             tool_calls=r["tool_calls"],
+    #         )
+    #         for r in rows
+    #         if r["score"] < threshold
+    #     ]
+
+    #     return AgentSearchPayload(
+    #         query=query,
+    #         top_results=top_results,
+    #         other_results=other_results,
+    #     )
 
     async def _execute_tool(
         self, function_name: str, function_args: Dict[str, Any]
@@ -509,8 +522,9 @@ class AgentSearchService:
             Cleaned DataFrame with columns img_id, species, and score.
         """
         similar_images = similar_images.with_columns(
-            pl.lit(self.weight_color)
-            * (1 - similar_images["distance"]).alias("score"),
+            (
+                pl.lit(self.weight_color) * (1 - pl.col("distance"))
+            ).alias("score"),
             pl.lit(tool_name).alias("tool_names"),
         )
 
@@ -562,7 +576,10 @@ class AgentSearchService:
         unique_species = list(set(species_names))
         data = self.image_meta_service.get_species_main_image_id_from_list(
             unique_species
-        ).with_columns(
+        )
+        if data is None:
+            return []
+        data = data.with_columns(
             pl.lit(self.weight_location).alias("score"),
             pl.lit("location_search").alias("tool_names"),
         )
@@ -710,11 +727,13 @@ class AgentSearchService:
         unique_species = list(set(species_names))
         data = self.image_meta_service.get_species_main_image_id_from_list(
             unique_species
-        ).with_columns(
+        )
+        if data is None:
+            return []
+        return data.with_columns(
             pl.lit(self.weight_traits).alias("score"),
             pl.lit("trait_search").alias("tool_names"),
-        )
-        return data.to_dicts()
+        ).to_dicts()
 
     def _get_tools(self) -> List[Dict]:
         """
