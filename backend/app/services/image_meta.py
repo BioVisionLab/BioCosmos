@@ -158,7 +158,7 @@ class ImageMetaService:
 
             query = f"""
                 SELECT 
-                    REPLACE(m.mask_name, '.png', '') AS img_id,
+                    REPLACE(m.mask_name, '.png', '') AS imgId,
                     m.species
                 FROM {self.table} m
                 INNER JOIN temp_species t 
