@@ -7,7 +7,8 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..services.agent import AgentSearchService
+from ..query.agent_query import TextToAgent
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,10 +39,10 @@ async def agent_search(request: Request, q: str):
 
     try:
         logger.info(f"Received agent search query: {query}")
-        agent_service = AgentSearchService(request=request)
-        results = await agent_service.search(query)
+        agent_service = TextToAgent(request=request, query=query)
+        results = agent_service.get_results()
 
-        if not results.top_results and not results.other_results:
+        if not results:
             logger.warning(f"No results found for query: {query}")
             return JSONResponse(
                 content={
@@ -53,7 +54,7 @@ async def agent_search(request: Request, q: str):
             )
 
         return JSONResponse(
-            content=results.model_dump(by_alias=True),
+            content=results,
             status_code=200,
         )
 
