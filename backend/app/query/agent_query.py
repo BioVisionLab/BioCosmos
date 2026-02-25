@@ -3,6 +3,8 @@ from typing import List
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from ..services.agent import AgentSearchService
+
 
 class AgentSearchPayload(BaseModel):
     """
@@ -32,9 +34,27 @@ class TextToAgent:
         self.request = request
         self.query = query
 
-    def get_results(self):
-        # Placeholder for the actual agent search logic
-        # This would involve calling the AgentSearchService and processing results
-        return {
-            "message": "This is a placeholder for agent search results."
-        }
+    def get_results(self) -> dict:
+        agent_service = AgentSearchService(request=self.request)
+        results = agent_service.search(query=self.query)
+        # Get multitool results and filter out overlaps
+        # aggregated = agent_service._aggregate_multitool_results(
+        #     results
+        # )
+        return AgentSearchPayload(
+            query=self.query,
+            combined=aggregated,
+            location=results.tool_calls,
+            traits=results.traits,
+            similarity=results.similarity,
+        )
+
+    # def _aggregate_multitool_results(self, results) -> List[dict]:
+    #     """
+    #     Combine results from multiple tools into a single list, removing duplicates.
+
+    #     Args:
+    #         results: The raw results from the agent search service.
+    #     Returns:
+    #         A list of unique results with combined information from all tools.
+    #     """

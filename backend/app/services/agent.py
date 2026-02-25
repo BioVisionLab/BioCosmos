@@ -187,7 +187,7 @@ class AgentSearchService:
         )
         self.weight_traits = 0.25  # Weight for habitat/trait matching
 
-    async def search(self, query: str) -> List[AgentSearchResult]:
+    async def search(self, query: str) -> pl.DataFrame:
         """
         Perform agent-based search on a natural language query.
 
@@ -327,72 +327,25 @@ class AgentSearchService:
             logger.error(f"Error in agent search: {e}", exc_info=True)
             raise
 
-    # def _aggregate_results(
-    #     self, results: List[Dict], query: str
-    # ) -> AgentSearchPayload:
-    #     """
-    #     Aggregate tool results using weighted ranking formula with dynamic normalization.
-    #     Returns one row per unique species with metadata and tool_calls as a list.
-    #     """
-    #     if not results:
-    #         return AgentSearchPayload(
-    #             query=query, top_results=[], other_results=[]
-    #         )
+    def _aggregate_results(
+        self, results: List[Dict], query: str
+    ) -> pl.DataFrame:
+        """
+        Aggregate tool results using weighted ranking formula with dynamic normalization.
+        Returns one row per unique species with metadata and tool_calls as a list.
+        """
+        if not results:
+            return pl.DataFrame()
 
-    #     df = pl.DataFrame(results).select(
-    #         [
-    #             pl.col("img_id"),
-    #             pl.col("species"),
-    #             pl.col("score"),
-    #             pl.col("tool_names"),
-    #         ]
-    #     )
-
-    #     aggregated = (
-    #         df.group_by("species")
-    #         .agg(
-    #             [
-    #                 pl.col("score").sum().alias("total_score"),
-    #                 pl.col("img_id")
-    #                 .sort_by("score")
-    #                 .last()
-    #                 .alias("img_id"),
-    #                 pl.col("tool_names").unique().alias("tool_calls"),
-    #             ]
-    #         )
-    #         .sort("total_score", descending=True)
-    #     ).rename({"total_score": "score"})
-
-    #     logger.info(f"Aggregated search results: {aggregated}")
-
-    #     threshold = 0.3
-    #     rows = aggregated.to_dicts()
-    #     top_results = [
-    #         AgentSearchResult(
-    #             img_id=r["img_id"],
-    #             species=r["species"],
-    #             score=r["score"],
-    #             tool_calls=r["tool_calls"],
-    #         )
-    #         for r in rows
-    #         if r["score"] >= threshold
-    #     ]
-    #     other_results = [
-    #         AgentSearchResult(
-    #             img_id=r["img_id"],
-    #             species=r["species"],
-    #             score=r["score"],
-    #             tool_calls=r["tool_calls"],
-    #         )
-    #         for r in rows
-    #         if r["score"] < threshold
-    #     ]
-
-    #     return AgentSearchPayload(
-    #         query=query,
-    #         top_results=top_results,
-    #         other_results=other_results,
-    #     )
+        df = pl.DataFrame(results).select(
+            [
+                pl.col("img_id"),
+                pl.col("species"),
+                pl.col("score"),
+                pl.col("tool_names"),
+            ]
+        )
+        return df
 
     async def _execute_tool(
         self, function_name: str, function_args: Dict[str, Any]
