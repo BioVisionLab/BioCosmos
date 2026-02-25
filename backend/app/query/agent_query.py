@@ -1,3 +1,5 @@
+import re
+
 from fastapi import Request
 from typing import List
 from pydantic import BaseModel, ConfigDict
@@ -41,13 +43,7 @@ class TextToAgent:
         # aggregated = agent_service._aggregate_multitool_results(
         #     results
         # )
-        return AgentSearchPayload(
-            query=self.query,
-            combined=aggregated,
-            location=results.tool_calls,
-            traits=results.traits,
-            similarity=results.similarity,
-        )
+        return results.to_dict(by_alias=True)
 
     # def _aggregate_multitool_results(self, results) -> List[dict]:
     #     """
