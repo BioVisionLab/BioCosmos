@@ -86,9 +86,9 @@ class AgentSearchService:
 
     Where per-tool contributions are:
         - Color:      w_c * (1 - distance / 2)   [distance in [0,2]]
-        - Location:   w_l * 1.0                   [binary match]
-        - Traits:     w_t * 1.0                   [binary match]
-        - Similarity: w_s * (1 - distance)        [distance in [0,1]]
+        - Location:   w_l * 1.0                  [binary match]
+        - Traits:     w_t * 1.0                  [binary match]
+        - Similarity: w_s * (1 - distance)       [distance in [0,1]]
 
     Weights are dynamically renormalized based on which tools were invoked,
     so scores always remain in [0, 1] before the penalty.
@@ -147,10 +147,10 @@ class AgentSearchService:
 
         # Base ranking weights - sum to 1.0
         # Dynamically renormalized based on which tools are invoked
-        self.weight_color = 0.5
+        self.weight_color = 0.25
         self.weight_location = 0.25
         self.weight_traits = 0.25
-        self.weight_similarity = 0.5  # Separate weight for image similarity
+        self.weight_similarity = 0.25  # Separate weight for image similarity
 
         # Maps tool names to their base weights for dynamic normalization
         self._tool_weights: Dict[str, float] = {
@@ -162,12 +162,15 @@ class AgentSearchService:
 
     async def search(self, query: str) -> pl.DataFrame:
         """
-        Perform agent-based search on a natural language query.
+        Two-phase search pipeline:
 
-        1. Sends the query to OpenAI with available tool definitions
-        2. Executes all requested tools in parallel
-        3. Aggregates results using weighted ranking with tool penalty
-        4. Returns a sorted DataFrame of unique species
+        Phase 1 ? Filter: Run location and/or traits tools in parallel.
+                        Intersect their species sets to form an allowlist.
+                        Results are cached to avoid re-execution.
+
+        Phase 2 ? Rank:   If ranking tools (color, similarity) were requested,
+                        run them scoped to allowlist image IDs only.
+                        If no ranking tools, use filter tool scores directly.
 
         Args:
             query: Natural language search query
@@ -180,7 +183,6 @@ class AgentSearchService:
             Exception: If OpenAI API call fails (logged and re-raised)
         """
         tools = self._get_tools()
-
         messages = [
             {
                 "role": "system",
@@ -195,10 +197,7 @@ class AgentSearchService:
                     "6. SPECIFIC NAMES: Only use 'search_by_image_similarity' if the user specifically asks for species 'similar to' a scientific name."
                 ),
             },
-            {
-                "role": "user",
-                "content": query,
-            },
+            {"role": "user", "content": query},
         ]
 
         try:
@@ -211,59 +210,174 @@ class AgentSearchService:
             )
 
             message = response.choices[0].message
-
             if not message.tool_calls:
                 logger.warning(f"LLM made no tool calls for query: {query}")
                 return pl.DataFrame()
 
-            # Build parallel tasks
-            tasks = []
-            tool_names = []
-
+            # ?? Parse LLM tool calls ??????????????????????????????????????????????
+            parsed_calls: List[Dict[str, Any]] = []
             for tool_call in message.tool_calls:
-                function_name = tool_call.function.name
                 try:
-                    function_args = json.loads(tool_call.function.arguments)
+                    args = json.loads(tool_call.function.arguments)
                 except json.JSONDecodeError:
-                    logger.error(f"Failed to parse args for {function_name}")
+                    logger.error(f"Failed to parse args for {tool_call.function.name}")
                     continue
+                parsed_calls.append({"name": tool_call.function.name, "args": args})
 
-                tool_names.append(function_name)
-                tasks.append(self._execute_tool(function_name, function_args))
+            if not parsed_calls:
+                logger.warning("All tool call arguments failed to parse")
+                return pl.DataFrame()
 
-            logger.info(f"Agent executing tools in parallel: {tool_names}")
-
-            raw_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Filter errors and flatten valid results
-            valid_results: List[Dict] = []
-            active_tool_names: List[str] = []
-
-            for i, result in enumerate(raw_results):
-                if isinstance(result, Exception):
-                    logger.error(f"Tool {tool_names[i]} failed: {result}")
-                    continue
-                if isinstance(result, dict) and "error" in result:
-                    logger.error(
-                        f"Tool {tool_names[i]} returned error: {result['error']}"
-                    )
-                    continue
-                if not result:
-                    logger.warning(f"Tool {tool_names[i]} returned empty results")
-                    continue
-
-                active_tool_names.append(tool_names[i])
-                if isinstance(result, list):
-                    valid_results.extend(result)
+            # ?? Dynamic Weight Normalization ??????????????????????????????????????
+            tool_name_map = {
+                "search_by_color": "color_search",
+                "search_by_location": "location_search",
+                "search_by_traits": "trait_search",
+                "search_by_image_similarity": "similarity_search"
+            }
+            invoked_tool_names = [c["name"] for c in parsed_calls]
+            total_weight = sum(self._tool_weights.get(tool_name_map.get(name, ""), 0.0) for name in invoked_tool_names)
+            
+            normalized_weights = {}
+            for name in invoked_tool_names:
+                mapped_name = tool_name_map.get(name)
+                if mapped_name and total_weight > 0:
+                    normalized_weights[name] = self._tool_weights[mapped_name] / total_weight
                 else:
-                    valid_results.append(result)
+                    normalized_weights[name] = 1.0 # fallback
+
+            FILTER_TOOLS  = {"search_by_location", "search_by_traits"}
+            RANKING_TOOLS = {"search_by_color", "search_by_image_similarity"}
+
+            filter_calls  = [c for c in parsed_calls if c["name"] in FILTER_TOOLS]
+            ranking_calls = [c for c in parsed_calls if c["name"] in RANKING_TOOLS]
 
             logger.info(
-                f"Agent received {len(valid_results)} valid rows from "
-                f"{len(active_tool_names)}/{len(tool_names)} tools"
+                f"Filter tools: {[c['name'] for c in filter_calls]} | "
+                f"Ranking tools: {[c['name'] for c in ranking_calls]}"
             )
 
-            return self._aggregate_results(valid_results, active_tool_names)
+            # ?? Phase 1: Run filter tools in parallel, build allowlist ???????????
+            # allowlist_species = None means no filter was applied (ranking-only query)
+            allowlist_species: set[str] | None = None
+            cached_filter_rows: Dict[str, List[Dict]] = {}
+
+            if filter_calls:
+                filter_results = await asyncio.gather(
+                    *[self._execute_tool(c["name"], c["args"], normalized_weights.get(c["name"], 0.25)) for c in filter_calls],
+                    return_exceptions=True,
+                )
+
+                per_tool_species: List[set[str]] = []
+                for i, result in enumerate(filter_results):
+                    tool_name = filter_calls[i]["name"]
+                    if isinstance(result, Exception):
+                        logger.error(f"Filter tool '{tool_name}' failed: {result}")
+                        continue
+                    if not result or (isinstance(result, dict) and "error" in result):
+                        logger.warning(f"Filter tool '{tool_name}' returned empty/error")
+                        continue
+
+                    cached_filter_rows[tool_name] = result
+                    species_set = {row["species"] for row in result}
+                    per_tool_species.append(species_set)
+                    logger.info(f"Filter tool '{tool_name}' returned {len(species_set)} species")
+
+                if per_tool_species:
+                    # Intersect results from all filter tools
+                    allowlist_species = per_tool_species[0].intersection(*per_tool_species[1:])
+                    logger.info(
+                        f"Allowlist after intersection of {len(per_tool_species)} filter tools: "
+                        f"{len(allowlist_species)} species"
+                    )
+
+                    # Fall back to union if intersection is empty
+                    if not allowlist_species:
+                        logger.warning(
+                            "Filter intersection produced 0 species ? falling back to union"
+                        )
+                        allowlist_species = set().union(*per_tool_species)
+                        logger.info(f"Union fallback allowlist: {len(allowlist_species)} species")
+
+            # ?? Phase 2: Score results ????????????????????????????????????????????
+            all_results: List[Dict] = []
+            active_tool_names: List[str] = []
+
+            if ranking_calls:
+                # Include filter results in final scores if they passed the allowlist
+                if allowlist_species is not None:
+                    # 1) Add filter rows to all_results to ensure they contribute to the final score
+                    for call in filter_calls:
+                        rows = cached_filter_rows.get(call["name"], [])
+                        filtered_rows = [r for r in rows if r["species"] in allowlist_species]
+                        if filtered_rows:
+                            active_tool_names.append(call["name"])
+                            all_results.extend(filtered_rows)
+                    
+                    # 2) Fetch ALL image IDs for the allowlisted species. 
+                    #    We must not limit to just the single main image ID returned by the filters, 
+                    #    otherwise color search cannot find the best visually matching image.
+                    allowlist_img_ids = self.image_meta_service.get_image_ids_for_species_list(
+                        list(allowlist_species)
+                    )
+                    
+                    if not allowlist_img_ids:
+                        logger.warning(
+                            "No image IDs found for allowlisted species ? cannot scope ranking tools"
+                        )
+                        return pl.DataFrame()
+                else:
+                    allowlist_img_ids = None
+
+                for call in ranking_calls:
+                    weight = normalized_weights.get(call["name"], 0.25)
+                    if allowlist_img_ids is not None:
+                        rows = await self._execute_tool_scoped(
+                            call["name"],
+                            call["args"],
+                            allowlist_img_ids,
+                            allowlist_species,
+                            weight,
+                        )
+                    else:
+                        # Ranking-only query (no location/traits) ? search full index
+                        rows = await self._execute_tool(call["name"], call["args"], weight)
+
+                    if isinstance(rows, Exception):
+                        logger.error(f"Ranking tool '{call['name']}' failed: {rows}")
+                        continue
+                    if not rows or (isinstance(rows, dict) and "error" in rows):
+                        logger.warning(f"Ranking tool '{call['name']}' returned empty/error")
+                        continue
+
+                    active_tool_names.append(call["name"])
+                    all_results.extend(rows)
+
+            else:
+                # No ranking tools ? filter tools ARE the scores.
+                # Applies to location-only or traits-only queries.
+                if allowlist_species is not None:
+                    for call in filter_calls:
+                        rows = cached_filter_rows.get(call["name"], [])
+                        # Only keep species that passed the full intersection/union allowlist
+                        filtered_rows = [r for r in rows if r["species"] in allowlist_species]
+                        if filtered_rows:
+                            active_tool_names.append(call["name"])
+                            all_results.extend(filtered_rows)
+                else:
+                    logger.warning("No filter or ranking tools produced any results")
+                    return pl.DataFrame()
+
+            if not all_results:
+                logger.warning(f"No results collected for query: {query}")
+                return pl.DataFrame()
+
+            logger.info(
+                f"Collected {len(all_results)} rows from tools: {set(active_tool_names)} "
+                f"for aggregation"
+            )
+
+            return self._aggregate_results(all_results, active_tool_names)
 
         except Exception as e:
             logger.error(f"Error in agent search: {e}", exc_info=True)
@@ -272,94 +386,40 @@ class AgentSearchService:
     def _aggregate_results(
         self, results: List[Dict], active_tool_names: List[str]
     ) -> pl.DataFrame:
-        """
-        Aggregate tool results into one row per unique species using weighted
-        ranking with dynamic normalization and tool-count penalty.
-
-        Algorithm:
-        ----------
-        1. Compute normalized weights based on which tools were actually invoked
-        2. Group by species, summing weighted scores across tools
-        3. Apply penalty for each tool that did NOT return a species
-        4. Sort by final score descending
-
-        Args:
-            results: Flat list of dicts with keys [imgId, species, score, tool_names]
-            active_tool_names: List of tool function names that were invoked and succeeded
-
-        Returns:
-            pl.DataFrame with columns [imgId, species, score, tool_names]
-        """
         if not results:
             return pl.DataFrame()
 
-        # Map LLM tool function names ? internal weight keys
-        _fn_to_weight_key = {
-            "search_by_color": "color_search",
-            "search_by_location": "location_search",
-            "search_by_traits": "trait_search",
-            "search_by_image_similarity": "similarity_search",
-        }
-
-        # Compute active weights and renormalize so they sum to 1.0
-        active_weights = {
-            _fn_to_weight_key[fn]: self._tool_weights[_fn_to_weight_key[fn]]
-            for fn in active_tool_names
-            if fn in _fn_to_weight_key
-        }
-        weight_sum = sum(active_weights.values()) or 1.0
-        normalized_weights = {k: v / weight_sum for k, v in active_weights.items()}
-
-        num_tools_used = len(active_tool_names)
-
         df = pl.DataFrame(results)
 
-        # Validate expected columns exist
         expected_cols = {"imgId", "species", "score", "tool_names"}
         missing = expected_cols - set(df.columns)
         if missing:
             logger.error(f"Result rows missing columns: {missing}")
             return pl.DataFrame()
 
-        # Reweight each row's score based on normalized weights
-        # Map internal tool_names values back to weight keys
-        _tool_name_to_weight_key = {
-            "color_search": "color_search",
-            "color_description_search": "color_search",
-            "location_search": "location_search",
-            "trait_search": "trait_search",
-            "image_similarity_search": "similarity_search",
-        }
+        num_tools_used = len(set(active_tool_names))
 
-        def reweight_score(tool_name: str, raw_score: float) -> float:
-            key = _tool_name_to_weight_key.get(tool_name)
-            if key and key in normalized_weights:
-                # raw_score already encodes the base weight, rescale it
-                base_weight = self._tool_weights.get(key, 1.0)
-                normalized = normalized_weights[key]
-                return raw_score * (normalized / base_weight) if base_weight else raw_score
-            return raw_score
-
-        df = df.with_columns(
-            pl.struct(["tool_names", "score"])
-            .map_elements(
-                lambda row: reweight_score(row["tool_names"], row["score"]),
-                return_dtype=pl.Float64,
-            )
-            .alias("score")
-        )
-
-        # Group by species: sum scores, collect tool list, pick first imgId
+        # Group by species: sum scores, collect tools, pick best imgId
         aggregated = (
             df.group_by("species")
             .agg([
-                pl.col("imgId").first().alias("imgId"),
+                # Prefer imgId from color/similarity rows (best visual match)
+                pl.when(
+                    pl.col("tool_names").is_in(["search_by_color", "search_by_image_similarity"])
+                )
+                .then(pl.col("imgId"))
+                .otherwise(None)
+                .drop_nulls()
+                .first()
+                .fill_null(pl.col("imgId").first())
+                .alias("imgId"),
                 pl.col("score").sum().alias("score"),
-                pl.col("tool_names").alias("tool_names"),  # list of matched tools
-                pl.col("tool_names").len().alias("tool_hit_count"),
+                pl.col("tool_names").unique().alias("tool_names"),
+                pl.col("tool_names").n_unique().alias("tool_hit_count"),
             ])
             .with_columns(
-                # Apply penalty for each tool that did NOT find this species
+                # Penalty only applies when multiple ranking tools are active
+                # (e.g., color + similarity both fired)
                 (
                     pl.col("score")
                     - self.TOOL_PENALTY * (num_tools_used - pl.col("tool_hit_count"))
@@ -370,12 +430,113 @@ class AgentSearchService:
         )
 
         logger.info(
-            f"Aggregated {len(df)} rows ? {len(aggregated)} unique species"
+            f"Aggregated {len(df)} rows ? {len(aggregated)} unique species | "
+            f"top score: {aggregated['score'][0]:.4f}"
         )
         return aggregated
 
+    async def _execute_tool_scoped(
+        self,
+        function_name: str,
+        function_args: Dict[str, Any],
+        allowlist_img_ids: List[str],
+        allowlist_species: set[str],
+        weight: float,
+    ) -> list[dict]:
+        """
+        Execute a ranking tool (color or similarity) restricted to a pre-filtered
+        set of image IDs. This scopes CLIP/vector search to only images belonging
+        to species that passed the location/trait filter.
+
+        Args:
+            function_name: "search_by_color" or "search_by_image_similarity"
+            function_args: LLM-parsed arguments for the tool
+            allowlist_img_ids: Exact Image IDs returned by the locality/traits filtering
+            allowlist_species: Set of species names that passed the filter
+            weight: Normalized score weight dynamically assigned to this tool
+
+        Returns:
+            List of result dicts with keys [imgId, species, score, tool_names]
+        """
+        if function_name == "search_by_color":
+            color_description = function_args.get("color_description", "")
+            if not color_description:
+                return []
+
+            image_limit = max(function_args.get("limit", 150) * 10, 300)
+
+            # Search only within allowlisted image IDs explicitly returned by locality/traits
+            raw_results = self.image_service.fetch_similar_images_from_text_filtered(
+                request=self.request,
+                text=color_description,
+                limit=image_limit,
+                filter_img_ids=allowlist_img_ids,
+            )
+
+            if not raw_results:
+                return []
+
+            results_df = (
+                raw_results
+                if isinstance(raw_results, pl.DataFrame)
+                else pl.DataFrame(raw_results)
+            )
+
+            if results_df.is_empty():
+                return []
+
+            # Keep only rows whose species are in the allowlist (safety filter)
+            results_df = results_df.filter(pl.col("species").is_in(list(allowlist_species)))
+
+            if results_df.is_empty():
+                return []
+
+            # Deduplicate by species: keep best (lowest) distance per species
+            results_df = results_df.sort("distance").unique(subset=["species"], keep="first")
+
+            return self._build_result_df(
+                df=results_df,
+                score_expr=pl.lit(weight) * (1 - pl.col("distance") / 2),
+                tool_name="search_by_color",
+            ).to_dicts()
+
+        elif function_name == "search_by_image_similarity":
+            reference_species = (function_args.get("reference_species") or "").strip()
+            if not reference_species:
+                return []
+
+            image_ids = self.image_meta_service.get_image_ids_by_species(reference_species)
+            if not image_ids:
+                return []
+
+            # Search similarity but restrict results to allowlisted species
+            similar_images: pl.DataFrame = self.image_service.find_similar_images(
+                image_ids=image_ids,
+                limit=function_args.get("limit", 400),
+            )
+
+            if similar_images is None or similar_images.is_empty():
+                return []
+
+            # Filter to allowlisted species only
+            similar_images = similar_images.filter(
+                pl.col("species").is_in(list(allowlist_species))
+            )
+
+            if similar_images.is_empty():
+                return []
+
+            return self._build_result_df(
+                df=similar_images,
+                score_expr=pl.lit(weight) * (1 - pl.col("distance")),
+                tool_name="search_by_image_similarity",
+            ).to_dicts()
+
+        else:
+            return {"error": f"_execute_tool_scoped does not support: {function_name}"}
+
     async def _execute_tool(
-        self, function_name: str, function_args: Dict[str, Any]
+        self, function_name: str, function_args: Dict[str, Any], weight: float
     ) -> list[dict]:
         """
         Route a tool call to the appropriate search method and return
@@ -387,6 +548,7 @@ class AgentSearchService:
         Args:
             function_name: One of the tool names defined in _get_tools()
             function_args: Parsed arguments from the LLM tool call
+            weight: Normalized score weight dynamically assigned to this tool
 
         Returns:
             List of result dicts, or {"error": str} on unknown tool
@@ -394,16 +556,19 @@ class AgentSearchService:
         if function_name == "search_by_image_similarity":
             return await self._search_by_image_similarity(
                 reference_species=function_args.get("reference_species"),
+                weight=weight,
                 limit=function_args.get("limit", 400),
             )
         elif function_name == "search_by_location":
             return await self._search_by_location(
                 location=function_args.get("location"),
+                weight=weight,
                 limit=function_args.get("limit", 400),
             )
         elif function_name == "search_by_color":
             return await self._search_by_color(
                 color_description=function_args.get("color_description"),
+                weight=weight,
                 limit=function_args.get("limit", 50),
             )
         elif function_name == "search_by_traits":
@@ -413,18 +578,20 @@ class AgentSearchService:
                 moisture_affinity=function_args.get("moisture_affinity"),
                 disturbance_affinity=function_args.get("disturbance_affinity"),
                 limit=function_args.get("limit", 400),
+                weight=weight,
             )
         else:
             return {"error": f"Unknown function: {function_name}"}
 
     async def _search_by_image_similarity(
-        self, reference_species: str, limit: int = 50
+        self, reference_species: str, weight: float, limit: int = 50
     ) -> list[dict]:
         """
         Find species visually similar to a reference species using image embeddings.
 
         Args:
             reference_species: Scientific name of the reference species
+            weight: Pre-normalized scoring weight for this tool
             limit: Maximum number of similar images to retrieve
 
         Returns:
@@ -450,18 +617,19 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=similar_images,
-            score_expr=pl.lit(self.weight_similarity) * (1 - pl.col("distance")),
-            tool_name="image_similarity_search",
+            score_expr=pl.lit(weight) * (1 - pl.col("distance")),
+            tool_name="search_by_image_similarity",
         ).to_dicts()
 
     async def _search_by_location(
-        self, location: str, limit: int = 100
+        self, location: str, weight: float, limit: int = 100
     ) -> list[dict]:
         """
         Search for species occurring in a specific geographic location via GBIF.
 
         Args:
             location: Country or region name
+            weight: Pre-normalized scoring weight for this tool
             limit: Maximum number of species to return
 
         Returns:
@@ -484,12 +652,12 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=data,
-            score_expr=pl.lit(self.weight_location),
-            tool_name="location_search",
+            score_expr=pl.lit(weight),
+            tool_name="search_by_location",
         ).to_dicts()
 
     async def _search_by_color(
-        self, color_description: str, limit: int = 50
+        self, color_description: str, weight: float, limit: int = 50
     ) -> list[dict]:
         """
         Search for species matching a color description using CLIP embeddings.
@@ -499,6 +667,7 @@ class AgentSearchService:
 
         Args:
             color_description: Natural language color description (e.g., "blue", "orange spots")
+            weight: Pre-normalized scoring weight for this tool
             limit: Target number of species to return
 
         Returns:
@@ -537,8 +706,8 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=results_df,
-            score_expr=pl.lit(self.weight_color) * (1 - pl.col("distance") / 2),
-            tool_name="color_search",
+            score_expr=pl.lit(weight) * (1 - pl.col("distance") / 2),
+            tool_name="search_by_color",
         ).to_dicts()
 
     async def _search_by_traits(
@@ -548,6 +717,7 @@ class AgentSearchService:
         moisture_affinity: str = None,
         disturbance_affinity: str = None,
         limit: int = 100,
+        weight: float = 0.25,
     ) -> list[dict]:
         """
         Search species by habitat preferences and ecological traits (AND logic).
@@ -558,6 +728,7 @@ class AgentSearchService:
             moisture_affinity: "High", "Medium", or "Low"
             disturbance_affinity: "High", "Medium", or "Low"
             limit: Maximum number of species to return
+            weight: Pre-normalized scoring weight for this tool
 
         Returns:
             List of dicts with keys [imgId, species, score, tool_names]
@@ -595,8 +766,8 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=data,
-            score_expr=pl.lit(self.weight_traits),
-            tool_name="trait_search",
+            score_expr=pl.lit(weight),
+            tool_name="search_by_traits",
         ).to_dicts()
 
     def _build_result_df(
@@ -614,7 +785,7 @@ class AgentSearchService:
         Args:
             df: Input DataFrame ? must contain 'imgId' and 'species' columns
             score_expr: Polars expression computing the score for each row
-            tool_name: Internal tool identifier string (e.g., "color_search")
+            tool_name: Internal tool identifier string (e.g., "search_by_color")
 
         Returns:
             pl.DataFrame with columns [imgId, species, score, tool_names]

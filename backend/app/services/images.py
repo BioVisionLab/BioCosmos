@@ -3,6 +3,7 @@ import io
 
 from pydantic import BaseModel
 from fastapi import Request
+from typing import List
 
 from ..services.image_meta import ImageMetaService
 
@@ -196,6 +197,99 @@ class ImagePersistData:
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")
             return None
+    
+    def fetch_similar_images_from_text_filtered(
+        self,
+        request: Request,
+        text: str,
+        limit: int,
+        filter_img_ids: List[str],
+        ) -> List[dict]:
+        """
+        CLIP text search restricted to a specific set of image IDs.
+
+        Mirrors fetch_similar_images_from_text but pre-filters the vector search
+        to only images belonging to allowlisted species (from location/trait filters).
+
+        Args:
+            request: FastAPI request with CLIP model in app state
+            text: Natural language color/pattern description
+            limit: Maximum number of results to return
+            filter_img_ids: Image IDs to restrict search to (from allowlist species)
+
+        Returns:
+            List of dicts with keys [imgId, species, distance] or [] on failure
+        """
+        if not filter_img_ids:
+            logger.warning("fetch_similar_images_from_text_filtered called with empty filter_img_ids")
+            return []
+
+        try:
+            # Step 1: Compute CLIP text embedding
+            text_embedder = ClipEmbedder(
+                model=request.app.state.clip_embedder.model,
+                processor=request.app.state.clip_embedder.processor,
+            )
+            query_embedding = text_embedder.get_embedding_from_text(text)
+            if query_embedding is None:
+                self.logger.warning("Failed to compute text embedding.")
+                return []
+
+            # Step 2: Build SQL IN clause ? LanceDB WHERE uses SQL syntax
+            # Wrap each ID in single quotes and join with commas
+            ids_sql = ", ".join(f"'{img_id}'" for img_id in filter_img_ids)
+            where_clause = f"img_id IN ({ids_sql})"
+
+            # Step 3: Run vector search with pre-filter
+            results = (
+                self.db_table.search(
+                    query_embedding,
+                    vector_column_name="clip_embeddings",
+                )
+                .where(where_clause, prefilter=True)  # prefilter=True scopes search to allowlist
+                .distance_type("cosine")
+                .limit(limit)
+                .to_polars()
+            )
+
+            if results is None or results.is_empty():
+                self.logger.warning(
+                    f"No similar images found for text '{text}' within {len(filter_img_ids)} filtered IDs."
+                )
+                return []
+
+            # Step 4: Select and rename columns to match pipeline schema
+            safe_cols = [c for c in ("img_id", "_distance") if c in results.columns]
+            if not safe_cols:
+                return []
+
+            cleaned = results.select(safe_cols).rename(
+                {"img_id": "imgId", "_distance": "distance"}
+            )
+
+            # Step 5: Merge with metadata (adds species column)
+            merged = self._merge_result_with_metadata(cleaned)
+            if merged is None or merged.is_empty():
+                return []
+
+            # Step 6: Deduplicate by species, keep best (lowest) distance
+            filtered = self._filter_by_species(merged)
+
+            self.logger.info(
+                f"Filtered color search: '{text}' ? {len(filtered)} species "
+                f"within {len(filter_img_ids)} allowlisted images"
+            )
+
+            return filtered.to_dicts()
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in fetch_similar_images_from_text_filtered: {e}",
+                exc_info=True,
+            )
+            return []
+
+
 
     def fetch_similar_images_from_bytes(
         self, request: Request, image_bytes: bytes, limit: int = 20

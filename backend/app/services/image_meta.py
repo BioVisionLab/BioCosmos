@@ -1,4 +1,5 @@
 import polars as pl
+from typing import List
 from ..configs.config import ImageMetaConfig
 from ..database.duckdb import DuckDBClient
 import logging
@@ -77,6 +78,52 @@ class ImageMetaService:
                 f"Error retrieving image count for species '{scientific_name}': {e}"
             )
             return None
+
+    def get_image_ids_for_species_list(self, species_list: List[str]) -> List[str]:
+        """
+        Return all image IDs belonging to any species in the provided list.
+
+        Uses a temporary table join (consistent with get_species_main_image_id_from_list)
+        to avoid SQL injection and handle large species lists safely.
+
+        Args:
+            species_list: List of scientific species names
+
+        Returns:
+            List of image ID strings (without .png extension), empty list on failure
+        """
+        if not species_list:
+            return []
+
+        try:
+            # Register species list as a temp table ? avoids SQL injection
+            names_df = pl.DataFrame({"species": species_list})
+            self.db_client.register("temp_species_ids", names_df)
+
+            query = f"""
+                SELECT REPLACE(m.mask_name, '.png', '') AS img_id
+                FROM {self.table} m
+                INNER JOIN temp_species_ids t
+                ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+            """
+
+            result = self.db_client.execute(query).pl()
+            self.db_client.unregister("temp_species_ids")
+
+            if result is None or result.is_empty():
+                logger.warning(
+                    f"No image IDs found for {len(species_list)} species in allowlist."
+                )
+                return []
+
+            return result["img_id"].to_list()
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving image IDs for species list: {e}",
+                exc_info=True,
+            )
+            return []
 
     # def count_entries(self) -> int | None:
     #     """
