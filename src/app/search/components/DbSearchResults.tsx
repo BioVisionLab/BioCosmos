@@ -1,29 +1,29 @@
-"use client";
-
-import React, { useState, useEffect, Suspense } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import { searchSemantic, MlResultItems } from "@/lib/ml_search";
-import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
-import { FlaskConical } from "lucide-react";
 import Tips from "@/components/Tips";
+import { DbResultItems, searchDatabase } from "@/lib/dbSearch";
+import { fetchImgById } from "@/lib/images";
+import { FlaskConical } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Suspense, use, useEffect, useState } from "react";
 
-function SemanticSearchResults({ query }: { query: string }) {
-  const [results, setResults] = useState<MlResultItems[]>([]);
+const IMAGE_SIZE = 128;
+
+function DbSearch({ query }: { query: string }) {
+  const [results, setResults] = useState<DbResultItems[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!query) return;
-
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await searchSemantic(query);
-        setResults(data);
-      } catch (err: any) {
-        setError(err.message || "An unexpected error occurred");
+        const response = await searchDatabase(query);
+        setResults(response);
+      } catch (error) {
+        setError("Failed to fetch search results");
       } finally {
         setLoading(false);
       }
@@ -59,7 +59,7 @@ function SemanticSearchResults({ query }: { query: string }) {
       </div>
       <div id="search-query" className="mb-12 mt-8 text-center">
         <SearchForm
-          mode="semantic"
+          mode="text"
           icon={FlaskConical}
           onSubmit={handleSearch}
           query={query}
@@ -72,18 +72,18 @@ function SemanticSearchResults({ query }: { query: string }) {
             Search Results
           </h1>
         </div>
-        <MlSearchResults results={results} query={query} loading={loading} />
+        <DbSearchResults results={results} query={query} loading={loading} />
       </div>
     </div>
   );
 }
 
-function MlSearchResults({
+function DbSearchResults({
   results,
   query,
   loading,
 }: {
-  results: MlResultItems[];
+  results: DbResultItems[];
   query: string;
   loading: boolean;
 }) {
@@ -96,18 +96,13 @@ function MlSearchResults({
   }
 
   return (
-    <>
+    <div>
       {loading ? (
         <div className="flex flex-col items-center mt-24">
           <ImageLoading size={240} msg="Loading results" />
         </div>
       ) : (
         <div className="mt-5">
-          <div id="top-results" className="mb-6">
-            <Suspense fallback={<div>Loading top species...</div>}>
-              <TopResultCard data={results[0]} />
-            </Suspense>
-          </div>
           <div>
             <div className="mb-4">
               <h2
@@ -120,20 +115,65 @@ function MlSearchResults({
             </div>
             <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
               {/* Render remaining results */}
-              {results.slice(1).map((item) => (
+              {results.map((item) => (
                 <Suspense
                   key={item.imgId}
                   fallback={<div>Loading species...</div>}
                 >
-                  <MLSearchResultCard data={item} />
+                  <DbResultCard data={item} />
                 </Suspense>
               ))}
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-export default SemanticSearchResults;
+function DbResultCard({ data }: { data: DbResultItems }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchImage = async () => {
+      try {
+        const url = await fetchImgById(data.imgId);
+        if (mounted) setImageUrl(url);
+      } catch (error) {
+        console.error("Error fetching image for DbResultCard:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchImage();
+    return () => {
+      mounted = false;
+    };
+  }, [data.imgId]);
+
+  return (
+    <div className="border rounded-lg p-4">
+      {loading ? (
+        <ImageLoading size={IMAGE_SIZE} />
+      ) : (
+        <Link href={`/species/${data.species}`}>
+          <Image
+            src={imageUrl || `/api/image/${data.imgId}`}
+            alt={`Image of ${data.species}`}
+            width={IMAGE_SIZE}
+            height={IMAGE_SIZE}
+            className="mx-auto object-contain"
+          />
+
+          <h2 className="text-sm truncate text-center text-gray-400 italic mt-2">
+            {data.species}
+          </h2>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+export { DbSearch };

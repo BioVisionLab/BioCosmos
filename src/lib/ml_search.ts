@@ -3,6 +3,7 @@ export interface MlResultItems {
   species: string;
   score: number;
 }
+
 async function searchSemantic(query: string): Promise<MlResultItems[]> {
   const response = await fetch(
     "/api/ml-search/agent?q=" + encodeURIComponent(query),

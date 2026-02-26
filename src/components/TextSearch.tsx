@@ -33,15 +33,16 @@ export default function TextSearch() {
     <div className="w-full max-w-2xl mx-auto mb-6 bg-emerald-50/50 dark:bg-gray-800/50 p-6 rounded-3xl">
       <div className="mb-4 text-center text-gray-600 dark:text-gray-400 text-sm">
         <p>
-          Conventional text-based search to query BIOCOSMOS database. Try
-          searching for "danaus plexippus" or "monarch".
+          Conventional text-based search to query BIOCOSMOS database. Search by
+          species, family, or other keywords. Results are ranked by relevance to
+          your query.
         </p>
       </div>
       <SearchForm
         mode="text"
         icon={Search}
         onSubmit={handleSearch}
-        placeholder="Orange butterfly with black lines"
+        placeholder="Danaus plexippus"
       />
       {searchError && (
         <p
