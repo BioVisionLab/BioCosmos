@@ -174,11 +174,10 @@ function DbResultCard({ data }: { data: DbResultItems }) {
             {cleanSpeciesName(data.species)}
           </h2>
           <p className="text-xs text-gray-500 w-full">
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-              {data.matched_fields
-                .map((field) => field.replace(/_/g, " "))
-                .join(", ")}
-            </span>
+            Matched fields:{" "}
+            {data.matched_fields
+              .map((field) => field.replace(/_/g, " "))
+              .join(", ")}
           </p>
         </Link>
       )}
