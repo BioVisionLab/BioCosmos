@@ -63,91 +63,78 @@ class DuckDBClient:
         limit: int = 100,
         unique_species: bool = False,
     ) -> list[FtsSearchData]:
-        """Perform a full-text search on the specified table using DuckDB's FTS extension.
+        """Perform a full-text search on the specified table using DuckDB's FTS extension."""
 
-        Scores are normalized to [0, 1] using min-max scaling across the result set,
-        where 1.0 is the best match. If all results share the same BM25 score, all
-        are assigned 1.0. Matched fields are derived by checking which indexed columns
-        contain the query string (case-insensitive substring match).
-
-        Args:
-            table_name (str): The name of the table to search. Must have an FTS index
-                created via PRAGMA create_fts_index.
-            id_column (str): The unique document identifier column used when the FTS
-                index was created (e.g., 'gbifID', 'rowid').
-            query (str): The full-text search query string.
-            fields (list[str] | None): Optional list of columns to restrict the FTS
-                search to. If None, all indexed columns are searched.
-            limit (int): Maximum number of results to return. Defaults to 100.
-            unique_species (bool): If True, deduplicates results by species name,
-                keeping only the row with the highest BM25 score per species.
-                Deduplication is performed in SQL before the LIMIT is applied,
-                ensuring up to `limit` distinct species are returned. Defaults to False.
-
-        Returns:
-            list[FtsSearchData]: Search results ordered by normalized BM25 score
-                descending. Each entry contains the species name, normalized score,
-                and a list of indexed fields that matched the query string.
-        """
         search_fields = fields or []
-        fields_arg = (
-            f", fields := '{', '.join(search_fields)}'" if search_fields else ""
-        )
-        macro = f"fts_main_{table_name}.match_bm25"
         query_esc = query.replace("'", "''")
 
-        field_cols = ", ".join(f"CAST({f} AS VARCHAR) AS {f}" for f in search_fields)
-        select_cols = f"species, {field_cols}, " if field_cols else "species, "
+        macro = f"fts_main_{table_name}.match_bm25"
+        fields_joined = ", ".join(search_fields)
+        fields_arg = f", fields := '{fields_joined}'" if search_fields else ""
 
+        quoted_id = f'"{id_column}"'
+        quoted_species = '"species"'
+
+        if search_fields:
+            field_cols = ", ".join(
+                f'CAST("{f}" AS VARCHAR) AS "{f}"' for f in search_fields
+            )
+            select_cols = f"{quoted_species}, {field_cols}, "
+        else:
+            select_cols = f"{quoted_species}, "
+
+        # Push Down Optimization: Deduplicate, sort, and limit entirely in DuckDB
         if unique_species:
+            # Uses a window function to find the top score per species
             sql = f"""
-                SELECT species, MAX(score) AS score
-                FROM (
-                    SELECT species,
-                        {macro}({id_column}, '{query_esc}'{fields_arg}) AS score
-                    FROM {table_name}
-                )
-                WHERE score IS NOT NULL
-                GROUP BY species
-            """
+                    WITH matches AS (
+                        SELECT {select_cols}
+                            {macro}({quoted_id}, '{query_esc}'{fields_arg}) AS score
+                        FROM "{table_name}"
+                    )
+                    SELECT * EXCLUDE (rn)
+                    FROM (
+                        SELECT *, ROW_NUMBER() OVER (PARTITION BY "species" ORDER BY score DESC) as rn
+                        FROM matches
+                        WHERE score IS NOT NULL
+                    )
+                    WHERE rn = 1
+                    ORDER BY score DESC
+                    LIMIT {limit}
+                """
         else:
             sql = f"""
-                SELECT {select_cols}
-                    {macro}({id_column}, '{query_esc}'{fields_arg}) AS score
-                FROM {table_name}
-                WHERE {macro}({id_column}, '{query_esc}'{fields_arg}) IS NOT NULL
-            """
+                    SELECT {select_cols}
+                        {macro}({quoted_id}, '{query_esc}'{fields_arg}) AS score
+                    FROM "{table_name}"
+                    WHERE score IS NOT NULL
+                    ORDER BY score DESC
+                    LIMIT {limit}
+                """
 
-        df = self.conn.sql(
-            f"""
-            SELECT *,
-                CASE
-                    WHEN MAX(score) OVER () = MIN(score) OVER () THEN 1.0
-                    ELSE (score - MIN(score) OVER ()) / (MAX(score) OVER () - MIN(score) OVER ())
-                END AS norm_score
-            FROM ({sql})
-            ORDER BY score DESC
-            LIMIT {limit}
-            """
-        ).pl()
+        df = self.conn.sql(sql).pl()
 
-        # matched_fields derived in Python to avoid DuckDB lambda-in-subquery
-        # parser errors (list_filter with -> lambdas is unreliable inside nested
-        # FROM subqueries)
-        query_lower = query_esc.lower()
+        # Tokenize the *original* query (not the escaped one) to mimic BM25 token matching
+        query_tokens = [t.lower() for t in query.split()]
+
         results = []
         for row in df.iter_rows(named=True):
             if not row["species"] or not str(row["species"]).strip():
                 continue
-            matched = [
-                f
-                for f in search_fields
-                if f in row and row[f] and query_lower in str(row[f]).lower()
-            ]
+
+            matched = []
+            if search_fields:
+                for f in search_fields:
+                    if f in row and row[f]:
+                        field_val = str(row[f]).lower()
+                        # Check against individual tokens instead of exact full-string match
+                        if any(token in field_val for token in query_tokens):
+                            matched.append(f)
+
             results.append(
                 FtsSearchData(
-                    species=row["species"].strip().lower().replace(" ", "_"),
-                    score=row["norm_score"],
+                    species=str(row["species"]).strip().lower().replace(" ", "_"),
+                    score=row["score"],
                     matched_fields=matched,
                 )
             )
