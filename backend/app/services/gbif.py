@@ -18,13 +18,20 @@ GBIF_COLUMNS_INDEXED = [
     "family",
     "order",
     "vernacularName",
+    "genericName",
+    "sex",
+    "lifeStage",
+    "continent",
+    "island",
     "countryCode",
     "stateProvince",
-    "level1Name",
-    "continent",
+    "county",
+    "municipality",
     "locality",
     "verbatimLocality",
+    "level1Name",
 ]
+
 
 GBIF_INDEX_ID = "rowid"
 
@@ -74,6 +81,7 @@ class GbifPersistData:
             logger.info(f"GBIF data ingested successfully from '{self.tsv_path}'.")
             entries: int | None = self.count_entries()
             self._index_columns()
+            logger.info("Full-text search index created on GBIF metadata table.")
             logger.info(f"Total entries after ingestion: {entries}")
         except Exception as e:
             logger.error(f"Failed to ingest GBIF data from '{self.tsv_path}': {e}")
