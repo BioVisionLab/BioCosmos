@@ -152,6 +152,11 @@ class DuckDBClient:
         # token matching when deriving matched_fields in Python
         query_tokens = [t.lower() for t in query.split()]
 
+        return self._clean_search_results(df, search_fields, query_tokens)
+
+    def _clean_search_results(
+        self, df: pl.DataFrame, search_fields: list[str], query_tokens: list[str]
+    ) -> list[FtsSearchData]:
         results = []
         for row in df.iter_rows(named=True):
             if not row["species"] or not str(row["species"]).strip():
@@ -172,7 +177,6 @@ class DuckDBClient:
                     matched_fields=matched,
                 )
             )
-
         return results
 
     def register(self, name: str, df: pl.DataFrame):
