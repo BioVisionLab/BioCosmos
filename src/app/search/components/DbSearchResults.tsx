@@ -3,7 +3,7 @@ import SearchForm from "@/components/SearchForm";
 import Tips from "@/components/Tips";
 import { DbResultItems, searchDatabase } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail } from "@/lib/images";
-import { formatSpeciesNameForUrl } from "@/lib/names";
+import { cleanSpeciesName, formatSpeciesNameForUrl } from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -152,25 +152,34 @@ function DbResultCard({ data }: { data: DbResultItems }) {
   }, [data.species]);
 
   return (
-    <div className="border rounded-lg p-4">
+    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-[160px] min-h-[160px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <Link
           href={`/species/${formatSpeciesNameForUrl(data.species)}`}
-          className="flex flex-col items-center"
+          className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
-          <Image
-            src={imageUrl || `/api/image/${data.species}`}
-            alt={`Image of ${data.species}`}
-            width={IMAGE_SIZE}
-            height={IMAGE_SIZE}
-            className="mx-auto object-contain"
-          />
+          <div className="flex flex-1 items-center justify-center w-full">
+            <Image
+              src={imageUrl || `/api/image/${data.species}`}
+              alt={`Image of ${data.species}`}
+              width={IMAGE_SIZE}
+              height={IMAGE_SIZE}
+              className="mx-auto object-contain"
+            />
+          </div>
 
-          <h2 className="text-sm truncate text-center text-gray-400 italic mt-2">
-            {data.species}
+          <h2 className="text-sm truncate text-center text-gray-400 italic w-full">
+            {cleanSpeciesName(data.species)}
           </h2>
+          <p className="text-xs text-gray-500 w-full">
+            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+              {data.matched_fields
+                .map((field) => field.replace(/_/g, " "))
+                .join(", ")}
+            </span>
+          </p>
         </Link>
       )}
     </div>

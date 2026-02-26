@@ -20,6 +20,11 @@ class DbSearchPayload(BaseModel):
         """ """
         return cls(query=query, results=results)
 
+    @classmethod
+    def empty(cls, query: str):
+        """ """
+        return cls(query=query, results=[])
+
 
 class TextToDbSearch:
     """
@@ -53,11 +58,11 @@ class TextToDbSearch:
 
         if not results:
             logger.info(f"No results found for query: {self.query}")
-            return None
+            return DbSearchPayload.empty(query=self.query).model_dump()
         filtered_results = self.remove_list_not_in_meta(results)
         if not filtered_results:
             logger.info(f"No results found in metadata for query: {self.query}")
-            return None
+            return DbSearchPayload.empty(query=self.query).model_dump()
         logger.info(f"Found {len(filtered_results)} results for query: {self.query}")
         return DbSearchPayload.from_data(
             query=self.query, results=[r.model_dump() for r in filtered_results]

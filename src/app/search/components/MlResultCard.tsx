@@ -16,9 +16,7 @@ import { MlResultItems } from "@/lib/ml_search";
 const IMAGE_SIZE = 128;
 // Compute match percent from a 0..1 distance value using the app's scaling formula
 function computeMatchPercent(distance: number) {
-  return Math.round(
-    50.0 + (distance - 0.501) * (50.0 / (0.999 - 0.501))
-  );
+  return Math.round(50.0 + (distance - 0.501) * (50.0 / (0.999 - 0.501)));
 }
 // Reusable component for displaying a species card (similar to GenusSpeciesClient)
 function MLSearchResultCard({ data }: { data: MlResultItems }) {
@@ -48,7 +46,8 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   // Return Tailwind classes for a colored pill (bg + text) with dark-mode variants
   const getMatchPillClass = (pct: number) => {
     // base pill styling: small rounded pill with tight padding and monospace-ish size
-    const base = "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium";
+    const base =
+      "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium";
     if (pct < 65)
       return `${base} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
     if (pct < 70)
@@ -61,24 +60,32 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   };
 
   return (
-    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-2 items-center justify-center text-center w-[160px]">
+    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-[160px] min-h-[200px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
-        <Link href={`/species/${data.species}`}>
-          <Image
-            src={imageUrl || `/api/image/${data.imgId}`}
-            alt={`Image of ${data.species}`}
-            width={IMAGE_SIZE}
-            height={IMAGE_SIZE}
-            className="mx-auto object-contain"
-          />
+        <Link
+          href={`/species/${data.species}`}
+          className="flex flex-col items-center justify-between h-full w-full gap-2"
+        >
+          <div className="flex flex-1 items-center justify-center w-full">
+            <Image
+              src={imageUrl || `/api/image/${data.imgId}`}
+              alt={`Image of ${data.species}`}
+              width={IMAGE_SIZE}
+              height={IMAGE_SIZE}
+              className="mx-auto object-contain"
+            />
+          </div>
 
-          <h2 className="text-sm truncate text-center text-gray-400 italic mt-2">
+          <h2 className="text-sm truncate text-center text-gray-400 italic w-full">
             {speciesName}
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            <span className={getMatchPillClass(matchPercent)}>Match: {matchPercent}%</span>
+
+          <p className="text-xs text-gray-500 w-full">
+            <span className={getMatchPillClass(matchPercent)}>
+              Match: {matchPercent}%
+            </span>
           </p>
         </Link>
       )}
@@ -101,7 +108,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
         const imageIds = await fetchSpeciesImageIds(data.species, 5);
         if (imageIds.length > 0) {
           const otherImages = await Promise.all(
-            imageIds.map((id) => fetchThumbnailById(id))
+            imageIds.map((id) => fetchThumbnailById(id)),
           );
           if (!mounted) return;
           setOtherImageUrl(otherImages);
@@ -123,7 +130,8 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   const matchPercent = computeMatchPercent(data.score);
 
   const getMatchPillClass = (pct: number) => {
-    const base = "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
+    const base =
+      "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
     if (pct < 65)
       return `${base} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
     if (pct < 70)
@@ -139,7 +147,9 @@ function TopResultCard({ data }: { data: MlResultItems }) {
     <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl flex items-center gap-3">
         <h2 className="text-lg font-semibold p-1">Top Result</h2>
-        <span className={getMatchPillClass(matchPercent)}>Match: {matchPercent}%</span>
+        <span className={getMatchPillClass(matchPercent)}>
+          Match: {matchPercent}%
+        </span>
       </div>
 
       <div className="p-4">
@@ -187,7 +197,10 @@ function TopResultCard({ data }: { data: MlResultItems }) {
               )}
 
               <div className="mt-4">
-                <Link href={`/species/${data.species}`} className="mb-2 inline-block rounded-lg bg-gradient-to-br from-emerald-500/50 to-teal-700/50 w-fit px-4 py-2 hover:bg-teal-600/70 transition text-gray-100">
+                <Link
+                  href={`/species/${data.species}`}
+                  className="mb-2 inline-block rounded-lg bg-gradient-to-br from-emerald-500/50 to-teal-700/50 w-fit px-4 py-2 hover:bg-teal-600/70 transition text-gray-100"
+                >
                   Show species page →
                 </Link>
               </div>
