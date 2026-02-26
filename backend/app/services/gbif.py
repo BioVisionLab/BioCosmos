@@ -18,7 +18,6 @@ GBIF_COLUMNS_INDEXED = [
     "family",
     "order",
     "vernacularName",
-    "genericName",
     "sex",
     "lifeStage",
     "continent",
