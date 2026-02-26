@@ -45,60 +45,16 @@ class ImagePersistData:
     def __init__(self, lance_db: LanceDB, duckdb: DuckDBClient):
         self.config = ImageConfig()
         self.logger = logging.getLogger(__name__)
-        self.db_table = lance_db.create_or_get_collection(
-            self.config.table
-        )
+        self.db_table = lance_db.create_or_get_collection(self.config.table)
         self.meta_table = duckdb
 
     def entries(self) -> int | None:
         """Count the number of entries in the image collection."""
         result = LanceDB().count_entries(self.config.table)
         if result is None:
-            logger.warning(
-                "No entries found in the image collection."
-            )
+            logger.warning("No entries found in the image collection.")
             return None
         return result
-
-    # Function to fetch a list of image IDs for a given species
-    # Returns species name and list of image IDs, or empty list if none found
-    def fetch_image_ids(self, species_name: str, limit: int | None = None, offset: int | None = None) -> list:
-        """
-        Returns a list of image IDs for the given species name.
-
-        If `limit` is provided, limit the number of rows returned by the
-        underlying LanceDB query. If `limit` is None, return all matching
-        rows (deduplicated by `img_id`).
-        """
-        species = species_name.lower().replace(" ", "_")
-        query = f"species == '{species}'"
-        try:
-            search_obj = self.db_table.search().where(query)
-            if offset is not None:
-                # apply offset if provided
-                search_obj = search_obj.offset(int(offset))
-            if limit is not None:
-                # apply limit on the DB query if requested
-                results = search_obj.limit(int(limit)).to_polars()
-            else:
-                results = search_obj.to_polars()
-
-            if "img_id" not in results.columns or results.is_empty():
-                self.logger.warning(
-                    f"No image IDs found for species '{species_name}'."
-                )
-                return []
-            # Result may contain duplicate image IDs, so deduplicate
-            dedup_results = results.unique(subset=["img_id"])
-            return SpeciesImage(
-                species=species,
-                imageIds=dedup_results["img_id"].to_list(),
-            ).to_dict()
-        except Exception as e:
-            self.logger.error(
-                f"Error fetching image IDs for species '{species_name}': {e}"
-            )
-            return []
 
     def get_img_by_id(
         self,
@@ -113,16 +69,12 @@ class ImagePersistData:
                 .to_pydantic(LanceSchema)
             )
             if not img:
-                self.logger.warning(
-                    f"No image found with ID '{img_id}'."
-                )
+                self.logger.warning(f"No image found with ID '{img_id}'.")
                 return None
             return img[0].img_bytes
 
         except Exception as e:
-            self.logger.error(
-                f"Error fetching image with ID '{img_id}': {e}"
-            )
+            self.logger.error(f"Error fetching image with ID '{img_id}': {e}")
             return None
 
     def fetch_image(self, species_name: str) -> io.BytesIO | None:
@@ -162,13 +114,9 @@ class ImagePersistData:
                 model=request.app.state.clip_embedder.model,
                 processor=request.app.state.clip_embedder.processor,
             )
-            query_embedding = text_embedder.get_embedding_from_text(
-                text
-            )
+            query_embedding = text_embedder.get_embedding_from_text(text)
             if query_embedding is None:
-                self.logger.warning(
-                    "Failed to compute text embedding."
-                )
+                self.logger.warning("Failed to compute text embedding.")
                 return None
 
             similar_images = self._query_embedding(
@@ -178,16 +126,12 @@ class ImagePersistData:
                 max_distance=max_distance,
             )
             if similar_images is None or similar_images.is_empty():
-                self.logger.warning(
-                    "No similar images found for the given text."
-                )
+                self.logger.warning("No similar images found for the given text.")
                 return None
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the text '{text}'."
             )
-            merged_results = self._merge_result_with_metadata(
-                similar_images
-            )
+            merged_results = self._merge_result_with_metadata(similar_images)
             if merged_results is None:
                 return None
             similar_images = self._filter_by_species(merged_results)
@@ -197,14 +141,14 @@ class ImagePersistData:
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")
             return None
-    
+
     def fetch_similar_images_from_text_filtered(
         self,
         request: Request,
         text: str,
         limit: int,
         filter_img_ids: List[str],
-        ) -> List[dict]:
+    ) -> List[dict]:
         """
         CLIP text search restricted to a specific set of image IDs.
 
@@ -221,7 +165,9 @@ class ImagePersistData:
             List of dicts with keys [imgId, species, distance] or [] on failure
         """
         if not filter_img_ids:
-            logger.warning("fetch_similar_images_from_text_filtered called with empty filter_img_ids")
+            logger.warning(
+                "fetch_similar_images_from_text_filtered called with empty filter_img_ids"
+            )
             return []
 
         try:
@@ -246,7 +192,9 @@ class ImagePersistData:
                     query_embedding,
                     vector_column_name="clip_embeddings",
                 )
-                .where(where_clause, prefilter=True)  # prefilter=True scopes search to allowlist
+                .where(
+                    where_clause, prefilter=True
+                )  # prefilter=True scopes search to allowlist
                 .distance_type("cosine")
                 .limit(limit)
                 .to_polars()
@@ -289,8 +237,6 @@ class ImagePersistData:
             )
             return []
 
-
-
     def fetch_similar_images_from_bytes(
         self, request: Request, image_bytes: bytes, limit: int = 20
     ) -> list[dict] | None:
@@ -307,13 +253,9 @@ class ImagePersistData:
                 model=request.app.state.unicom_embedder.model,
                 transform=request.app.state.unicom_embedder.transform,
             )
-            query_embedding = (
-                unicom_embedder.get_embedding_from_bytes(image_bytes)
-            )
+            query_embedding = unicom_embedder.get_embedding_from_bytes(image_bytes)
             if query_embedding is None:
-                self.logger.warning(
-                    "Failed to compute image embedding."
-                )
+                self.logger.warning("Failed to compute image embedding.")
                 return None
             similar_images = self._query_embedding(
                 query_vector=query_embedding,
@@ -321,16 +263,12 @@ class ImagePersistData:
                 limit=limit,
             )
             if similar_images is None or similar_images.is_empty():
-                self.logger.warning(
-                    "No similar images found for the given image."
-                )
+                self.logger.warning("No similar images found for the given image.")
                 return None
             self.logger.info(
                 f"Found {len(similar_images)} similar images for the provided image."
             )
-            merged_results = self._merge_result_with_metadata(
-                similar_images
-            )
+            merged_results = self._merge_result_with_metadata(similar_images)
             if merged_results is None:
                 return None
             filtered_imgs = self._filter_by_species(merged_results)
@@ -364,9 +302,7 @@ class ImagePersistData:
         if query is None:
             return None
         # Compute the centroid of the embeddings
-        centroid: np.ndarray = np.mean(
-            [img.unicom_embeddings for img in query], axis=0
-        )
+        centroid: np.ndarray = np.mean([img.unicom_embeddings for img in query], axis=0)
         # Perform similarity search based on the centroid
         try:
             results = self._query_embedding(
@@ -392,9 +328,7 @@ class ImagePersistData:
             )
             return None
 
-    def fetch_thumbnail(
-        self, species_name: str, limit: int = 5
-    ) -> io.BytesIO | None:
+    def fetch_thumbnail(self, species_name: str, limit: int = 5) -> io.BytesIO | None:
         """Fetch thumbnails for a specific species."""
         query = self._query_image(species_name)
         if query is None:
@@ -427,11 +361,7 @@ class ImagePersistData:
                 .limit(limit)
                 .to_polars()
             )
-            safe_cols = [
-                c
-                for c in ("img_id", "_distance")
-                if c in results.columns
-            ]
+            safe_cols = [c for c in ("img_id", "_distance") if c in results.columns]
             if not safe_cols:
                 return None
             cleaned_results = results.select(safe_cols).rename(
@@ -441,10 +371,7 @@ class ImagePersistData:
             # Apply distance threshold if specified
             # For cosine distance: 0 = identical, 1 = orthogonal, 2 = opposite
             # Lower distance = more similar
-            if (
-                max_distance is not None
-                and "distance" in cleaned_results.columns
-            ):
+            if max_distance is not None and "distance" in cleaned_results.columns:
                 before_count = len(cleaned_results)
                 cleaned_results = cleaned_results.filter(
                     pl.col("distance") <= max_distance
@@ -466,9 +393,7 @@ class ImagePersistData:
         """Compute the Euclidean distance between two embeddings."""
         return np.linalg.norm(source_emb - target_emb)
 
-    def _query_images(
-        self, image_ids: list[str]
-    ) -> list[LanceSchema] | None:
+    def _query_images(self, image_ids: list[str]) -> list[LanceSchema] | None:
         """Construct a query string for fetching images."""
         image_data: list[LanceSchema] = []
         for img_id in image_ids:
@@ -476,15 +401,11 @@ class ImagePersistData:
             if img_record is not None:
                 image_data.append(img_record)
         if not image_data:
-            self.logger.warning(
-                "No images found for the provided image IDs."
-            )
+            self.logger.warning("No images found for the provided image IDs.")
             return None
         return image_data
 
-    def _get_image_data_by_id(
-        self, img_id: str
-    ) -> LanceSchema | None:
+    def _get_image_data_by_id(self, img_id: str) -> LanceSchema | None:
         """Fetch an image record by its ID."""
         try:
             img: list[LanceSchema] = (
@@ -494,16 +415,12 @@ class ImagePersistData:
                 .to_pydantic(LanceSchema)
             )
             if not img:
-                self.logger.warning(
-                    f"No image found with ID '{img_id}'."
-                )
+                self.logger.warning(f"No image found with ID '{img_id}'.")
                 return None
             return img[0]
 
         except Exception as e:
-            self.logger.error(
-                f"Error fetching image with ID '{img_id}': {e}"
-            )
+            self.logger.error(f"Error fetching image with ID '{img_id}': {e}")
             return None
 
     def _merge_result_with_metadata(
@@ -516,33 +433,23 @@ class ImagePersistData:
         """
         try:
             if results is None:
-                self.logger.warning(
-                    "No results to merge with metadata."
-                )
+                self.logger.warning("No results to merge with metadata.")
                 return results
 
             meta_service = ImageMetaService(duckdb=self.meta_table)
-            merged_results = meta_service.merge_meta_with_image_data(
-                results
-            )
+            merged_results = meta_service.merge_meta_with_image_data(results)
 
             return merged_results
 
         except Exception as e:
-            self.logger.error(
-                f"Error merging results with metadata: {e}"
-            )
+            self.logger.error(f"Error merging results with metadata: {e}")
             return results
 
-    def _filter_by_species(
-        self, results: pl.DataFrame
-    ) -> pl.DataFrame:
+    def _filter_by_species(self, results: pl.DataFrame) -> pl.DataFrame:
         """Filter the results to ensure only one image per species is kept."""
         try:
             if results is None:
-                self.logger.warning(
-                    "No results to filter by species."
-                )
+                self.logger.warning("No results to filter by species.")
                 return results
 
             # Keep the first occurrence of each species
@@ -555,7 +462,5 @@ class ImagePersistData:
             return filtered_results
 
         except Exception as e:
-            self.logger.error(
-                f"Error filtering results by species: {e}"
-            )
+            self.logger.error(f"Error filtering results by species: {e}")
             return results

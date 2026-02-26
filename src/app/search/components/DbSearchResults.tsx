@@ -2,7 +2,8 @@ import { ImageLoading } from "@/components/Loadings";
 import SearchForm from "@/components/SearchForm";
 import Tips from "@/components/Tips";
 import { DbResultItems, searchDatabase } from "@/lib/dbSearch";
-import { fetchImgById } from "@/lib/images";
+import { fetchSpeciesThumbnail } from "@/lib/images";
+import { formatSpeciesNameForUrl } from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -115,11 +116,8 @@ function DbSearchResults({
             </div>
             <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
               {/* Render remaining results */}
-              {results.map((item) => (
-                <Suspense
-                  key={item.imgId}
-                  fallback={<div>Loading species...</div>}
-                >
+              {results.map((item, index) => (
+                <Suspense key={index} fallback={<div>Loading species...</div>}>
                   <DbResultCard data={item} />
                 </Suspense>
               ))}
@@ -139,7 +137,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
     let mounted = true;
     const fetchImage = async () => {
       try {
-        const url = await fetchImgById(data.imgId);
+        const url = await fetchSpeciesThumbnail(data.species);
         if (mounted) setImageUrl(url);
       } catch (error) {
         console.error("Error fetching image for DbResultCard:", error);
@@ -151,16 +149,19 @@ function DbResultCard({ data }: { data: DbResultItems }) {
     return () => {
       mounted = false;
     };
-  }, [data.imgId]);
+  }, [data.species]);
 
   return (
     <div className="border rounded-lg p-4">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
-        <Link href={`/species/${data.species}`}>
+        <Link
+          href={`/species/${formatSpeciesNameForUrl(data.species)}`}
+          className="flex flex-col items-center"
+        >
           <Image
-            src={imageUrl || `/api/image/${data.imgId}`}
+            src={imageUrl || `/api/image/${data.species}`}
             alt={`Image of ${data.species}`}
             width={IMAGE_SIZE}
             height={IMAGE_SIZE}

@@ -146,7 +146,7 @@ class DuckDBClient:
             ]
             results.append(
                 FtsSearchData(
-                    species=row["species"],
+                    species=row["species"].strip().lower().replace(" ", "_"),
                     score=row["norm_score"],
                     matched_fields=matched,
                 )

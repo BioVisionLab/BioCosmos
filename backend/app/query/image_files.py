@@ -38,9 +38,7 @@ class ImageMetaRetrieval:
         self.duckdb = request.app.state.duck_db
         self.lance_db = request.app.state.lance_db
 
-    def get_species_image_ids(
-        self, scientific_name: str
-    ) -> list[str]:
+    def get_species_image_ids(self, scientific_name: str) -> list[str]:
         """
         Retrieve image IDs associated with a species.
         """
@@ -98,32 +96,24 @@ class ImageFileRetrieval:
         self.duckdb = request.app.state.duck_db
         self.file_format = "webp"
 
-    def get_species_thumbnail(
-        self, scientific_name: str
-    ) -> str | None:
+    def get_species_thumbnail(self, scientific_name: str) -> str | None:
         """
         Retrieve the thumbnail image file path for a species.
         """
-        # Prefer IDs from the Lance collection (images actually ingested)
-        persisted = ImagePersistData(lance_db=self.lance_db, duckdb=self.duckdb).fetch_image_ids(scientific_name)
-        # fetch_image_ids may return a dict { species, imageIds } or a plain list
-        if isinstance(persisted, dict):
-            image_ids = persisted.get("imageIds", [])
-        else:
-            image_ids = persisted or []
-
-        if not image_ids:
+        img_id: str | None = ImageMetaService(
+            duckdb=self.duckdb
+        ).get_species_main_image_id(scientific_name)
+        if img_id is None:
             return None
-
-        first_image_id = image_ids[0]
-        return self.get_thumbnail(first_image_id)
+        return self.get_thumbnail(img_id)
 
     def get_species_image(self, scientific_name: str) -> str | None:
         """
         Retrieve the full-resolution image file path for a species.
         """
-        # Prefer IDs from the Lance collection (images actually ingested)
-        persisted = ImagePersistData(lance_db=self.lance_db, duckdb=self.duckdb).fetch_image_ids(scientific_name)
+        persisted = ImagePersistData(
+            lance_db=self.lance_db, duckdb=self.duckdb
+        ).fetch_image_ids(scientific_name)
         if isinstance(persisted, dict):
             image_ids = persisted.get("imageIds", [])
         else:
@@ -180,7 +170,10 @@ class ImageFileRetrieval:
         """
         Retrieve an image by its ID.
         """
-        img_bytes: bytes = ImagePersistData(lance_db=self.lance_db,duckdb=self.duckdb,).get_img_by_id(image_id)
+        img_bytes: bytes = ImagePersistData(
+            lance_db=self.lance_db,
+            duckdb=self.duckdb,
+        ).get_img_by_id(image_id)
         return img_bytes
 
     def _write_to_file(

@@ -2,7 +2,9 @@ from pydantic import BaseModel
 from fastapi import Request
 import logging
 
-from ..services.gbif import GbifPersistData
+from ..services.image_meta import ImageMetaService
+
+from ..services.gbif import GbifPersistData, SearchGbifData
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +49,29 @@ class TextToDbSearch:
         # Placeholder for actual search logic
         logger.info(f"Performing text to database search for query: {self.query}")
         search_db = GbifPersistData(self.request.app.state.duck_db)
-        results = search_db.search_any(self.query, self.limit)
+        results: list[SearchGbifData] = search_db.search_any(self.query, self.limit)
+
         if not results:
             logger.info(f"No results found for query: {self.query}")
             return None
-        logger.info(f"Found {len(results)} results for query: {self.query}")
+        filtered_results = self.remove_list_not_in_meta(results)
+        if not filtered_results:
+            logger.info(f"No results found in metadata for query: {self.query}")
+            return None
+        logger.info(f"Found {len(filtered_results)} results for query: {self.query}")
         return DbSearchPayload.from_data(
-            query=self.query, results=[r.model_dump() for r in results]
+            query=self.query, results=[r.model_dump() for r in filtered_results]
         ).model_dump()
+
+    def remove_list_not_in_meta(
+        self, result: list[SearchGbifData]
+    ) -> list[SearchGbifData]:
+        """ """
+        existing_species = ImageMetaService(
+            duckdb=self.request.app.state.duck_db
+        ).check_species_exists([r.species for r in result])
+        filtered_results = [r for r in result if r.species in existing_species]
+        logger.info(
+            f"Filtered search results to {len(filtered_results)} species that exist in image metadata."
+        )
+        return filtered_results

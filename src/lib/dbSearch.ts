@@ -1,6 +1,7 @@
 export interface DbResultItems {
-  imgId: string;
   species: string;
+  matched_fields: string[];
+  score: number;
 }
 
 async function searchDatabase(query: string): Promise<DbResultItems[]> {
@@ -25,7 +26,8 @@ async function searchDatabase(query: string): Promise<DbResultItems[]> {
   }
 
   return json.results.map((item: any) => ({
-    imgId: item.imgId,       // ? camelCase from Pydantic alias
+    matched_fields: item.matched_fields,
+    score: item.score,
     species: item.species,
   }));
 }

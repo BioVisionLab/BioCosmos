@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
     "/search/db",
     tags=["Conventional Search"],
 )
-async def get_taxon_classification(request: Request, q: str, limit: int = 50):
+async def search_db(request: Request, q: str, limit: int = 50):
     """Endpoint for conventional database search.
 
     Expects a query parameter 'q' for the taxon to search.
@@ -33,24 +33,22 @@ async def get_taxon_classification(request: Request, q: str, limit: int = 50):
     try:
         search_results = TextToDbSearch(request=request, query=q, limit=limit).search()
         if not search_results:
-            message = f"No classification data found for taxon: {q}"
+            message = f"No data found for taxon: {q}"
             logger.info(message)
             return JSONResponse(
                 content={"message": message},
                 status_code=404,
             )
-        logger.info(
-            f"Found {len(search_results)} classification results for taxon: {q}"
-        )
+        logger.info(f"Found {len(search_results)} results for taxon: {q}")
         return JSONResponse(content=search_results, status_code=200)
     except Exception as e:
         logger.error(
-            f"Error searching for taxon classification: {e}",
+            f"Error searching for taxon: {e}",
             exc_info=True,
         )
         return JSONResponse(
             content={
-                "message": f"An error occurred while searching for taxon classification: {str(e)}"
+                "message": f"An error occurred while searching for taxon: {str(e)}"
             },
             status_code=500,
         )
