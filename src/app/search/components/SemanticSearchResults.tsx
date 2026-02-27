@@ -102,7 +102,7 @@ function MlSearchResults({
           <ImageLoading size={240} msg="Loading results" />
         </div>
       ) : (
-        <div className="mt-5">
+        <div className="mt-8">
           <div id="top-results" className="mb-6">
             <Suspense fallback={<div>Loading top species...</div>}>
               <TopResultCard data={results[0]} />

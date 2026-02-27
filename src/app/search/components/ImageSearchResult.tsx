@@ -1,7 +1,8 @@
 import { MlResultItems, searchFromImage } from "@/lib/ml_search";
 import { Suspense, useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import { MLSearchResultCard } from "./MlResultCard";
+import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
+import Tips from "@/components/Tips";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -30,7 +31,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
         setError(
           err instanceof Error
             ? err.message
-            : "An unknown error occurred during image search."
+            : "An unknown error occurred during image search.",
         );
       } finally {
         setLoading(false);
@@ -62,20 +63,37 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
         ) : results.length === 0 ? (
           <p>No results found for "{imageUrl}".</p>
         ) : (
-          <div>
-            <p className="mb-4">Found {results.length} results</p>
-            <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-              {results.map((item) => (
-                <Suspense
-                  key={item.imgId}
-                  fallback={<div>Loading species...</div>}
-                >
-                  <MLSearchResultCard data={item} />
-                </Suspense>
-              ))}
-            </div>
-          </div>
+          <MlImageResultCard data={results} />
         )}
+      </div>
+    </div>
+  );
+}
+
+function MlImageResultCard({ data }: { data: MlResultItems[] }) {
+  return (
+    <div className="mt-8">
+      <div id="top-results" className="mb-6">
+        <Suspense fallback={<div>Loading top species...</div>}>
+          <TopResultCard data={data[0]} />
+        </Suspense>
+      </div>
+      <div className="mb-4">
+        <h2
+          id="other-results"
+          className="text-lg text-gray-700 dark:text-gray-200"
+        >
+          Found {data.length} other results"
+        </h2>
+        <Tips message="Click on an image to view species page" />
+      </div>
+      <p className="mb-4">Found {data.length} results</p>
+      <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
+        {data.slice(1).map((item) => (
+          <Suspense key={item.imgId} fallback={<div>Loading species...</div>}>
+            <MLSearchResultCard data={item} />
+          </Suspense>
+        ))}
       </div>
     </div>
   );
