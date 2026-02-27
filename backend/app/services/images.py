@@ -12,8 +12,6 @@ from ..database.duckdb import DuckDBClient
 from ..configs.config import ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
-
-# We experiment with polars for better performance instead of pandas
 from .unicom import UnicomImageEmbedder
 import polars as pl
 
@@ -456,7 +454,7 @@ class ImagePersistData:
             filtered_results = (
                 results.sort("distance")
                 .unique(subset=["species"], maintain_order=True)
-                .sort("distance")
+                .sort("distance", descending=True)
             )
 
             return filtered_results
