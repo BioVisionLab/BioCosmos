@@ -26,24 +26,16 @@ async def search_text(request: Request, q: str, limit: int = 50):
 
     if query is None or query == "":
         return JSONResponse(
-            content={
-                "error": "Query parameter 'q' is required and cannot be empty."
-            },
+            content={"error": "Query parameter 'q' is required and cannot be empty."},
             status_code=400,
         )
     try:
-        search = TextToImageSearch(
-            request=request, query=query, limit=limit
-        )
+        search = TextToImageSearch(request=request, query=query, limit=limit)
         search_results = search.search()
         if not search_results:
-            logger.error(
-                f"No search results returned from '{query}'."
-            )
+            logger.error(f"No search results returned from '{query}'.")
             return JSONResponse(
-                content={
-                    "error": f"No search results found for '{query}'."
-                },
+                content={"error": f"No search results found for '{query}'."},
                 status_code=500,
             )
         return JSONResponse(content=search_results, status_code=200)
@@ -53,17 +45,13 @@ async def search_text(request: Request, q: str, limit: int = 50):
             exc_info=True,
         )
         return JSONResponse(
-            content={
-                "error": "An internal error occurred during text search."
-            },
+            content={"error": "An internal error occurred during text search."},
             status_code=500,
         )
 
 
 @router.post("/search/image", tags=["ML Search"])
-async def image_search(
-    request: Request, file: UploadFile = File(...)
-):
+async def image_search(request: Request, file: UploadFile = File(...)):
     """
     Endpoint for image to image search.
     Expects an uploaded image file.
@@ -74,9 +62,7 @@ async def image_search(
     try:
         # Validate file upload
         if not file or not file.filename:
-            logger.warning(
-                "Image search request missing file upload."
-            )
+            logger.warning("Image search request missing file upload.")
             return JSONResponse(
                 content={"error": "Missing image file in request"},
                 status_code=400,
@@ -91,7 +77,7 @@ async def image_search(
             logger.warning(f"Invalid file type: {file.content_type}")
             return JSONResponse(
                 content={
-                    "error": f"Invalid file type: {file.content_type}. Allowed types are: JPEG, JPG, PNG, GIF, WEBP."
+                    "error": f"Invalid file type: {file.content_type}. Allowed types are: JPEG, JPG, PNG, WEBP."
                 },
                 status_code=400,
             )
@@ -99,17 +85,13 @@ async def image_search(
         # Read the uploaded file as bytes
         image_bytes = await file.read()
         if not image_bytes:
-            logger.warning(
-                "Image search request contains empty file."
-            )
+            logger.warning("Image search request contains empty file.")
             return JSONResponse(
                 content={"error": "Uploaded file is empty"},
                 status_code=400,
             )
 
-        logger.info(
-            "Generating UNICOM image embedding from uploaded file..."
-        )
+        logger.info("Generating UNICOM image embedding from uploaded file...")
         # Pass the image bytes directly to ImageToImageSearch
         img_service = ImageToImageSearch(request)
         search_results = img_service.search(image_bytes=image_bytes)
@@ -123,12 +105,8 @@ async def image_search(
         return JSONResponse(content=search_results, status_code=200)
 
     except Exception as e:
-        logger.error(
-            f"Error during UNICOM image search: {e}", exc_info=True
-        )
+        logger.error(f"Error during UNICOM image search: {e}", exc_info=True)
         return JSONResponse(
-            content={
-                "error": "An internal error occurred during image search."
-            },
+            content={"error": "An internal error occurred during image search."},
             status_code=500,
         )

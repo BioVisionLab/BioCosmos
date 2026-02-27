@@ -45,7 +45,12 @@ async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
     }
 
     const results = await response.json();
-    return results;
+    return results.map((item: any) => ({
+      imgId: item.imgId,
+      species: item.species,
+      // Convert distance to similarity score (assuming distance is between 0 and 1)
+      score: item.distance,
+    }));
   } catch (error) {
     console.error("Error uploading image:", error);
     throw error;
