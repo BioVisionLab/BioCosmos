@@ -1,4 +1,5 @@
 import polars as pl
+from typing import List
 from ..configs.config import ImageMetaConfig
 from ..database.duckdb import DuckDBClient
 import logging
@@ -26,9 +27,7 @@ class ImageMetaService:
         Ingest image metadata into the database.
         """
         if self.skip_ingestion:
-            logger.info(
-                "Skipping image metadata ingestion as per configuration."
-            )
+            logger.info("Skipping image metadata ingestion as per configuration.")
             return
         try:
             self.db_client.create_or_replace_table_csv(
@@ -43,14 +42,10 @@ class ImageMetaService:
             #         f"Total entries after ingestion: {entries}"
             #     )
         except Exception as e:
-            logger.error(
-                f"Failed to ingest image metadata into '{self.table}': {e}"
-            )
+            logger.error(f"Failed to ingest image metadata into '{self.table}': {e}")
             raise e
 
-    def get_image_count_by_species(
-        self, scientific_name: str
-    ) -> int | None:
+    def get_image_count_by_species(self, scientific_name: str) -> int | None:
         """
         Retrieve the count of images for a given species.
 
@@ -63,14 +58,8 @@ class ImageMetaService:
                 SELECT COUNT(*) AS image_count FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
             """
-            result = self.db_client.execute_query(
-                query, cleaned_name
-            ).pl()
-            count = (
-                result["image_count"][0]
-                if not result.is_empty()
-                else 0
-            )
+            result = self.db_client.execute_query(query, cleaned_name).pl()
+            count = result["image_count"][0] if not result.is_empty() else 0
             return count
         except Exception as e:
             logger.error(
@@ -78,22 +67,52 @@ class ImageMetaService:
             )
             return None
 
-    # def count_entries(self) -> int | None:
-    #     """
-    #     Count the number of entries in the image metadata table.
+    def get_image_ids_for_species_list(self, species_list: List[str]) -> List[str]:
+        """
+        Return all image IDs belonging to any species in the provided list.
 
-    #     :return: The count of entries or None if an error occurs.
-    #     """
-    #     try:
-    #         query = f"SELECT COUNT(*) FROM {self.table}"
-    #         result = self.db_client.execute(query)
-    #         count = result[0][0] if result else 0
-    #         return count
-    #     except Exception as e:
-    #         logger.error(
-    #             f"Error counting entries in table '{self.table}': {e}"
-    #         )
-    #         return None
+        Uses a temporary table join (consistent with get_species_main_image_id_from_list)
+        to avoid SQL injection and handle large species lists safely.
+
+        Args:
+            species_list: List of scientific species names
+
+        Returns:
+            List of image ID strings (without .png extension), empty list on failure
+        """
+        if not species_list:
+            return []
+
+        try:
+            # Register species list as a temp table ? avoids SQL injection
+            names_df = pl.DataFrame({"species": species_list})
+            self.db_client.register("temp_species_ids", names_df)
+
+            query = f"""
+                SELECT REPLACE(m.mask_name, '.png', '') AS img_id
+                FROM {self.table} m
+                INNER JOIN temp_species_ids t
+                ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+            """
+
+            result = self.db_client.execute(query).pl()
+            self.db_client.unregister("temp_species_ids")
+
+            if result is None or result.is_empty():
+                logger.warning(
+                    f"No image IDs found for {len(species_list)} species in allowlist."
+                )
+                return []
+
+            return result["img_id"].to_list()
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving image IDs for species list: {e}",
+                exc_info=True,
+            )
+            return []
+
     def get_species_main_image_id_from_list(
         self, scientific_names: list[str]
     ) -> pl.DataFrame | None:
@@ -111,7 +130,7 @@ class ImageMetaService:
 
             query = f"""
                 SELECT 
-                    REPLACE(m.mask_name, '.png', '') AS img_id,
+                    REPLACE(m.mask_name, '.png', '') AS imgId,
                     m.species
                 FROM {self.table} m
                 INNER JOIN temp_species t 
@@ -128,9 +147,7 @@ class ImageMetaService:
             )
             return None
 
-    def get_species_main_image_id(
-        self, scientific_name: str
-    ) -> str | None:
+    def get_species_main_image_id(self, scientific_name: str) -> str | None:
         """
         Retrieve the main image ID for a given species.
 
@@ -144,9 +161,7 @@ class ImageMetaService:
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
                 LIMIT 1
             """
-            results = self.db_client.execute_query(
-                query, cleaned_name
-            ).pl()
+            results = self.db_client.execute_query(query, cleaned_name).pl()
             if not results.is_empty():
                 return results["img_id"][0]
             return None
@@ -156,9 +171,7 @@ class ImageMetaService:
             )
             return None
 
-    def get_image_ids_by_species(
-        self, scientific_name: str
-    ) -> list[str]:
+    def get_image_ids_by_species(self, scientific_name: str) -> list[str]:
         """
         Retrieve image IDs for a given species.
 
@@ -172,9 +185,7 @@ class ImageMetaService:
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
                 LIMIT 100
             """
-            results = self.db_client.execute_query(
-                query, cleaned_name
-            ).pl()
+            results = self.db_client.execute_query(query, cleaned_name).pl()
             image_ids = results["img_id"].to_list()
             return image_ids
         except Exception as e:
@@ -183,9 +194,7 @@ class ImageMetaService:
             )
             return []
 
-    def get_image_meta_by_species(
-        self, species: str
-    ) -> pl.DataFrame | None:
+    def get_image_meta_by_species(self, species: str) -> pl.DataFrame | None:
         """
         Retrieve image IDs for a given species.
 
@@ -199,19 +208,13 @@ class ImageMetaService:
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '') LIMIT 100
             """
             # We export result to polars for easier handling
-            results = self.db_client.execute_query(
-                query, cleaned_species
-            ).pl()
+            results = self.db_client.execute_query(query, cleaned_species).pl()
             return results
         except Exception as e:
-            logger.error(
-                f"Error retrieving image IDs for species '{species}': {e}"
-            )
+            logger.error(f"Error retrieving image IDs for species '{species}': {e}")
             return None
 
-    def get_meta_by_image_ids(
-        self, img_ids: list[str]
-    ) -> pl.DataFrame | None:
+    def get_meta_by_image_ids(self, img_ids: list[str]) -> pl.DataFrame | None:
         try:
             if not img_ids:
                 logger.warning("No image IDs provided.")
@@ -233,14 +236,10 @@ class ImageMetaService:
             return duckdb_results
 
         except Exception as e:
-            logger.error(
-                f"Error retrieving metadata for image IDs '{img_ids}': {e}"
-            )
+            logger.error(f"Error retrieving metadata for image IDs '{img_ids}': {e}")
             return None
 
-    def get_meta_by_image_id(
-        self, img_id: str
-    ) -> pl.DataFrame | None:
+    def get_meta_by_image_id(self, img_id: str) -> pl.DataFrame | None:
         """
         Retrieve metadata for a single image ID.
 
@@ -259,9 +258,7 @@ class ImageMetaService:
                 return None
             return result
         except Exception as e:
-            logger.error(
-                f"Error retrieving metadata for image ID '{img_id}': {e}"
-            )
+            logger.error(f"Error retrieving metadata for image ID '{img_id}': {e}")
             return None
 
     def merge_meta_with_image_data(
@@ -274,9 +271,7 @@ class ImageMetaService:
         """
         try:
             if image_data is None:
-                logger.warning(
-                    "No image data to merge with metadata."
-                )
+                logger.warning("No image data to merge with metadata.")
                 return None
 
             # Register the full image_data DataFrame as a temporary table
@@ -297,18 +292,44 @@ class ImageMetaService:
             self.db_client.unregister("temp_image_data")
 
             if merged_results is None or merged_results.is_empty():
-                logger.warning(
-                    "No metadata found for the given image IDs."
-                )
+                logger.warning("No metadata found for the given image IDs.")
                 return None
 
             return merged_results
 
         except Exception as e:
-            logger.error(
-                f"Error merging metadata with image data: {e}"
-            )
+            logger.error(f"Error merging metadata with image data: {e}")
             return None
+
+    def check_species_exists(self, species: list[str]) -> list[str]:
+        """
+        Check if the given species exist in the image metadata table.
+
+        :param species: A list of species names to check.
+        :return: A list of cleaned species names (lowercase, underscores) that
+                exist in the metadata table.
+        """
+        if not species:
+            return []
+
+        try:
+            cleaned_species = [self.sanitize_species_name(s) for s in species]
+            placeholders = ", ".join(["?"] * len(cleaned_species))
+            query = f"""
+                SELECT DISTINCT REPLACE(LOWER(species), ' ', '_') AS cleaned_species
+                FROM {self.table}
+                WHERE REPLACE(LOWER(species), ' ', '_') IN ({placeholders})
+            """
+            results = self.db_client.execute_prepared(
+                query, params=cleaned_species
+            ).pl()
+            return (
+                results["cleaned_species"].to_list() if not results.is_empty() else []
+            )
+
+        except Exception as e:
+            logger.error(f"Error checking species existence: {e}")
+            return []
 
     def sanitize_species_name(self, species: str) -> str:
         """

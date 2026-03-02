@@ -7,7 +7,8 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..services.agent_search import AgentSearchService
+from ..query.agent_query import TextToAgent
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -21,31 +22,39 @@ async def agent_search(request: Request, q: str):
     Uses OpenAI function calling to intelligently break down complex queries
     and query multiple data sources (image similarity, location, traits, colors).
 
+    Args:
+        q: Natural language search query
+
+    Returns:
+        200: { query, total, results: [{ imgId, species, score, tool_names }] }
+        400: { error } ? empty or missing query
+        500: { error } ? internal failure
+
     Example queries:
-    - "which species of butterfly looks like monarch and lives in ecuador and has red colors and lives in the canopy"
-    - "find butterflies similar to danaus plexippus that live in tropical regions"
-    - "show me red butterflies with high canopy affinity from south america"
+    - "blue butterflies in Brazil"
+    - "species similar to Danaus plexippus in tropical regions"
+    - "red butterflies with high canopy affinity from South America"
     """
     query = q.strip()
 
     if not query:
         return JSONResponse(
-            content={
-                "error": "Query parameter is required and cannot be empty."
-            },
+            content={"error": "Query parameter 'q' is required and cannot be empty."},
             status_code=400,
         )
 
     try:
         logger.info(f"Received agent search query: {query}")
-        agent_service = AgentSearchService(request=request)
-        results = await agent_service.search(query)
+
+        agent_service = TextToAgent(request=request, query=query)
+        results = await agent_service.get_results()
 
         if not results:
             logger.warning(f"No results found for query: {query}")
             return JSONResponse(
                 content={
                     "query": query,
+                    "total": 0,
                     "results": [],
                     "message": "No species found matching the criteria.",
                 },
@@ -53,18 +62,20 @@ async def agent_search(request: Request, q: str):
             )
 
         return JSONResponse(
-            content=results,
+            content={
+                "query": query,
+                "total": len(results),
+                "results": results,
+            },
             status_code=200,
         )
 
     except Exception as e:
         logger.error(
-            f"Error during agent search for query '{query}': {e}",
-            exc_info=True,
+            f"Agent search failed for query '{query}': {e}",
+            exc_info=True,  # Logs full traceback server-side
         )
         return JSONResponse(
-            content={
-                "error": f"An internal error occurred during agent search: {str(e)}"
-            },
+            content={"error": "An internal error occurred. Please try again later."},
             status_code=500,
         )

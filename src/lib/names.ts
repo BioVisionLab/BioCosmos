@@ -8,3 +8,7 @@ export function cleanSpeciesName(name: string): string {
   const [genus, ...rest] = name.replace(/_/g, " ").split(" ");
   return [genus.charAt(0).toUpperCase() + genus.slice(1), ...rest].join(" ");
 }
+
+export function formatSpeciesNameForUrl(name: string): string {
+  return name.toLowerCase().replace(/ /g, "_");
+}

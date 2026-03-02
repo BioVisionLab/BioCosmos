@@ -3,7 +3,7 @@
 import { API_HOST } from "@/lib/config";
 import { NextResponse } from "next/server";
 
-const DB_SEARCH_ENDPOINT = `${API_HOST}/search/taxon`;
+const DB_SEARCH_ENDPOINT = `${API_HOST}/search/db`;
 
 const LIMIT = 20;
 

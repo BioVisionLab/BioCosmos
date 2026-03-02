@@ -1,5 +1,7 @@
+from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic.alias_generators import to_camel
 from ..configs.config import GbifConfig
-from ..database.duckdb import DuckDBClient
+from ..database.duckdb import DuckDBClient, FtsSearchData
 from ..database.model import SpeciesTaxonomy
 import logging
 import httpx
@@ -9,6 +11,41 @@ GBIF_HOST = "https://api.gbif.org/v1/species"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+GBIF_COLUMNS_INDEXED = [
+    "species",
+    "genus",
+    "family",
+    "order",
+    "vernacularName",
+    "genericName",
+    "sex",
+    "lifeStage",
+    "continent",
+    "island",
+    "countryCode",
+    "stateProvince",
+    "county",
+    "municipality",
+    "locality",
+    "verbatimLocality",
+    "level1Name",
+]
+
+
+GBIF_INDEX_ID = "rowid"
+
+
+class SearchGbifData(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    species: str
+    matched_fields: list[str] = []
+    score: float = 0.0
+
+    @field_serializer("score")
+    def serialize_score(self, score: float) -> float:
+        return round(score, 4)
 
 
 class GbifPersistData:
@@ -32,9 +69,7 @@ class GbifPersistData:
         Ingest GBIF data from a TSV file into DuckDB.
         """
         if self.skip_ingestion:
-            logger.info(
-                "Skipping GBIF data ingestion as per configuration."
-            )
+            logger.info("Skipping GBIF data ingestion as per configuration.")
             return
         try:
             # We use custom execution instead of the wrapper function
@@ -43,15 +78,13 @@ class GbifPersistData:
             self.db_client.execute(
                 f"CREATE TABLE IF NOT EXISTS {self.table_name} AS SELECT * FROM read_csv_auto('{self.tsv_path}', delim='\t', types={{'georeferencedDate': 'VARCHAR'}})"
             )
-            logger.info(
-                f"GBIF data ingested successfully from '{self.tsv_path}'."
-            )
+            logger.info(f"GBIF data ingested successfully from '{self.tsv_path}'.")
             entries: int | None = self.count_entries()
+            self._index_columns()
+            logger.info("Full-text search index created on GBIF metadata table.")
             logger.info(f"Total entries after ingestion: {entries}")
         except Exception as e:
-            logger.error(
-                f"Failed to ingest GBIF data from '{self.tsv_path}': {e}"
-            )
+            logger.error(f"Failed to ingest GBIF data from '{self.tsv_path}': {e}")
             raise e
 
     def count_entries(self) -> int | None:
@@ -61,28 +94,20 @@ class GbifPersistData:
         try:
             query = f"SELECT COUNT(*) AS total_rows FROM {self.table_name}"
             result = self.db_client.execute(query).fetchall()
-            logger.info(
-                f"Counted {result[0][0]} entries in GBIF metadata table."
-            )
+            logger.info(f"Counted {result[0][0]} entries in GBIF metadata table.")
             return result[0][0] if result else None
         except Exception as e:
-            logger.error(
-                f"Failed to count entries in GBIF metadata table: {e}"
-            )
+            logger.error(f"Failed to count entries in GBIF metadata table: {e}")
             return None
 
     def count_unique_species(self) -> int | None:
         try:
             query = f"SELECT COUNT(DISTINCT species) FROM {self.table_name}"
             result = self.db_client.execute(query).fetchone()[0]
-            logger.info(
-                f"Counted {result} unique species in GBIF metadata table."
-            )
+            logger.info(f"Counted {result} unique species in GBIF metadata table.")
             return result if result else None
         except Exception as e:
-            logger.error(
-                f"Failed to count unique species in GBIF metadata table: {e}"
-            )
+            logger.error(f"Failed to count unique species in GBIF metadata table: {e}")
             return None
 
     def get(self, species_name: str) -> dict | None:
@@ -91,14 +116,10 @@ class GbifPersistData:
         :param species_name: The name of the species to fetch data for.
         :return: The GBIF data for the species or None if not found.
         """
-        query = (
-            "SELECT * FROM gbif_meta WHERE LOWER(species) = LOWER(?)"
-        )
+        query = "SELECT * FROM gbif_meta WHERE LOWER(species) = LOWER(?)"
         result = self.db_client.execute(query, [species_name]).pl()
         if result.is_empty():
-            logger.warning(
-                f"No GBIF data found for species '{species_name}'."
-            )
+            logger.warning(f"No GBIF data found for species '{species_name}'.")
             return None
         if len(result) > 1:
             logger.warning(
@@ -107,9 +128,48 @@ class GbifPersistData:
         gbif_data = result.to_dicts()[0]
         return gbif_data
 
-    def search_by_location(
-        self, location: str, limit: int = 500
-    ) -> list[str]:
+    def search_any(self, query: str, limit: int = 100) -> list[SearchGbifData]:
+        """
+        Search for species by any column matching the query string.
+        Uses FTS indexing for efficient searching across multiple columns.
+        Returns unique species ordered by best BM25 score.
+        """
+        try:
+            query = (query or "").strip()
+            if not query:
+                logger.warning("Empty query passed to search_any")
+                return []
+
+            results: list[FtsSearchData] = self.db_client.search_fts(
+                table_name=self.table_name,
+                id_column=GBIF_INDEX_ID,
+                query=query,
+                fields=GBIF_COLUMNS_INDEXED,
+                limit=limit,
+                unique_species=True,
+            )
+
+            if not results:
+                logger.warning(f"No species found matching query: {query}")
+                return []
+
+            species_list = [
+                SearchGbifData(
+                    species=r.species, score=r.score, matched_fields=r.matched_fields
+                )
+                for r in results
+            ]
+
+            logger.info(f"Found {len(species_list)} species matching query: {query}")
+            return species_list
+
+        except Exception as e:
+            logger.error(
+                f"Error searching for species with query '{query}': {e}", exc_info=True
+            )
+            return []
+
+    def search_by_location(self, location: str, limit: int = 500) -> list[str]:
         """
         Search for species by geographic location.
 
@@ -125,9 +185,7 @@ class GbifPersistData:
         try:
             location = (location or "").strip()
             if not location:
-                logger.warning(
-                    "Empty location passed to search_by_location"
-                )
+                logger.warning("Empty location passed to search_by_location")
                 return []
 
             location_upper = location.upper()
@@ -157,26 +215,18 @@ class GbifPersistData:
                 LIMIT {int(limit)}
             """
 
-            logger.info(
-                f"Searching for location '{location}' in GBIF table"
-            )
+            logger.info(f"Searching for location '{location}' in GBIF table")
             result = self.db_client.execute(query).pl()
 
             if result.is_empty():
-                logger.warning(
-                    f"No species found in location: {location}"
-                )
+                logger.warning(f"No species found in location: {location}")
                 return []
 
             species_list = [
-                s
-                for s in result["species"].to_list()
-                if s and str(s).strip()
+                s for s in result["species"].to_list() if s and str(s).strip()
             ]
 
-            logger.info(
-                f"Found {len(species_list)} species in location: {location}"
-            )
+            logger.info(f"Found {len(species_list)} species in location: {location}")
             return species_list
 
         except Exception as e:
@@ -185,6 +235,22 @@ class GbifPersistData:
                 exc_info=True,
             )
             return []
+
+    def _index_columns(self):
+        """
+        Create a full-text search index on relevant columns for location-based searches.
+        This can significantly improve performance for search queries that filter by location.
+        """
+        try:
+            self.db_client.index_table(
+                table_name=self.table_name,
+                id_column=GBIF_INDEX_ID,
+                columns=GBIF_COLUMNS_INDEXED,
+                overwrite=True,  # safe to re-run on restart
+            )
+        except Exception as e:
+            logger.error(f"Failed to create full-text search index on GBIF table: {e}")
+            raise
 
 
 class GbifTaxonSearch:
@@ -211,9 +277,7 @@ class GbifTaxonSearch:
         response = await self.client.get(url)
 
         if response.status_code != 200:
-            raise Exception(
-                f"Error fetching data from GBIF: {response.text}"
-            )
+            raise Exception(f"Error fetching data from GBIF: {response.text}")
 
         data = response.json()
         if not data.get("results"):
@@ -226,22 +290,12 @@ class GbifTaxonSearch:
         gbif_key = first_result.get("key")
         redlist_category = await self._get_redlist_status(gbif_key)
         if redlist_category is None:
-            logger.info(
-                f"No Red List status found for GBIF key: {gbif_key}"
-            )
-            logger.info(
-                "Setting Red List category to 'Unknown' for this taxon."
-            )
+            logger.info(f"No Red List status found for GBIF key: {gbif_key}")
+            logger.info("Setting Red List category to 'Unknown' for this taxon.")
             redlist_category = "Unknown"
-        logger.info(
-            f"Red List category for GBIF key {gbif_key}: {redlist_category}"
-        )
-        taxon = SpeciesTaxonomy.from_json(
-            first_result, redlist_category
-        )
-        taxon_dump = self._revert_clean_results(
-            taxon.model_dump(by_alias=True)
-        )
+        logger.info(f"Red List category for GBIF key {gbif_key}: {redlist_category}")
+        taxon = SpeciesTaxonomy.from_json(first_result, redlist_category)
+        taxon_dump = self._revert_clean_results(taxon.model_dump(by_alias=True))
         logger.info(f"Created SpeciesTaxonomy: {taxon}")
         return taxon_dump
 
@@ -264,9 +318,7 @@ class GbifTaxonSearch:
             data["class"] = data.pop("taxonClass")
         return data
 
-    async def _get_redlist_status(
-        self, gbif_key: int | None
-    ) -> str | None:
+    async def _get_redlist_status(self, gbif_key: int | None) -> str | None:
         """
         Get the Red List status for a given GBIF key.
         """
@@ -286,13 +338,9 @@ class GbifTaxonSearch:
 
         data = response.json()
         if not data:
-            logger.info(
-                f"No Red List status found for GBIF key: {gbif_key}"
-            )
+            logger.info(f"No Red List status found for GBIF key: {gbif_key}")
             return None
-        logger.info(
-            f"Red List status for GBIF key {gbif_key}: {data.get('code')}"
-        )
+        logger.info(f"Red List status for GBIF key {gbif_key}: {data.get('code')}")
         return data.get("code", None)
 
     async def close(self):

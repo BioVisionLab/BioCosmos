@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ImageSearchResult } from "./components/ImageSearchResult";
 import SemanticSearchResults from "./components/SemanticSearchResults";
+import { DbSearch } from "./components/DbSearchResults";
 
 const MODE_OPTIONS = ["semantic", "text", "image"] as const;
 type SearchMode = (typeof MODE_OPTIONS)[number];
@@ -51,7 +52,7 @@ function SearchContent() {
     case "semantic":
       return <SemanticSearchResults query={query} />;
     case "text":
-      return <SemanticSearchResults query={query} />;
+      return <DbSearch query={query} />;
     case "image":
       return <ImageSearchResult imageUrl={query} />;
   }

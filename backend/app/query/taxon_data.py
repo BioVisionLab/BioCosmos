@@ -43,15 +43,11 @@ class TaxonStatPayload(BaseModel):
             TaxonStatPayload: An instance of TaxonStatPayload.
         """
         return cls(
-            gbifEntries=gbif_entries
-            if gbif_entries is not None
-            else 0,
+            gbifEntries=gbif_entries if gbif_entries is not None else 0,
             lepTraitsEntries=lep_traits_entries
             if lep_traits_entries is not None
             else 0,
-            imageEntries=image_entries
-            if image_entries is not None
-            else 0,
+            imageEntries=image_entries if image_entries is not None else 0,
             gbifSpeciesCount=gbif_species_count
             if gbif_species_count is not None
             else 0,
@@ -98,9 +94,7 @@ class SimilarSpeciesPayload(BaseModel):
     A class to represent similar species data.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     species_name: str
     side: str
@@ -147,34 +141,24 @@ class TaxonSearch:
         """
         self.scientific_name = query.strip().lower()
         if "_" in self.scientific_name:
-            self.scientific_name = self.scientific_name.replace(
-                "_", " "
-            ).strip()
+            self.scientific_name = self.scientific_name.replace("_", " ").strip()
         self.request = request
 
     def get_counts(self) -> dict | None:
         """
         Get the counts of species in each taxon.
         """
-        gbif_service = GbifPersistData(
-            duckdb=self.request.app.state.duck_db
-        )
-        leptraits_service = LepTraits(
-            duckdb=self.request.app.state.duck_db
-        )
+        gbif_service = GbifPersistData(duckdb=self.request.app.state.duck_db)
+        leptraits_service = LepTraits(duckdb=self.request.app.state.duck_db)
         img_service = ImagePersistData(
             lance_db=self.request.app.state.lance_db,
             duckdb=self.request.app.state.duck_db,
         )
         try:
             counts_gbif: int | None = gbif_service.count_entries()
-            count_leptrait: int | None = (
-                leptraits_service.count_entries()
-            )
+            count_leptrait: int | None = leptraits_service.count_entries()
             count_img: int | None = img_service.entries()
-            count_unique_species: int | None = (
-                gbif_service.count_unique_species()
-            )
+            count_unique_species: int | None = gbif_service.count_unique_species()
 
             if (
                 counts_gbif is None
@@ -184,9 +168,7 @@ class TaxonSearch:
             ):
                 logger.info("No counts data found.")
                 return None
-            logger.info(
-                f"Counts data found: {counts_gbif}, {count_leptrait}"
-            )
+            logger.info(f"Counts data found: {counts_gbif}, {count_leptrait}")
 
             payload = TaxonStatPayload.from_data(
                 gbif_entries=counts_gbif,
@@ -216,9 +198,7 @@ class TaxonSearch:
             taxon_data = await self._get_gbif_data()
             trait_data = self._get_traits()
             if trait_data is None:
-                logger.info(
-                    f"No traits data found for species: {self.scientific_name}"
-                )
+                logger.info(f"No traits data found for species: {self.scientific_name}")
                 return None
 
             payload = SpeciesPayload.from_data(
@@ -229,9 +209,7 @@ class TaxonSearch:
             return payload.model_dump()
 
         except Exception as e:
-            logger.error(
-                f"Error searching for taxon: {e}", exc_info=True
-            )
+            logger.error(f"Error searching for taxon: {e}", exc_info=True)
             return None
         finally:
             logger.info("Closed GBIF client connection")
@@ -249,9 +227,7 @@ class TaxonSearch:
         try:
             gbif_data = await self._get_gbif_data()
             if not gbif_data:
-                logger.info(
-                    f"No GBIF data found for species: {self.scientific_name}"
-                )
+                logger.info(f"No GBIF data found for species: {self.scientific_name}")
                 return []
             # We match the query to values and keep track the key where it matched
             matched_data: list[dict] = []
@@ -260,15 +236,11 @@ class TaxonSearch:
                     isinstance(value, str)
                     and value.lower() == self.scientific_name.lower()
                 ):
-                    classification_payload = (
-                        ClassificationPayload.from_data(
-                            matched_category=key,
-                            classification=gbif_data,
-                        )
+                    classification_payload = ClassificationPayload.from_data(
+                        matched_category=key,
+                        classification=gbif_data,
                     )
-                    matched_data.append(
-                        classification_payload.model_dump()
-                    )
+                    matched_data.append(classification_payload.model_dump())
             if len(matched_data) > 0:
                 logger.info(
                     f"Classification data found for species: {self.scientific_name}"
@@ -307,13 +279,13 @@ class TaxonSearch:
             summary = summarizer.summarize_text(prompt)
 
             if summary is None:
-                message = f"No summary could be generated for species: {self.scientific_name}"
+                message = (
+                    f"No summary could be generated for species: {self.scientific_name}"
+                )
                 logger.info(message)
                 return None
 
-            logger.info(
-                f"Summary generated for species: {self.scientific_name}"
-            )
+            logger.info(f"Summary generated for species: {self.scientific_name}")
             return summary
 
         except Exception as e:
@@ -357,13 +329,9 @@ class TaxonSearch:
         """
         gbif_service = GbifTaxonSearch()
         try:
-            gbif_data = await gbif_service.search(
-                self.scientific_name
-            )
+            gbif_data = await gbif_service.search(self.scientific_name)
             if gbif_data is None:
-                logger.info(
-                    f"No GBIF data found for species: {self.scientific_name}"
-                )
+                logger.info(f"No GBIF data found for species: {self.scientific_name}")
                 return {}
             logger.info(
                 f"Found GBIF data for species: {self.scientific_name}. Data: {gbif_data}"
@@ -386,14 +354,10 @@ class TaxonSearch:
             dict: A dictionary containing the species traits data or None if not found.
         """
         try:
-            leptraits = LepTraits(
-                duckdb=self.request.app.state.duck_db
-            )
+            leptraits = LepTraits(duckdb=self.request.app.state.duck_db)
             leptraits_data = leptraits.get(self.scientific_name)
             if leptraits_data is None:
-                logger.info(
-                    f"No traits data found for species: {self.scientific_name}"
-                )
+                logger.info(f"No traits data found for species: {self.scientific_name}")
                 return None
             logger.info(
                 f"Found traits data for species: {self.scientific_name}. Data: {leptraits_data}"
