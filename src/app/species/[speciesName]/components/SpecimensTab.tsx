@@ -907,7 +907,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                         <img
                           src={cached}
                           alt={id ? `Specimen ${id}` : "Loading..."}
-                          className="object-cover w-full h-full"
+                          className="object-contain object-center w-full h-full"
                           onLoad={() => {
                             if (!id) return;
                             setLoadedThumbIds((s) => {
@@ -968,7 +968,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                       <img
                         src={cached}
                         alt={id ? `Specimen ${id}` : "Loading..."}
-                        className="object-cover w-full h-full"
+                        className="object-contain object-center w-full h-full"
                         onLoad={() => {
                           if (!id) return;
                           setLoadedThumbIds((s) => {
