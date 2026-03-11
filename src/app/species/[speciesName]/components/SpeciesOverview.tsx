@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { SpeciesImageGallery } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
 import { SpeciesClassification } from "./TaxonClassification";
+import ImageMetadata from "./ImageMetadata";
 import { RedListStatus } from "./IucnRedlist";
 import { TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
@@ -59,6 +60,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
 
         {/* Right Column: Details */}
         <div className="lg:col-span-1 space-y-6">
+          <ImageMetadata speciesName={taxonomy?.species ?? ""} />
           <SpeciesClassification taxonomyData={taxonomy} />
           <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} />
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
