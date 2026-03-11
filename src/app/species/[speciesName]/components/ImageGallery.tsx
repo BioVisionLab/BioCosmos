@@ -84,7 +84,7 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
               className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex <= 0
                   ? "text-gray-400 cursor-not-allowed bg-transparent"
-                  : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
+                  : "text-white bg-teal-500 dark:bg-teal-800 hover:bg-teal-400 dark:hover:bg-teal-700 shadow-md"
               }`}
             >
               <svg
@@ -119,7 +119,7 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
               className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex >= items.length - 1
                   ? "text-gray-400 cursor-not-allowed bg-transparent"
-                  : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
+                  : "text-white bg-teal-500 dark:bg-teal-800 hover:bg-teal-400 dark:hover:bg-teal-700 shadow-md"
               }`}
             >
               <svg
