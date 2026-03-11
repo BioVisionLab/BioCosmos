@@ -9,7 +9,7 @@ import {
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
+export function SpeciesImageGallery({ speciesName, onSelectionChange }: { speciesName: string; onSelectionChange?: (imageId: string | null) => void }) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -30,7 +30,9 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
 
       try {
         const ids = await fetchSpeciesImageIds(speciesName, 8);
-        if (!ignore) setItems(ids);
+          if (!ignore) setItems(ids);
+          // notify initial selection
+          if (!ignore && onSelectionChange) onSelectionChange(ids && ids.length ? ids[0] : null);
       } catch (e) {
         if (!ignore) setItems([]);
       } finally {
@@ -47,6 +49,13 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
   const handleThumbnailClick = (index: number) => {
     setSelectedIndex(index);
   };
+
+  // notify when selectedIndex changes
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(items && items[selectedIndex] ? items[selectedIndex] : null);
+    }
+  }, [selectedIndex, items, onSelectionChange]);
 
   return (
     <div

@@ -45,12 +45,16 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
       </section>
     );
   }
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   return (
     <div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <SpeciesImageGallery speciesName={taxonomy?.species ?? ""} />
+          <SpeciesImageGallery
+            speciesName={taxonomy?.species ?? ""}
+            onSelectionChange={(id) => setSelectedImageId?.(id)}
+          />
 
           <SpeciesDescription
             traits={traits}
@@ -60,7 +64,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
 
         {/* Right Column: Details */}
         <div className="lg:col-span-1 space-y-6">
-          <ImageMetadata speciesName={taxonomy?.species ?? ""} />
+          <ImageMetadata speciesName={taxonomy?.species ?? ""} imageId={selectedImageId} />
           <SpeciesClassification taxonomyData={taxonomy} />
           <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} />
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
