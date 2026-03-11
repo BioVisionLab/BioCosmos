@@ -9,7 +9,7 @@ import {
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-export function SpeciesImageGallery({ speciesName, onSelectionChange }: { speciesName: string; onSelectionChange?: (imageId: string | null) => void }) {
+export function SpeciesImageGallery({ speciesName, onSelectionChange }: { speciesName: string; onSelectionChange?: (payload: { imageId: string | null; items: string[]; selectedIndex: number }) => void }) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -31,8 +31,8 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
       try {
         const ids = await fetchSpeciesImageIds(speciesName, 8);
           if (!ignore) setItems(ids);
-          // notify initial selection
-          if (!ignore && onSelectionChange) onSelectionChange(ids && ids.length ? ids[0] : null);
+          // notify initial selection (provide items and selectedIndex)
+          if (!ignore && onSelectionChange) onSelectionChange({ imageId: ids && ids.length ? ids[0] : null, items: ids, selectedIndex: 0 });
       } catch (e) {
         if (!ignore) setItems([]);
       } finally {
@@ -53,7 +53,7 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
   // notify when selectedIndex changes
   useEffect(() => {
     if (onSelectionChange) {
-      onSelectionChange(items && items[selectedIndex] ? items[selectedIndex] : null);
+      onSelectionChange({ imageId: items && items[selectedIndex] ? items[selectedIndex] : null, items, selectedIndex });
     }
   }, [selectedIndex, items, onSelectionChange]);
 

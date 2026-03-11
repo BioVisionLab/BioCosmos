@@ -5,12 +5,30 @@ import { NoData } from "@/components/NoData";
 interface ImageMetadataProps {
   speciesName?: string;
   imageId?: string | null;
+  prevImageIds?: string[];
+  nextImageIds?: string[];
 }
 
-export default function ImageMetadata({ speciesName, imageId }: ImageMetadataProps) {
+export default function ImageMetadata({ speciesName, imageId, prevImageIds, nextImageIds }: ImageMetadataProps) {
   const [meta, setMeta] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const cacheRef = React.useRef<Map<string, any>>(new Map());
 
+  // Helper to fetch metadata and store in cache
+  const fetchAndCache = async (id: string) => {
+    try {
+      const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      cacheRef.current.set(id, data ?? null);
+      return data ?? null;
+    } catch (err) {
+      console.error("Error fetching image metadata:", err);
+      return null;
+    }
+  };
+
+  // Main effect: when imageId changes, display from cache if available otherwise fetch
   useEffect(() => {
     if (!imageId) {
       setMeta(null);
@@ -19,31 +37,39 @@ export default function ImageMetadata({ speciesName, imageId }: ImageMetadataPro
     }
 
     let ignore = false;
-    const fetchMeta = async () => {
-      try {
-        setMeta(null);
-        setLoading(true);
-        const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(imageId)}`);
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          console.debug("Failed to fetch image metadata", res.status, txt);
-          if (!ignore) setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        if (!ignore) setMeta(data ?? null);
-      } catch (err) {
-        console.error("Error fetching image metadata:", err);
-      } finally {
-        if (!ignore) setLoading(false);
+
+    const run = async () => {
+      const cached = cacheRef.current.get(imageId);
+      if (cached !== undefined) {
+        setMeta(cached);
+        setLoading(false);
+        return;
       }
+
+      setMeta(null);
+      setLoading(true);
+      const data = await fetchAndCache(imageId);
+      if (!ignore) setMeta(data);
+      if (!ignore) setLoading(false);
     };
 
-    void fetchMeta();
+    void run();
     return () => {
       ignore = true;
     };
   }, [imageId]);
+
+  // Prefetch neighbor metadata in background (up to two in either direction)
+  useEffect(() => {
+    const toPrefetch: Array<string | undefined | null> = [];
+    if (prevImageIds && prevImageIds.length) toPrefetch.push(...prevImageIds.slice(-2));
+    if (nextImageIds && nextImageIds.length) toPrefetch.push(...nextImageIds.slice(0, 2));
+    toPrefetch.forEach((id) => {
+      if (!id) return;
+      if (cacheRef.current.has(id)) return;
+      void fetchAndCache(id);
+    });
+  }, [prevImageIds, nextImageIds]);
 
   return (
     <div className="p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-white">

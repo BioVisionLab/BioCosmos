@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import dynamic from "next/dynamic";
 import { SpeciesImageGallery } from "./ImageGallery";
@@ -46,6 +46,8 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
     );
   }
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [prevImageIds, setPrevImageIds] = useState<string[]>([]);
+  const [nextImageIds, setNextImageIds] = useState<string[]>([]);
 
   return (
     <div>
@@ -53,7 +55,19 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         <div className="lg:col-span-2">
           <SpeciesImageGallery
             speciesName={taxonomy?.species ?? ""}
-            onSelectionChange={(id) => setSelectedImageId?.(id)}
+            onSelectionChange={useCallback((payload: { imageId: string | null; items: string[]; selectedIndex: number }) => {
+              setSelectedImageId(payload.imageId ?? null);
+              setPrevImageIds(
+                payload.items && payload.selectedIndex > 0
+                  ? payload.items.slice(Math.max(0, payload.selectedIndex - 2), payload.selectedIndex)
+                  : []
+              );
+              setNextImageIds(
+                payload.items && payload.selectedIndex < payload.items.length - 1
+                  ? payload.items.slice(payload.selectedIndex + 1, payload.selectedIndex + 3)
+                  : []
+              );
+            }, [setSelectedImageId, setPrevImageIds, setNextImageIds])}
           />
 
           <SpeciesDescription
@@ -64,7 +78,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
 
         {/* Right Column: Details */}
         <div className="lg:col-span-1 space-y-6">
-          <ImageMetadata speciesName={taxonomy?.species ?? ""} imageId={selectedImageId} />
+          <ImageMetadata speciesName={taxonomy?.species ?? ""} imageId={selectedImageId} prevImageIds={prevImageIds} nextImageIds={nextImageIds} />
           <SpeciesClassification taxonomyData={taxonomy} />
           <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} />
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
