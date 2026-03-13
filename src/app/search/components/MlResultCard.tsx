@@ -144,7 +144,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   };
 
   return (
-    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50">
+    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50 min-w-4xl">
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl flex items-center gap-3">
         <h2 className="text-lg font-semibold p-1">Top Result</h2>
         <span className={getMatchPillClass(matchPercent)}>
