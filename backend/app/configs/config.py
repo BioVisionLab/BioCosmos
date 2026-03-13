@@ -1,3 +1,5 @@
+from cmd import PROMPT
+
 import torch
 import yaml
 import os
@@ -8,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(script_dir, "config.yaml")
+PROMPT_DIR = os.path.join(script_dir, "prompts")
 
 
 def load_config():
@@ -385,3 +388,28 @@ class OpenAIConfig:
     @property
     def model(self) -> str | None:
         return self._openai_config.get("model", "gpt-4")
+
+class PromptsConfig:
+    def __init__(self):
+        config = load_config()
+        self._prompts_config = config.get("prompts", {})
+
+    @property
+    def router_agent(self) -> str:
+        return self._load_prompt("router_agent")
+
+    @property
+    def image_similarity(self) -> str:
+        return self._resolve_path("image_similarity")
+
+    @property
+    def location_search(self) -> str:
+        return self._resolve_path("location_search")
+
+    @property
+    def color_search(self) -> str:
+        return self._resolve_path("color_search")
+
+    @property
+    def trait_search(self) -> str:
+        return self._resolve_path("trait_search")

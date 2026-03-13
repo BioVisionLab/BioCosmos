@@ -1,7 +1,3 @@
-"""
-Agent-based semantic search service for biodiversity data.
-"""
-
 import logging
 import json
 import asyncio
@@ -22,7 +18,6 @@ from .leptraits import LepTraits
 
 logger = logging.getLogger(__name__)
 
-
 _FRONT_MATTER_DELIMITER = "---"
 
 
@@ -30,13 +25,13 @@ def _parse_tool_md(path: str) -> tuple[str, dict]:
     """
     Parse a tool markdown file into (description, front_matter).
 
-    The file may optionally begin with a YAML front matter block enclosed
-    by '---' delimiters. Everything after the closing delimiter is the
-    natural-language description passed to the LLM.
+    Front matter is a YAML block enclosed by '---' delimiters at the top
+    of the file. The 'title' key, if present, is consumed for logging/
+    introspection only and is never included in the LLM description.
 
     Returns:
-        description  — stripped body text (always a non-empty string)
-        front_matter — parsed YAML dict, or {} if no front matter present
+        description  — stripped body text
+        front_matter — parsed YAML dict (excludes 'title'), or {} if absent
     """
     with open(path, "r", encoding="utf-8") as f:
         raw = f.read()
@@ -44,23 +39,51 @@ def _parse_tool_md(path: str) -> tuple[str, dict]:
     if not raw.startswith(_FRONT_MATTER_DELIMITER):
         return raw.strip(), {}
 
-    # Split on the closing '---'
     parts = raw.split(_FRONT_MATTER_DELIMITER, maxsplit=2)
-    # parts = ["", "<yaml>", "<body>"]
     if len(parts) < 3:
         return raw.strip(), {}
 
-    front_matter = yaml.safe_load(parts[1]) or {}
+    front_matter: dict = yaml.safe_load(parts[1]) or {}
+    title = front_matter.pop("title", None)
     description = parts[2].strip()
+
+    if title:
+        logger.debug("Loaded tool prompt '%s' from '%s'", title, path)
+
     return description, front_matter
+
+
+def load_system_prompt(path: str) -> str:
+    """
+    Load a markdown file as a plain system prompt string.
+
+    If the file contains YAML front matter, the 'title' is logged for
+    traceability and the body is returned as the prompt content.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        raw = f.read()
+
+    if not raw.startswith(_FRONT_MATTER_DELIMITER):
+        return raw.strip()
+
+    parts = raw.split(_FRONT_MATTER_DELIMITER, maxsplit=2)
+    if len(parts) < 3:
+        return raw.strip()
+
+    front_matter: dict = yaml.safe_load(parts[1]) or {}
+    title = front_matter.get("title")
+    body = parts[2].strip()
+
+    if title:
+        logger.debug("Loaded system prompt '%s' from '%s'", title, path)
+
+    return body
 
 
 def _build_json_schema(front_matter: dict) -> dict:
     """
     Convert the 'parameters' block from front matter into an OpenAI-compatible
     JSON Schema object.
-
-    Supports per-parameter keys: type, required, default, enum, description.
     """
     params: dict = front_matter.get("parameters", {})
     properties: dict = {}
@@ -90,12 +113,12 @@ def _build_json_schema(front_matter: dict) -> dict:
 def build_tool_definition(path: str) -> dict:
     """
     Build a complete OpenAI function-calling tool definition from a
-    markdown file that contains YAML front matter + a description body.
+    markdown file with YAML front matter and a description body.
     """
     description, front_matter = _parse_tool_md(path)
     name = front_matter.get("name")
     if not name:
-        raise ValueError(f"Tool markdown file '{path}' is missing 'name' in front matter.")
+        raise ValueError(f"Tool markdown '{path}' is missing 'name' in front matter.")
 
     return {
         "type": "function",
@@ -105,12 +128,6 @@ def build_tool_definition(path: str) -> dict:
             "parameters": _build_json_schema(front_matter),
         },
     }
-
-
-def load_system_prompt(path: str) -> str:
-    """Load a plain markdown file as a system prompt string (no front matter)."""
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read().strip()
 
 
 class AgentSearchResult(BaseModel):
@@ -160,7 +177,6 @@ class AgentSearchService:
         self.model = config.model or "gpt-4o"
         self.request = request
 
-
         prompts = PromptsConfig()
         self.system_prompt = load_system_prompt(prompts.router_agent)
         self.tool_definitions = [
@@ -177,7 +193,6 @@ class AgentSearchService:
         self.image_meta_service = ImageMetaService(duckdb=request.app.state.duck_db)
         self.gbif_service = GbifPersistData(duckdb=request.app.state.duck_db)
         self.leptraits_service = LepTraits(duckdb=request.app.state.duck_db)
-
 
     async def search(self, query: str) -> pl.DataFrame:
         """
@@ -251,7 +266,6 @@ class AgentSearchService:
 
         logger.info("Normalized weights: %s", normalized_weights)
 
-        # ── Phase 1: Filter tools → allowlist ────────────────────────────
         allowlist_species: set[str] | None = None
         cached_filter_rows: Dict[str, List[Dict]] = {}
 
@@ -294,7 +308,6 @@ class AgentSearchService:
                     allowlist_species = set().union(*per_tool_species)
                     logger.info("Union fallback: %d species", len(allowlist_species))
 
-
         all_results: List[Dict] = []
         active_tool_names: List[str] = []
 
@@ -326,7 +339,7 @@ class AgentSearchService:
                 if allowlist_img_ids is not None:
                     rows = await self._execute_tool_scoped(
                         call["name"], call["args"],
-                        allowlist_img_ids, allowlist_species, weight,
+                        allowlist_img_ids, allowlist_species, weight,  # type: ignore[arg-type]
                     )
                 else:
                     rows = await self._execute_tool(call["name"], call["args"], weight)
@@ -413,7 +426,6 @@ class AgentSearchService:
             aggregated["score"][0],
         )
         return aggregated
-
 
     async def _execute_tool(
         self,
