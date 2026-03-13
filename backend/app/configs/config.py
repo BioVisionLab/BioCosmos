@@ -1,5 +1,3 @@
-from cmd import PROMPT
-
 import torch
 import yaml
 import os
@@ -9,12 +7,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(script_dir, "config.yaml")
-PROMPT_DIR = os.path.join(script_dir, "prompts")
+_CONFIG_PATH = os.path.join(script_dir, "config.yaml")
+
+_FRONT_MATTER_DELIMITER = "---"
+_PROMPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts")
 
 
 def load_config():
-    with open(CONFIG_PATH, "r") as config_file:
+    with open(_CONFIG_PATH, "r") as config_file:
         config = yaml.safe_load(config_file)
     return config
 
@@ -55,14 +55,10 @@ class ImageMetaConfig:
     @property
     def path(self) -> str:
         parent_dir = os.getenv("IMAGE_META_DIR", ".")
-        file_name = self._image_meta_config.get(
-            "file", "image_metadata.csv"
-        )
+        file_name = self._image_meta_config.get("file", "image_metadata.csv")
         full_path = os.path.join(parent_dir, file_name)
         if not os.path.exists(full_path):
-            logger.info(
-                f"Failed to find image metadata file at: {full_path}"
-            )
+            logger.info(f"Failed to find image metadata file at: {full_path}")
         return full_path
 
     @property
@@ -90,14 +86,10 @@ class UmapDataConfig:
     @property
     def path(self) -> str:
         parent_dir = os.getenv("UMAP_DIR", ".")
-        file_name = self._umap_data_config.get(
-            "file", "umap_embeddings.csv"
-        )
+        file_name = self._umap_data_config.get("file", "umap_embeddings.csv")
         full_path = os.path.join(parent_dir, file_name)
         if not os.path.exists(full_path):
-            logger.info(
-                f"Failed to find UMAP data file at: {full_path}"
-            )
+            logger.info(f"Failed to find UMAP data file at: {full_path}")
         return full_path
 
     @property
@@ -137,14 +129,10 @@ class GbifConfig:
     @property
     def path(self) -> str:
         parent_dir = os.getenv("GBIF_DIR", ".")
-        file_name = self._gbif_config.get(
-            "file", "gbif-lepi-2024-occurrence.tsv"
-        )
+        file_name = self._gbif_config.get("file", "gbif-lepi-2024-occurrence.tsv")
         full_path = os.path.join(parent_dir, file_name)
         if not os.path.exists(full_path):
-            logger.info(
-                f"Failed to find GBIF data file at: {full_path}"
-            )
+            logger.info(f"Failed to find GBIF data file at: {full_path}")
         return full_path
 
     @property
@@ -184,9 +172,7 @@ class LepTraitConfig:
 
     @property
     def table(self) -> str:
-        return self._leptrait_config.get(
-            "table", "lep_traits_consensus"
-        )
+        return self._leptrait_config.get("table", "lep_traits_consensus")
 
 
 class ImageConfig:
@@ -292,17 +278,13 @@ class EmbedderConfig:
                 if torch.cuda.is_available():
                     return self._get_cuda_device()
                 else:
-                    logger.info(
-                        "CUDA not available. Falling back to 'cpu'."
-                    )
+                    logger.info("CUDA not available. Falling back to 'cpu'.")
                     return default
             case "mps":
                 if torch.backends.mps.is_available():
                     return "mps"
                 else:
-                    logger.info(
-                        "MPS not available. Falling back to 'cpu'."
-                    )
+                    logger.info("MPS not available. Falling back to 'cpu'.")
                     return default
 
     @property
@@ -326,10 +308,7 @@ class EmbedderConfig:
         cuda_device = self._embedder_config.get("cuda_device", 0)
         try:
             cuda_device = int(cuda_device)
-            if (
-                cuda_device < 0
-                or cuda_device >= torch.cuda.device_count()
-            ):
+            if cuda_device < 0 or cuda_device >= torch.cuda.device_count():
                 logger.info(
                     f"CUDA device index {cuda_device} is out of range. Falling back to 0."
                 )
@@ -389,27 +368,118 @@ class OpenAIConfig:
     def model(self) -> str | None:
         return self._openai_config.get("model", "gpt-4")
 
+
 class PromptsConfig:
     def __init__(self):
-        config = load_config()
-        self._prompts_config = config.get("prompts", {})
+        self._prompt_dir = _PROMPT_DIR
 
     @property
     def router_agent(self) -> str:
-        return self._load_prompt("router_agent")
+        return self._load_prompt("router_agent.md")
 
     @property
     def image_similarity(self) -> str:
-        return self._resolve_path("image_similarity")
+        return self._resolve_path("image_similarity.md")
 
     @property
     def location_search(self) -> str:
-        return self._resolve_path("location_search")
+        return self._resolve_path("location_search.md")
 
     @property
     def color_search(self) -> str:
-        return self._resolve_path("color_search")
+        return self._resolve_path("color_search.md")
 
     @property
     def trait_search(self) -> str:
-        return self._resolve_path("trait_search")
+        return self._resolve_path("trait_search.md")
+
+    def build_tool_definition(self, path: str) -> dict:
+        """
+        Build a complete OpenAI function-calling tool definition from a
+        markdown file with YAML front matter and a description body.
+        """
+        description, front_matter = self._parse_front_matter(path)
+        name = front_matter.get("name")
+        if not name:
+            raise ValueError(
+                f"Tool markdown '{path}' is missing 'name' in front matter."
+            )
+
+        return {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": description,
+                "parameters": self._build_json_schema(front_matter),
+            },
+        }
+
+    def _resolve_path(self, filename: str) -> str:
+        """
+        Resolve a filename to its full path under the prompts directory.
+        Raises if the file does not exist.
+        """
+        prompt_path = os.path.join(self._prompt_dir, filename)
+        if not os.path.exists(prompt_path):
+            raise FileNotFoundError(f"Prompt file not found: '{prompt_path}'.")
+        return prompt_path
+
+    def _load_prompt(self, filename: str) -> str:
+        """
+        Load a plain system prompt string, with front matter stripped.
+        Logs a warning and returns an empty string if the file is missing.
+        """
+        try:
+            path = self._resolve_path(filename)
+        except FileNotFoundError as e:
+            logger.warning("%s Returning empty string.", e)
+            return ""
+        return self._parse_front_matter(path)[0]
+
+    def _parse_front_matter(self, path: str) -> tuple[str, dict]:
+        """
+        Parse a markdown file into (body, front_matter).
+
+        The 'title' key is consumed for debug logging only and never
+        forwarded to the LLM.
+        """
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read()
+
+        if not raw.startswith(_FRONT_MATTER_DELIMITER):
+            return raw.strip(), {}
+
+        parts = raw.split(_FRONT_MATTER_DELIMITER, maxsplit=2)
+        if len(parts) < 3:
+            return raw.strip(), {}
+
+        front_matter: dict = yaml.safe_load(parts[1]) or {}
+        title = front_matter.pop("title", None)
+
+        if title:
+            logger.debug("Loaded prompt '%s' from '%s'", title, path)
+
+        return parts[2].strip(), front_matter
+
+    def _build_json_schema(self, front_matter: dict) -> dict:
+        """Convert a 'parameters' front-matter block into an OpenAI JSON Schema object."""
+        params: dict = front_matter.get("parameters", {})
+        properties: dict = {}
+        required: list[str] = []
+
+        for name, spec in params.items():
+            prop: dict = {"type": spec.get("type", "string")}
+            if "description" in spec:
+                prop["description"] = spec["description"].strip()
+            if "enum" in spec:
+                prop["enum"] = spec["enum"]
+            if "default" in spec:
+                prop["default"] = spec["default"]
+            properties[name] = prop
+            if spec.get("required", False):
+                required.append(name)
+
+        schema: dict = {"type": "object", "properties": properties}
+        if required:
+            schema["required"] = required
+        return schema

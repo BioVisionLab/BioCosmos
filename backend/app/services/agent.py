@@ -1,9 +1,12 @@
+"""
+Agent-based semantic search service for biodiversity data.
+"""
+
 import logging
 import json
 import asyncio
 from typing import List, Dict, Any
 
-import yaml
 import polars as pl
 from pydantic import BaseModel, ConfigDict, field_serializer
 from pydantic.alias_generators import to_camel
@@ -17,117 +20,6 @@ from .gbif import GbifPersistData
 from .leptraits import LepTraits
 
 logger = logging.getLogger(__name__)
-
-_FRONT_MATTER_DELIMITER = "---"
-
-
-def _parse_tool_md(path: str) -> tuple[str, dict]:
-    """
-    Parse a tool markdown file into (description, front_matter).
-
-    Front matter is a YAML block enclosed by '---' delimiters at the top
-    of the file. The 'title' key, if present, is consumed for logging/
-    introspection only and is never included in the LLM description.
-
-    Returns:
-        description  — stripped body text
-        front_matter — parsed YAML dict (excludes 'title'), or {} if absent
-    """
-    with open(path, "r", encoding="utf-8") as f:
-        raw = f.read()
-
-    if not raw.startswith(_FRONT_MATTER_DELIMITER):
-        return raw.strip(), {}
-
-    parts = raw.split(_FRONT_MATTER_DELIMITER, maxsplit=2)
-    if len(parts) < 3:
-        return raw.strip(), {}
-
-    front_matter: dict = yaml.safe_load(parts[1]) or {}
-    title = front_matter.pop("title", None)
-    description = parts[2].strip()
-
-    if title:
-        logger.debug("Loaded tool prompt '%s' from '%s'", title, path)
-
-    return description, front_matter
-
-
-def load_system_prompt(path: str) -> str:
-    """
-    Load a markdown file as a plain system prompt string.
-
-    If the file contains YAML front matter, the 'title' is logged for
-    traceability and the body is returned as the prompt content.
-    """
-    with open(path, "r", encoding="utf-8") as f:
-        raw = f.read()
-
-    if not raw.startswith(_FRONT_MATTER_DELIMITER):
-        return raw.strip()
-
-    parts = raw.split(_FRONT_MATTER_DELIMITER, maxsplit=2)
-    if len(parts) < 3:
-        return raw.strip()
-
-    front_matter: dict = yaml.safe_load(parts[1]) or {}
-    title = front_matter.get("title")
-    body = parts[2].strip()
-
-    if title:
-        logger.debug("Loaded system prompt '%s' from '%s'", title, path)
-
-    return body
-
-
-def _build_json_schema(front_matter: dict) -> dict:
-    """
-    Convert the 'parameters' block from front matter into an OpenAI-compatible
-    JSON Schema object.
-    """
-    params: dict = front_matter.get("parameters", {})
-    properties: dict = {}
-    required: list[str] = []
-
-    for name, spec in params.items():
-        prop: dict = {"type": spec.get("type", "string")}
-
-        if "description" in spec:
-            prop["description"] = spec["description"].strip()
-        if "enum" in spec:
-            prop["enum"] = spec["enum"]
-        if "default" in spec:
-            prop["default"] = spec["default"]
-
-        properties[name] = prop
-
-        if spec.get("required", False):
-            required.append(name)
-
-    schema: dict = {"type": "object", "properties": properties}
-    if required:
-        schema["required"] = required
-    return schema
-
-
-def build_tool_definition(path: str) -> dict:
-    """
-    Build a complete OpenAI function-calling tool definition from a
-    markdown file with YAML front matter and a description body.
-    """
-    description, front_matter = _parse_tool_md(path)
-    name = front_matter.get("name")
-    if not name:
-        raise ValueError(f"Tool markdown '{path}' is missing 'name' in front matter.")
-
-    return {
-        "type": "function",
-        "function": {
-            "name": name,
-            "description": description,
-            "parameters": _build_json_schema(front_matter),
-        },
-    }
 
 
 class AgentSearchResult(BaseModel):
@@ -147,20 +39,20 @@ class AgentSearchService:
     """
     Two-phase agent search service.
 
-    Phase 1 — Filter:
+    Phase 1 ? Filter:
         Location + traits tools run in parallel; their species sets are
         intersected (with union fallback) to form a species allowlist.
 
-    Phase 2 — Rank:
+    Phase 2 ? Rank:
         Color + similarity tools run scoped to allowlist image IDs.
         If no ranking tools are invoked, filter scores are used directly.
 
     Scoring:
-        - Ranking tools present  → each ranking tool weight = 1.0 / num_ranking_tools;
+        - Ranking tools present  ? each ranking tool weight = 1.0 / num_ranking_tools;
                                    filter tools contribute 0 to score (gate only).
-        - Filter tools only      → each filter tool weight  = 1.0 / num_filter_tools;
+        - Filter tools only      ? each filter tool weight  = 1.0 / num_filter_tools;
                                    binary match score.
-        - Penalty: 0.15 × (total_tools_invoked − tools_matched_for_species),
+        - Penalty: 0.15 × (total_tools_invoked ? tools_matched_for_species),
                    clipped to [0.0, 1.0].
     """
 
@@ -171,19 +63,21 @@ class AgentSearchService:
     def __init__(self, request: Request) -> None:
         config = OpenAIConfig()
         if not config.api_key or not config.api_url:
-            raise ValueError("OpenAI API key and URL must be configured for agent search.")
+            raise ValueError(
+                "OpenAI API key and URL must be configured for agent search."
+            )
 
         self.client = OpenAI(base_url=config.api_url, api_key=config.api_key)
         self.model = config.model or "gpt-4o"
         self.request = request
 
         prompts = PromptsConfig()
-        self.system_prompt = load_system_prompt(prompts.router_agent)
+        self.system_prompt = prompts.router_agent
         self.tool_definitions = [
-            build_tool_definition(prompts.image_similarity),
-            build_tool_definition(prompts.location_search),
-            build_tool_definition(prompts.color_search),
-            build_tool_definition(prompts.trait_search),
+            prompts.build_tool_definition(prompts.image_similarity),
+            prompts.build_tool_definition(prompts.location_search),
+            prompts.build_tool_definition(prompts.color_search),
+            prompts.build_tool_definition(prompts.trait_search),
         ]
 
         self.image_service = ImagePersistData(
@@ -273,7 +167,8 @@ class AgentSearchService:
             filter_results = await asyncio.gather(
                 *[
                     self._execute_tool(
-                        c["name"], c["args"],
+                        c["name"],
+                        c["args"],
                         normalized_weights.get(c["name"], 0.0),
                     )
                     for c in filter_calls
@@ -294,17 +189,21 @@ class AgentSearchService:
                 cached_filter_rows[tool_name] = result
                 species_set = {row["species"] for row in result}
                 per_tool_species.append(species_set)
-                logger.info("Filter tool '%s' → %d species", tool_name, len(species_set))
+                logger.info(
+                    "Filter tool '%s' ? %d species", tool_name, len(species_set)
+                )
 
             if per_tool_species:
-                allowlist_species = per_tool_species[0].intersection(*per_tool_species[1:])
+                allowlist_species = per_tool_species[0].intersection(
+                    *per_tool_species[1:]
+                )
                 logger.info(
                     "Allowlist after intersection of %d filter tool(s): %d species",
                     len(per_tool_species),
                     len(allowlist_species),
                 )
                 if not allowlist_species:
-                    logger.warning("Intersection empty — falling back to union.")
+                    logger.warning("Intersection empty ? falling back to union.")
                     allowlist_species = set().union(*per_tool_species)
                     logger.info("Union fallback: %d species", len(allowlist_species))
 
@@ -338,14 +237,19 @@ class AgentSearchService:
                 weight = normalized_weights.get(call["name"], 1.0)
                 if allowlist_img_ids is not None:
                     rows = await self._execute_tool_scoped(
-                        call["name"], call["args"],
-                        allowlist_img_ids, allowlist_species, weight,  # type: ignore[arg-type]
+                        call["name"],
+                        call["args"],
+                        allowlist_img_ids,
+                        allowlist_species,
+                        weight,  # type: ignore[arg-type]
                     )
                 else:
                     rows = await self._execute_tool(call["name"], call["args"], weight)
 
                 if isinstance(rows, Exception) or not rows:
-                    logger.warning("Ranking tool '%s' returned no results.", call["name"])
+                    logger.warning(
+                        "Ranking tool '%s' returned no results.", call["name"]
+                    )
                     continue
 
                 active_tool_names.append(call["name"])
@@ -358,7 +262,8 @@ class AgentSearchService:
 
             for call in filter_calls:
                 rows = [
-                    r for r in cached_filter_rows.get(call["name"], [])
+                    r
+                    for r in cached_filter_rows.get(call["name"], [])
                     if r["species"] in allowlist_species
                 ]
                 if rows:
@@ -395,18 +300,20 @@ class AgentSearchService:
 
         aggregated = (
             df.group_by("species")
-            .agg([
-                pl.when(pl.col("tool_names").is_in(ranking_tool_names))
-                .then(pl.col("imgId"))
-                .otherwise(None)
-                .drop_nulls()
-                .first()
-                .fill_null(pl.col("imgId").first())
-                .alias("imgId"),
-                pl.col("score").sum().alias("score"),
-                pl.col("tool_names").unique().alias("tool_names"),
-                pl.col("tool_names").n_unique().alias("tool_hit_count"),
-            ])
+            .agg(
+                [
+                    pl.when(pl.col("tool_names").is_in(ranking_tool_names))
+                    .then(pl.col("imgId"))
+                    .otherwise(None)
+                    .drop_nulls()
+                    .first()
+                    .fill_null(pl.col("imgId").first())
+                    .alias("imgId"),
+                    pl.col("score").sum().alias("score"),
+                    pl.col("tool_names").unique().alias("tool_names"),
+                    pl.col("tool_names").n_unique().alias("tool_hit_count"),
+                ]
+            )
             .with_columns(
                 (
                     pl.col("score")
@@ -420,7 +327,7 @@ class AgentSearchService:
         )
 
         logger.info(
-            "Aggregated %d rows → %d unique species | top score: %.4f",
+            "Aggregated %d rows ? %d unique species | top score: %.4f",
             len(df),
             len(aggregated),
             aggregated["score"][0],
@@ -537,11 +444,16 @@ class AgentSearchService:
             ).to_dicts()
 
         else:
-            logger.error("_execute_tool_scoped: unsupported function '%s'", function_name)
+            logger.error(
+                "_execute_tool_scoped: unsupported function '%s'", function_name
+            )
             return []
 
     async def _search_by_image_similarity(
-        self, reference_species: str, weight: float, limit: int = 50,
+        self,
+        reference_species: str,
+        weight: float,
+        limit: int = 50,
     ) -> list[dict]:
         scientific_name = reference_species.strip()
         if not scientific_name:
@@ -549,13 +461,16 @@ class AgentSearchService:
             return []
 
         image_ids = await asyncio.to_thread(
-            self.image_meta_service.get_image_ids_by_species, scientific_name,
+            self.image_meta_service.get_image_ids_by_species,
+            scientific_name,
         )
         if not image_ids:
             return []
 
         similar = await asyncio.to_thread(
-            self.image_service.find_similar_images, image_ids, limit,
+            self.image_service.find_similar_images,
+            image_ids,
+            limit,
         )
         if similar is None or similar.is_empty():
             return []
@@ -567,20 +482,26 @@ class AgentSearchService:
         ).to_dicts()
 
     async def _search_by_location(
-        self, location: str, weight: float, limit: int = 100,
+        self,
+        location: str,
+        weight: float,
+        limit: int = 100,
     ) -> list[dict]:
         if not location:
             logger.warning("search_by_location called with empty location.")
             return []
 
         species_names = await asyncio.to_thread(
-            self.gbif_service.search_by_location, location, limit,
+            self.gbif_service.search_by_location,
+            location,
+            limit,
         )
-        logger.info("Location '%s' → %d species", location, len(species_names))
+        logger.info("Location '%s' ? %d species", location, len(species_names))
 
         unique_species = list(set(species_names))
         data = await asyncio.to_thread(
-            self.image_meta_service.get_species_main_image_id_from_list, unique_species,
+            self.image_meta_service.get_species_main_image_id_from_list,
+            unique_species,
         )
         if data is None or data.is_empty():
             return []
@@ -592,7 +513,10 @@ class AgentSearchService:
         ).to_dicts()
 
     async def _search_by_color(
-        self, color_description: str, weight: float, limit: int = 50,
+        self,
+        color_description: str,
+        weight: float,
+        limit: int = 50,
     ) -> list[dict]:
         if not color_description:
             logger.warning("search_by_color called with empty color description.")
@@ -601,7 +525,9 @@ class AgentSearchService:
         image_limit = max(limit * 10, 300)
         raw = await asyncio.to_thread(
             self.image_service.fetch_similar_images_from_text,
-            self.request, color_description, image_limit,
+            self.request,
+            color_description,
+            image_limit,
         )
         if not raw:
             return []
@@ -654,7 +580,8 @@ class AgentSearchService:
 
         unique_species = list(set(result["Species"].to_list()))
         data = await asyncio.to_thread(
-            self.image_meta_service.get_species_main_image_id_from_list, unique_species,
+            self.image_meta_service.get_species_main_image_id_from_list,
+            unique_species,
         )
         if data is None or data.is_empty():
             return []
@@ -667,7 +594,9 @@ class AgentSearchService:
 
     @staticmethod
     def _build_result_df(
-        df: pl.DataFrame, score_expr: pl.Expr, tool_name: str,
+        df: pl.DataFrame,
+        score_expr: pl.Expr,
+        tool_name: str,
     ) -> pl.DataFrame:
         return df.with_columns(
             score_expr.alias("score"),
