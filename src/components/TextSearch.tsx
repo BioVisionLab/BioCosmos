@@ -30,7 +30,7 @@ export default function TextSearch() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto mb-6 bg-emerald-50/50 dark:bg-gray-800/50 p-6 rounded-3xl">
+    <div className="w-full max-w-2xl mx-auto mb-6 bg-emerald-200/50 dark:bg-gray-700/50 p-6 rounded-3xl">
       <div className="mb-4 text-center text-gray-600 dark:text-gray-400 text-sm">
         <p>
           Conventional text-based search to query BIOCOSMOS database. Search by
