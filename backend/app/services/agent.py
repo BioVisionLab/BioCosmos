@@ -5,24 +5,112 @@ Agent-based semantic search service for biodiversity data.
 import logging
 import json
 import asyncio
+from typing import List, Dict, Any
 
+import yaml
 import polars as pl
-
-from typing import List, Dict, Any, Optional
-
 from pydantic import BaseModel, ConfigDict, field_serializer
 from pydantic.alias_generators import to_camel
 from fastapi import Request
 from openai import OpenAI
 
 from .image_meta import ImageMetaService
-from ..configs.config import OpenAIConfig
+from ..configs.config import OpenAIConfig, PromptsConfig
 from .images import ImagePersistData
 from .gbif import GbifPersistData
 from .leptraits import LepTraits
 
-
 logger = logging.getLogger(__name__)
+
+
+_FRONT_MATTER_DELIMITER = "---"
+
+
+def _parse_tool_md(path: str) -> tuple[str, dict]:
+    """
+    Parse a tool markdown file into (description, front_matter).
+
+    The file may optionally begin with a YAML front matter block enclosed
+    by '---' delimiters. Everything after the closing delimiter is the
+    natural-language description passed to the LLM.
+
+    Returns:
+        description  — stripped body text (always a non-empty string)
+        front_matter — parsed YAML dict, or {} if no front matter present
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        raw = f.read()
+
+    if not raw.startswith(_FRONT_MATTER_DELIMITER):
+        return raw.strip(), {}
+
+    # Split on the closing '---'
+    parts = raw.split(_FRONT_MATTER_DELIMITER, maxsplit=2)
+    # parts = ["", "<yaml>", "<body>"]
+    if len(parts) < 3:
+        return raw.strip(), {}
+
+    front_matter = yaml.safe_load(parts[1]) or {}
+    description = parts[2].strip()
+    return description, front_matter
+
+
+def _build_json_schema(front_matter: dict) -> dict:
+    """
+    Convert the 'parameters' block from front matter into an OpenAI-compatible
+    JSON Schema object.
+
+    Supports per-parameter keys: type, required, default, enum, description.
+    """
+    params: dict = front_matter.get("parameters", {})
+    properties: dict = {}
+    required: list[str] = []
+
+    for name, spec in params.items():
+        prop: dict = {"type": spec.get("type", "string")}
+
+        if "description" in spec:
+            prop["description"] = spec["description"].strip()
+        if "enum" in spec:
+            prop["enum"] = spec["enum"]
+        if "default" in spec:
+            prop["default"] = spec["default"]
+
+        properties[name] = prop
+
+        if spec.get("required", False):
+            required.append(name)
+
+    schema: dict = {"type": "object", "properties": properties}
+    if required:
+        schema["required"] = required
+    return schema
+
+
+def build_tool_definition(path: str) -> dict:
+    """
+    Build a complete OpenAI function-calling tool definition from a
+    markdown file that contains YAML front matter + a description body.
+    """
+    description, front_matter = _parse_tool_md(path)
+    name = front_matter.get("name")
+    if not name:
+        raise ValueError(f"Tool markdown file '{path}' is missing 'name' in front matter.")
+
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": _build_json_schema(front_matter),
+        },
+    }
+
+
+def load_system_prompt(path: str) -> str:
+    """Load a plain markdown file as a system prompt string (no front matter)."""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().strip()
 
 
 class AgentSearchResult(BaseModel):
@@ -40,272 +128,240 @@ class AgentSearchResult(BaseModel):
 
 class AgentSearchService:
     """
-    Two-phase agent search service:
+    Two-phase agent search service.
 
-    Phase 1 ? Filter: location + traits tools run in parallel, results intersected
-                      to form a species allowlist.
-    Phase 2 ? Rank:   color + similarity tools run scoped to allowlist image IDs.
-                      If no ranking tools, filter scores are used directly.
+    Phase 1 — Filter:
+        Location + traits tools run in parallel; their species sets are
+        intersected (with union fallback) to form a species allowlist.
+
+    Phase 2 — Rank:
+        Color + similarity tools run scoped to allowlist image IDs.
+        If no ranking tools are invoked, filter scores are used directly.
 
     Scoring:
-        Equal weight = 1.0 / num_invoked_tools assigned to each tool.
-        Color/similarity scores: weight * (1 - distance / 2) or weight * (1 - distance)
-        Filter scores: weight * 1.0 (binary match)
-        Penalty: 0.15 * (num_tools - tools_matched) applied per species at aggregation.
+        - Ranking tools present  → each ranking tool weight = 1.0 / num_ranking_tools;
+                                   filter tools contribute 0 to score (gate only).
+        - Filter tools only      → each filter tool weight  = 1.0 / num_filter_tools;
+                                   binary match score.
+        - Penalty: 0.15 × (total_tools_invoked − tools_matched_for_species),
+                   clipped to [0.0, 1.0].
     """
 
     TOOL_PENALTY = 0.15
-
-    FILTER_TOOLS  = {"search_by_location", "search_by_traits"}
+    FILTER_TOOLS = {"search_by_location", "search_by_traits"}
     RANKING_TOOLS = {"search_by_color", "search_by_image_similarity"}
 
-    def __init__(self, request: Request):
+    def __init__(self, request: Request) -> None:
         config = OpenAIConfig()
         if not config.api_key or not config.api_url:
-            raise ValueError("OpenAI API key and URL must be configured for agent search")
+            raise ValueError("OpenAI API key and URL must be configured for agent search.")
 
         self.client = OpenAI(base_url=config.api_url, api_key=config.api_key)
-        self.model  = config.model or "gpt-4o"
+        self.model = config.model or "gpt-4o"
         self.request = request
+
+
+        prompts = PromptsConfig()
+        self.system_prompt = load_system_prompt(prompts.router_agent)
+        self.tool_definitions = [
+            build_tool_definition(prompts.image_similarity),
+            build_tool_definition(prompts.location_search),
+            build_tool_definition(prompts.color_search),
+            build_tool_definition(prompts.trait_search),
+        ]
 
         self.image_service = ImagePersistData(
             lance_db=request.app.state.lance_db,
             duckdb=request.app.state.duck_db,
         )
         self.image_meta_service = ImageMetaService(duckdb=request.app.state.duck_db)
-        self.gbif_service       = GbifPersistData(duckdb=request.app.state.duck_db)
-        self.leptraits_service  = LepTraits(duckdb=request.app.state.duck_db)
+        self.gbif_service = GbifPersistData(duckdb=request.app.state.duck_db)
+        self.leptraits_service = LepTraits(duckdb=request.app.state.duck_db)
 
 
     async def search(self, query: str) -> pl.DataFrame:
         """
-        Two-phase search pipeline:
-
-        Phase 1 ? Filter: Run location and/or traits tools in parallel.
-                        Intersect their species sets to form an allowlist.
-                        Results are cached to avoid re-execution.
-
-        Phase 2 ? Rank:   If ranking tools (color, similarity) were requested,
-                        run them scoped to allowlist image IDs only.
-                        Ranking tools share 100% of the score weight when
-                        filter tools are also active (filter tools gate the
-                        pool but do not contribute to score).
-                        If no ranking tools, filter tool scores are used directly.
-
-        Scoring:
-            - ranking + filter tools: each ranking tool gets weight = 1.0 / num_ranking_tools
-            - ranking tools only:     each ranking tool gets weight = 1.0 / num_ranking_tools
-            - filter tools only:      each filter tool gets weight  = 1.0 / num_filter_tools
-
-        Args:
-            query: Natural language search query
+        Execute the two-phase search pipeline for *query*.
 
         Returns:
-            pl.DataFrame with columns [imgId, species, score, tool_names]
-            sorted by score descending. Empty DataFrame if no results.
+            pl.DataFrame with columns [imgId, species, score, tool_names],
+            sorted by score descending. Empty DataFrame on no results.
 
         Raises:
-            Exception: If OpenAI API call fails (logged and re-raised)
+            Exception: propagated from the OpenAI API call (logged first).
         """
-        tools    = self._get_tools()
-        messages = self._build_messages(query)
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": query},
+        ]
 
         try:
-            response = self.client.chat.completions.create(
+            response = await asyncio.to_thread(
+                self.client.chat.completions.create,
                 model=self.model,
                 messages=messages,
-                tools=tools,
+                tools=self.tool_definitions,
                 tool_choice="auto",
                 timeout=30.0,
             )
+        except Exception as exc:
+            logger.error("OpenAI API call failed: %s", exc, exc_info=True)
+            raise
 
-            message = response.choices[0].message
-            if not message.tool_calls:
-                logger.warning(f"LLM made no tool calls for query: {query}")
-                return pl.DataFrame()
+        message = response.choices[0].message
+        if not message.tool_calls:
+            logger.warning("LLM made no tool calls for query: %s", query)
+            return pl.DataFrame()
 
-            # ?? Parse LLM tool calls ??????????????????????????????????????????????
-            parsed_calls: List[Dict[str, Any]] = []
-            for tool_call in message.tool_calls:
-                try:
-                    args = json.loads(tool_call.function.arguments)
-                except json.JSONDecodeError:
-                    logger.error(f"Failed to parse args for {tool_call.function.name}")
-                    continue
-                parsed_calls.append({"name": tool_call.function.name, "args": args})
+        parsed_calls: List[Dict[str, Any]] = []
+        for tc in message.tool_calls:
+            try:
+                args = json.loads(tc.function.arguments)
+            except json.JSONDecodeError:
+                logger.error("Failed to parse args for tool '%s'", tc.function.name)
+                continue
+            parsed_calls.append({"name": tc.function.name, "args": args})
 
-            if not parsed_calls:
-                logger.warning("All tool call arguments failed to parse")
-                return pl.DataFrame()
+        if not parsed_calls:
+            logger.warning("All tool call arguments failed to parse.")
+            return pl.DataFrame()
 
-            # Split by role
-            filter_calls  = [c for c in parsed_calls if c["name"] in self.FILTER_TOOLS]
-            ranking_calls = [c for c in parsed_calls if c["name"] in self.RANKING_TOOLS]
+        filter_calls = [c for c in parsed_calls if c["name"] in self.FILTER_TOOLS]
+        ranking_calls = [c for c in parsed_calls if c["name"] in self.RANKING_TOOLS]
 
-            logger.info(
-                f"Filter tools: {[c['name'] for c in filter_calls]} | "
-                f"Ranking tools: {[c['name'] for c in ranking_calls]}"
+        logger.info(
+            "Filter tools: %s | Ranking tools: %s",
+            [c["name"] for c in filter_calls],
+            [c["name"] for c in ranking_calls],
+        )
+
+        normalized_weights: Dict[str, float] = {}
+        if ranking_calls:
+            num_ranking = len({c["name"] for c in ranking_calls})
+            ranking_weight = 1.0 / num_ranking
+            for c in ranking_calls:
+                normalized_weights[c["name"]] = ranking_weight
+            for c in filter_calls:
+                normalized_weights[c["name"]] = 0.0
+        else:
+            num_filter = len({c["name"] for c in filter_calls})
+            filter_weight = 1.0 / num_filter if num_filter else 1.0
+            for c in filter_calls:
+                normalized_weights[c["name"]] = filter_weight
+
+        logger.info("Normalized weights: %s", normalized_weights)
+
+        # ── Phase 1: Filter tools → allowlist ────────────────────────────
+        allowlist_species: set[str] | None = None
+        cached_filter_rows: Dict[str, List[Dict]] = {}
+
+        if filter_calls:
+            filter_results = await asyncio.gather(
+                *[
+                    self._execute_tool(
+                        c["name"], c["args"],
+                        normalized_weights.get(c["name"], 0.0),
+                    )
+                    for c in filter_calls
+                ],
+                return_exceptions=True,
             )
 
-            # ?? Compute normalized weights ????????????????????????????????????????
-            # When ranking tools are present, they own 100% of the score.
-            # Filter tools only gate the candidate pool ? they never contribute to score.
-            # When only filter tools are present, they share the full score weight.
-            normalized_weights: Dict[str, float] = {}
+            per_tool_species: List[set[str]] = []
+            for i, result in enumerate(filter_results):
+                tool_name = filter_calls[i]["name"]
+                if isinstance(result, Exception):
+                    logger.error("Filter tool '%s' raised: %s", tool_name, result)
+                    continue
+                if not result:
+                    logger.warning("Filter tool '%s' returned empty result.", tool_name)
+                    continue
 
-            if ranking_calls:
-                # Ranking tools share 1.0 equally regardless of how many filter tools fired
-                num_ranking = len({c["name"] for c in ranking_calls})
-                ranking_weight = 1.0 / num_ranking if num_ranking > 0 else 1.0
-                for c in ranking_calls:
-                    normalized_weights[c["name"]] = ranking_weight
-                for c in filter_calls:
-                    normalized_weights[c["name"]] = 0.0  # filter tools don't score
-            else:
-                # Filter-only query ? filter tools share the full weight
-                num_filter = len({c["name"] for c in filter_calls})
-                filter_weight = 1.0 / num_filter if num_filter > 0 else 1.0
-                for c in filter_calls:
-                    normalized_weights[c["name"]] = filter_weight
+                cached_filter_rows[tool_name] = result
+                species_set = {row["species"] for row in result}
+                per_tool_species.append(species_set)
+                logger.info("Filter tool '%s' → %d species", tool_name, len(species_set))
 
-            logger.info(f"Normalized weights: {normalized_weights}")
-
-            # ?? Phase 1: Run filter tools in parallel, build allowlist ????????????
-            # allowlist_species = None means no filter applied (ranking-only query)
-            allowlist_species: Optional[set[str]] = None
-            cached_filter_rows: Dict[str, List[Dict]] = {}
-
-            if filter_calls:
-                filter_results = await asyncio.gather(
-                    *[
-                        self._execute_tool(
-                            c["name"], c["args"],
-                            normalized_weights.get(c["name"], 0.0),
-                        )
-                        for c in filter_calls
-                    ],
-                    return_exceptions=True,
+            if per_tool_species:
+                allowlist_species = per_tool_species[0].intersection(*per_tool_species[1:])
+                logger.info(
+                    "Allowlist after intersection of %d filter tool(s): %d species",
+                    len(per_tool_species),
+                    len(allowlist_species),
                 )
+                if not allowlist_species:
+                    logger.warning("Intersection empty — falling back to union.")
+                    allowlist_species = set().union(*per_tool_species)
+                    logger.info("Union fallback: %d species", len(allowlist_species))
 
-                per_tool_species: List[set[str]] = []
-                for i, result in enumerate(filter_results):
-                    tool_name = filter_calls[i]["name"]
-                    if isinstance(result, Exception):
-                        logger.error(f"Filter tool '{tool_name}' failed: {result}")
-                        continue
-                    if not result or (isinstance(result, dict) and "error" in result):
-                        logger.warning(f"Filter tool '{tool_name}' returned empty/error")
-                        continue
 
-                    cached_filter_rows[tool_name] = result
-                    species_set = {row["species"] for row in result}
-                    per_tool_species.append(species_set)
-                    logger.info(
-                        f"Filter tool '{tool_name}' returned {len(species_set)} species"
+        all_results: List[Dict] = []
+        active_tool_names: List[str] = []
+
+        if ranking_calls:
+            allowlist_img_ids: list[str] | None = None
+
+            if allowlist_species is not None:
+                img_id_set: set[str] = {
+                    row["imgId"]
+                    for call in filter_calls
+                    for row in cached_filter_rows.get(call["name"], [])
+                    if row["species"] in allowlist_species and row.get("imgId")
+                }
+                if len(img_id_set) < len(allowlist_species) * 3:
+                    db_ids = await asyncio.to_thread(
+                        self.image_meta_service.get_image_ids_for_species_list,
+                        list(allowlist_species),
                     )
+                    img_id_set.update(db_ids)
 
-                if per_tool_species:
-                    # Intersect all filter tool species sets
-                    allowlist_species = per_tool_species[0].intersection(*per_tool_species[1:])
-                    logger.info(
-                        f"Allowlist after intersection of {len(per_tool_species)} "
-                        f"filter tools: {len(allowlist_species)} species"
+                if not img_id_set:
+                    logger.warning("No image IDs found for allowlisted species.")
+                    return pl.DataFrame()
+
+                allowlist_img_ids = list(img_id_set)
+
+            for call in ranking_calls:
+                weight = normalized_weights.get(call["name"], 1.0)
+                if allowlist_img_ids is not None:
+                    rows = await self._execute_tool_scoped(
+                        call["name"], call["args"],
+                        allowlist_img_ids, allowlist_species, weight,
                     )
+                else:
+                    rows = await self._execute_tool(call["name"], call["args"], weight)
 
-                    # Fall back to union if intersection is empty
-                    if not allowlist_species:
-                        logger.warning(
-                            "Filter intersection produced 0 species ? falling back to union"
-                        )
-                        allowlist_species = set().union(*per_tool_species)
-                        logger.info(f"Union fallback: {len(allowlist_species)} species")
+                if isinstance(rows, Exception) or not rows:
+                    logger.warning("Ranking tool '%s' returned no results.", call["name"])
+                    continue
 
-            # ?? Phase 2: Score results ????????????????????????????????????????????
-            all_results:       List[Dict] = []
-            active_tool_names: List[str]  = []
+                active_tool_names.append(call["name"])
+                all_results.extend(rows)
 
-            if ranking_calls:
-                # Build allowlist_img_ids scoped to allowlisted species
-                allowlist_img_ids: Optional[List[str]] = None
+        else:
+            if allowlist_species is None:
+                logger.warning("No filter or ranking tools produced results.")
+                return pl.DataFrame()
 
-                if allowlist_species is not None:
-                    # Seed with imgIds already returned by filter tools
-                    img_id_set: set[str] = {
-                        row["imgId"]
-                        for call in filter_calls
-                        for row in cached_filter_rows.get(call["name"], [])
-                        if row["species"] in allowlist_species and row.get("imgId")
-                    }
-
-                    # Supplement from DB if coverage is sparse
-                    # (filter tools return one main image per species; color search
-                    #  needs more images to find the best color match)
-                    if len(img_id_set) < len(allowlist_species) * 3:
-                        db_img_ids = self.image_meta_service.get_image_ids_for_species_list(
-                            list(allowlist_species)
-                        )
-                        img_id_set.update(db_img_ids)
-
-                    allowlist_img_ids = list(img_id_set)
-
-                    if not allowlist_img_ids:
-                        logger.warning(
-                            "No image IDs found for allowlisted species ? "
-                            "cannot scope ranking tools"
-                        )
-                        return pl.DataFrame()
-
-                # Execute each ranking tool, scoped to allowlist or full index
-                for call in ranking_calls:
-                    weight = normalized_weights.get(call["name"], 1.0)
-
-                    if allowlist_img_ids is not None:
-                        rows = await self._execute_tool_scoped(
-                            call["name"], call["args"],
-                            allowlist_img_ids, allowlist_species, weight,
-                        )
-                    else:
-                        # Ranking-only query ? search full index
-                        rows = await self._execute_tool(call["name"], call["args"], weight)
-
-                    if isinstance(rows, Exception):
-                        logger.error(f"Ranking tool '{call['name']}' failed: {rows}")
-                        continue
-                    if not rows or (isinstance(rows, dict) and "error" in rows):
-                        logger.warning(f"Ranking tool '{call['name']}' returned empty/error")
-                        continue
-
+            for call in filter_calls:
+                rows = [
+                    r for r in cached_filter_rows.get(call["name"], [])
+                    if r["species"] in allowlist_species
+                ]
+                if rows:
                     active_tool_names.append(call["name"])
                     all_results.extend(rows)
 
-            else:
-                # Filter-only query ? filter tool scores ARE the final scores
-                if allowlist_species is not None:
-                    for call in filter_calls:
-                        rows = cached_filter_rows.get(call["name"], [])
-                        filtered_rows = [
-                            r for r in rows if r["species"] in allowlist_species
-                        ]
-                        if filtered_rows:
-                            active_tool_names.append(call["name"])
-                            all_results.extend(filtered_rows)
-                else:
-                    logger.warning("No filter or ranking tools produced results")
-                    return pl.DataFrame()
+        if not all_results:
+            logger.warning("No results collected for query: %s", query)
+            return pl.DataFrame()
 
-            if not all_results:
-                logger.warning(f"No results collected for query: {query}")
-                return pl.DataFrame()
-
-            logger.info(
-                f"Collected {len(all_results)} rows "
-                f"from tools: {set(active_tool_names)}"
-            )
-            return self._aggregate_results(all_results, active_tool_names)
-
-        except Exception as e:
-            logger.error(f"Error in agent search: {e}", exc_info=True)
-            raise
+        logger.info(
+            "Collected %d rows from tools: %s",
+            len(all_results),
+            set(active_tool_names),
+        )
+        return self._aggregate_results(all_results, active_tool_names)
 
     def _aggregate_results(
         self, results: List[Dict], active_tool_names: List[str]
@@ -318,20 +374,16 @@ class AgentSearchService:
         expected_cols = {"imgId", "species", "score", "tool_names"}
         missing = expected_cols - set(df.columns)
         if missing:
-            logger.error(f"Result rows missing columns: {missing}")
+            logger.error("Result rows missing expected columns: %s", missing)
             return pl.DataFrame()
 
         num_tools_used = len(set(active_tool_names))
+        ranking_tool_names = list(self.RANKING_TOOLS)
 
         aggregated = (
             df.group_by("species")
             .agg([
-                # Prefer imgId from ranking tools (best visual match)
-                pl.when(
-                    pl.col("tool_names").is_in(
-                        ["search_by_color", "search_by_image_similarity"]
-                    )
-                )
+                pl.when(pl.col("tool_names").is_in(ranking_tool_names))
                 .then(pl.col("imgId"))
                 .otherwise(None)
                 .drop_nulls()
@@ -355,90 +407,89 @@ class AgentSearchService:
         )
 
         logger.info(
-            f"Aggregated {len(df)} rows ? {len(aggregated)} unique species | "
-            f"top score: {aggregated['score'][0]:.4f}"
+            "Aggregated %d rows → %d unique species | top score: %.4f",
+            len(df),
+            len(aggregated),
+            aggregated["score"][0],
         )
         return aggregated
 
-    # ?? Tool execution ????????????????????????????????????????????????????????
 
     async def _execute_tool(
-        self, function_name: str, function_args: Dict[str, Any], weight: float
+        self,
+        function_name: str,
+        function_args: Dict[str, Any],
+        weight: float,
     ) -> list[dict]:
-        if function_name == "search_by_image_similarity":
-            return await self._search_by_image_similarity(
-                reference_species=function_args.get("reference_species"),
+        dispatch = {
+            "search_by_image_similarity": lambda: self._search_by_image_similarity(
+                reference_species=function_args.get("reference_species", ""),
                 weight=weight,
                 limit=function_args.get("limit", 400),
-            )
-        elif function_name == "search_by_location":
-            return await self._search_by_location(
-                location=function_args.get("location"),
+            ),
+            "search_by_location": lambda: self._search_by_location(
+                location=function_args.get("location", ""),
                 weight=weight,
                 limit=function_args.get("limit", 400),
-            )
-        elif function_name == "search_by_color":
-            return await self._search_by_color(
-                color_description=function_args.get("color_description"),
+            ),
+            "search_by_color": lambda: self._search_by_color(
+                color_description=function_args.get("color_description", ""),
                 weight=weight,
                 limit=function_args.get("limit", 50),
-            )
-        elif function_name == "search_by_traits":
-            return await self._search_by_traits(
+            ),
+            "search_by_traits": lambda: self._search_by_traits(
                 canopy_affinity=function_args.get("canopy_affinity"),
                 edge_affinity=function_args.get("edge_affinity"),
                 moisture_affinity=function_args.get("moisture_affinity"),
                 disturbance_affinity=function_args.get("disturbance_affinity"),
                 limit=function_args.get("limit", 400),
                 weight=weight,
-            )
-        else:
-            return {"error": f"Unknown function: {function_name}"}
+            ),
+        }
+        handler = dispatch.get(function_name)
+        if handler is None:
+            logger.error("_execute_tool: unknown function '%s'", function_name)
+            return []
+        return await handler()
 
     async def _execute_tool_scoped(
         self,
         function_name: str,
         function_args: Dict[str, Any],
-        allowlist_img_ids: List[str],
+        allowlist_img_ids: list[str],
         allowlist_species: set[str],
         weight: float,
     ) -> list[dict]:
         if function_name == "search_by_color":
-            color_description = function_args.get("color_description", "")
+            color_description = function_args.get("color_description", "").strip()
             if not color_description:
                 return []
 
             image_limit = max(function_args.get("limit", 150) * 10, 300)
-            raw_results = self.image_service.fetch_similar_images_from_text_filtered(
-                request=self.request,
-                text=color_description,
-                limit=image_limit,
-                filter_img_ids=allowlist_img_ids,
+            raw = await asyncio.to_thread(
+                self.image_service.fetch_similar_images_from_text_filtered,
+                self.request,
+                color_description,
+                image_limit,
+                allowlist_img_ids,
             )
-
-            if not raw_results:
+            if not raw:
                 return []
 
-            results_df = (
-                raw_results
-                if isinstance(raw_results, pl.DataFrame)
-                else pl.DataFrame(raw_results)
-            )
-            if results_df.is_empty():
+            df = raw if isinstance(raw, pl.DataFrame) else pl.DataFrame(raw)
+            if df.is_empty():
                 return []
 
-            results_df = results_df.filter(
-                pl.col("species").is_in(list(allowlist_species))
+            df = (
+                df.filter(pl.col("species").is_in(list(allowlist_species)))
+                .sort("distance")
+                .unique(subset=["species"], keep="first")
             )
-            if results_df.is_empty():
+            if df.is_empty():
                 return []
-
-            results_df = results_df.sort("distance").unique(
-                subset=["species"], keep="first"
-            )
 
             return self._build_result_df(
-                df=results_df,
+                df=df,
                 score_expr=pl.lit(weight) * (1 - pl.col("distance") / 2),
                 tool_name="search_by_color",
             ).to_dicts()
@@ -448,72 +499,77 @@ class AgentSearchService:
             if not reference_species:
                 return []
 
-            image_ids = self.image_meta_service.get_image_ids_by_species(reference_species)
+            image_ids = await asyncio.to_thread(
+                self.image_meta_service.get_image_ids_by_species,
+                reference_species,
+            )
             if not image_ids:
                 return []
 
-            similar_images = self.image_service.find_similar_images(
-                image_ids=image_ids,
-                limit=function_args.get("limit", 400),
+            similar = await asyncio.to_thread(
+                self.image_service.find_similar_images,
+                image_ids,
+                function_args.get("limit", 400),
             )
-            if similar_images is None or similar_images.is_empty():
+            if similar is None or similar.is_empty():
                 return []
 
-            similar_images = similar_images.filter(
-                pl.col("species").is_in(list(allowlist_species))
-            )
-            if similar_images.is_empty():
+            similar = similar.filter(pl.col("species").is_in(list(allowlist_species)))
+            if similar.is_empty():
                 return []
 
             return self._build_result_df(
-                df=similar_images,
+                df=similar,
                 score_expr=pl.lit(weight) * (1 - pl.col("distance")),
                 tool_name="search_by_image_similarity",
             ).to_dicts()
 
         else:
-            return {"error": f"_execute_tool_scoped does not support: {function_name}"}
-
-    # Search methods ------------------------
-
-    async def _search_by_image_similarity(
-        self, reference_species: str, weight: float, limit: int = 50
-    ) -> list[dict]:
-        scientific_name = (reference_species or "").strip()
-        if not scientific_name:
-            logger.warning("search_by_image_similarity called with empty species name")
+            logger.error("_execute_tool_scoped: unsupported function '%s'", function_name)
             return []
 
-        image_ids = self.image_meta_service.get_image_ids_by_species(scientific_name)
+    async def _search_by_image_similarity(
+        self, reference_species: str, weight: float, limit: int = 50,
+    ) -> list[dict]:
+        scientific_name = reference_species.strip()
+        if not scientific_name:
+            logger.warning("search_by_image_similarity called with empty species name.")
+            return []
+
+        image_ids = await asyncio.to_thread(
+            self.image_meta_service.get_image_ids_by_species, scientific_name,
+        )
         if not image_ids:
             return []
 
-        similar_images = self.image_service.find_similar_images(
-            image_ids=image_ids, limit=limit
+        similar = await asyncio.to_thread(
+            self.image_service.find_similar_images, image_ids, limit,
         )
-        if similar_images is None or similar_images.is_empty():
+        if similar is None or similar.is_empty():
             return []
 
         return self._build_result_df(
-            df=similar_images,
+            df=similar,
             score_expr=pl.lit(weight) * (1 - pl.col("distance")),
             tool_name="search_by_image_similarity",
         ).to_dicts()
 
     async def _search_by_location(
-        self, location: str, weight: float, limit: int = 100
+        self, location: str, weight: float, limit: int = 100,
     ) -> list[dict]:
         if not location:
-            logger.warning("search_by_location called with empty location")
+            logger.warning("search_by_location called with empty location.")
             return []
 
-        species_names = self.gbif_service.search_by_location(
-            location=location, limit=limit
+        species_names = await asyncio.to_thread(
+            self.gbif_service.search_by_location, location, limit,
         )
-        logger.info(f"Location search found {len(species_names)} species for '{location}'")
+        logger.info("Location '%s' → %d species", location, len(species_names))
 
         unique_species = list(set(species_names))
-        data = self.image_meta_service.get_species_main_image_id_from_list(unique_species)
+        data = await asyncio.to_thread(
+            self.image_meta_service.get_species_main_image_id_from_list, unique_species,
+        )
         if data is None or data.is_empty():
             return []
 
@@ -524,50 +580,41 @@ class AgentSearchService:
         ).to_dicts()
 
     async def _search_by_color(
-        self, color_description: str, weight: float, limit: int = 50
+        self, color_description: str, weight: float, limit: int = 50,
     ) -> list[dict]:
         if not color_description:
-            logger.warning("search_by_color called with empty color description")
+            logger.warning("search_by_color called with empty color description.")
             return []
 
         image_limit = max(limit * 10, 300)
-        raw_results = self.image_service.fetch_similar_images_from_text(
-            request=self.request,
-            text=color_description,
-            limit=image_limit,
+        raw = await asyncio.to_thread(
+            self.image_service.fetch_similar_images_from_text,
+            self.request, color_description, image_limit,
         )
-
-        if not raw_results:
+        if not raw:
             return []
 
-        results_df = (
-            raw_results
-            if isinstance(raw_results, pl.DataFrame)
-            else pl.DataFrame(raw_results)
-        )
-        if results_df.is_empty():
+        df = raw if isinstance(raw, pl.DataFrame) else pl.DataFrame(raw)
+        if df.is_empty():
             return []
 
-        results_df = results_df.sort("distance").unique(
-            subset=["species"], keep="first"
-        )
-
+        df = df.sort("distance").unique(subset=["species"], keep="first")
         return self._build_result_df(
-            df=results_df,
+            df=df,
             score_expr=pl.lit(weight) * (1 - pl.col("distance") / 2),
             tool_name="search_by_color",
         ).to_dicts()
 
     async def _search_by_traits(
         self,
-        canopy_affinity: str = None,
-        edge_affinity: str = None,
-        moisture_affinity: str = None,
-        disturbance_affinity: str = None,
+        canopy_affinity: str | None = None,
+        edge_affinity: str | None = None,
+        moisture_affinity: str | None = None,
+        disturbance_affinity: str | None = None,
         limit: int = 100,
         weight: float = 0.25,
     ) -> list[dict]:
-        conditions = []
+        conditions: list[str] = []
         if canopy_affinity:
             conditions.append(f"CanopyAffinity = '{canopy_affinity}'")
         if edge_affinity:
@@ -578,7 +625,7 @@ class AgentSearchService:
             conditions.append(f"DisturbanceAffinity = '{disturbance_affinity}'")
 
         if not conditions:
-            logger.warning("search_by_traits called with no trait conditions")
+            logger.warning("search_by_traits called with no trait conditions.")
             return []
 
         where_clause = " AND ".join(conditions)
@@ -587,12 +634,16 @@ class AgentSearchService:
             f"WHERE {where_clause} LIMIT {limit}"
         )
 
-        result = self.leptraits_service.db_client.execute(sql).pl()
+        result = await asyncio.to_thread(
+            lambda: self.leptraits_service.db_client.execute(sql).pl()
+        )
         if result.is_empty():
             return []
 
         unique_species = list(set(result["Species"].to_list()))
-        data = self.image_meta_service.get_species_main_image_id_from_list(unique_species)
+        data = await asyncio.to_thread(
+            self.image_meta_service.get_species_main_image_id_from_list, unique_species,
+        )
         if data is None or data.is_empty():
             return []
 
@@ -602,175 +653,11 @@ class AgentSearchService:
             tool_name="search_by_traits",
         ).to_dicts()
 
-    # Helpers ------------------------
-
+    @staticmethod
     def _build_result_df(
-        self, df: pl.DataFrame, score_expr: pl.Expr, tool_name: str
+        df: pl.DataFrame, score_expr: pl.Expr, tool_name: str,
     ) -> pl.DataFrame:
-        return (
-            df.with_columns(
-                score_expr.alias("score"),
-                pl.lit(tool_name).alias("tool_names"),
-            )
-            .select(["imgId", "species", "score", "tool_names"])
-        )
-
-    def _build_messages(self, query: str) -> List[Dict]:
-        return [
-            {
-                "role": "system",
-                "content": (
-                    "You are a search router. Your ONLY job is to decompose the user's request into parallel tool calls. "
-                    "Follow these decomposition rules strictly:\n"
-                    "1. VISUALS: If the query contains colors (e.g., 'blue', 'orange'), patterns ('spotted'), or visual descriptions, you MUST call 'search_by_color'.\n"
-                    "2. LOCATION: If the query contains a country or region (e.g., 'Brazil', 'Indonesia'), you MUST call 'search_by_location'. "
-                    "The 'location' argument MUST be the ISO 3166-1 alpha-2 country code "
-                    "(e.g., 'Brazil' ? 'BR', 'Indonesia' ? 'ID', 'Costa Rica' ? 'CR'). "
-                    "If the location is a region (e.g., 'Amazon', 'Southeast Asia') with no single country code, use the most representative country code.\n"
-                    "3. TRAITS: If the query mentions habitat (e.g., 'canopy', 'dry'), call 'search_by_traits'.\n"
-                    "4. COMBINATION: For queries like 'Blue butterfly in Brazil', you MUST call BOTH "
-                    "'search_by_color' (arg: 'blue') AND 'search_by_location' (arg: 'BR').\n"
-                    "5. FILTERING: Ignore generic terms like 'butterfly', 'insect', or 'species'. Focus ONLY on the distinguishing attributes.\n"
-                    "6. SPECIFIC NAMES: Only use 'search_by_image_similarity' if the user specifically asks for species 'similar to' a scientific name."
-                ),
-            },
-            {"role": "user", "content": query},
-        ]
-
-    def _get_tools(self) -> List[Dict]:
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_by_image_similarity",
-                    "description": (
-                        "Finds species visually similar to a specific scientific name. "
-                        "Use when the user asks for species that look like, resemble, or are "
-                        "similar in appearance to a known species. "
-                        "Example: 'butterflies similar to Danaus plexippus'"
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "reference_species": {
-                                "type": "string",
-                                "description": (
-                                    "Scientific name of the reference species "
-                                    "(e.g., 'Danaus plexippus'). Convert common names "
-                                    "to scientific names if possible."
-                                ),
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 50,
-                                "description": "Maximum number of similar images to retrieve",
-                            },
-                        },
-                        "required": ["reference_species"],
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_by_location",
-                    "description": (
-                        "Finds species occurring in a specific country or geographic region. "
-                        "Use when the user specifies a location constraint. "
-                        "Example: 'butterflies in Brazil' ? location='BR', "
-                        "'species from Indonesia' ? location='ID'"
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": (
-                                    "ISO 3166-1 alpha-2 country code "
-                                    "(e.g., 'BR' for Brazil, 'ID' for Indonesia, "
-                                    "'CR' for Costa Rica). Always convert country "
-                                    "names to their 2-letter ISO code."
-                                ),
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 500,
-                                "description": "Maximum number of species to return",
-                            },
-                        },
-                        "required": ["location"],
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_by_color",
-                    "description": (
-                        "Finds species matching color or pattern descriptions using image analysis. "
-                        "Use when the user describes colors, patterns, or visual appearance. "
-                        "Example: 'blue butterflies', 'orange spots', 'iridescent wings'"
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "color_description": {
-                                "type": "string",
-                                "description": (
-                                    "Natural language color or pattern description. "
-                                    "Can be simple ('blue') or complex ('orange and black stripes')"
-                                ),
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 150,
-                                "description": "Target number of species to return",
-                            },
-                        },
-                        "required": ["color_description"],
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_by_traits",
-                    "description": (
-                        "Finds species by ecological traits and habitat preferences. "
-                        "Use when the user specifies habitat characteristics. "
-                        "Example: 'species with high canopy affinity', "
-                        "'disturbance-tolerant butterflies'"
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "canopy_affinity": {
-                                "type": "string",
-                                "enum": ["High", "Medium", "Low"],
-                                "description": "Preference for canopy cover",
-                            },
-                            "edge_affinity": {
-                                "type": "string",
-                                "enum": ["High", "Medium", "Low"],
-                                "description": "Preference for habitat edges",
-                            },
-                            "moisture_affinity": {
-                                "type": "string",
-                                "enum": ["High", "Medium", "Low"],
-                                "description": "Preference for moisture",
-                            },
-                            "disturbance_affinity": {
-                                "type": "string",
-                                "enum": ["High", "Medium", "Low"],
-                                "description": "Tolerance of habitat disturbance",
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "default": 100,
-                                "description": "Maximum number of species to return",
-                            },
-                        },
-                    },
-                },
-            },
-        ]
+        return df.with_columns(
+            score_expr.alias("score"),
+            pl.lit(tool_name).alias("tool_names"),
+        ).select(["imgId", "species", "score", "tool_names"])
