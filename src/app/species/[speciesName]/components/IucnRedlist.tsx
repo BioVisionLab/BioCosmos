@@ -1,4 +1,9 @@
-export function RedListStatus({ statusCode }: { statusCode: string }) {
+interface RedListStatusProps {
+  statusCode: string;
+  horizontal?: boolean;
+}
+
+export function RedListStatus({ statusCode, horizontal = false }: RedListStatusProps) {
   let bgColor = "bg-gray-400";
   let textColor = "text-gray-900";
   let label = statusCode;
@@ -48,6 +53,20 @@ export function RedListStatus({ statusCode }: { statusCode: string }) {
       textColor = "text-white";
       label = "Extinct in the Wild";
       break;
+  }
+  if (horizontal) {
+    return (
+      <div className="flex flex-row items-center w-full px-4 py-3 gap-4 bg-gray-100 dark:bg-gray-900 rounded-xl" style={{ minHeight: '3rem' }}>
+        <span className="text-base sm:text-lg font-semibold whitespace-nowrap flex-shrink-0">IUCN RedList:</span>
+        <span
+          className={`ml-3 px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${bgColor} ${textColor} flex-shrink-0`}
+          style={{ lineHeight: '1.5rem', display: 'inline-flex', alignItems: 'center' }}
+        >
+          {label}
+        </span>
+        <div className="flex-1" />
+      </div>
+    );
   }
   return (
     <div>

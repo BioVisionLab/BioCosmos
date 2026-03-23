@@ -72,70 +72,80 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
   }, [prevImageIds, nextImageIds]);
 
   return (
-    <div className="p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-white">
-      <h2 className="text-lg font-semibold mb-2">Image Metadata</h2>
-      <div className="flex flex-col gap-2">
+    <div className="p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-white leading-5">
+      <h3 className="text-base font-semibold mb-1">Image Metadata</h3>
+      <div className="flex flex-col gap-1">
         {loading ? (
-          <div className="text-center text-sm text-gray-500">Loading metadata…</div>
+          <div className="text-center text-xs text-gray-500">Loading metadata…</div>
         ) : !meta ? (
           <NoData text={imageId ? "No metadata available." : "No image selected."} />
         ) : (
           <>
-            {meta.class_dv && (
-              <div>
-                <span className="font-medium text-emerald-700 dark:text-emerald-500">View: </span>
-                <span className="text-gray-700 dark:text-white">{typeof meta.class_dv === 'string' ? meta.class_dv.charAt(0).toUpperCase() + meta.class_dv.slice(1) : meta.class_dv}</span>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 items-center">
+              {/* View + Source Link */}
+              <div className="flex items-center min-w-0">
+                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">View:</span>
+                <span className="ml-1 truncate text-gray-700 dark:text-white">
+                  {meta.class_dv ? (typeof meta.class_dv === 'string' ? meta.class_dv.charAt(0).toUpperCase() + meta.class_dv.slice(1) : meta.class_dv) : "—"}
+                </span>
               </div>
-            )}
-
-            {(meta.lat || meta.lon) && (
-              <div>
-                <span className="font-medium text-emerald-700 dark:text-emerald-500">Location: </span>
-                <span className="text-gray-700 dark:text-white">{meta.lat ?? "—"}, {meta.lon ?? "—"}</span>
+              <div className="flex items-center min-w-0">
+                {meta.uuid && (
+                  <a
+                    href={meta.uuid}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 text-emerald-700 dark:text-emerald-300 underline truncate"
+                    aria-label="Open source link"
+                  >
+                    Source Link
+                  </a>
+                )}
               </div>
-            )}
 
-            {meta.source_db && (
-              <div>
-                <span className="font-medium text-emerald-700 dark:text-emerald-500">Source DB: </span>
-                <span className="text-gray-700 dark:text-white">{typeof meta.source_db === 'string' ? meta.source_db.charAt(0).toUpperCase() + meta.source_db.slice(1) : meta.source_db}</span>
+              {/* Source DB + Image Link */}
+              <div className="flex items-center min-w-0">
+                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Source DB:</span>
+                <span className="ml-1 truncate text-gray-700 dark:text-white">
+                  {meta.source_db ? (typeof meta.source_db === 'string' ? meta.source_db.charAt(0).toUpperCase() + meta.source_db.slice(1) : meta.source_db) : "—"}
+                </span>
               </div>
-            )}
+              <div className="flex items-center min-w-0">
+                {meta.uri && (
+                  <a
+                    href={meta.uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 text-emerald-700 dark:text-emerald-300 underline truncate"
+                    aria-label="Open image link"
+                  >
+                    Image Link
+                  </a>
+                )}
+              </div>
 
-            <div className="mt-3 flex flex-wrap gap-2 justify-center">
-              {typeof meta.license === "string" && meta.license.startsWith("http") && (
-                <a
-                  href={meta.license}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
-                  aria-label="Open license"
-                >
-                  License
-                </a>
-              )}
-              {meta.uuid && (
-                <a
-                  href={meta.uuid}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
-                  aria-label="Open source link"
-                >
-                  Source Link
-                </a>
-              )}
-              {meta.uri && (
-                <a
-                  href={meta.uri}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
-                  aria-label="Open image link"
-                >
-                  Image Link
-                </a>
-              )}
+              {/* Location + License (both optional) */}
+              <div className="flex items-center min-w-0">
+                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Location:</span>
+                <span className="ml-1 truncate text-gray-700 dark:text-white">
+                  {(meta.lat || meta.lon) ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}` : "—"}
+                </span>
+              </div>
+              <div className="flex items-center min-w-0">
+                {typeof meta.license === "string" && meta.license.startsWith("http") ? (
+                  <a
+                    href={meta.license}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 text-emerald-700 dark:text-emerald-300 underline truncate"
+                    aria-label="Open license"
+                  >
+                    License
+                  </a>
+                ) : (
+                  <span className="text-gray-400 dark:text-gray-600">—</span>
+                )}
+              </div>
             </div>
           </>
         )}
