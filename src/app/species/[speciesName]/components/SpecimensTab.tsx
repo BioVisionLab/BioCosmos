@@ -71,6 +71,25 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   // cache for fetched full-size images while modal is open
   const fullCache = useRef<Map<string, string>>(new Map());
 
+  // cache for fetched metadata for modal images
+  const modalMetaCache = useRef<Map<string, any>>(new Map());
+
+  // Helper to fetch metadata and store in cache (for modal)
+  const fetchAndCacheModalMeta = async (id: string) => {
+    if (!id) return null;
+    if (modalMetaCache.current.has(id)) return modalMetaCache.current.get(id);
+    try {
+      const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      modalMetaCache.current.set(id, data ?? null);
+      return data ?? null;
+    } catch (err) {
+      console.error("Error fetching image metadata (modal):", err);
+      return null;
+    }
+  };
+
     // moved logic into named helpers below and call them here
     useEffect(() => {
     let mountedMeta = true;
@@ -1223,8 +1242,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                 </div>
               </div>
             )}
-
-            {/* right nav has been moved inside the image container to align vertically with the image */}
           </div>
         </div>
       )}

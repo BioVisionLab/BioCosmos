@@ -72,7 +72,7 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
   }, [prevImageIds, nextImageIds]);
 
   return (
-    <div className="p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-white leading-5">
+    <div className="p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-white leading-4">
       <h3 className="text-base font-semibold mb-1">Image Metadata</h3>
       <div className="flex flex-col gap-1">
         {loading ? (
