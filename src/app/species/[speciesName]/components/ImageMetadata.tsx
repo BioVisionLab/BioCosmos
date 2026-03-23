@@ -14,6 +14,15 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
   const [loading, setLoading] = useState(false);
   const cacheRef = React.useRef<Map<string, any>>(new Map());
 
+  const getSourceDbHref = (sourceUrl: unknown): string => {
+    if (typeof sourceUrl !== "string") return "https://www.gbif.org";
+    const trimmed = sourceUrl.trim();
+    if (!trimmed) return "https://www.gbif.org";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
+    return "https://www.gbif.org";
+  };
+
   // Helper to fetch metadata and store in cache
   const fetchAndCache = async (id: string) => {
     try {
@@ -81,33 +90,12 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
           <NoData text={imageId ? "No metadata available." : "No image selected."} />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-center">
-              {/* View + Source Link */}
+            <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
+              {/* Left column: View, Source DB, Coordinates */}
               <div className="flex items-center min-w-0">
                 <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">View:</span>
                 <span className="ml-1 truncate text-gray-700 dark:text-white">
                   {meta.class_dv ? (typeof meta.class_dv === 'string' ? meta.class_dv.charAt(0).toUpperCase() + meta.class_dv.slice(1) : meta.class_dv) : "—"}
-                </span>
-              </div>
-              <div className="flex items-center min-w-0">
-                {meta.uuid && (
-                  <a
-                    href={meta.uuid}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-1 text-emerald-700 dark:text-emerald-300 underline truncate"
-                    aria-label="Open source link"
-                  >
-                    Source Link
-                  </a>
-                )}
-              </div>
-
-              {/* Source DB + Image Link */}
-              <div className="flex items-center min-w-0">
-                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Source DB:</span>
-                <span className="ml-1 truncate text-gray-700 dark:text-white">
-                  {meta.source_db ? (typeof meta.source_db === 'string' ? meta.source_db.charAt(0).toUpperCase() + meta.source_db.slice(1) : meta.source_db) : "—"}
                 </span>
               </div>
               <div className="flex items-center min-w-0">
@@ -124,12 +112,19 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
                 )}
               </div>
 
-              {/* Location + License (both optional) */}
               <div className="flex items-center min-w-0">
-                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Coordinates:</span>
-                <span className="ml-1 truncate text-gray-700 dark:text-white">
-                  {(meta.lat || meta.lon) ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}` : "—"}
-                </span>
+                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Source DB:</span>
+                <a
+                  href={getSourceDbHref(meta.uuid)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 truncate text-emerald-700 dark:text-emerald-300 underline"
+                  aria-label="Open source database link"
+                >
+                  {meta.source_db
+                    ? (typeof meta.source_db === "string" ? meta.source_db.charAt(0).toUpperCase() + meta.source_db.slice(1) : meta.source_db)
+                    : "Gbif"}
+                </a>
               </div>
               <div className="flex items-center min-w-0">
                 {typeof meta.license === "string" && meta.license.startsWith("http") ? (
@@ -146,6 +141,14 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
                   <span className="text-gray-400 dark:text-gray-600">—</span>
                 )}
               </div>
+
+              <div className="flex items-center min-w-0">
+                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Coordinates:</span>
+                <span className="ml-1 truncate text-gray-700 dark:text-white">
+                  {(meta.lat || meta.lon) ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}` : "—"}
+                </span>
+              </div>
+              <div className="flex items-center min-w-0" />
             </div>
           </>
         )}

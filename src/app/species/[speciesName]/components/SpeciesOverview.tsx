@@ -91,7 +91,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
         </div>
       </div>
-      <div className="mt-6">
+      <div className="mt-4">
         <VisuallySimilarSpecies species={taxonomy?.species ?? ""} />
       </div>
     </div>

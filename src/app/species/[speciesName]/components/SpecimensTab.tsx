@@ -173,6 +173,30 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   // helper to normalize a name string
   const nameOr = (n?: string) => n ?? "";
 
+  const getSafeExternalHref = (rawUrl: unknown, fallback = "https://www.gbif.org") => {
+    if (typeof rawUrl !== "string") return fallback;
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return fallback;
+
+    const normalized = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : /^www\./i.test(trimmed)
+        ? `https://${trimmed}`
+        : "";
+
+    if (!normalized) return fallback;
+
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.toString();
+      }
+      return fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   // load specimen metadata (image count) separately and show in header
   async function loadMeta(name?: string, mountedFlag = true) {
     if (!name) {
@@ -1213,9 +1237,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                               License
                             </a>
                           )}
-                          {modalMeta?.uuid && (
+                          {(modalMeta?.uuid || modalMeta?.source_db) && (
                             <a
-                              href={modalMeta.uuid}
+                              href={getSafeExternalHref(modalMeta?.uuid)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
