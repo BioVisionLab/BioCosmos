@@ -70,21 +70,24 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
             }, [setSelectedImageId, setPrevImageIds, setNextImageIds])}
           />
 
+          <div className="mt-4">
+            <ImageMetadata speciesName={taxonomy?.species ?? ""} imageId={selectedImageId} prevImageIds={prevImageIds} nextImageIds={nextImageIds} />
+          </div>
+
           <SpeciesDescription
             traits={traits}
             species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
           />
-
-          {/* RedListStatus moved here, styled horizontally */}
-          <div className="mt-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1 flex items-center w-full">
-            <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} horizontal />
-          </div>
         </div>
 
         {/* Right Column: Details */}
         <div className="lg:col-span-1 space-y-6">
-          <ImageMetadata speciesName={taxonomy?.species ?? ""} imageId={selectedImageId} prevImageIds={prevImageIds} nextImageIds={nextImageIds} />
           <SpeciesClassification taxonomyData={taxonomy} />
+
+          <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center w-full">
+            <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} horizontal />
+          </div>
+
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
         </div>
       </div>

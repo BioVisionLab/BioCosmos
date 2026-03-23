@@ -72,16 +72,16 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
   }, [prevImageIds, nextImageIds]);
 
   return (
-    <div className="p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-800 dark:text-white leading-4">
-      <h3 className="text-base font-semibold mb-1">Image Metadata</h3>
+    <div className="p-5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-800 dark:text-white leading-4">
+      <h3 className="text-lg font-semibold mb-2">Image Metadata</h3>
       <div className="flex flex-col gap-1">
         {loading ? (
-          <div className="text-center text-xs text-gray-500">Loading metadata…</div>
+          <div className="text-center text-sm text-gray-500">Loading metadata…</div>
         ) : !meta ? (
           <NoData text={imageId ? "No metadata available." : "No image selected."} />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 items-center">
+            <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-center">
               {/* View + Source Link */}
               <div className="flex items-center min-w-0">
                 <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">View:</span>
@@ -126,7 +126,7 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
 
               {/* Location + License (both optional) */}
               <div className="flex items-center min-w-0">
-                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Location:</span>
+                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Coordinates:</span>
                 <span className="ml-1 truncate text-gray-700 dark:text-white">
                   {(meta.lat || meta.lon) ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}` : "—"}
                 </span>

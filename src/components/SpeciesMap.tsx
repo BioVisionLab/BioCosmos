@@ -1,3 +1,5 @@
+"use client";
+
 // Render Species Map based on GBIF occurrences
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -5,7 +7,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getTileLayerAttributionUrl, getTileLayerUrl } from "@/lib/map";
 import { Occurrence } from "@/lib/map";
 
@@ -30,6 +32,12 @@ function MapRecenter({
 }
 
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const customIcon = useMemo(() => {
     const size = 8;
     const html = `<div style="
@@ -57,6 +65,10 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
       ? [occurrences[0].decimalLatitude, occurrences[0].decimalLongitude]
       : [20, 0]; // Center on first point if available, else default
   const mapZoom = occurrences.length > 0 ? 4 : 2; // Slightly more zoomed in if data exists
+
+  if (!isMounted) {
+    return <div style={{ height: "400px", width: "100%" }} />;
+  }
 
   return (
     <MapContainer
