@@ -73,19 +73,36 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
 
   // cache for fetched metadata for modal images
   const modalMetaCache = useRef<Map<string, any>>(new Map());
+  const modalMetaInFlight = useRef<Map<string, Promise<any | null>>>(new Map());
 
   // Helper to fetch metadata and store in cache (for modal)
   const fetchAndCacheModalMeta = async (id: string) => {
     if (!id) return null;
     if (modalMetaCache.current.has(id)) return modalMetaCache.current.get(id);
+    if (modalMetaInFlight.current.has(id)) {
+      return modalMetaInFlight.current.get(id) ?? null;
+    }
+
+    const request = (async () => {
+      try {
+        const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        modalMetaCache.current.set(id, data ?? null);
+        return data ?? null;
+      } catch (err) {
+        console.error("Error fetching image metadata (modal):", err);
+        return null;
+      } finally {
+        modalMetaInFlight.current.delete(id);
+      }
+    })();
+
+    modalMetaInFlight.current.set(id, request);
+
     try {
-      const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      modalMetaCache.current.set(id, data ?? null);
-      return data ?? null;
-    } catch (err) {
-      console.error("Error fetching image metadata (modal):", err);
+      return await request;
+    } catch {
       return null;
     }
   };
@@ -539,6 +556,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         }
         // prefetch neighbors
         prefetchNeighbors(id);
+        prefetchModalMetaNeighbors(id);
         return;
       }
 
@@ -562,6 +580,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       setModalOpen(true);
       // prefetch neighbors
       prefetchNeighbors(id);
+      prefetchModalMetaNeighbors(id);
     } catch (err) {
       console.error("Failed to open full image:", err);
       setModalError("Failed to load full image.");
@@ -592,22 +611,41 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     });
   };
 
+  const prefetchModalMetaNeighbors = (id: string) => {
+    if (!allIds) return;
+    const idx = allIds.indexOf(id);
+    if (idx < 0) return;
+
+    const pageStart = modalPageRange?.start ?? 0;
+    const pageEnd = modalPageRange?.end ?? allIds.length - 1;
+    const neighborOffsets = [-2, -1, 1, 2];
+
+    neighborOffsets.forEach((offset) => {
+      const targetIndex = idx + offset;
+      if (targetIndex < pageStart || targetIndex > pageEnd) return;
+      const neighborId = allIds[targetIndex];
+      if (!neighborId) return;
+      void fetchAndCacheModalMeta(neighborId);
+    });
+  };
+
   // metadata for currently shown modal image
   const [modalMeta, setModalMeta] = useState<any | null>(null);
   const [modalMetaLoading, setModalMetaLoading] = useState(false);
 
   const fetchAndSetModalMeta = async (id: string) => {
+    if (!id) return;
+
+    if (modalMetaCache.current.has(id)) {
+      setModalMeta(modalMetaCache.current.get(id) ?? null);
+      setModalMetaLoading(false);
+      return;
+    }
+
     try {
       setModalMeta(null);
       setModalMetaLoading(true);
-      const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        console.debug("Failed to fetch image metadata", res.status, txt);
-        setModalMetaLoading(false);
-        return;
-      }
-      const data = await res.json();
+      const data = await fetchAndCacheModalMeta(id);
       setModalMeta(data ?? null);
     } catch (err) {
       console.error("Error fetching image metadata:", err);
@@ -740,6 +778,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       void fetchAndSetModalMeta(id);
       // prefetch neighbors
       prefetchNeighbors(id);
+      prefetchModalMetaNeighbors(id);
       return;
     }
 
@@ -758,6 +797,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       setModalIndex(newIndex);
       // prefetch neighbors
       prefetchNeighbors(id);
+      prefetchModalMetaNeighbors(id);
     } catch (err) {
       console.error("Failed to navigate to image:", err);
       setModalError("Failed to load image.");
