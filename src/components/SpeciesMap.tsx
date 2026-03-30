@@ -67,7 +67,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   const mapZoom = occurrences.length > 0 ? 4 : 2; // Slightly more zoomed in if data exists
 
   if (!isMounted) {
-    return <div style={{ height: "400px", width: "100%" }} />;
+    return <div style={{ height: "400px", width: "100%", borderRadius: "12px" }} />;
   }
 
   return (
@@ -78,6 +78,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
       minZoom={2}
       scrollWheelZoom={true}
       style={{ height: "400px", width: "100%", borderRadius: "12px" }}
+      key="species-map"
     >
       <TileLayer
         attribution={getTileLayerAttributionUrl()}

@@ -84,9 +84,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         <div className="lg:col-span-1 space-y-6">
           <SpeciesClassification taxonomyData={taxonomy} />
 
-          <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center w-full">
-            <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} horizontal />
-          </div>
+          <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} horizontal />
 
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
         </div>
