@@ -13,6 +13,7 @@ import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useMemo, useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   getTileLayerAttributionUrl,
   UmapOccurrence,
@@ -20,6 +21,7 @@ import {
 
 const DARK_TILE_URL =
   "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
+const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 import { fetchThumbnailById } from "@/lib/images";
 import { ImageLoading } from "@/components/Loadings";
 import Image from "next/image";
@@ -92,7 +94,13 @@ function MapRecenter({
   return null;
 }
 
-function SafeTileLayer() {
+function SafeTileLayer({
+  tileUrl,
+  className,
+}: {
+  tileUrl: string;
+  className?: string;
+}) {
   const map = useMap();
 
   useEffect(() => {
@@ -106,9 +114,9 @@ function SafeTileLayer() {
       return;
     }
 
-    const layer = L.tileLayer(DARK_TILE_URL, {
+    const layer = L.tileLayer(tileUrl, {
       attribution: getTileLayerAttributionUrl(),
-      className: "umap-site-tiles",
+      className,
     });
 
     layer.addTo(map);
@@ -116,7 +124,7 @@ function SafeTileLayer() {
     return () => {
       map.removeLayer(layer);
     };
-  }, [map]);
+  }, [map, tileUrl, className]);
 
   return null;
 }
@@ -129,6 +137,9 @@ export default function UmapClusterDistribution({
   clusterColors: string[];
 }): React.ReactElement {
   const [isMounted, setIsMounted] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const isDarkTheme = resolvedTheme === "dark";
+  const tileUrl = isDarkTheme ? DARK_TILE_URL : LIGHT_TILE_URL;
 
   // Calculate center based on occurrences
   const mapCenter: L.LatLngExpression = useMemo(() => {
@@ -179,7 +190,7 @@ export default function UmapClusterDistribution({
   };
 
   return (
-    <div className="umap-dark-map" style={{ height: "100%", width: "100%" }}>
+    <div className={isDarkTheme ? "umap-dark-map" : ""} style={{ height: "100%", width: "100%" }}>
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -189,7 +200,10 @@ export default function UmapClusterDistribution({
         style={{ height: "100%", width: "100%", borderRadius: "12px" }}
         key="umap-cluster-distribution-map"
       >
-        <SafeTileLayer />
+        <SafeTileLayer
+          tileUrl={tileUrl}
+          className={isDarkTheme ? "umap-site-tiles" : undefined}
+        />
         {/* Map over occurrences to add Markers */}
         <MapRecenter center={mapCenter} zoom={mapZoom} />
         {occurrences.map((occ, index) => {

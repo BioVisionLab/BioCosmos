@@ -8,11 +8,13 @@ import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import { getTileLayerAttributionUrl } from "@/lib/map";
 import { Occurrence } from "@/lib/map";
 
 const DARK_TILE_URL =
   "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
+const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 interface SpeciesMapProps {
   occurrences?: Occurrence[]; // Make occurrences optional
@@ -36,6 +38,9 @@ function MapRecenter({
 
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   const [isMounted, setIsMounted] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const isDarkTheme = resolvedTheme === "dark";
+  const tileUrl = isDarkTheme ? DARK_TILE_URL : LIGHT_TILE_URL;
 
   useEffect(() => {
     setIsMounted(true);
@@ -75,7 +80,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   }
 
   return (
-    <div className="umap-dark-map" style={{ height: "400px", width: "100%" }}>
+    <div className={isDarkTheme ? "umap-dark-map" : ""} style={{ height: "400px", width: "100%" }}>
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -87,8 +92,8 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
       >
         <TileLayer
           attribution={getTileLayerAttributionUrl()}
-          url={DARK_TILE_URL}
-          className="umap-site-tiles"
+          url={tileUrl}
+          className={isDarkTheme ? "umap-site-tiles" : undefined}
         />
 
         {/* Map over occurrences to add Markers */}
