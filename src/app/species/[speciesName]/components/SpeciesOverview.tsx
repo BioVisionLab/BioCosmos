@@ -31,6 +31,10 @@ interface SpeciesOverviewProps {
 }
 
 export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [prevImageIds, setPrevImageIds] = useState<string[]>([]);
+  const [nextImageIds, setNextImageIds] = useState<string[]>([]);
+
   if (!taxonomy) {
     return (
       <section className="container mx-auto px-4 py-8">
@@ -45,13 +49,10 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
       </section>
     );
   }
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [prevImageIds, setPrevImageIds] = useState<string[]>([]);
-  const [nextImageIds, setNextImageIds] = useState<string[]>([]);
 
   return (
     <div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <SpeciesImageGallery
             speciesName={taxonomy?.species ?? ""}
@@ -89,7 +90,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
         </div>
       </div>
-      <div className="mt-4">
+      <div className="mt-6">
         <VisuallySimilarSpecies species={taxonomy?.species ?? ""} />
       </div>
     </div>

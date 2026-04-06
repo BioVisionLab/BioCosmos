@@ -83,7 +83,7 @@ function ImageUmap({ species }: { species: string }) {
   const umapOccurrences = parseUmapCoordinates(umapCoords);
 
   return (
-    <div className="p-4 border border-gray-300 dark:border-gray-700 rounded-xl max-w-full h-fit">
+    <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl max-w-full h-fit">
       <UmapHeader />
       <div className="grid md:grid-cols-2 gap-4">
         <UmapScatterPlot
@@ -147,7 +147,7 @@ function UmapScatterPlot({
   return (
     <div
       id="umap-scatter-plot"
-      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-gray-500"
+      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-gray-200 dark:border-gray-700"
     >
       <div className="p-4 h-[calc(100%-2rem)]">
         <ResponsiveContainer width="100%" height="100%">

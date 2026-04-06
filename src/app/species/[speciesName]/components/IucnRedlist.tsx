@@ -56,7 +56,7 @@ export function RedListStatus({ statusCode, horizontal = false }: RedListStatusP
   }
   if (horizontal) {
     return (
-      <div className="flex flex-col items-start w-full px-4 py-4 gap-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl">
+      <div className="flex flex-col items-start w-full px-4 py-4 gap-3 border border-gray-200 dark:border-gray-700 rounded-xl">
         <span className="text-2xl font-semibold">IUCN RedList</span>
         <span
           className={`px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${bgColor} ${textColor}`}

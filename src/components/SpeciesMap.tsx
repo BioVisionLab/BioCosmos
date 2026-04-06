@@ -8,8 +8,11 @@ import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useEffect, useMemo, useState } from "react";
-import { getTileLayerAttributionUrl, getTileLayerUrl } from "@/lib/map";
+import { getTileLayerAttributionUrl } from "@/lib/map";
 import { Occurrence } from "@/lib/map";
+
+const DARK_TILE_URL =
+  "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
 
 interface SpeciesMapProps {
   occurrences?: Occurrence[]; // Make occurrences optional
@@ -43,10 +46,11 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
     const html = `<div style="
       width:${size}px;
       height:${size}px;
-      background:#009688;
+      background:#10b981;
       opacity:0.8;
       border-radius:50%;
-      border:2px solid #009688;
+      border:1px solid rgba(255,255,255,0.7);
+      box-shadow:0 0 0 1px rgba(8, 15, 33, 0.35);
     "></div>`;
 
     return L.divIcon({
@@ -71,54 +75,57 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   }
 
   return (
-    <MapContainer
-      center={mapCenter}
-      zoom={mapZoom}
-      maxZoom={18}
-      minZoom={2}
-      scrollWheelZoom={true}
-      style={{ height: "400px", width: "100%", borderRadius: "12px" }}
-      key="species-map"
-    >
-      <TileLayer
-        attribution={getTileLayerAttributionUrl()}
-        url={getTileLayerUrl()}
-      />
+    <div className="umap-dark-map" style={{ height: "400px", width: "100%" }}>
+      <MapContainer
+        center={mapCenter}
+        zoom={mapZoom}
+        maxZoom={18}
+        minZoom={2}
+        scrollWheelZoom={true}
+        style={{ height: "400px", width: "100%", borderRadius: "12px" }}
+        key="species-map"
+      >
+        <TileLayer
+          attribution={getTileLayerAttributionUrl()}
+          url={DARK_TILE_URL}
+          className="umap-site-tiles"
+        />
 
-      {/* Map over occurrences to add Markers */}
-      {occurrences.map((occ, index) => {
-        // --- Add Logging Here ---
-        console.log(`Rendering Marker ${index}:`, occ);
-        // Check if coordinates are valid numbers just before rendering
-        if (
-          typeof occ.decimalLatitude !== "number" ||
-          typeof occ.decimalLongitude !== "number" ||
-          isNaN(occ.decimalLatitude) ||
-          isNaN(occ.decimalLongitude)
-        ) {
-          console.error(
-            `Invalid coordinates for occurrence key ${occ.key}:`,
-            occ,
+        {/* Map over occurrences to add Markers */}
+        {occurrences.map((occ, index) => {
+          // --- Add Logging Here ---
+          console.log(`Rendering Marker ${index}:`, occ);
+          // Check if coordinates are valid numbers just before rendering
+          if (
+            typeof occ.decimalLatitude !== "number" ||
+            typeof occ.decimalLongitude !== "number" ||
+            isNaN(occ.decimalLatitude) ||
+            isNaN(occ.decimalLongitude)
+          ) {
+            console.error(
+              `Invalid coordinates for occurrence key ${occ.key}:`,
+              occ,
+            );
+            return null; // Skip rendering this marker if coordinates are invalid
+          }
+
+          return (
+            <Marker
+              key={occ.key}
+              position={[occ.decimalLatitude, occ.decimalLongitude]}
+              icon={customIcon}
+            >
+              <Popup>
+                Occurrence Record <br />
+                Lat: {occ.decimalLatitude.toFixed(4)} <br />
+                Lon: {occ.decimalLongitude.toFixed(4)}
+                {/* Add more details here later if fetched */}
+              </Popup>
+            </Marker>
           );
-          return null; // Skip rendering this marker if coordinates are invalid
-        }
-
-        return (
-          <Marker
-            key={occ.key}
-            position={[occ.decimalLatitude, occ.decimalLongitude]}
-            icon={customIcon}
-          >
-            <Popup>
-              Occurrence Record <br />
-              Lat: {occ.decimalLatitude.toFixed(4)} <br />
-              Lon: {occ.decimalLongitude.toFixed(4)}
-              {/* Add more details here later if fetched */}
-            </Popup>
-          </Marker>
-        );
-      })}
-    </MapContainer>
+        })}
+      </MapContainer>
+    </div>
   );
 };
 
