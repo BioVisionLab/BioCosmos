@@ -51,7 +51,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
 
   return (
     <div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <SpeciesImageGallery
             speciesName={taxonomy?.species ?? ""}
@@ -81,7 +81,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         </div>
 
         {/* Right Column: Details */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1 space-y-5">
           <SpeciesClassification taxonomyData={taxonomy} />
 
           <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} horizontal />
