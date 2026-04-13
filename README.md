@@ -85,6 +85,7 @@ biocosmos/
 │   │   │   └── model.py        # Data models
 │   │   ├── query/              # Database query logic
 │   │   ├── routers/            # API endpoints
+│   │   │   ├── agent_search.py # Agentic search endpoints
 │   │   │   ├── data_stats.py   # Statistics endpoints
 │   │   │   ├── db_search.py    # Database search endpoints
 │   │   │   ├── image_retrieval.py  # Image serving endpoints
@@ -92,12 +93,16 @@ biocosmos/
 │   │   │   ├── species_data.py # Species data endpoints
 │   │   │   └── text_summarization.py  # AI chatbot endpoints
 │   │   └── services/           # Business logic and ML services
+│   │       ├── agent.py        # Agentic search and automation logic
 │   │       ├── clip.py         # CLIP model integration
-│   │       ├── unicom.py       # UNICOM model integration
-│   │       ├── images.py       # Image processing and embedding
+│   │       ├── embedder.py     # Embedder base classes and operations
 │   │       ├── gbif.py         # GBIF API integration
+│   │       ├── image_meta.py   # Image metadata processing
+│   │       ├── images.py       # Image processing and management
 │   │       ├── leptraits.py    # Trait data processing
-│   │       └── openai.py       # OpenAI API integration
+│   │       ├── openai.py       # OpenAI API integration
+│   │       ├── umap.py         # UMAP dimensionality reduction
+│   │       └── unicom.py       # UNICOM model integration
 │   ├── tests/                  # Backend tests
 │   ├── Dockerfile              # Backend Dockerfile
 │   └── pyproject.toml          # Python dependencies (uv)
@@ -130,17 +135,20 @@ biocosmos/
 │   ├── dataset-metadata/       # Metadata files
 │   └── leaflet/                # Leaflet map assets
 ├── tools/                    # Data processing scripts
+│   ├── clip_search_service.py  # CLI search using CLIP
+│   ├── create_metadata_json.py # Process metadata
+│   ├── create_tiles.py         # Generate map tiles for visualization
 │   ├── embed_images.py         # Generate image embeddings
-│   ├── generate_tsne_coords.py # Create t-SNE visualization data
-│   └── create_metadata_json.py # Process metadata
+│   └── generate_tsne_coords.py # Create t-SNE visualization data
 ├── scripts/                  # Convenience runner scripts
 │   ├── run_backend.sh          # Start backend (Linux/macOS)
+│   ├── run_backend_prod.sh     # Start backend in production mode (Linux/macOS)
 │   ├── run_backend.ps1         # Start backend (Windows)
 │   ├── run_frontend.sh         # Start frontend (Linux/macOS)
 │   └── run_frontend.ps1        # Start frontend (Windows)
 ├── docker-compose.yml        # Docker Compose configuration
 ├── Dockerfile.frontend       # Frontend Dockerfile
-├── package.json              # Frontend dependencies (Yarn)
+├── package.json              # Frontend dependencies
 ├── tsconfig.json             # TypeScript configuration
 └── tailwind.config.ts        # Tailwind CSS configuration
 ```
@@ -149,7 +157,7 @@ biocosmos/
 
 ### Prerequisites
 
-- **Node.js** (v18 or higher) and **Yarn** package manager
+- **Bun** package manager (recommended), or **Node.js** (v18+) with **Yarn**
 - **Python** (v3.10 or higher)
 - **uv** - Modern Python package manager (recommended)
 - **Git**
@@ -170,7 +178,7 @@ If you prefer to run the services manually without Docker, follow these steps:
 2. **Install Frontend Dependencies**
 
     ```bash
-    yarn install
+    bun install
     ```
 
 3. **Set Up Python Environment**
@@ -264,7 +272,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     **Terminal 2 - Frontend:**
 
     ```bash
-    yarn dev
+    bun run dev
     ```
 
 8. **Access the Application**
@@ -309,7 +317,7 @@ uv run pytest
 ### Frontend Linting
 
 ```bash
-yarn lint
+bun run lint
 ```
 
 ## 🛠️ Development Tips
