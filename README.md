@@ -251,7 +251,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     ./scripts/run_frontend.sh
     ```
 
-    **Option B - Manual commands:**
+    **Option B - Manual commands:**`
 
     **Terminal 1 - Backend:**
 
