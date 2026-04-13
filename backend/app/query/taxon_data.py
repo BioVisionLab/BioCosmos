@@ -128,6 +128,138 @@ class ClassificationPayload(BaseModel):
         )
 
 
+class FamilySearch:
+    """
+    A class to handle family-level taxon search operations using the GBIF API.
+    """
+
+    def __init__(self, request: Request, query: str = ""):
+        self.family_name = query.strip().lower()
+        self.request = request
+
+    async def get_classification(self) -> list[dict]:
+        """
+        Get GBIF classification data for the given family name.
+        """
+        if not self.family_name:
+            return []
+        try:
+            gbif_service = GbifTaxonSearch()
+            gbif_data = await gbif_service.search(self.family_name)
+            if not gbif_data:
+                logger.info(f"No GBIF data found for family: {self.family_name}")
+                return []
+            matched_data: list[dict] = []
+            for key, value in gbif_data.items():
+                if (
+                    isinstance(value, str)
+                    and value.lower() == self.family_name.lower()
+                    and key == "family"
+                ):
+                    classification_payload = ClassificationPayload.from_data(
+                        matched_category=key,
+                        classification=gbif_data,
+                    )
+                    matched_data.append(classification_payload.model_dump())
+            return matched_data
+        except Exception as e:
+            logger.error(
+                f"Error fetching classification for family: {e}", exc_info=True
+            )
+            return []
+        finally:
+            await gbif_service.close()
+
+
+class GenusSearch:
+    """
+    A class to handle genus-level taxon search operations using the GBIF API.
+    """
+
+    def __init__(self, request: Request, query: str = ""):
+        self.genus_name = query.strip().lower()
+        self.request = request
+
+    async def get_classification(self) -> list[dict]:
+        """
+        Get GBIF classification data for the given genus name.
+        """
+        if not self.genus_name:
+            return []
+        try:
+            gbif_service = GbifTaxonSearch()
+            gbif_data = await gbif_service.search(self.genus_name)
+            if not gbif_data:
+                logger.info(f"No GBIF data found for genus: {self.genus_name}")
+                return []
+            matched_data: list[dict] = []
+            for key, value in gbif_data.items():
+                if (
+                    isinstance(value, str)
+                    and value.lower() == self.genus_name.lower()
+                    and key == "genus"
+                ):
+                    classification_payload = ClassificationPayload.from_data(
+                        matched_category=key,
+                        classification=gbif_data,
+                    )
+                    matched_data.append(classification_payload.model_dump())
+            return matched_data
+        except Exception as e:
+            logger.error(
+                f"Error fetching classification for genus: {e}", exc_info=True
+            )
+            return []
+        finally:
+            await gbif_service.close()
+
+
+class SpeciesSearch:
+    """
+    A class to handle species-level taxon search using genus and specificEpithet.
+    Species name = genus + specificEpithet (GBIF convention).
+    """
+
+    def __init__(self, request: Request, genus: str = "", specific_epithet: str = ""):
+        self.genus = genus.strip()
+        self.specific_epithet = specific_epithet.strip()
+        self.scientific_name = f"{self.genus} {self.specific_epithet}".strip().lower()
+        self.request = request
+
+    async def get_classification(self) -> list[dict]:
+        """
+        Get GBIF classification data for the species (genus + specificEpithet).
+        """
+        if not self.scientific_name:
+            return []
+        try:
+            gbif_service = GbifTaxonSearch()
+            gbif_data = await gbif_service.search(self.scientific_name)
+            if not gbif_data:
+                logger.info(f"No GBIF data found for species: {self.scientific_name}")
+                return []
+            matched_data: list[dict] = []
+            for key, value in gbif_data.items():
+                if (
+                    isinstance(value, str)
+                    and value.lower() == self.scientific_name.lower()
+                    and key == "species"
+                ):
+                    classification_payload = ClassificationPayload.from_data(
+                        matched_category=key,
+                        classification=gbif_data,
+                    )
+                    matched_data.append(classification_payload.model_dump())
+            return matched_data
+        except Exception as e:
+            logger.error(
+                f"Error fetching classification for species: {e}", exc_info=True
+            )
+            return []
+        finally:
+            await gbif_service.close()
+
+
 class TaxonSearch:
     """
     A class to handle taxon search operations using the GBIF API.

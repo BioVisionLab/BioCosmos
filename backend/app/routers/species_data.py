@@ -1,7 +1,7 @@
 from ..query.specimen_data import SpecimenData
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
-from ..query.taxon_data import TaxonSearch
+from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
 from ..query.species_similarity import (
     SpeciesSimilarity,
     VisuallySimilarSpeciesPayload,
@@ -149,3 +149,61 @@ async def fetch_species_specimen_info(
             status_code=500,
             detail="An internal error occurred while fetching specimens.",
         )
+
+
+@router.get("/family/{family_name}/classification", tags=["Species Data"])
+async def fetch_family_classification(request: Request, family_name: str):
+    """
+    Get GBIF classification data for a family.
+    """
+    try:
+        results = await FamilySearch(request=request, query=family_name).get_classification()
+        if not results:
+            raise HTTPException(status_code=404, detail=f"No classification found for family: {family_name}")
+        return JSONResponse(content=results, status_code=200)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching family classification: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+
+@router.get("/genus/{genus_name}/classification", tags=["Species Data"])
+async def fetch_genus_classification(request: Request, genus_name: str):
+    """
+    Get GBIF classification data for a genus.
+    """
+    try:
+        results = await GenusSearch(request=request, query=genus_name).get_classification()
+        if not results:
+            raise HTTPException(status_code=404, detail=f"No classification found for genus: {genus_name}")
+        return JSONResponse(content=results, status_code=200)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching genus classification: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
+
+
+@router.get("/species/{genus}/{specific_epithet}/classification", tags=["Species Data"])
+async def fetch_species_classification_by_parts(
+    request: Request, genus: str, specific_epithet: str
+):
+    """
+    Get GBIF classification data for a species using genus and specificEpithet.
+    """
+    try:
+        results = await SpeciesSearch(
+            request=request, genus=genus, specific_epithet=specific_epithet
+        ).get_classification()
+        if not results:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No classification found for species: {genus} {specific_epithet}",
+            )
+        return JSONResponse(content=results, status_code=200)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching species classification: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred.")

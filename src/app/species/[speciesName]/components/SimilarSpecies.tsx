@@ -17,6 +17,11 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    if (!species) {
+      setIsLoading(false);
+      setSimilarSpecies(null);
+      return;
+    }
     const fetchSimilarSpecies = async () => {
       // We add a small delay to avoid this expensive call happening too quickly
       // after the main species data fetch.
