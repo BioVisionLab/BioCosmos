@@ -280,13 +280,13 @@ function WingspanCard({
   lower_unspecified: number | null | undefined;
 }) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        <ButterflyFlat className={`w-36 h-36 m-2 ${iconColor}`} />
+        <ButterflyFlat className={`w-20 h-20 m-1 ${iconColor}`} />
       </IconContainer>
-      <div className="space-y-2">
+      <div className="space-y-1">
         <div>
-          <h3 className="text-lg leading-tight">Upper</h3>
+          <h3 className="text-base leading-tight">Upper</h3>
           {upper_male || upper_female || upper_unspecified ? (
             <Wingspan
               male={upper_male}
@@ -300,7 +300,7 @@ function WingspanCard({
           )}
         </div>
         <div>
-          <h3 className="text-lg leading-tight">Lower</h3>
+          <h3 className="text-base leading-tight">Lower</h3>
           {lower_male || lower_female || lower_unspecified ? (
             <Wingspan
               male={lower_male}
@@ -358,7 +358,13 @@ function Wingspan({
   );
 }
 
-function FlightDuration({ duration }: { duration: number | null | undefined }) {
+function FlightDuration({
+  duration,
+  iconClassName,
+}: {
+  duration: number | null | undefined;
+  iconClassName?: string;
+}) {
   const hasValue = (v: unknown): v is number =>
     typeof v === "number" && !Number.isNaN(v);
 
@@ -367,9 +373,9 @@ function FlightDuration({ duration }: { duration: number | null | undefined }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        <ButterflyFly className={commonIconClass} />
+        <ButterflyFly className={iconClassName ?? commonIconClass} />
       </IconContainer>
       <div>
         <p className={valueClass}>
@@ -384,9 +390,11 @@ function FlightDuration({ duration }: { duration: number | null | undefined }) {
 function Affinity({
   affinity,
   icon,
+  iconClassName,
 }: {
   affinity: string | null | undefined;
   icon?: ReactNode;
+  iconClassName?: string;
 }) {
   const hasValue = (v: unknown): v is string =>
     typeof v === "string" && v.trim() !== "";
@@ -396,9 +404,9 @@ function Affinity({
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        {icon ? icon : <CanopyIcon className={commonIconClass} />}
+        {icon ? icon : <CanopyIcon className={iconClassName ?? commonIconClass} />}
       </IconContainer>
       <div>
         <p className={valueClass}>{affinity}</p>

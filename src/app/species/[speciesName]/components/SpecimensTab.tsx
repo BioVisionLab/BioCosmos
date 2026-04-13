@@ -71,6 +71,42 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   // cache for fetched full-size images while modal is open
   const fullCache = useRef<Map<string, string>>(new Map());
 
+  // cache for fetched metadata for modal images
+  const modalMetaCache = useRef<Map<string, any>>(new Map());
+  const modalMetaInFlight = useRef<Map<string, Promise<any | null>>>(new Map());
+
+  // Helper to fetch metadata and store in cache (for modal)
+  const fetchAndCacheModalMeta = async (id: string) => {
+    if (!id) return null;
+    if (modalMetaCache.current.has(id)) return modalMetaCache.current.get(id);
+    if (modalMetaInFlight.current.has(id)) {
+      return modalMetaInFlight.current.get(id) ?? null;
+    }
+
+    const request = (async () => {
+      try {
+        const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        modalMetaCache.current.set(id, data ?? null);
+        return data ?? null;
+      } catch (err) {
+        console.error("Error fetching image metadata (modal):", err);
+        return null;
+      } finally {
+        modalMetaInFlight.current.delete(id);
+      }
+    })();
+
+    modalMetaInFlight.current.set(id, request);
+
+    try {
+      return await request;
+    } catch {
+      return null;
+    }
+  };
+
     // moved logic into named helpers below and call them here
     useEffect(() => {
     let mountedMeta = true;
@@ -153,6 +189,30 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
 
   // helper to normalize a name string
   const nameOr = (n?: string) => n ?? "";
+
+  const getSafeExternalHref = (rawUrl: unknown, fallback = "https://www.gbif.org") => {
+    if (typeof rawUrl !== "string") return fallback;
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return fallback;
+
+    const normalized = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : /^www\./i.test(trimmed)
+        ? `https://${trimmed}`
+        : "";
+
+    if (!normalized) return fallback;
+
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.toString();
+      }
+      return fallback;
+    } catch {
+      return fallback;
+    }
+  };
 
   // load specimen metadata (image count) separately and show in header
   async function loadMeta(name?: string, mountedFlag = true) {
@@ -496,6 +556,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         }
         // prefetch neighbors
         prefetchNeighbors(id);
+        prefetchModalMetaNeighbors(id);
         return;
       }
 
@@ -519,6 +580,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       setModalOpen(true);
       // prefetch neighbors
       prefetchNeighbors(id);
+      prefetchModalMetaNeighbors(id);
     } catch (err) {
       console.error("Failed to open full image:", err);
       setModalError("Failed to load full image.");
@@ -549,22 +611,41 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     });
   };
 
+  const prefetchModalMetaNeighbors = (id: string) => {
+    if (!allIds) return;
+    const idx = allIds.indexOf(id);
+    if (idx < 0) return;
+
+    const pageStart = modalPageRange?.start ?? 0;
+    const pageEnd = modalPageRange?.end ?? allIds.length - 1;
+    const neighborOffsets = [-2, -1, 1, 2];
+
+    neighborOffsets.forEach((offset) => {
+      const targetIndex = idx + offset;
+      if (targetIndex < pageStart || targetIndex > pageEnd) return;
+      const neighborId = allIds[targetIndex];
+      if (!neighborId) return;
+      void fetchAndCacheModalMeta(neighborId);
+    });
+  };
+
   // metadata for currently shown modal image
   const [modalMeta, setModalMeta] = useState<any | null>(null);
   const [modalMetaLoading, setModalMetaLoading] = useState(false);
 
   const fetchAndSetModalMeta = async (id: string) => {
+    if (!id) return;
+
+    if (modalMetaCache.current.has(id)) {
+      setModalMeta(modalMetaCache.current.get(id) ?? null);
+      setModalMetaLoading(false);
+      return;
+    }
+
     try {
       setModalMeta(null);
       setModalMetaLoading(true);
-      const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        console.debug("Failed to fetch image metadata", res.status, txt);
-        setModalMetaLoading(false);
-        return;
-      }
-      const data = await res.json();
+      const data = await fetchAndCacheModalMeta(id);
       setModalMeta(data ?? null);
     } catch (err) {
       console.error("Error fetching image metadata:", err);
@@ -697,6 +778,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       void fetchAndSetModalMeta(id);
       // prefetch neighbors
       prefetchNeighbors(id);
+      prefetchModalMetaNeighbors(id);
       return;
     }
 
@@ -715,6 +797,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       setModalIndex(newIndex);
       // prefetch neighbors
       prefetchNeighbors(id);
+      prefetchModalMetaNeighbors(id);
     } catch (err) {
       console.error("Failed to navigate to image:", err);
       setModalError("Failed to load image.");
@@ -1194,9 +1277,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                               License
                             </a>
                           )}
-                          {modalMeta?.uuid && (
+                          {(modalMeta?.uuid || modalMeta?.source_db) && (
                             <a
-                              href={modalMeta.uuid}
+                              href={getSafeExternalHref(modalMeta?.uuid)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900"
@@ -1223,8 +1306,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                 </div>
               </div>
             )}
-
-            {/* right nav has been moved inside the image container to align vertically with the image */}
           </div>
         </div>
       )}

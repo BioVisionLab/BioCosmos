@@ -9,7 +9,7 @@ import {
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
+export function SpeciesImageGallery({ speciesName, onSelectionChange }: { speciesName: string; onSelectionChange?: (payload: { imageId: string | null; items: string[]; selectedIndex: number }) => void }) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -30,7 +30,9 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
 
       try {
         const ids = await fetchSpeciesImageIds(speciesName, 8);
-        if (!ignore) setItems(ids);
+          if (!ignore) setItems(ids);
+          // notify initial selection (provide items and selectedIndex)
+          if (!ignore && onSelectionChange) onSelectionChange({ imageId: ids && ids.length ? ids[0] : null, items: ids, selectedIndex: 0 });
       } catch (e) {
         if (!ignore) setItems([]);
       } finally {
@@ -47,6 +49,13 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
   const handleThumbnailClick = (index: number) => {
     setSelectedIndex(index);
   };
+
+  // notify when selectedIndex changes
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange({ imageId: items && items[selectedIndex] ? items[selectedIndex] : null, items, selectedIndex });
+    }
+  }, [selectedIndex, items, onSelectionChange]);
 
   return (
     <div
@@ -75,7 +84,7 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
               className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex <= 0
                   ? "text-gray-400 cursor-not-allowed bg-transparent"
-                  : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
+                  : "text-white bg-teal-500 dark:bg-teal-800 hover:bg-teal-400 dark:hover:bg-teal-700 shadow-md"
               }`}
             >
               <svg
@@ -110,7 +119,7 @@ export function SpeciesImageGallery({ speciesName }: { speciesName: string }) {
               className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex >= items.length - 1
                   ? "text-gray-400 cursor-not-allowed bg-transparent"
-                  : "text-white bg-teal-800 hover:bg-teal-700 shadow-md"
+                  : "text-white bg-teal-500 dark:bg-teal-800 hover:bg-teal-400 dark:hover:bg-teal-700 shadow-md"
               }`}
             >
               <svg

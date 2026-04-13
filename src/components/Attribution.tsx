@@ -30,7 +30,7 @@ export function LepTraitsAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-gray-500 mt-2 ${isLarge ? "text-lg" : "text-xs"}`}>
+    <p className={`text-gray-500 mt-3 mb-1 ml-1 ${isLarge ? "text-lg" : "text-xs"}`}>
       Source:{" "}
       <a
         href={lepTraitURL}
