@@ -1,22 +1,20 @@
 import numpy as np
 import io
+import polars as pl
+import logging
 
 from pydantic import BaseModel
 from fastapi import Request
 from typing import List
 
-from ..services.image_meta import ImageMetaService
-
+from ..services.metadata import ImageMetaService
 from ..database.duckdb import DuckDBClient
-
 from ..configs.config import ImageConfig
 from ..database.model import LanceSchema
 from ..database.lance import LanceDB
 from .unicom import UnicomImageEmbedder
-import polars as pl
-
 from .clip import ClipEmbedder
-import logging
+
 
 logger = logging.getLogger(__name__)
 

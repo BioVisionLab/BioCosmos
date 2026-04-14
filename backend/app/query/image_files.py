@@ -1,12 +1,13 @@
-from io import BytesIO
+import logging
 import os
 import threading
+
+from io import BytesIO
 from fastapi import Request
 from PIL import Image
-import logging
 
-from ..services.image_meta import ImageMetaService
 from ..services.images import ImagePersistData
+from ..services.metadata import ImageMetaService
 
 STATIC_PATH = "static/"
 THUMBNAIL_MAX_RESOLUTION = 128

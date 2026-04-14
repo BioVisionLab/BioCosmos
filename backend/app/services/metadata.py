@@ -33,14 +33,6 @@ class ImageMetaService:
             self.db_client.create_or_replace_table_csv(
                 table_name=self.table, csv_path=self.path
             )
-            # entries: int | None = self.count_entries()
-            # if entries is not None:
-            #     logger.info(
-            #         f"Image metadata ingested successfully from '{self.path}'."
-            #     )
-            #     logger.info(
-            #         f"Total entries after ingestion: {entries}"
-            #     )
         except Exception as e:
             logger.error(f"Failed to ingest image metadata into '{self.table}': {e}")
             raise e

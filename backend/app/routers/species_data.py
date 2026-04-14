@@ -1,12 +1,14 @@
-from ..query.specimen_data import SpecimenData
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+from ..query.specimen_data import SpecimenData
 from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
 from ..query.species_similarity import (
     SpeciesSimilarity,
     VisuallySimilarSpeciesPayload,
 )
-from fastapi.responses import JSONResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

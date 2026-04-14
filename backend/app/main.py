@@ -12,7 +12,7 @@ from .database.lance import LanceDB
 from .services.clip import ClipModel
 from .services.embedder import ImageEmbedder
 from .services.umap import SpeciesImageUmap
-from .services.image_meta import ImageMetaService
+from .services.metadata import ImageMetaService
 from .services.gbif import GbifPersistData
 from .services.leptraits import LepTraits
 from .routers import (

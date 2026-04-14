@@ -1,12 +1,14 @@
-from pydantic import BaseModel, ConfigDict, Field
-import os
-from typing import Optional
 import logging
-from PIL import Image
+import os
 from io import BytesIO
-from ..services import clip, unicom
-from lancedb.pydantic import LanceModel, Vector
+from typing import Optional
+
+from PIL import Image
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+from lancedb.pydantic import LanceModel, Vector
+
+from ..services import clip, unicom
 
 logger = logging.getLogger(__name__)
 

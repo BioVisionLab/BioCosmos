@@ -1,10 +1,8 @@
 import logging
 
+from fastapi import APIRouter, Request
+
 from ..query.taxon_data import TaxonSearch
-from fastapi import (
-    APIRouter,
-    Request,
-)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

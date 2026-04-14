@@ -2,8 +2,8 @@
 Agent-based semantic search router.
 Uses OpenAI function calling to intelligently query multiple data sources.
 """
-
 import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 

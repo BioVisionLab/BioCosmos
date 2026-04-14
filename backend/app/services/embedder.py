@@ -1,23 +1,20 @@
 import glob
 import numpy as np
 import io
+import logging
+import os
+import concurrent.futures
+import polars as pl
+from tqdm import tqdm
 
 from PIL.Image import Image as PILImage
 from PIL import Image
 
-
 from ..configs.config import EmbedderConfig, ImageConfig
-
 from ..database.lance import LanceDB
-
-
 from .unicom import UnicomImageEmbedder
-import polars as pl
-from tqdm import tqdm
 from .clip import ClipEmbedder
-import logging
-import os
-import concurrent.futures
+
 
 
 class ImageEmbedder:

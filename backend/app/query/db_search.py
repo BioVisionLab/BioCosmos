@@ -1,9 +1,9 @@
-from pydantic import BaseModel
-from fastapi import Request
 import logging
 
-from ..services.image_meta import ImageMetaService
+from pydantic import BaseModel
+from fastapi import Request
 
+from ..services.metadata import ImageMetaService
 from ..services.gbif import GbifPersistData, SearchGbifData
 
 logger = logging.getLogger(__name__)

@@ -1,10 +1,10 @@
-# Query taxonomy data based on the species name
-# Use GBIF Species Search API to find species taxonomy data
-from ..database.model import UmapEmbedding
-from ..query.specimen_data import SpeciesUmap
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-import logging
+
+from ..database.model import UmapEmbedding
+from ..query.specimen_data import SpeciesUmap
 from ..query.taxon_data import TaxonSearch
 
 router = APIRouter()

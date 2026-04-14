@@ -13,7 +13,7 @@ from pydantic.alias_generators import to_camel
 from fastapi import Request
 from openai import OpenAI
 
-from .image_meta import ImageMetaService
+from .metadata import ImageMetaService
 from ..configs.config import OpenAIConfig, PromptsConfig
 from .images import ImagePersistData
 from .gbif import GbifPersistData

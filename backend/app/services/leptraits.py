@@ -1,6 +1,5 @@
 import logging
-from math import log
-from venv import logger
+
 from ..configs.config import LepTraitConfig
 from ..database.duckdb import DuckDBClient
 from ..database.model import LepTraitData

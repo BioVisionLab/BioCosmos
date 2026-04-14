@@ -1,10 +1,12 @@
+import logging
+import httpx
+
 from pydantic import BaseModel, ConfigDict, field_serializer
 from pydantic.alias_generators import to_camel
+
 from ..configs.config import GbifConfig
 from ..database.duckdb import DuckDBClient, FtsSearchData
 from ..database.model import SpeciesTaxonomy
-import logging
-import httpx
 
 GBIF_HOST = "https://api.gbif.org/v1/species"
 

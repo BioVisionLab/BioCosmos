@@ -1,6 +1,7 @@
-from fastapi import Request
-from typing import List
 import polars as pl
+
+from typing import List
+from fastapi import Request
 
 from ..services.agent import AgentSearchService
 

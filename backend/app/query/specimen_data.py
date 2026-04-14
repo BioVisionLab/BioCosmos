@@ -1,9 +1,10 @@
-from openai import BaseModel
-
-from ..services.image_meta import ImageMetaService
-from ..services.umap import SpeciesImageUmap
-from fastapi import Request
 import logging
+
+from fastapi import Request
+from pydantic import BaseModel
+
+from ..services.metadata import ImageMetaService
+from ..services.umap import SpeciesImageUmap
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,10 @@
 import io
 import logging
-from PIL import Image
 
+from PIL import Image
 from fastapi import Request
 from pydantic import BaseModel
+
 from ..services.images import ImagePersistData
 
 logger = logging.getLogger(__name__)

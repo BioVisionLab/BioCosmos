@@ -1,12 +1,14 @@
 import logging
 import torch
-
-from ..configs.config import EmbedderConfig
-import unicom
 import io
 import numpy as np
+import torch
+import unicom
+
 from PIL import Image
 from PIL.Image import Image as PILImage
+
+from ..configs.config import EmbedderConfig
 
 logger = logging.getLogger(__name__)
 

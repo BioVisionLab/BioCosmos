@@ -1,9 +1,11 @@
-from pydantic import BaseModel, ConfigDict
-from ..configs.config import get_duck_db_path
-import duckdb
 import logging
+
+import duckdb
 import polars as pl
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+
+from ..configs.config import get_duck_db_path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

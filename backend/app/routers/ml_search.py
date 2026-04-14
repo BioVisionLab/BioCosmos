@@ -1,11 +1,9 @@
-from ..query.image_search import TextToImageSearch
-from ..query.image_search import ImageToImageSearch
-
+import logging
 
 from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 
-import logging
+from ..query.image_search import ImageToImageSearch, TextToImageSearch
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

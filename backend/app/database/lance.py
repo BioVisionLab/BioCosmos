@@ -1,8 +1,10 @@
+import logging
+
+import lancedb
+from lancedb import DBConnection
+
 from ..configs.config import get_lance_db_path
 from .model import LanceSchema
-from lancedb import DBConnection
-import logging
-import lancedb
 
 logger = logging.getLogger(__name__)
 

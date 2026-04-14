@@ -1,14 +1,13 @@
-# Pretrained shared embedder for CLIP model
-# Handle text and image embeddings using CLIP model
 import logging
 import numpy as np
 import torch
+import os
 
-from ..configs.config import EmbedderConfig
 from transformers import CLIPModel, CLIPProcessor
 from PIL import Image
-import os
 from PIL.Image import Image as PILImage
+
+from ..configs.config import EmbedderConfig
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

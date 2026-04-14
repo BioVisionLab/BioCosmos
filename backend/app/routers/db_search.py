@@ -1,6 +1,8 @@
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-import logging
+
 from ..query.db_search import TextToDbSearch
 
 router = APIRouter()

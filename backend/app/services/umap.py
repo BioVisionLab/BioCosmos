@@ -1,11 +1,11 @@
-from ..database.model import UmapEmbedding, UmapData
+import logging
+import polars as pl
+
 from ..configs.config import ImageMetaConfig, UmapDataConfig
 from ..database.duckdb import DuckDBClient
-import polars as pl
-import logging
+from ..database.model import UmapEmbedding, UmapData
 
 logger = logging.getLogger(__name__)
-
 
 class SpeciesImageUmap:
     """
