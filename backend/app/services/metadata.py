@@ -1,8 +1,10 @@
 import polars as pl
+import logging
+
 from typing import List
+
 from ..configs.config import ImageMetaConfig
 from ..database.duckdb import DuckDBClient
-import logging
 
 logger = logging.getLogger(__name__)
 
