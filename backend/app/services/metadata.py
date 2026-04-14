@@ -89,7 +89,7 @@ class ImageMetaService:
             self.db_client.register("temp_species_ids", names_df)
 
             query = f"""
-                SELECT REPLACE(m.mask_name, '.png', '') AS img_id
+                SELECT img_id
                 FROM {self.table} m
                 INNER JOIN temp_species_ids t
                 ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
@@ -130,7 +130,7 @@ class ImageMetaService:
 
             query = f"""
                 SELECT 
-                    REPLACE(m.mask_name, '.png', '') AS imgId,
+                    m.img_id AS imgId,
                     m.species
                 FROM {self.table} m
                 INNER JOIN temp_species t 
@@ -157,7 +157,7 @@ class ImageMetaService:
         cleaned_name = self.sanitize_species_name(scientific_name)
         try:
             query = f"""
-                SELECT REPLACE(mask_name, '.png', '') AS img_id FROM {self.table}
+                SELECT img_id FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
                 LIMIT 1
             """
@@ -181,7 +181,7 @@ class ImageMetaService:
         cleaned_name = self.sanitize_species_name(scientific_name)
         try:
             query = f"""
-                SELECT REPLACE(mask_name, '.png', '') AS img_id FROM {self.table}
+                SELECT img_id FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
                 LIMIT 100
             """
@@ -204,7 +204,7 @@ class ImageMetaService:
         cleaned_species = self.sanitize_species_name(species)
         try:
             query = f"""
-                SELECT REPLACE(mask_name, '.png', '') AS img_id, species, source_db, class_dv FROM {self.table}
+                SELECT img_id, species, source_db, class_dv FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '') LIMIT 100
             """
             # We export result to polars for easier handling
@@ -225,7 +225,7 @@ class ImageMetaService:
             self.db_client.register("temp_ids", ids_df)
 
             query = f"""
-                SELECT m.mask_name AS img_id, m.species, m.source_db, m.class_dv 
+                SELECT img_id, m.species, m.source_db, m.class_dv 
                 FROM {self.table} m
                 INNER JOIN temp_ids t ON m.mask_name = t.img_id
             """
@@ -250,7 +250,7 @@ class ImageMetaService:
             cleaned_id = img_id.replace(".png", "")
             query = f"""
                 SELECT * FROM {self.table}
-                WHERE REPLACE(mask_name, '.png', '') = ?
+                WHERE img_id = ?
                 LIMIT 1
             """
             result = self.db_client.execute_query(query, cleaned_id).pl()
@@ -285,7 +285,7 @@ class ImageMetaService:
                     m.source_db,
                     m.class_dv
                 FROM temp_image_data t
-                INNER JOIN {self.table} m ON t.imgId = REPLACE(m.mask_name, '.png', '')
+                INNER JOIN {self.table} m ON t.imgId = m.img_id
             """
 
             merged_results = self.db_client.execute(query).pl()
