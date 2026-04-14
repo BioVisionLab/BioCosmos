@@ -1,5 +1,4 @@
-"use client"; // This component needs to be a client component
-// cspell:ignore Gbif GBIF
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { GbifAttribution } from "../../../../components/Attribution";

@@ -1,40 +1,46 @@
 "use client";
 
-// Render Species Map based on GBIF occurrences
-
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { useTheme } from "next-themes";
-import { getTileLayerAttributionUrl } from "@/lib/map";
-import { Occurrence } from "@/lib/map";
+import L from "leaflet";
 
 const DARK_TILE_URL =
-  "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
-const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const LIGHT_TILE_URL =
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
+import { Occurrence } from "@/lib/map";
 
 interface SpeciesMapProps {
-  occurrences?: Occurrence[]; // Make occurrences optional
+  occurrences?: Occurrence[];
 }
 
-function MapRecenter({
-  center,
-  zoom,
-}: {
-  center: L.LatLngExpression;
-  zoom: number;
-}) {
-  const map = useMap();
+
+// Defined outside SpeciesMap so React never treats it as a new component type
+// on re-render. Imperatively calls .setUrl() on theme change — no map remount.
+interface ThemeTileLayerProps {
+  tileUrl: string;
+  className?: string;
+}
+
+const ThemeTileLayer = ({ tileUrl, className }: ThemeTileLayerProps) => {
+  const layerRef = useRef<L.TileLayer | null>(null);
 
   useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
+    if (layerRef.current) {
+      layerRef.current.setUrl(tileUrl);
+    }
+  }, [tileUrl]);
 
-  return null;
-}
+  return (
+    <TileLayer
+      ref={layerRef}
+      url={tileUrl}
+      className={className}
+    />
+  );
+};
 
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   const [isMounted, setIsMounted] = useState(false);
@@ -67,20 +73,23 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
     });
   }, []);
 
-  // Calculate center and zoom based on occurrences later
-  // For now, keep default center/zoom but adjust slightly if there are occurrences
   const mapCenter: L.LatLngExpression =
     occurrences.length > 0
       ? [occurrences[0].decimalLatitude, occurrences[0].decimalLongitude]
-      : [20, 0]; // Center on first point if available, else default
-  const mapZoom = occurrences.length > 0 ? 4 : 2; // Slightly more zoomed in if data exists
+      : [20, 0];
+  const mapZoom = occurrences.length > 0 ? 4 : 2;
 
   if (!isMounted) {
-    return <div style={{ height: "400px", width: "100%", borderRadius: "12px" }} />;
+    return (
+      <div style={{ height: "400px", width: "100%", borderRadius: "12px" }} />
+    );
   }
 
   return (
-    <div className={isDarkTheme ? "umap-dark-map" : ""} style={{ height: "400px", width: "100%" }}>
+    <div
+      className={isDarkTheme ? "umap-dark-map" : ""}
+      style={{ height: "400px", width: "100%" }}
+    >
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -88,19 +97,15 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
         minZoom={2}
         scrollWheelZoom={true}
         style={{ height: "400px", width: "100%", borderRadius: "12px" }}
-        key="species-map"
       >
-        <TileLayer
-          attribution={getTileLayerAttributionUrl()}
-          url={tileUrl}
+        <ThemeTileLayer
+          tileUrl={tileUrl}
           className={isDarkTheme ? "umap-site-tiles" : undefined}
         />
 
-        {/* Map over occurrences to add Markers */}
         {occurrences.map((occ, index) => {
-          // --- Add Logging Here ---
           console.log(`Rendering Marker ${index}:`, occ);
-          // Check if coordinates are valid numbers just before rendering
+
           if (
             typeof occ.decimalLatitude !== "number" ||
             typeof occ.decimalLongitude !== "number" ||
@@ -111,7 +116,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
               `Invalid coordinates for occurrence key ${occ.key}:`,
               occ,
             );
-            return null; // Skip rendering this marker if coordinates are invalid
+            return null;
           }
 
           return (
@@ -124,7 +129,6 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
                 Occurrence Record <br />
                 Lat: {occ.decimalLatitude.toFixed(4)} <br />
                 Lon: {occ.decimalLongitude.toFixed(4)}
-                {/* Add more details here later if fetched */}
               </Popup>
             </Marker>
           );
