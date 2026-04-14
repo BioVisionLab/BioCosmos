@@ -252,6 +252,36 @@ class DuckDBClient:
         )
         logger.info(f"Table '{table_name}' created or replaced.")
 
+    def create_or_replace_parquet(self, table_name: str, parquet_path: str):
+        """Create or replace a table from a Parquet file.
+        Args:
+            table_name (str): The name of the table to create or replace.
+            parquet_path (str): The path to the Parquet file.
+        """
+        logger.info(f"Creating '{table_name}' from '{parquet_path}'.")
+        self.conn.execute(
+            f"""
+            CREATE OR REPLACE TABLE {table_name} AS 
+            SELECT * FROM read_parquet('{parquet_path}')
+            """
+        )
+        logger.info(f"Table '{table_name}' created or replaced.")
+    
+    def create_if_not_exists_parquet(self, table_name: str, parquet_path: str):
+        """Create a table from a Parquet file if it does not exist.
+        Args:
+            table_name (str): The name of the table to create.
+            parquet_path (str): The path to the Parquet file.
+        """
+        logger.info(f"Creating '{table_name}' from '{parquet_path}'.")
+        self.conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {table_name} AS 
+            SELECT * FROM read_parquet('{parquet_path}')
+            """
+        )
+        logger.info(f"Table '{table_name}' created or already exists.")
+
     def create_if_not_exists_csv(self, table_name: str, csv_path: str):
         """Create a table from a CSV file if it does not exist.
         Args:

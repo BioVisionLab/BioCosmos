@@ -19,6 +19,7 @@ class ImageMetaService:
         config = ImageMetaConfig()
         self.table = config.table
         self.path = config.path
+        self.format = config.format
         self.skip_ingestion = config.skip
         self.db_client = duckdb
 
@@ -30,9 +31,16 @@ class ImageMetaService:
             logger.info("Skipping image metadata ingestion as per configuration.")
             return
         try:
-            self.db_client.create_or_replace_table_csv(
-                table_name=self.table, csv_path=self.path
-            )
+            if self.format == "csv":
+                self.db_client.create_or_replace_table_csv(
+                    table_name=self.table, csv_path=self.path
+                )
+            elif self.format == "parquet":
+                self.db_client.create_or_replace_parquet(
+                    table_name=self.table, parquet_path=self.path
+                )
+            else:
+                raise ValueError(f"Unsupported format: {self.format}")
         except Exception as e:
             logger.error(f"Failed to ingest image metadata into '{self.table}': {e}")
             raise e

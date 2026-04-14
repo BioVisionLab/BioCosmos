@@ -62,6 +62,10 @@ class ImageMetaConfig:
         return full_path
 
     @property
+    def format(self) -> str:
+        return self._image_meta_config.get("format", "csv")
+
+    @property
     def skip(self) -> bool:
         skip = self._image_meta_config.get("skip", False)
         if isinstance(skip, bool):
