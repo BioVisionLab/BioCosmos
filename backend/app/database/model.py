@@ -1,8 +1,8 @@
 import logging
 import os
-from io import BytesIO
-from typing import Optional
 
+from io import BytesIO
+from typing import Optional, Annotated, List
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -73,6 +73,8 @@ LEPTRAIT_MAPPING = {
     "DateCreated": "date_created",
 }
 
+UnicomVector = Annotated[List[float], Vector(unicom.get_unicom_ndims())]
+ClipVector = Annotated[List[float], Vector(clip.get_clip_ndims())]
 
 class LanceSchema(LanceModel):
     """Schema for images with CLIP/UNICOM embeddings and metadata.
@@ -96,8 +98,8 @@ class LanceSchema(LanceModel):
     # species: str
     file_format: str
     original_size: bool
-    clip_embeddings: Vector(clip.get_clip_ndims())
-    unicom_embeddings: Vector(unicom.get_unicom_ndims())
+    clip_embeddings: ClipVector
+    unicom_embeddings: UnicomVector
 
     @property
     def image(self):

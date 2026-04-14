@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 MAX_CLIP_RESOLUTION = 512
+EMBED_DIM = 512
 
 
 class ClipModel:
@@ -48,26 +49,8 @@ class ClipModel:
 
 def get_clip_ndims() -> int:
     """Get the dimensions of the CLIP model's text embeddings."""
-    clip = ClipModel()
-    model, processor = clip.load_model()
-    embedder = ClipEmbedder(model, processor)
-    if model is None:
-        logger.error(
-            "CLIP model not available for getting dimensions."
-        )
-        return None
-    try:
-        embeddings = embedder.get_embedding_from_text("test")
-        logger.info(
-            f"CLIP model text embedding dimensions: {len(embeddings)}"
-        )
-        return len(embeddings)
-    except Exception as e:
-        logger.error(
-            f"Error getting CLIP model dimensions: {e}",
-            exc_info=True,
-        )
-        return None
+    # Hardcoded to 512 for openai/clip-vit-base-patch32 to avoid loading the model during import
+    return EMBED_DIM
 
 
 class ClipEmbedder:

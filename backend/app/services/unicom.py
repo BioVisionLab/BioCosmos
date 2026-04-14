@@ -211,25 +211,8 @@ class UnicomModel:
 
 def get_unicom_ndims() -> int:
     """Get the dimensions of the UNICOM model's image embeddings."""
-    config = EmbedderConfig()
-    unicom_model, transform = UnicomModel.load_model()
-    if unicom_model is None:
-        logger.error("UNICOM model not available for getting dimensions.")
-        return None
-    try:
-        # Get a dummy embedding to determine dimensions
-        dummy_tensor = torch.zeros(
-            1, 3, MAX_UNICOM_RESOLUTION, MAX_UNICOM_RESOLUTION
-        ).to(config.device)
-        with torch.no_grad():
-            embedding = unicom_model(dummy_tensor)
-            return embedding.shape[-1]
-    except Exception as e:
-        logger.error(
-            f"Error getting UNICOM model dimensions: {e}",
-            exc_info=True,
-        )
-        return None
+    # Return the pre-defined EMBED_DIM to avoid loading the model during import
+    return EMBED_DIM
 
 
 class UnicomImageEmbedder:
