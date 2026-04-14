@@ -348,22 +348,3 @@ class GbifTaxonSearch:
         """
         await self.client.aclose()
         logger.info("Closed GBIF client connection.")
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        gbif_service = GbifTaxonSearch()
-        try:
-            result = await gbif_service.search("Danaus plexippus")
-            if result:
-                print(result)
-            else:
-                print("No results found.")
-        except Exception as e:
-            print(f"Error: {e}")
-        finally:
-            await gbif_service.close()
-
-    asyncio.run(main())
