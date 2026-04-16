@@ -89,7 +89,7 @@ class SpeciesImageUmap:
                         ) AS row_num
                     FROM {self.table} a
                     JOIN {image_meta_table} m
-                    ON a.img_id = REPLACE(m.mask_name, '.png', '')
+                    ON a.img_id = m.img_id
                     WHERE a.species = ?
                 )
                 SELECT *

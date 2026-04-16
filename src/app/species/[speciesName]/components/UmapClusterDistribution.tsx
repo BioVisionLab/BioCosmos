@@ -21,7 +21,7 @@ import {
 
 const DARK_TILE_URL =
   "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
-const LIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const LIGHT_TILE_URL = "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";;
 import { fetchThumbnailById } from "@/lib/images";
 import { ImageLoading } from "@/components/Loadings";
 import Image from "next/image";
