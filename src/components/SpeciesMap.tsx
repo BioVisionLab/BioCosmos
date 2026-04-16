@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { useTheme } from "next-themes";
 import L from "leaflet";
@@ -16,41 +16,16 @@ interface SpeciesMapProps {
   occurrences?: Occurrence[];
 }
 
-
-// Defined outside SpeciesMap so React never treats it as a new component type
-// on re-render. Imperatively calls .setUrl() on theme change — no map remount.
-interface ThemeTileLayerProps {
-  tileUrl: string;
-  className?: string;
-}
-
-const ThemeTileLayer = ({ tileUrl, className }: ThemeTileLayerProps) => {
-  const layerRef = useRef<L.TileLayer | null>(null);
-
-  useEffect(() => {
-    if (layerRef.current) {
-      layerRef.current.setUrl(tileUrl);
-    }
-  }, [tileUrl]);
-
-  return (
-    <TileLayer
-      ref={layerRef}
-      url={tileUrl}
-      className={className}
-    />
-  );
-};
-
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   const [isMounted, setIsMounted] = useState(false);
   const { resolvedTheme } = useTheme();
-  const isDarkTheme = resolvedTheme === "dark";
-  const tileUrl = isDarkTheme ? DARK_TILE_URL : LIGHT_TILE_URL;
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const isDarkTheme = isMounted && resolvedTheme === "dark";
+  const tileUrl = isDarkTheme ? DARK_TILE_URL : LIGHT_TILE_URL;
 
   const customIcon = useMemo(() => {
     const size = 8;
@@ -77,6 +52,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
     occurrences.length > 0
       ? [occurrences[0].decimalLatitude, occurrences[0].decimalLongitude]
       : [20, 0];
+
   const mapZoom = occurrences.length > 0 ? 4 : 2;
 
   if (!isMounted) {
@@ -86,36 +62,28 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   }
 
   return (
-    <div
-      className={isDarkTheme ? "umap-dark-map" : ""}
-      style={{ height: "400px", width: "100%" }}
-    >
+    <div style={{ height: "400px", width: "100%" }}>
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
         maxZoom={18}
         minZoom={2}
-        scrollWheelZoom={true}
+        scrollWheelZoom
         style={{ height: "400px", width: "100%", borderRadius: "12px" }}
       >
-        <ThemeTileLayer
-          tileUrl={tileUrl}
-          className={isDarkTheme ? "umap-site-tiles" : undefined}
+        <TileLayer
+          key={isDarkTheme ? "dark" : "light"}
+          url={tileUrl}
+          attribution='&copy; Stadia Maps, &copy; OpenMapTiles &copy; OpenStreetMap contributors'
         />
 
-        {occurrences.map((occ, index) => {
-          console.log(`Rendering Marker ${index}:`, occ);
-
+        {occurrences.map((occ) => {
           if (
             typeof occ.decimalLatitude !== "number" ||
             typeof occ.decimalLongitude !== "number" ||
-            isNaN(occ.decimalLatitude) ||
-            isNaN(occ.decimalLongitude)
+            Number.isNaN(occ.decimalLatitude) ||
+            Number.isNaN(occ.decimalLongitude)
           ) {
-            console.error(
-              `Invalid coordinates for occurrence key ${occ.key}:`,
-              occ,
-            );
             return null;
           }
 
