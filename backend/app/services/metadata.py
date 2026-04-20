@@ -1,5 +1,6 @@
 import polars as pl
 import logging
+import uuid
 
 from typing import List
 
@@ -86,19 +87,22 @@ class ImageMetaService:
             return []
 
         try:
-            # Register species list as a temp table ? avoids SQL injection
+            # Register species list as a temp table with unique name ? avoids SQL injection and concurrency deadlocks
+            temp_name = f"temp_species_ids_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": species_list})
-            self.db_client.register("temp_species_ids", names_df)
+            self.db_client.register(temp_name, names_df)
 
             query = f"""
                 SELECT img_id
                 FROM {self.table} m
-                INNER JOIN temp_species_ids t
+                INNER JOIN {temp_name} t
                 ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
             """
 
-            result = self.db_client.execute(query).pl()
-            self.db_client.unregister("temp_species_ids")
+            try:
+                result = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             if result is None or result.is_empty():
                 logger.warning(
@@ -126,21 +130,24 @@ class ImageMetaService:
         """
         # We use duck directly to handle multiple species in one query
         try:
-            # Create a temporary table with the species names
+            # Create a temporary table with the species names using unique identifier
+            temp_name = f"temp_species_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": scientific_names})
-            self.db_client.register("temp_species", names_df)
+            self.db_client.register(temp_name, names_df)
 
             query = f"""
                 SELECT 
                     m.img_id AS imgId,
                     m.species
                 FROM {self.table} m
-                INNER JOIN temp_species t 
+                INNER JOIN {temp_name} t 
                 ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
             """
 
-            results = self.db_client.execute(query).pl()
-            self.db_client.unregister("temp_species")
+            try:
+                results = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             return results
         except Exception as e:
@@ -222,18 +229,21 @@ class ImageMetaService:
                 logger.warning("No image IDs provided.")
                 return pl.DataFrame()
 
-            # Create a temporary table with the IDs
+            # Create a temporary table with the IDs using unique identifier
+            temp_name = f"temp_ids_{uuid.uuid4().hex}"
             ids_df = pl.DataFrame({"img_id": img_ids})
-            self.db_client.register("temp_ids", ids_df)
+            self.db_client.register(temp_name, ids_df)
 
             query = f"""
                 SELECT img_id, m.species, m.source_db, m.class_dv 
                 FROM {self.table} m
-                INNER JOIN temp_ids t ON m.mask_name = t.img_id
+                INNER JOIN {temp_name} t ON m.mask_name = t.img_id
             """
 
-            duckdb_results = self.db_client.execute(query).pl()
-            self.db_client.unregister("temp_ids")
+            try:
+                duckdb_results = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             return duckdb_results
 
@@ -276,8 +286,9 @@ class ImageMetaService:
                 logger.warning("No image data to merge with metadata.")
                 return None
 
-            # Register the full image_data DataFrame as a temporary table
-            self.db_client.register("temp_image_data", image_data)
+            # Register the full image_data DataFrame as a temporary table using unique identifier
+            temp_name = f"temp_image_data_{uuid.uuid4().hex}"
+            self.db_client.register(temp_name, image_data)
 
             # Perform inner join directly in DuckDB with all columns
             query = f"""
@@ -286,12 +297,14 @@ class ImageMetaService:
                     m.species,
                     m.source_db,
                     m.class_dv
-                FROM temp_image_data t
+                FROM {temp_name} t
                 INNER JOIN {self.table} m ON t.imgId = m.img_id
             """
 
-            merged_results = self.db_client.execute(query).pl()
-            self.db_client.unregister("temp_image_data")
+            try:
+                merged_results = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             if merged_results is None or merged_results.is_empty():
                 logger.warning("No metadata found for the given image IDs.")

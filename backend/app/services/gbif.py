@@ -170,7 +170,7 @@ class GbifPersistData:
             )
             return []
 
-    def search_by_location(self, location: str, limit: int = 500) -> list[str]:
+    def search_by_location(self, location: str, limit: int = 500, species_in: list[str] | None = None) -> list[str]:
         """
         Search for species by geographic location.
 
@@ -209,6 +209,12 @@ class GbifPersistData:
             ]
 
             where_clause = " OR ".join(conditions)
+            
+            if species_in:
+                safe_species = [s.replace("'", "''").lower().replace(" ", "_") for s in species_in]
+                species_list = ", ".join(f"'{s}'" for s in safe_species)
+                where_clause = f"({where_clause}) AND LOWER(REPLACE(species, ' ', '_')) IN ({species_list})"
+
             query = f"""
                 SELECT DISTINCT species
                 FROM {self.table_name}

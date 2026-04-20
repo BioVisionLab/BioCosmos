@@ -160,10 +160,53 @@ class AgentSearchService:
 
         logger.info("Normalized weights: %s", normalized_weights)
 
-        allowlist_species: set[str] | None = None
-        cached_filter_rows: Dict[str, List[Dict]] = {}
+        all_results: List[Dict] = []
+        active_tool_names: List[str] = []
+        semantic_species: set[str] | None = None
+
+        if ranking_calls:
+            for c in ranking_calls:
+                c["args"]["limit"] = max(c["args"].get("limit", 200), 500)
+
+            rank_results = await asyncio.gather(
+                *[
+                    self._execute_tool(
+                        c["name"],
+                        c["args"],
+                        normalized_weights.get(c["name"], 1.0),
+                    )
+                    for c in ranking_calls
+                ],
+                return_exceptions=True,
+            )
+
+            per_rank_species: List[set[str]] = []
+            for i, result in enumerate(rank_results):
+                tool_name = ranking_calls[i]["name"]
+                if isinstance(result, Exception):
+                    logger.error("Ranking tool '%s' raised: %s", tool_name, result)
+                    continue
+                if not result:
+                    logger.warning("Ranking tool '%s' returned empty result.", tool_name)
+                    continue
+
+                active_tool_names.append(tool_name)
+                all_results.extend(result)
+                species_set = {row["species"] for row in result}
+                per_rank_species.append(species_set)
+
+            if per_rank_species:
+                semantic_species = set().union(*per_rank_species)
+                logger.info(
+                    "Semantic phase yielded %d distinct species", len(semantic_species)
+                )
 
         if filter_calls:
+            for c in filter_calls:
+                c["args"]["limit"] = max(c["args"].get("limit", 1000), 1000)
+                if semantic_species is not None:
+                    c["args"]["species_in"] = list(semantic_species)
+
             filter_results = await asyncio.gather(
                 *[
                     self._execute_tool(
@@ -177,6 +220,7 @@ class AgentSearchService:
             )
 
             per_tool_species: List[set[str]] = []
+            cached_filter_rows: Dict[str, List[Dict]] = {}
             for i, result in enumerate(filter_results):
                 tool_name = filter_calls[i]["name"]
                 if isinstance(result, Exception):
@@ -186,89 +230,34 @@ class AgentSearchService:
                     logger.warning("Filter tool '%s' returned empty result.", tool_name)
                     continue
 
+                active_tool_names.append(tool_name)
                 cached_filter_rows[tool_name] = result
                 species_set = {row["species"] for row in result}
                 per_tool_species.append(species_set)
-                logger.info(
-                    "Filter tool '%s' ? %d species", tool_name, len(species_set)
-                )
+                logger.info("Filter tool '%s' -> %d species", tool_name, len(species_set))
 
+            allowlist_species: set[str] | None = None
             if per_tool_species:
-                allowlist_species = per_tool_species[0].intersection(
-                    *per_tool_species[1:]
-                )
+                allowlist_species = set().union(*per_tool_species)
                 logger.info(
-                    "Allowlist after intersection of %d filter tool(s): %d species",
+                    "Filter gate applied soft union across %d filter tool(s): %d species passed",
                     len(per_tool_species),
                     len(allowlist_species),
                 )
-                if not allowlist_species:
-                    logger.warning("Intersection empty ? falling back to union.")
-                    allowlist_species = set().union(*per_tool_species)
-                    logger.info("Union fallback: %d species", len(allowlist_species))
 
-        all_results: List[Dict] = []
-        active_tool_names: List[str] = []
-
-        if ranking_calls:
-            allowlist_img_ids: list[str] | None = None
-
-            if allowlist_species is not None:
-                img_id_set: set[str] = {
-                    row["imgId"]
-                    for call in filter_calls
-                    for row in cached_filter_rows.get(call["name"], [])
-                    if row["species"] in allowlist_species and row.get("imgId")
-                }
-                if len(img_id_set) < len(allowlist_species) * 3:
-                    db_ids = await asyncio.to_thread(
-                        self.image_meta_service.get_image_ids_for_species_list,
-                        list(allowlist_species),
-                    )
-                    img_id_set.update(db_ids)
-
-                if not img_id_set:
-                    logger.warning("No image IDs found for allowlisted species.")
-                    return pl.DataFrame()
-
-                allowlist_img_ids = list(img_id_set)
-
-            for call in ranking_calls:
-                weight = normalized_weights.get(call["name"], 1.0)
-                if allowlist_img_ids is not None:
-                    rows = await self._execute_tool_scoped(
-                        call["name"],
-                        call["args"],
-                        allowlist_img_ids,
-                        allowlist_species,
-                        weight,  # type: ignore[arg-type]
-                    )
+            if ranking_calls:
+                if allowlist_species is not None:
+                    before_filter_len = len(all_results)
+                    all_results = [r for r in all_results if r["species"] in allowlist_species]
+                    logger.info("Filtered ranking results via allowlist: %d -> %d", before_filter_len, len(all_results))
                 else:
-                    rows = await self._execute_tool(call["name"], call["args"], weight)
-
-                if isinstance(rows, Exception) or not rows:
-                    logger.warning(
-                        "Ranking tool '%s' returned no results.", call["name"]
-                    )
-                    continue
-
-                active_tool_names.append(call["name"])
-                all_results.extend(rows)
-
-        else:
-            if allowlist_species is None:
-                logger.warning("No filter or ranking tools produced results.")
-                return pl.DataFrame()
-
-            for call in filter_calls:
-                rows = [
-                    r
-                    for r in cached_filter_rows.get(call["name"], [])
-                    if r["species"] in allowlist_species
-                ]
-                if rows:
-                    active_tool_names.append(call["name"])
-                    all_results.extend(rows)
+                    logger.warning("Filter tools ran but returned no overlap. Discarding all results.")
+                    all_results = []
+            else:
+                if allowlist_species is not None:
+                    for call in filter_calls:
+                        rows = [r for r in cached_filter_rows.get(call["name"], []) if r["species"] in allowlist_species]
+                        all_results.extend(rows)
 
         if not all_results:
             logger.warning("No results collected for query: %s", query)
@@ -332,7 +321,7 @@ class AgentSearchService:
             len(aggregated),
             aggregated["score"][0],
         )
-        return aggregated
+        return aggregated.head(50)
 
     async def _execute_tool(
         self,
@@ -350,6 +339,7 @@ class AgentSearchService:
                 location=function_args.get("location", ""),
                 weight=weight,
                 limit=function_args.get("limit", 400),
+                species_in=function_args.get("species_in"),
             ),
             "search_by_color": lambda: self._search_by_color(
                 color_description=function_args.get("color_description", ""),
@@ -363,6 +353,7 @@ class AgentSearchService:
                 disturbance_affinity=function_args.get("disturbance_affinity"),
                 limit=function_args.get("limit", 400),
                 weight=weight,
+                species_in=function_args.get("species_in"),
             ),
         }
         handler = dispatch.get(function_name)
@@ -371,83 +362,7 @@ class AgentSearchService:
             return []
         return await handler()
 
-    async def _execute_tool_scoped(
-        self,
-        function_name: str,
-        function_args: Dict[str, Any],
-        allowlist_img_ids: list[str],
-        allowlist_species: set[str],
-        weight: float,
-    ) -> list[dict]:
-        if function_name == "search_by_color":
-            color_description = function_args.get("color_description", "").strip()
-            if not color_description:
-                return []
 
-            image_limit = max(function_args.get("limit", 150) * 10, 300)
-            raw = await asyncio.to_thread(
-                self.image_service.fetch_similar_images_from_text_filtered,
-                self.request,
-                color_description,
-                image_limit,
-                allowlist_img_ids,
-            )
-            if not raw:
-                return []
-
-            df = raw if isinstance(raw, pl.DataFrame) else pl.DataFrame(raw)
-            if df.is_empty():
-                return []
-
-            df = (
-                df.filter(pl.col("species").is_in(list(allowlist_species)))
-                .sort("distance")
-                .unique(subset=["species"], keep="first")
-            )
-            if df.is_empty():
-                return []
-
-            return self._build_result_df(
-                df=df,
-                score_expr=pl.lit(weight) * (1 - pl.col("distance") / 2),
-                tool_name="search_by_color",
-            ).to_dicts()
-
-        elif function_name == "search_by_image_similarity":
-            reference_species = (function_args.get("reference_species") or "").strip()
-            if not reference_species:
-                return []
-
-            image_ids = await asyncio.to_thread(
-                self.image_meta_service.get_image_ids_by_species,
-                reference_species,
-            )
-            if not image_ids:
-                return []
-
-            similar = await asyncio.to_thread(
-                self.image_service.find_similar_images,
-                image_ids,
-                function_args.get("limit", 400),
-            )
-            if similar is None or similar.is_empty():
-                return []
-
-            similar = similar.filter(pl.col("species").is_in(list(allowlist_species)))
-            if similar.is_empty():
-                return []
-
-            return self._build_result_df(
-                df=similar,
-                score_expr=pl.lit(weight) * (1 - pl.col("distance")),
-                tool_name="search_by_image_similarity",
-            ).to_dicts()
-
-        else:
-            logger.error(
-                "_execute_tool_scoped: unsupported function '%s'", function_name
-            )
-            return []
 
     async def _search_by_image_similarity(
         self,
@@ -477,8 +392,9 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=similar,
-            score_expr=pl.lit(weight) * (1 - pl.col("distance")),
+            weight=weight,
             tool_name="search_by_image_similarity",
+            is_distance=True,
         ).to_dicts()
 
     async def _search_by_location(
@@ -486,6 +402,7 @@ class AgentSearchService:
         location: str,
         weight: float,
         limit: int = 100,
+        species_in: list[str] | None = None,
     ) -> list[dict]:
         if not location:
             logger.warning("search_by_location called with empty location.")
@@ -495,8 +412,9 @@ class AgentSearchService:
             self.gbif_service.search_by_location,
             location,
             limit,
+            species_in,
         )
-        logger.info("Location '%s' ? %d species", location, len(species_names))
+        logger.info("Location '%s' -> %d species", location, len(species_names))
 
         unique_species = list(set(species_names))
         data = await asyncio.to_thread(
@@ -508,8 +426,9 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=data,
-            score_expr=pl.lit(weight),
+            weight=weight,
             tool_name="search_by_location",
+            is_distance=False,
         ).to_dicts()
 
     async def _search_by_color(
@@ -539,8 +458,9 @@ class AgentSearchService:
         df = df.sort("distance").unique(subset=["species"], keep="first")
         return self._build_result_df(
             df=df,
-            score_expr=pl.lit(weight) * (1 - pl.col("distance") / 2),
+            weight=weight,
             tool_name="search_by_color",
+            is_distance=True,
         ).to_dicts()
 
     async def _search_by_traits(
@@ -551,6 +471,7 @@ class AgentSearchService:
         disturbance_affinity: str | None = None,
         limit: int = 100,
         weight: float = 0.25,
+        species_in: list[str] | None = None,
     ) -> list[dict]:
         conditions: list[str] = []
         if canopy_affinity:
@@ -562,8 +483,13 @@ class AgentSearchService:
         if disturbance_affinity:
             conditions.append(f"DisturbanceAffinity = '{disturbance_affinity}'")
 
+        if species_in:
+            safe_species = [s.replace("'", "''").lower().replace(" ", "_") for s in species_in]
+            species_list = ", ".join(f"'{s}'" for s in safe_species)
+            conditions.append(f"LOWER(REPLACE(Species, ' ', '_')) IN ({species_list})")
+
         if not conditions:
-            logger.warning("search_by_traits called with no trait conditions.")
+            logger.warning("search_by_traits called with no trait conditions and no species limits.")
             return []
 
         where_clause = " AND ".join(conditions)
@@ -588,16 +514,32 @@ class AgentSearchService:
 
         return self._build_result_df(
             df=data,
-            score_expr=pl.lit(weight),
+            weight=weight,
             tool_name="search_by_traits",
+            is_distance=False,
         ).to_dicts()
 
     @staticmethod
     def _build_result_df(
         df: pl.DataFrame,
-        score_expr: pl.Expr,
+        weight: float,
         tool_name: str,
+        is_distance: bool = False,
     ) -> pl.DataFrame:
+        if is_distance and "distance" in df.columns:
+            if len(df) > 1:
+                min_dist = df["distance"].min()
+                max_dist = df["distance"].max()
+                if max_dist is not None and min_dist is not None and max_dist > min_dist:
+                    norm_expr = (pl.col("distance") - min_dist) / (max_dist - min_dist)
+                else:
+                    norm_expr = pl.lit(0.0)
+            else:
+                norm_expr = pl.lit(0.0)
+            score_expr = pl.lit(weight) * (1.0 - norm_expr)
+        else:
+            score_expr = pl.lit(weight)
+
         return df.with_columns(
             score_expr.alias("score"),
             pl.lit(tool_name).alias("tool_names"),
