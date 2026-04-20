@@ -383,12 +383,6 @@ class ImagePersistData:
             self.logger.error(f"Error querying embeddings: {e}")
             return None
 
-    def _compute_distance(
-        self, source_emb: np.ndarray, target_emb: np.ndarray
-    ) -> float:
-        """Compute the Euclidean distance between two embeddings."""
-        return np.linalg.norm(source_emb - target_emb)
-
     def _query_images(self, image_ids: list[str]) -> list[LanceSchema] | None:
         """Construct a query string for fetching images."""
         image_data: list[LanceSchema] = []
@@ -448,11 +442,10 @@ class ImagePersistData:
                 self.logger.warning("No results to filter by species.")
                 return results
 
-            # Keep the first occurrence of each species
+            # Keep the first occurrence of each species (most similar)
             filtered_results = (
-                results.sort("distance")
+                results.sort("distance", descending=False)
                 .unique(subset=["species"], maintain_order=True)
-                .sort("distance", descending=True)
             )
 
             return filtered_results

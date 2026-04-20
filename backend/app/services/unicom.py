@@ -2,10 +2,11 @@ import hashlib
 import io
 import logging
 import numpy as np
-import timm
 import torch
 import torch.nn as nn
 
+import torch.nn.functional as F
+from torch.nn.init import trunc_normal_
 from torchvision import transforms
 from PIL import Image
 from pathlib import Path
@@ -15,21 +16,232 @@ from ..configs.config import EmbedderConfig
 
 logger = logging.getLogger(__name__)
 
+class DropPath(nn.Module):
+    """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks)."""
+    def __init__(self, drop_prob: float = 0., scale_by_keep: bool = True):
+        super(DropPath, self).__init__()
+        self.drop_prob = drop_prob
+        self.scale_by_keep = scale_by_keep
+
+    def forward(self, x):
+        if self.drop_prob == 0. or not self.training:
+            return x
+        keep_prob = 1 - self.drop_prob
+        shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+        random_tensor = x.new_empty(shape).bernoulli_(keep_prob)
+        if keep_prob > 0.0 and self.scale_by_keep:
+            random_tensor.div_(keep_prob)
+        return x * random_tensor
+
+class PatchEmbedding(nn.Module):
+    def __init__(
+        self,
+        input_size=224,
+        patch_size=32,
+        in_channels: int = 3,
+        dim: int = 768,
+    ):
+        super().__init__()
+        if isinstance(input_size, int):
+            input_size = (input_size, input_size)
+        if isinstance(patch_size, int):
+            patch_size = (patch_size, patch_size)
+        H = input_size[0] // patch_size[0]
+        W = input_size[1] // patch_size[1]
+        self.num_patches = H * W
+        self.proj = nn.Conv2d(
+            in_channels,
+            dim,
+            kernel_size=patch_size,
+            stride=patch_size,
+        )
+
+    def forward(self, x):
+        x = self.proj(x).flatten(2).transpose(1, 2)
+        return x
+
+
+class Mlp(nn.Module):
+    def __init__(self, dim, dim_hidden):
+        super().__init__()
+        self.fc1 = nn.Linear(dim, dim_hidden)
+        self.act = nn.ReLU6()
+        self.fc2 = nn.Linear(dim_hidden, dim)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.fc2(x)
+        return x
+
+
+class Attention(nn.Module):
+    def __init__(self, dim, num_heads):
+        super().__init__()
+        self.num_heads = num_heads
+        head_dim = dim // num_heads
+        self.scale = head_dim**-0.5
+        self.qkv = nn.Linear(dim, dim * 3, bias=False)
+        self.proj = nn.Linear(dim, dim)
+
+    def forward(self, x):
+        device_type = x.device.type
+        with torch.amp.autocast(
+            device_type=device_type, enabled=True
+        ):
+            B, L, D = x.shape
+            qkv = (
+                self.qkv(x)
+                .reshape(B, L, 3, self.num_heads, D // self.num_heads)
+                .permute(2, 0, 3, 1, 4)
+            )
+            # B, L, 3, heads, head_dim ->
+            # 3, B, heads, L, head_dim
+            q, k, v = qkv[0], qkv[1], qkv[2]
+            # q B, heads, L, head_dim
+
+            attn_output = F.scaled_dot_product_attention(
+                q, k, v, None, dropout_p=0.0
+            )
+            attn_output = (
+                attn_output.permute(2, 0, 1, 3).contiguous()
+            )  # [seq_length, batch_size, num_heads, head_dim]
+            attn_output = attn_output.view(
+                L, B, -1
+            )  # [seq_length, batch_size, embedding_dim]
+            attn_output = attn_output.permute(
+                1, 0, 2
+            )  # [batch_size, seq_length, embedding_dim]
+            x = self.proj(attn_output)
+
+        return x
+
+
+class Block(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int,
+        mlp_ratio: int = 4,
+        drop_path: float = 0.0,
+        patch_n: int = 32,
+        using_checkpoint=False,
+    ):
+        super().__init__()
+        self.using_checkpoint = using_checkpoint
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+        self.attn = Attention(dim, num_heads)
+        if drop_path > 0:
+            self.drop_path = DropPath(drop_path)
+        else:
+            self.drop_path = nn.Identity()
+        self.mlp = Mlp(dim, dim * mlp_ratio)
+        self.extra_gflops = (
+            num_heads * patch_n * (dim // num_heads) * patch_n * 2
+        ) / (1000**3)
+
+    def forward_impl(self, x):
+        device_type = x.device.type
+        with torch.amp.autocast(
+            device_type=device_type, enabled=True
+        ):
+            x = x + self.drop_path(self.attn(self.norm1(x)))
+            x = x + self.drop_path(self.mlp(self.norm2(x)))
+        return x
+
+    def forward(self, x):
+        return self.forward_impl(x)
+
+
+class VisionTransformer(nn.Module):
+    def __init__(
+        self,
+        input_size=224,
+        patch_size=32,
+        in_channels=3,
+        dim=768,
+        embedding_size=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        drop_path_rate=0.0,
+        using_checkpoint=True,
+    ):
+        super().__init__()
+        self.dim = dim
+        self.patch_embed = PatchEmbedding(
+            input_size,
+            patch_size,
+            in_channels,
+            dim,
+        )
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, self.patch_embed.num_patches, dim)
+        )
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, depth)
+        ]
+
+        self.blocks = nn.ModuleList(
+            [
+                Block(
+                    dim,
+                    num_heads,
+                    mlp_ratio,
+                    dpr[i],
+                    self.patch_embed.num_patches,
+                    using_checkpoint,
+                )
+                for i in range(depth)
+            ]
+        )
+        self.norm = nn.LayerNorm(dim)
+
+        self.feature = nn.Sequential(
+            nn.Linear(dim * self.patch_embed.num_patches, dim, False),
+            nn.BatchNorm1d(dim, eps=2e-5),
+            nn.Linear(dim, embedding_size, False),
+            nn.BatchNorm1d(embedding_size, eps=2e-5),
+        )
+
+        trunc_normal_(self.pos_embed, std=0.02)
+        self.apply(self._init_weights)
+        self.extra_gflops = 0.0
+        for _block in self.blocks:
+            self.extra_gflops += _block.extra_gflops
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=0.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    def forward_features(self, x):
+        B = x.shape[0]
+        x = self.patch_embed(x)
+        x = x + self.pos_embed
+        for func in self.blocks:
+            x = func(x)
+        x = self.norm(x.float())
+        return torch.reshape(
+            x, (B, self.patch_embed.num_patches * self.dim)
+        )
+
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.feature(x)
+        return x
+
+
+logger = logging.getLogger(__name__)
+
 UNICOM_MODEL_NAME = "ViT-L/14@336px"
-MAX_UNICOM_RESOLUTION = 336
 EMBED_DIM = 768
-KNOWN_MISSING_KEYS = frozenset(
-    {
-        "backbone.cls_token",
-        "backbone.norm_pre.weight",
-        "backbone.norm_pre.bias",
-    }
-)
-KNOWN_UNEXPECTED_KEYS = frozenset(
-    {
-        "backbone.patch_embed.proj.bias",
-    }
-)
+
 UNICOM_MODELS = {
     "ViT-L/14@336px": {
         "url": "https://github.com/deepglint/unicom/releases/download/l14_336px/FP16-ViT-L-14-336px.pt",
@@ -39,102 +251,14 @@ UNICOM_MODELS = {
 }
 
 
-class UnicomViT(nn.Module):
-    """ViT-L/14@336px backbone + UNICOM's feature projection head."""
-
-    _PATCH_TOKENS = 576  # 24x24 patches at 336px / 14px patch size
-    _BACKBONE_DIM = 1024  # ViT-L hidden dim
-    _EMBED_DIM = EMBED_DIM  # UNICOM embedding dimension
-
-    def __init__(self):
-        super().__init__()
-        self.backbone = timm.create_model(
-            "vit_large_patch14_clip_336.openai",
-            pretrained=False,
-            num_classes=0,
-            global_pool="",  # return full sequence [B, 577, 1024]
-        )
-        self.feature = nn.Sequential(
-            nn.Linear(
-                self._PATCH_TOKENS * self._BACKBONE_DIM,
-                self._BACKBONE_DIM,
-                bias=False,
-            ),
-            nn.BatchNorm1d(self._BACKBONE_DIM),
-            nn.Linear(
-                self._BACKBONE_DIM, self._EMBED_DIM, bias=False
-            ),
-            nn.BatchNorm1d(self._EMBED_DIM),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.backbone(x)  # [B, 577, 1024]
-        x = x[:, 1:, :]  # [B, 576, 1024] — drop CLS token
-        x = x.flatten(1)  # [B, 589824]
-        x = self.feature(x)  # [B, 768]
-        return x
-
-    @classmethod
-    def from_checkpoint(
-        cls, model_path: Path, device: str
-    ) -> "UnicomViT":
-        """Build the model and load weights from a verified checkpoint."""
-        model = cls()
-
-        state_dict = torch.load(
-            model_path, map_location="cpu", weights_only=True
-        )
-        state_dict = {k: v.float() for k, v in state_dict.items()}
-
-        # Remap keys: feature.* stays, all others get backbone. prefix
-        remapped = {
-            k if k.startswith("feature.") else f"backbone.{k}": v
-            for k, v in state_dict.items()
-        }
-
-        # Fix pos_embed: prepend CLS position [1,576,1024] -> [1,577,1024]
-        if "backbone.pos_embed" in remapped:
-            cls_pos = model.backbone.pos_embed[:, :1, :]
-            remapped["backbone.pos_embed"] = torch.cat(
-                [cls_pos, remapped["backbone.pos_embed"]], dim=1
-            )
-
-        missing, unexpected = model.load_state_dict(
-            remapped, strict=False
-        )
-
-        # Warn only on genuinely unexpected mismatches
-        unknown_missing = [
-            k
-            for k in missing
-            if k not in KNOWN_MISSING_KEYS
-            and not k.endswith("attn.qkv.bias")
-        ]
-        unknown_extra = [
-            k for k in unexpected if k not in KNOWN_UNEXPECTED_KEYS
-        ]
-
-        if unknown_missing:
-            logger.warning(
-                f"Unexpected missing keys: {unknown_missing}"
-            )
-        if unknown_extra:
-            logger.warning(f"Unexpected extra keys: {unknown_extra}")
-
-        logger.debug(
-            f"Suppressed {len(missing) - len(unknown_missing)} known missing keys."
-        )
-        logger.debug(
-            f"Suppressed {len(unexpected) - len(unknown_extra)} known unexpected keys."
-        )
-
-        return model.to(device).eval()
-
-
 class UnicomModel:
     def __init__(self, model=None, transform=None):
         self.model = model
         self.transform = transform
+
+    @staticmethod
+    def _convert_image_to_rgb(image):
+        return image.convert("RGB")
 
     @classmethod
     def load_model(cls):
@@ -144,21 +268,43 @@ class UnicomModel:
             model_info = UNICOM_MODELS[UNICOM_MODEL_NAME]
             model_path = cls._ensure_model_downloaded(model_info)
 
-            model = UnicomViT.from_checkpoint(model_path, config.device)
-            transform = transforms.Compose(
-                [
-                    transforms.Resize(
-                        MAX_UNICOM_RESOLUTION,
-                        interpolation=transforms.InterpolationMode.BICUBIC,
-                    ),
-                    transforms.CenterCrop(MAX_UNICOM_RESOLUTION),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=(0.48145466, 0.4578275, 0.40821073),
-                        std=(0.26862954, 0.26130258, 0.27577711),
-                    ),
-                ]
+            # 1. Build the exact original architecture inline
+            model = VisionTransformer(
+                input_size=336,
+                patch_size=14,
+                in_channels=3,
+                dim=1024,
+                embedding_size=768,
+                depth=24,
+                num_heads=16,
+                drop_path_rate=0.1,
+                using_checkpoint=False,
             )
+
+            # 2. Load the checkpoint safely
+            state_dict = torch.load(
+                model_path, map_location="cpu", weights_only=True
+            )
+            
+            # 3. Convert FP16 checkpoint weights to FP32
+            state_dict_fp32 = {k: v.float() for k, v in state_dict.items()}
+
+            # 4. Load weights directly (no key remapping needed!)
+            model.load_state_dict(state_dict_fp32, strict=True)
+            model = model.to(config.device).eval()
+
+            # 5. Build the transform explicitly inline
+            transform = transforms.Compose([
+                transforms.Resize(336, interpolation=transforms.InterpolationMode.BICUBIC),
+                transforms.CenterCrop(336),
+                cls._convert_image_to_rgb,
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=(0.48145466, 0.4578275, 0.40821073),
+                    std=(0.26862954, 0.26130258, 0.27577711),
+                ),
+            ])
+
             logger.info(
                 f"UNICOM model and transform loaded and moved to {config.device} successfully"
             )
@@ -211,8 +357,8 @@ class UnicomModel:
 
 def get_unicom_ndims() -> int:
     """Get the dimensions of the UNICOM model's image embeddings."""
-    # Return the pre-defined EMBED_DIM to avoid loading the model during import
     return EMBED_DIM
+
 
 
 class UnicomImageEmbedder:
@@ -231,7 +377,6 @@ class UnicomImageEmbedder:
             return None
         try:
             image = Image.open(image_path).convert("RGB")
-            image = self._resize_image(image)
             return self.get_embedding(image)
         except Exception as e:
             self.logger.error(
@@ -247,7 +392,6 @@ class UnicomImageEmbedder:
             return None
         try:
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            image = self._resize_image(image)
             return self.get_embedding(image)
         except Exception as e:
             self.logger.error(
@@ -264,7 +408,6 @@ class UnicomImageEmbedder:
             self.logger.error("UNICOM model not available for image embedding.")
             return []
         try:
-            images = [self._resize_image(img) for img in images]
             inputs = torch.stack(
                 [self.transform(img) for img in images]
             ).to(self.device)
@@ -296,13 +439,3 @@ class UnicomImageEmbedder:
                 f"Could not process image: {e}", exc_info=True
             )
             return None
-
-    def _resize_image(self, image: PILImage) -> PILImage:
-        """Resize image to fit within MAX_UNICOM_RESOLUTION while maintaining aspect ratio."""
-        max_dimension = max(image.size)
-        if max_dimension > MAX_UNICOM_RESOLUTION:
-            image.thumbnail(
-                (MAX_UNICOM_RESOLUTION, MAX_UNICOM_RESOLUTION),
-                Image.LANCZOS,
-            )
-        return image
