@@ -1,7 +1,8 @@
 export interface MlResultItems {
   imgId: string;
   species: string;
-  score: number;
+  score?: number;
+  distance?: number;
 }
 
 async function searchSemantic(query: string): Promise<MlResultItems[]> {
@@ -48,8 +49,8 @@ async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
     return results.map((item: any) => ({
       imgId: item.imgId,
       species: item.species,
-      // Convert distance to similarity score (assuming distance is between 0 and 1)
-      score: item.distance,
+      // Pass the raw metric correctly as distance instead of arbitrarily casting to a similarity score
+      distance: item.distance,
     }));
   } catch (error) {
     console.error("Error uploading image:", error);

@@ -14,10 +14,20 @@ import { MlResultItems } from "@/lib/ml_search";
 
 // Image size matching the backend resizing
 const IMAGE_SIZE = 128;
+
 // Compute match percent from a 0..1 normalized score provided by the backend agent
+// Use for semantic search that returns normalized scores.
 function computeMatchPercent(score: number) {
   return Math.max(0, Math.min(100, Math.round(score * 100)));
 }
+
+// Compute match percent inversely from a raw Euclidean/Cosine distance (0.0 = perfect match, 1.0+ = irrelevant)
+// Use for image search that returns cosine distances.
+function computeDistancePercent(distance: number) {
+  const similarity = Math.max(0, 1 - distance);
+  return Math.max(0, Math.min(100, Math.round(similarity * 100)));
+}
+
 // Reusable component for displaying a species card (similar to GenusSpeciesClient)
 function MLSearchResultCard({ data }: { data: MlResultItems }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -39,9 +49,6 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   }, [data.imgId]);
 
   const speciesName = cleanSpeciesName(data.species);
-
-  // Format similarity (0..1) as a percentage for display (now uses `score`)
-  const matchPercent = computeMatchPercent(data.score);
 
   // Return Tailwind classes for a colored pill (bg + text) with dark-mode variants
   const getMatchPillClass = (pct: number) => {
@@ -82,11 +89,24 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
             {speciesName}
           </h2>
 
-          <p className="text-xs text-gray-500 w-full">
-            <span className={getMatchPillClass(matchPercent)}>
-              Match: {matchPercent}%
-            </span>
-          </p>
+          <div className="flex flex-col gap-1 items-center w-full">
+            {data.score !== undefined && (
+              <span
+                className={getMatchPillClass(computeMatchPercent(data.score))}
+              >
+                Match: {computeMatchPercent(data.score)}%
+              </span>
+            )}
+            {data.distance !== undefined && (
+              <span
+                className={getMatchPillClass(
+                  computeDistancePercent(data.distance),
+                )}
+              >
+                Match: {computeDistancePercent(data.distance)}%
+              </span>
+            )}
+          </div>
         </Link>
       )}
     </div>
@@ -127,8 +147,6 @@ function TopResultCard({ data }: { data: MlResultItems }) {
 
   if (!data) return null;
 
-  const matchPercent = computeMatchPercent(data.score);
-
   const getMatchPillClass = (pct: number) => {
     const base =
       "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
@@ -147,9 +165,18 @@ function TopResultCard({ data }: { data: MlResultItems }) {
     <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50 min-w-4xl">
       <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl flex items-center gap-3">
         <h2 className="text-lg font-semibold p-1">Top Result</h2>
-        <span className={getMatchPillClass(matchPercent)}>
-          Match: {matchPercent}%
-        </span>
+        {data.score !== undefined && (
+          <span className={getMatchPillClass(computeMatchPercent(data.score))}>
+            Match: {computeMatchPercent(data.score)}%
+          </span>
+        )}
+        {data.distance !== undefined && (
+          <span
+            className={getMatchPillClass(computeDistancePercent(data.distance))}
+          >
+            Match: {computeDistancePercent(data.distance)}%
+          </span>
+        )}
       </div>
 
       <div className="p-4">

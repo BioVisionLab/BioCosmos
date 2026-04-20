@@ -17,7 +17,6 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
       setError(null);
       try {
         const data = new FormData();
-        // We convert imageBlob to File object
         const response = await fetch(imageUrl);
         const imageBlob = await response.blob();
         const file = new File([imageBlob], "search-image", {

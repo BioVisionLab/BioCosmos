@@ -16,6 +16,18 @@ from ..configs.config import EmbedderConfig
 
 logger = logging.getLogger(__name__)
 
+UNICOM_MODEL_NAME = "ViT-L/14@336px"
+EMBED_DIM = 768
+
+UNICOM_MODELS = {
+    "ViT-L/14@336px": {
+        "url": "https://github.com/deepglint/unicom/releases/download/l14_336px/FP16-ViT-L-14-336px.pt",
+        "filename": "FP16-ViT-L-14-336px.pt",
+        "sha256": "3916ab5aed3b522fc90345be8b4457fe5dad60801ad2af5a6871c0c096e8d7ea",
+    }
+}
+
+
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks)."""
     def __init__(self, drop_prob: float = 0., scale_by_keep: bool = True):
@@ -237,20 +249,6 @@ class VisionTransformer(nn.Module):
         return x
 
 
-logger = logging.getLogger(__name__)
-
-UNICOM_MODEL_NAME = "ViT-L/14@336px"
-EMBED_DIM = 768
-
-UNICOM_MODELS = {
-    "ViT-L/14@336px": {
-        "url": "https://github.com/deepglint/unicom/releases/download/l14_336px/FP16-ViT-L-14-336px.pt",
-        "filename": "FP16-ViT-L-14-336px.pt",
-        "sha256": "3916ab5aed3b522fc90345be8b4457fe5dad60801ad2af5a6871c0c096e8d7ea",
-    }
-}
-
-
 class UnicomModel:
     def __init__(self, model=None, transform=None):
         self.model = model
@@ -358,7 +356,6 @@ class UnicomModel:
 def get_unicom_ndims() -> int:
     """Get the dimensions of the UNICOM model's image embeddings."""
     return EMBED_DIM
-
 
 
 class UnicomImageEmbedder:

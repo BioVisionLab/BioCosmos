@@ -41,7 +41,6 @@ function SemanticSearchResults({ query }: { query: string }) {
     setLoading(true);
     setResults([]);
 
-    // Utilize Next.js app router for seamless single-page client transitions
     const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
     router.push(newUrl);
   };
