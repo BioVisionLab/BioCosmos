@@ -2,6 +2,7 @@ import logging
 
 import duckdb
 import polars as pl
+import threading
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
@@ -30,6 +31,7 @@ class DuckDBClient:
         # Init fts
         self.conn.sql("INSTALL fts;")
         self.conn.sql("LOAD fts;")
+        self.lock = threading.RLock()
         logger.info(f"DuckDB connected at {db_path}")
 
     def index_table(
@@ -144,11 +146,12 @@ class DuckDBClient:
                 LIMIT {limit}
             """
 
-        self.conn.execute("SET scalar_subquery_error_on_multiple_rows = false")
-        try:
-            df = self.conn.sql(sql).pl()
-        finally:
-            self.conn.execute("SET scalar_subquery_error_on_multiple_rows = true")
+        with self.lock:
+            self.conn.execute("SET scalar_subquery_error_on_multiple_rows = false")
+            try:
+                df = self.conn.sql(sql).pl()
+            finally:
+                self.conn.execute("SET scalar_subquery_error_on_multiple_rows = true")
 
         # Tokenize the original query (not the escaped version) to mimic BM25
         # token matching when deriving matched_fields in Python
@@ -187,7 +190,8 @@ class DuckDBClient:
             name (str): The name of the table.
             df (pl.DataFrame): The Polars DataFrame to register.
         """
-        self.conn.register(name, df)
+        with self.lock:
+            self.conn.register(name, df)
         logger.info(f"DataFrame registered as table '{name}'.")
 
     def unregister(self, name: str):
@@ -195,7 +199,8 @@ class DuckDBClient:
         Args:
             name (str): The name of the table to unregister.
         """
-        self.conn.unregister(name)
+        with self.lock:
+            self.conn.unregister(name)
         logger.info(f"Table '{name}' unregistered.")
 
     def execute(self, query: str):
@@ -205,7 +210,8 @@ class DuckDBClient:
         Returns:
             duckdb.DuckDBPyRelation: The result of the query.
         """
-        return self.conn.execute(query)
+        with self.lock:
+            return self.conn.execute(query)
 
     def execute_query(self, query: str, params: str):
         """Execute a SQL query with parameters.
@@ -215,7 +221,8 @@ class DuckDBClient:
         Returns:
             duckdb.DuckDBPyRelation: The result of the query.
         """
-        return self.conn.execute(query, [params])
+        with self.lock:
+            return self.conn.execute(query, [params])
 
     def execute_prepared(self, query: str, params: list):
         """Execute a prepared SQL query with parameters.
@@ -225,7 +232,8 @@ class DuckDBClient:
         Returns:
             duckdb.DuckDBPyRelation: The result of the query.
         """
-        return self.conn.execute(query, params)
+        with self.lock:
+            return self.conn.execute(query, params)
 
     def execute_prepared_to_pl(self, query: str, params: list) -> pl.DataFrame:
         """Execute a prepared SQL query with parameters and return the result as a Polars DataFrame.
@@ -235,7 +243,8 @@ class DuckDBClient:
         Returns:
             pl.DataFrame: The result of the query as a Polars DataFrame.
         """
-        return self.conn.execute(query, params).pl()
+        with self.lock:
+            return self.conn.execute(query, params).pl()
 
     def create_or_replace_table_csv(self, table_name: str, csv_path: str):
         """Create or replace a table from a CSV file.

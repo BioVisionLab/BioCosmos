@@ -1,5 +1,15 @@
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'lineColor': '#64748b', 'fontFamily': 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}}%%
+%%{init: {
+  'theme': 'base', 
+  'themeVariables': { 
+    'primaryColor': '#ffffff', 
+    'lineColor': '#64748b', 
+    'fontFamily': 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    'subgraphPadding': 25,
+    'rankSpacing': 100,
+    'nodeSpacing': 50
+  }
+}}%%
 flowchart TD
     classDef default fill:#fff,stroke:#cbd5e1,stroke-width:2px,color:#334155,rx:8px,ry:8px;
     classDef agent fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e3a8a,rx:8px,ry:8px;
@@ -44,7 +54,7 @@ flowchart TD
         
         Restrict --> F_Loc & F_Trait
         F_Loc & F_Trait --> DB2
-        DB2 --> Intersect["Soft-Union Species Sets<br/><small>(Soft Filter via Deduplication)</small>"]:::default
+        DB2 --> Intersect["Strict-Intersection Species Sets<br/><small>(Hard Filter via Sets)</small>"]:::default
     end
 
     CheckFilter -- Yes --> RankContext{"Uses Phase 1<br/>Allowlist?"}:::decision

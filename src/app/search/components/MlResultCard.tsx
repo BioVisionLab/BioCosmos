@@ -14,9 +14,9 @@ import { MlResultItems } from "@/lib/ml_search";
 
 // Image size matching the backend resizing
 const IMAGE_SIZE = 128;
-// Compute match percent from a 0..1 distance value using the app's scaling formula
-function computeMatchPercent(distance: number) {
-  return Math.round(50.0 + (distance - 0.501) * (50.0 / (0.999 - 0.501)));
+// Compute match percent from a 0..1 normalized score provided by the backend agent
+function computeMatchPercent(score: number) {
+  return Math.max(0, Math.min(100, Math.round(score * 100)));
 }
 // Reusable component for displaying a species card (similar to GenusSpeciesClient)
 function MLSearchResultCard({ data }: { data: MlResultItems }) {

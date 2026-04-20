@@ -195,18 +195,28 @@ class GbifPersistData:
             loc_esc = location.replace("'", "''")
             loc_upper_esc = location_upper.replace("'", "''")
 
-            conditions = [
-                f"LOWER(level0Name)      LIKE LOWER('%{loc_esc}%')",
-                f"LOWER(countryCode)     LIKE LOWER('%{loc_esc}%')",
-                f"LOWER(stateProvince)   LIKE LOWER('%{loc_esc}%')",
-                f"LOWER(level1Name)      LIKE LOWER('%{loc_esc}%')",
-                f"LOWER(locality)        LIKE LOWER('%{loc_esc}%')",
-                f"LOWER(verbatimLocality)LIKE LOWER('%{loc_esc}%')",
-                (
-                    f"(continent LIKE '%{loc_upper_esc}%' "
-                    f" OR LOWER(continent) LIKE LOWER('%{loc_esc}%'))"
-                ),
-            ]
+            if len(location) <= 3:
+                # For ISO country codes or state acronyms (e.g. 'BR', 'ID', 'TX', 'USA'), perform exact match
+                # otherwise a fuzzy LIKE '%BR%' would brutally false-match any verbatimLocality string containing "br"
+                conditions = [
+                    f"countryCode = '{location_upper}'",
+                    f"UPPER(level0Name) = '{location_upper}'",
+                    f"UPPER(stateProvince) = '{location_upper}'",
+                ]
+            else:
+                # Broad fuzzy matching for full names and regions
+                conditions = [
+                    f"LOWER(level0Name)      LIKE LOWER('%{loc_esc}%')",
+                    f"LOWER(countryCode)     LIKE LOWER('%{loc_esc}%')",
+                    f"LOWER(stateProvince)   LIKE LOWER('%{loc_esc}%')",
+                    f"LOWER(level1Name)      LIKE LOWER('%{loc_esc}%')",
+                    f"LOWER(locality)        LIKE LOWER('%{loc_esc}%')",
+                    f"LOWER(verbatimLocality)LIKE LOWER('%{loc_esc}%')",
+                    (
+                        f"(continent LIKE '%{loc_upper_esc}%' "
+                        f" OR LOWER(continent) LIKE LOWER('%{loc_esc}%'))"
+                    ),
+                ]
 
             where_clause = " OR ".join(conditions)
             

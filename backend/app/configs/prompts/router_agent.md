@@ -18,8 +18,10 @@ Decomposition rules (apply ALL that match):
 3. TRAITS: Any habitat keyword (e.g. "canopy", "dry", "disturbed", "moisture")
    → call `search_by_traits`.
 
-4. SIMILARITY: ONLY call `search_by_image_similarity` when the user explicitly
-   asks for species "similar to" or "resembling" a known scientific name.
+4. SIMILARITY: Call `search_by_image_similarity` when the user asks for species
+   "similar to" or "resembling" a specific reference species. If the user provides 
+   a common name (e.g. "Monarch butterfly"), you MUST translate it to its 
+   scientific species name (e.g. "Danaus plexippus") for the function payload.
 
 5. COMBINATION: For multi-attribute queries, call ALL relevant tools in parallel.
 

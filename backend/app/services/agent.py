@@ -168,17 +168,17 @@ class AgentSearchService:
             for c in ranking_calls:
                 c["args"]["limit"] = max(c["args"].get("limit", 200), 500)
 
-            rank_results = await asyncio.gather(
-                *[
-                    self._execute_tool(
+            rank_results = []
+            for c in ranking_calls:
+                try:
+                    res = await self._execute_tool(
                         c["name"],
                         c["args"],
-                        normalized_weights.get(c["name"], 1.0),
+                        normalized_weights.get(c["name"], 1.0)
                     )
-                    for c in ranking_calls
-                ],
-                return_exceptions=True,
-            )
+                    rank_results.append(res)
+                except Exception as e:
+                    rank_results.append(e)
 
             per_rank_species: List[set[str]] = []
             for i, result in enumerate(rank_results):
@@ -207,17 +207,17 @@ class AgentSearchService:
                 if semantic_species is not None:
                     c["args"]["species_in"] = list(semantic_species)
 
-            filter_results = await asyncio.gather(
-                *[
-                    self._execute_tool(
+            filter_results = []
+            for c in filter_calls:
+                try:
+                    res = await self._execute_tool(
                         c["name"],
                         c["args"],
-                        normalized_weights.get(c["name"], 0.0),
+                        normalized_weights.get(c["name"], 0.0)
                     )
-                    for c in filter_calls
-                ],
-                return_exceptions=True,
-            )
+                    filter_results.append(res)
+                except Exception as e:
+                    filter_results.append(e)
 
             per_tool_species: List[set[str]] = []
             cached_filter_rows: Dict[str, List[Dict]] = {}
@@ -227,7 +227,8 @@ class AgentSearchService:
                     logger.error("Filter tool '%s' raised: %s", tool_name, result)
                     continue
                 if not result:
-                    logger.warning("Filter tool '%s' returned empty result.", tool_name)
+                    logger.warning("Filter tool '%s' returned empty result. Failing constraint.", tool_name)
+                    per_tool_species.append(set())
                     continue
 
                 active_tool_names.append(tool_name)
@@ -238,9 +239,9 @@ class AgentSearchService:
 
             allowlist_species: set[str] | None = None
             if per_tool_species:
-                allowlist_species = set().union(*per_tool_species)
+                allowlist_species = set.intersection(*per_tool_species)
                 logger.info(
-                    "Filter gate applied soft union across %d filter tool(s): %d species passed",
+                    "Filter gate applied strict intersection across %d filter tool(s): %d species passed",
                     len(per_tool_species),
                     len(allowlist_species),
                 )
