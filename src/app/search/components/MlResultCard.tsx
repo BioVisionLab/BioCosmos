@@ -28,7 +28,6 @@ function computeDistancePercent(distance: number) {
   return Math.max(0, Math.min(100, Math.round(similarity * 100)));
 }
 
-// Reusable component for displaying a species card (similar to GenusSpeciesClient)
 function MLSearchResultCard({ data }: { data: MlResultItems }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,9 +49,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
 
   const speciesName = cleanSpeciesName(data.species);
 
-  // Return Tailwind classes for a colored pill (bg + text) with dark-mode variants
   const getMatchPillClass = (pct: number) => {
-    // base pill styling: small rounded pill with tight padding and monospace-ish size
     const base =
       "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium";
     if (pct < 65)
