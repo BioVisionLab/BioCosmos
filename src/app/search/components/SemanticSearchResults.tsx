@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { ImageLoading } from "@/components/Loadings";
 import { searchSemantic, MlResultItems } from "@/lib/ml_search";
 import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
@@ -32,18 +33,17 @@ function SemanticSearchResults({ query }: { query: string }) {
     fetchResults();
   }, [query]);
 
+  const router = useRouter();
+
   const handleSearch = (newQuery: string, mode: string) => {
+    if (!newQuery.trim()) return;
     setError(null);
     setLoading(true);
     setResults([]);
-    // Update the URL without refreshing the page
+
+    // Utilize Next.js app router for seamless single-page client transitions
     const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
-    window.history.pushState({}, "", newUrl);
-    // Trigger useEffect to fetch new results
-    setTimeout(() => {
-      setLoading(false);
-      window.location.reload();
-    }, 100); // Slight delay to ensure URL is updated
+    router.push(newUrl);
   };
 
   if (error) {
@@ -109,26 +109,30 @@ function MlSearchResults({
             </Suspense>
           </div>
           <div>
-            <div className="mb-4">
-              <h2
-                id="other-results"
-                className="text-lg text-gray-700 dark:text-gray-200"
-              >
-                Found {results.length} other results for "{query}"
-              </h2>
-              <Tips message="Click on an image to view species page" />
-            </div>
-            <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-              {/* Render remaining results */}
-              {results.slice(1).map((item) => (
-                <Suspense
-                  key={item.imgId}
-                  fallback={<div>Loading species...</div>}
-                >
-                  <MLSearchResultCard data={item} />
-                </Suspense>
-              ))}
-            </div>
+            {results.length > 1 && (
+              <>
+                <div className="mb-4">
+                  <h2
+                    id="other-results"
+                    className="text-lg text-gray-700 dark:text-gray-200"
+                  >
+                    Found {results.length - 1} other results for "{query}"
+                  </h2>
+                  <Tips message="Click on an image to view species page" />
+                </div>
+                <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
+                  {/* Render remaining results */}
+                  {results.slice(1).map((item) => (
+                    <Suspense
+                      key={item.imgId}
+                      fallback={<div>Loading species...</div>}
+                    >
+                      <MLSearchResultCard data={item} />
+                    </Suspense>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

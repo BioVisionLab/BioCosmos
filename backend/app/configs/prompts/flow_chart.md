@@ -24,7 +24,7 @@ flowchart TD
     LLM --> CheckTools{"Any Tools<br/>Called?"}:::decision
     CheckTools -- No --> EmptyResult([❌ Empty DataFrame]):::final
     
-    CheckTools -- Yes --> Categorize["Categorize Selected Tools<br/>Assign Base Weights (1.0 / N)"]:::default
+    CheckTools -- Yes --> Categorize["Categorize Selected Tools<br/>Assign Base Weights (1.0 / N tools)"]:::default
     Categorize --> CheckRank{"Ranking Tools<br/>Selected?"}:::decision
 
     subgraph P1 [Phase 1: Semantic Vector RANK]
