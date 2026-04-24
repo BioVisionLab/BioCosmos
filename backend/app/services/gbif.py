@@ -110,6 +110,26 @@ class GbifPersistData:
             logger.error(f"Failed to count unique species in GBIF metadata table: {e}")
             return None
 
+    def count_unique_families(self) -> int | None:
+        try:
+            query = f"SELECT COUNT(DISTINCT family) FROM {self.table_name}"
+            result = self.db_client.execute(query).fetchone()[0]
+            logger.info(f"Counted {result} unique families in GBIF metadata table.")
+            return result if result else None
+        except Exception as e:
+            logger.error(f"Failed to count unique families in GBIF metadata table: {e}")
+            return None
+
+    def count_unique_genus(self) -> int | None:
+        try:
+            query = f"SELECT COUNT(DISTINCT genus) FROM {self.table_name}"
+            result = self.db_client.execute(query).fetchone()[0]
+            logger.info(f"Counted {result} unique genus in GBIF metadata table.")
+            return result if result else None
+        except Exception as e:
+            logger.error(f"Failed to count unique genus in GBIF metadata table: {e}")
+            return None
+
     def get(self, species_name: str) -> dict | None:
         """
         Fetch GBIF data for a given species name.

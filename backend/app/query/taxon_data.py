@@ -21,6 +21,8 @@ class TaxonStatPayload(BaseModel):
     lepTraitsEntries: int
     imageEntries: int
     gbifSpeciesCount: int
+    gbifFamilyCount: int
+    gbifGenusCount: int
 
     @classmethod
     def from_data(
@@ -29,6 +31,8 @@ class TaxonStatPayload(BaseModel):
         lep_traits_entries: int | None,
         image_entries: int | None,
         gbif_species_count: int | None,
+        gbif_family_count: int | None,
+        gbif_genus_count: int | None,
     ):
         """
         Create a TaxonStatPayload instance from the provided data.
@@ -36,21 +40,21 @@ class TaxonStatPayload(BaseModel):
         Args:
             gbif_entries (int): The number of entries in the GBIF data table.
             lep_traits_entries (int): The number of entries in the Leptraits.
-            image_entries (int): The number of image entries
-            gbif_species_count (int): The number of unique GBIF species in the occurrence
+            image_entries (int): The number of image entries.
+            gbif_species_count (int): The number of unique GBIF species.
+            gbif_family_count (int): The number of unique GBIF families.
+            gbif_genus_count (int): The number of unique GBIF genus.
 
         Returns:
             TaxonStatPayload: An instance of TaxonStatPayload.
         """
         return cls(
             gbifEntries=gbif_entries if gbif_entries is not None else 0,
-            lepTraitsEntries=lep_traits_entries
-            if lep_traits_entries is not None
-            else 0,
+            lepTraitsEntries=lep_traits_entries if lep_traits_entries is not None else 0,
             imageEntries=image_entries if image_entries is not None else 0,
-            gbifSpeciesCount=gbif_species_count
-            if gbif_species_count is not None
-            else 0,
+            gbifSpeciesCount=gbif_species_count if gbif_species_count is not None else 0,
+            gbifFamilyCount=gbif_family_count if gbif_family_count is not None else 0,
+            gbifGenusCount=gbif_genus_count if gbif_genus_count is not None else 0,
         )
 
 
@@ -291,6 +295,8 @@ class TaxonSearch:
             count_leptrait: int | None = leptraits_service.count_entries()
             count_img: int | None = img_service.entries()
             count_unique_species: int | None = gbif_service.count_unique_species()
+            count_unique_families: int | None = gbif_service.count_unique_families()
+            count_unique_genus: int | None = gbif_service.count_unique_genus()
 
             if (
                 counts_gbif is None
@@ -307,6 +313,8 @@ class TaxonSearch:
                 lep_traits_entries=count_leptrait,
                 image_entries=count_img,
                 gbif_species_count=count_unique_species,
+                gbif_family_count=count_unique_families,
+                gbif_genus_count=count_unique_genus,
             )
             return payload.model_dump()
         except Exception as e:
