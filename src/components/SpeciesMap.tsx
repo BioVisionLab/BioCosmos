@@ -57,12 +57,18 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
 
   if (!isMounted) {
     return (
-      <div style={{ height: "400px", width: "100%", borderRadius: "12px" }} />
+      <div
+        className={isDarkTheme ? "umap-dark-map" : ""}
+        style={{ height: "400px", width: "100%", borderRadius: "12px" }}
+      />
     );
   }
 
   return (
-    <div style={{ height: "400px", width: "100%" }}>
+    <div
+      className={isDarkTheme ? "umap-dark-map" : ""}
+      style={{ height: "400px", width: "100%" }}
+    >
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -74,6 +80,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
         <TileLayer
           key={isDarkTheme ? "dark" : "light"}
           url={tileUrl}
+          className={isDarkTheme ? "umap-site-tiles" : undefined}
           attribution='&copy; Stadia Maps, &copy; OpenMapTiles &copy; OpenStreetMap contributors'
         />
 
