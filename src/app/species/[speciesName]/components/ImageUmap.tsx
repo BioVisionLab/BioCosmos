@@ -70,7 +70,7 @@ function ImageUmap({ species }: { species: string }) {
 
   if (error) {
     return (
-      <div className="text-red-500 p-4 border border-red-300 rounded">
+      <div className="text-red-500 p-4 border border-red-300 rounded-xl">
         Error: {error}
       </div>
     );
@@ -350,13 +350,13 @@ function UmapTooltipImage({
   }
 
   return (
-    <div className="p-2 border border-emerald-500 bg-gray-200 dark:bg-gray-700 rounded-lg shadow">
+    <div className="p-2 border border-emerald-500 bg-gray-200 dark:bg-gray-700 rounded-xl shadow">
       <Image
         src={imgUrl}
         alt={`Specimen ${imgId}`}
         width={80}
         height={80}
-        className="rounded border"
+        className="rounded-xl border"
       />
       <p className="mt-2 text-center text-sm text-gray-200 dark:text-gray-400">
         Cluster {cluster}

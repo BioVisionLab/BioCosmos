@@ -78,17 +78,52 @@ function MapRecenter({
   const map = useMap();
 
   useEffect(() => {
-    // 1. Handle coordinates/zoom updates
-    map.setView(center, zoom);
+    let isCancelled = false;
+    let timer: number | undefined;
 
-    // 2. Fix the "Tab Switch" gray map issue
-    // We use a tiny timeout to ensure the tab's transition/animation
-    // has finished and the container actually has its new width/height.
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
+    const syncMapView = () => {
+      if (isCancelled) {
+        return;
+      }
 
-    return () => clearTimeout(timer);
+      const container = map.getContainer();
+      if (!container || !container.isConnected) {
+        return;
+      }
+
+      try {
+        map.setView(center, zoom, { animate: false });
+      } catch {
+        return;
+      }
+
+      // Delay invalidateSize slightly to avoid gray tiles during tab transitions.
+      timer = window.setTimeout(() => {
+        if (isCancelled) {
+          return;
+        }
+
+        const activeContainer = map.getContainer();
+        if (!activeContainer || !activeContainer.isConnected) {
+          return;
+        }
+
+        try {
+          map.invalidateSize();
+        } catch {
+          // Ignore transient errors during rapid mount/unmount cycles.
+        }
+      }, 100);
+    };
+
+    map.whenReady(syncMapView);
+
+    return () => {
+      isCancelled = true;
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
   }, [center, zoom, map]);
 
   return null;

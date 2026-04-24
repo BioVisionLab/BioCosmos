@@ -18,7 +18,7 @@ const SpeciesDistribution = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+      <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
         <NoData text="Loading map..." />
       </div>
     ),
