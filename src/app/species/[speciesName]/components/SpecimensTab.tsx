@@ -983,7 +983,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                     key={id ?? String(idOrPlaceholder)}
                     onClick={() => (id ? openFull(id) : undefined)}
                     title={id ? "Open full image" : undefined}
-                    className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
+                    className="relative w-full aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
                   >
                     {cached ? (
                       <>
@@ -1043,7 +1043,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                   key={id ?? String(idOrPlaceholder)}
                   onClick={() => (id ? openFull(id) : undefined)}
                   title={id ? "Open full image" : undefined}
-                  className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
+                  className="relative w-full aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-teal-600"
                 >
                   {cached ? (
                     // render the image but keep a placeholder overlay until it loads
@@ -1148,7 +1148,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             </button>
 
             {/* Formatting of pop-out image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
-            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-lg p-4 w-full h-full flex-1 flex items-center justify-center relative">
+            <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-xl p-4 w-full h-full flex-1 flex items-center justify-center relative">
               {/* left nav (aligned to image) */}
               <button
                 onClick={() => (modalIndex != null ? navigateModalTo(modalIndex - 1) : null)}
@@ -1191,7 +1191,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                 <img
                   src={modalImageUrl}
                   alt="Full size specimen"
-                  className="max-h-full max-w-full object-contain rounded-lg"
+                  className="max-h-full max-w-full object-contain rounded-xl"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-700">
@@ -1236,7 +1236,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             {/* Metadata box below the image */}
             {(modalMeta || modalMetaLoading) && (
               <div className="mt-2 w-fit mx-auto">
-                <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-2xl p-4 text-xs text-gray-800 dark:text-white">
+                <div className="bg-gray-100 dark:bg-gray-900 border border-gray-500 dark:border-gray-600 rounded-xl p-4 text-xs text-gray-800 dark:text-white">
                   <div className="flex flex-col gap-2">
                     {modalMetaLoading ? (
                       <div className="text-center text-sm text-gray-500">Loading metadata…</div>

@@ -81,8 +81,8 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
   }, [prevImageIds, nextImageIds]);
 
   return (
-    <div className="p-5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-800 dark:text-white leading-4">
-      <h3 className="text-lg font-semibold mb-2">Image Metadata</h3>
+    <div className="p-5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-700 dark:text-gray-400 leading-3.5">
+      <h3 className="text-base font-semibold mb-2">Image Metadata</h3>
       <div className="flex flex-col gap-1">
         {loading ? (
           <div className="text-center text-sm text-gray-500">Loading metadata…</div>
@@ -93,8 +93,8 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
               {/* Left column: View, Source DB, Coordinates */}
               <div className="flex items-center min-w-0">
-                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">View:</span>
-                <span className="ml-1 truncate text-gray-700 dark:text-white">
+                <span className="font-sm text-gray-700 dark:text-gray-400 whitespace-nowrap">View:</span>
+                <span className="ml-1 truncate text-gray-700 dark:text-gray-400">
                   {meta.class_dv ? (typeof meta.class_dv === 'string' ? meta.class_dv.charAt(0).toUpperCase() + meta.class_dv.slice(1) : meta.class_dv) : "—"}
                 </span>
               </div>
@@ -104,7 +104,7 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
                     href={meta.uri}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 text-emerald-700 dark:text-emerald-300 underline truncate"
+                    className="ml-1 font-sm text-gray-700 dark:text-gray-400 underline truncate"
                     aria-label="Open image link"
                   >
                     Image Link
@@ -113,12 +113,12 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
               </div>
 
               <div className="flex items-center min-w-0">
-                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Source DB:</span>
+                <span className="font-sm text-gray-700 dark:text-gray-400 whitespace-nowrap">Source DB:</span>
                 <a
                   href={getSourceDbHref(meta.uuid)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1 truncate text-emerald-700 dark:text-emerald-300 underline"
+                  className="ml-1 font-sm text-gray-700 dark:text-gray-400 underline truncate"
                   aria-label="Open source database link"
                 >
                   {meta.source_db
@@ -132,7 +132,7 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
                     href={meta.license}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 text-emerald-700 dark:text-emerald-300 underline truncate"
+                    className="ml-1 font-sm text-gray-700 dark:text-gray-400 underline truncate"
                     aria-label="Open license"
                   >
                     License
@@ -143,8 +143,8 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
               </div>
 
               <div className="flex items-center min-w-0">
-                <span className="font-medium text-emerald-700 dark:text-emerald-500 whitespace-nowrap">Coordinates:</span>
-                <span className="ml-1 truncate text-gray-700 dark:text-white">
+                <span className="font-sm text-gray-700 dark:text-gray-400 whitespace-nowrap">Coordinates:</span>
+                <span className="ml-1 truncate text-gray-700 dark:text-gray-400">
                   {(meta.lat || meta.lon) ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}` : "—"}
                 </span>
               </div>

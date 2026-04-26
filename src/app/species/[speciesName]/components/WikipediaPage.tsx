@@ -133,7 +133,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         .wiki-container img { max-width: 100%; height: auto; }
       `}</style>
 
-      <div className="rounded-2xl p-6">
+      <div className="rounded-xl p-6">
         {isLoading && (
           <div className="text-center p-10 rounded-xl">
             <p className="text-xl text-slate-600 dark:text-emerald-100">
@@ -147,7 +147,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         {!isLoading && !error && parsedContent.length > 0 && (
           <>
             <div
-              className={`font-sans rounded-2xl p-6 shadow-lg backdrop-blur-sm
+              className={`font-sans rounded-xl p-6 shadow-lg backdrop-blur-sm
                 bg-white/80 text-slate-800 border border-slate-200
                 dark:bg-gradient-to-tr dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 dark:text-emerald-100 dark:border-slate-700`}
             >
@@ -185,7 +185,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                           </div>
                         )}
                         {item.type === "taxonIdentifier" && (
-                          <div className="rounded-2xl">
+                          <div className="rounded-xl">
                             <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
                               Taxon Identifier
                             </h3>

@@ -25,7 +25,7 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
     <div>
       <h2 className="text-2xl font-semibold mb-1">Distribution Map</h2>
       {loading ? (
-        <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+        <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
           <TextLoading msg="Fetching GBIF occurrence data" />
         </div>
       ) : (
