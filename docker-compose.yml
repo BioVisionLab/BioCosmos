@@ -1,5 +1,8 @@
+name: biocosmos-lite
+
 services:
   backend:
+    container_name: biocosmos-backend-lite
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -15,6 +18,7 @@ services:
       - ./public/images:/app/images
 
   frontend:
+    container_name: biocosmos-frontend-lite
     build:
       context: .
       dockerfile: Dockerfile.frontend
