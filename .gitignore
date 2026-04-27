@@ -51,6 +51,7 @@ target/
 chroma_db/
 duck_db/
 lance_db/
+lance_db_lite/
 biocosmos.duckdb
 biocosmos.lance
 
