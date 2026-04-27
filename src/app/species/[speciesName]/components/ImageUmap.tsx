@@ -358,10 +358,10 @@ function UmapTooltipImage({
         height={80}
         className="rounded-xl border"
       />
-      <p className="mt-2 text-center text-sm text-gray-200 dark:text-gray-400">
+      <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
         Cluster {cluster}
       </p>
-      <p className="mt-1 text-center text-sm text-gray-200 dark:text-gray-400">
+      <p className="mt-1 text-center text-sm text-gray-500 dark:text-gray-400">
         {toSentenceCase(classDv)}
       </p>
     </div>

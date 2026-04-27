@@ -1006,12 +1006,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                             isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
                           }`}
                         >
-                          <ImageLoading size={110} msg={"Images loading"} />
+                          <ImageLoading size={110} msg={"Image loading"} />
                         </div>
                       </>
                     ) : (
                       <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-sm text-gray-400 h-full">
-                        <ImageLoading size={110} msg={"Images loading"} />
+                        <ImageLoading size={110} msg={"Image loading"} />
                       </div>
                     )}
                   </button>
@@ -1161,7 +1161,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                   (modalIndex == null ||
                     (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0))
                     ? "text-gray-400 cursor-not-allowed"
-                    : "text-white bg-black/30 hover:bg-white/10"
+                    : "text-white bg-black/30 hover:bg-black/20 dark:bg-white/20 dark:hover:bg-white/10"
                 }`}
               >
                 <svg
@@ -1214,7 +1214,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                       ? modalIndex >= modalPageRange.end
                       : modalIndex >= (allIds || []).length - 1))
                     ? "text-gray-400 cursor-not-allowed"
-                    : "text-white bg-black/30 hover:bg-white/10"
+                    : "text-white bg-black/30 hover:bg-black/20 dark:bg-white/20 dark:hover:bg-white/10"
                 }`}
               >
                 <svg
