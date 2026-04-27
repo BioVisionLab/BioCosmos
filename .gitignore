@@ -58,3 +58,6 @@ biocosmos.lance
 /backend/static/thumbnails/
 /backend/static/tiles/
 /backend/static/images/
+
+# backend data files (parquet, tsv, csv)
+backend/data/

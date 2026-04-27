@@ -5,6 +5,14 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:80"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/duck_db:/app/duck_db
+      - ./backend/lance_db:/app/lance_db
+      - ./backend/data:/app/data
+      - ./backend/static:/app/static
+      - ./public/images:/app/images
 
   frontend:
     build:
@@ -12,5 +20,7 @@ services:
       dockerfile: Dockerfile.frontend
     ports:
       - "3000:3000"
+    environment:
+      - API_HOST=http://backend:80
     depends_on:
       - backend

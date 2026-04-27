@@ -63,7 +63,7 @@ class SpeciesPayload(BaseModel):
 
     speciesId: str
     taxonomy: dict
-    traits: dict
+    traits: dict | None = None
 
     @classmethod
     def from_data(
@@ -330,8 +330,8 @@ class TaxonSearch:
         try:
             taxon_data = await self._get_gbif_data()
             trait_data = self._get_traits()
-            if trait_data is None:
-                logger.info(f"No traits data found for species: {self.scientific_name}")
+            if taxon_data is None:
+                logger.info(f"No GBIF data found for species: {self.scientific_name}")
                 return None
 
             payload = SpeciesPayload.from_data(
