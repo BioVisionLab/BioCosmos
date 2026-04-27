@@ -34,9 +34,6 @@ export default function CollectionsPage() {
     <main className="max-w-5xl mx-auto p-8">
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-3xl font-bold">Collections</h1>
-        <Link href="/" className="text-teal-600 hover:underline">
-          ← Back to Home
-        </Link>
       </div>
 
       <p className="mb-6 text-gray-700 dark:text-gray-300">
@@ -85,6 +82,14 @@ export default function CollectionsPage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section aria-label="UMAP vector embedding" className="mt-12">
+        <h2 className="text-2xl font-bold">UMAP Vector Embedding</h2>
+        <div
+          className="mt-6 mb-6 w-full rounded-lg border border-gray-300 dark:border-gray-600 min-h-[70vh]"
+          aria-label="UMAP embedding placeholder"
+        />
       </section>
     </main>
   );
