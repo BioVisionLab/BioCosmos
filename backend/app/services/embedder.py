@@ -1,6 +1,5 @@
 import glob
 import numpy as np
-import io
 import logging
 import os
 import concurrent.futures
@@ -14,6 +13,7 @@ from ..configs.config import EmbedderConfig, ImageConfig
 from ..database.lance import LanceDB
 from .unicom import UnicomImageEmbedder
 from .clip import ClipEmbedder
+
 
 
 
@@ -34,6 +34,9 @@ class ImageEmbedder:
         self.config = ImageConfig()
         self.img_format = self.config.format.upper()
         self.max_resolution = self.config.max_resolution
+        self.thumbnail_resolution = self.config.thumbnail_resolution
+        self.processed_dir = self.config.processed_dir
+        self.thumbnail_dir = self.config.thumbnail_dir
         self.clip = ClipEmbedder(
             model=clip_model,
             processor=clip_processor,
@@ -134,7 +137,11 @@ class ImageEmbedder:
         return os.path.isfile(img_path) and img_path.lower().endswith(valid_extensions)
 
     def _add_batch_to_db(self, img_paths: list[str]):
-        """Batch add image embeddings to the database."""
+        """Batch add image embeddings to the database.
+
+        Images are saved as WebP files to disk and only the file path
+        is stored in LanceDB alongside the embeddings.
+        """
         if not img_paths:
             self.logger.error("No image paths provided for batch addition.")
             return
@@ -162,19 +169,19 @@ class ImageEmbedder:
                 exc_info=True,
             )
             return
-        # Now process image bytes (preserving transparency from original images)
-        image_bytes, original_size_flags = self._get_image_bytes(valid_images)
 
-        if not image_bytes:
-            self.logger.error("No valid image bytes found for batch addition.")
+        # Save processed images to disk and collect file paths
+        img_ids = self._get_image_ids_from_paths(successful_paths)
+        saved_paths = self._save_images_to_disk(img_ids, valid_images)
+
+        if not saved_paths:
+            self.logger.error("No images could be saved to disk.")
             return
 
         data = pl.DataFrame(
             {
-                "img_id": self._get_image_ids_from_paths(successful_paths),
-                "img_bytes": image_bytes,
-                "file_format": self.config.format,
-                "original_size": original_size_flags,
+                "img_id": img_ids,
+                "img_path": saved_paths,
                 "clip_embeddings": clip_embeddings,
                 "unicom_embeddings": unicom_embeddings,
             }
@@ -218,36 +225,54 @@ class ImageEmbedder:
         """Get image ID from an image path."""
         return os.path.splitext(os.path.basename(img_path))[0]
 
-    def _get_image_bytes(
-        self, images: list[PILImage]
-    ) -> tuple[list[bytes], list[bool]]:
-        """Get the image bytes from a list of PIL Images.
-        It will resize the image if setup in the config to a maximum resolution.
-        Returns image bytes for successfully processed images and a flag indicating
-        if all images are of original size.
+    def _save_images_to_disk(
+        self, img_ids: list[str], images: list[PILImage]
+    ) -> list[str]:
+        """Save processed images and thumbnails to disk.
+
+        For each image:
+        - Resizes to max_resolution and saves to {processed_dir}/{img_id}.{format}
+        - Generates a thumbnail at {thumbnail_dir}/{img_id}_thumbnail.{format}
+
+        All paths and resolutions are read from config.yaml.
+        Returns the list of saved full-resolution file paths.
         """
-        valid_image_bytes = []
-        all_original_size = []
-        for img in images:
+        os.makedirs(self.processed_dir, exist_ok=True)
+        os.makedirs(self.thumbnail_dir, exist_ok=True)
+        saved_paths = []
+        for img_id, img in zip(img_ids, images):
             try:
-                img_byte_arr = io.BytesIO()
-                if max(img.size) > self.max_resolution:
+                if self.max_resolution and max(img.size) > self.max_resolution:
                     img.thumbnail(
                         (self.max_resolution, self.max_resolution),
                         resample=Image.LANCZOS,
                     )
-                    all_original_size.append(False)
-                else:
-                    all_original_size.append(True)
-                img.save(img_byte_arr, format=self.img_format)
-                valid_image_bytes.append(img_byte_arr.getvalue())
+                # Save full-resolution image
+                ext = self.config.format
+                file_path = os.path.join(self.processed_dir, f"{img_id}.{ext}")
+                img.save(file_path, format=self.img_format)
+                saved_paths.append(file_path)
+
+                # Generate and save thumbnail
+                thumb = img.copy()
+                thumb.thumbnail(
+                    (self.thumbnail_resolution, self.thumbnail_resolution),
+                    resample=Image.LANCZOS,
+                )
+                thumb_path = os.path.join(
+                    self.thumbnail_dir, f"{img_id}_thumbnail.{ext}"
+                )
+                thumb.save(thumb_path, format=self.img_format)
+                thumb.close()
+
                 img.close()
             except Exception as e:
                 self.logger.error(
-                    f"Error converting image to bytes: {e}",
+                    f"Error saving image {img_id} to disk: {e}",
                     exc_info=True,
                 )
-        return valid_image_bytes, all_original_size
+                saved_paths.append("")
+        return saved_paths
 
     def _get_imgs(self, img_paths: list[str]) -> tuple[list[str], list[PILImage]]:
         """Get the image embeddings from a list of image paths.

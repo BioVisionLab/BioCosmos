@@ -1,9 +1,7 @@
 import logging
 import os
 
-from io import BytesIO
 from typing import Optional, Annotated, List
-from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from lancedb.pydantic import LanceModel, Vector
@@ -77,16 +75,13 @@ UnicomVector = Annotated[List[float], Vector(unicom.get_unicom_ndims())]
 ClipVector = Annotated[List[float], Vector(clip.get_clip_ndims())]
 
 class LanceSchema(LanceModel):
-    """Schema for images with CLIP/UNICOM embeddings and metadata.
+    """Schema for images with CLIP/UNICOM embeddings and file path reference.
 
     Fields:
+        img_id: Unique image identifier.
+        img_path: Path to the processed WebP image file on disk.
         clip_embeddings: CLIP embedding vector.
         unicom_embeddings: UNICOM embedding vector.
-        img_filename: Image filename.
-        species: Species name.
-        source: Image source (e.g., GBIF, iDigBio).
-        collection_id: Source collection or occurrenceID for GBIF images.
-        img_bytes: Raw image bytes.
     """
 
     model_config = ConfigDict(
@@ -94,77 +89,9 @@ class LanceSchema(LanceModel):
     )
 
     img_id: str
-    img_bytes: bytes
-    # species: str
-    file_format: str
-    original_size: bool
+    img_path: str
     clip_embeddings: ClipVector
     unicom_embeddings: UnicomVector
-
-    @property
-    def image(self):
-        """Load the image from img_bytes."""
-        return (
-            Image.open(BytesIO(self.img_bytes))
-            if self.img_bytes
-            else None
-        )
-
-    @property
-    def thumbnail(self):
-        """Load the image from img_bytes and resize it to a thumbnail."""
-        if self.img_bytes:
-            img = Image.open(BytesIO(self.img_bytes))
-            img.thumbnail((128, 128), resample=Image.LANCZOS)
-            return img
-        return None
-
-    @property
-    def image_bytes_png(self):
-        """Get the image as PNG bytes."""
-        if self.file_format.lower() == "png" and self.img_bytes:
-            return self.img_bytes
-        if self.image:
-            with BytesIO() as output:
-                self.image.save(output, format="PNG")
-                return output.getvalue()
-        return None
-
-    @property
-    def image_bytes_webp(self):
-        """Get the image as WEBP bytes."""
-        # We check the file format to avoid unnecessary conversion
-        if self.file_format.lower() == "webp" and self.img_bytes:
-            return self.img_bytes
-        if self.image:
-            with BytesIO() as output:
-                self.image.save(output, format="WEBP")
-                return output.getvalue()
-        return None
-
-    @property
-    def thumbnail_bytes_png(self):
-        """Get the thumbnail image as PNG bytes."""
-        if self.thumbnail:
-            with BytesIO() as output:
-                self.thumbnail.save(output, format="PNG")
-                return output.getvalue()
-        return None
-
-    @property
-    def thumbnail_bytes_webp(self):
-        """Get the thumbnail image as WEBP bytes."""
-        if self.thumbnail:
-            with BytesIO() as output:
-                self.thumbnail.save(output, format="WEBP")
-                return output.getvalue()
-        return None
-
-    def show_image(self):
-        """Load the image from img_bytes."""
-        if self.img_bytes:
-            return Image.open(BytesIO(self.img_bytes)).show()
-        return None
 
 
 class ImageMetadata(BaseModel):
