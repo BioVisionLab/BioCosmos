@@ -182,6 +182,7 @@ class ImageEmbedder:
             {
                 "img_id": img_ids,
                 "img_path": saved_paths,
+                "species": self.get_species_name_from_path(successful_paths),
                 "clip_embeddings": clip_embeddings,
                 "unicom_embeddings": unicom_embeddings,
             }

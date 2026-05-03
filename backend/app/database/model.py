@@ -80,6 +80,7 @@ class LanceSchema(LanceModel):
     Fields:
         img_id: Unique image identifier.
         img_path: Path to the processed WebP image file on disk.
+        species: Species name (derived from directory structure).
         clip_embeddings: CLIP embedding vector.
         unicom_embeddings: UNICOM embedding vector.
     """
@@ -90,6 +91,7 @@ class LanceSchema(LanceModel):
 
     img_id: str
     img_path: str
+    species: str
     clip_embeddings: ClipVector
     unicom_embeddings: UnicomVector
 
