@@ -62,3 +62,4 @@ biocosmos.lance
 
 # backend data files (parquet, tsv, csv)
 backend/data/
+backend/scripts/embedding/
