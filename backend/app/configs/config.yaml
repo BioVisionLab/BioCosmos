@@ -72,4 +72,4 @@ openai:
   # Image / Multimodal Gen: flux.1-dev, flux.1-schnell
   # Audio / Speech / TTS: whisper-large-v3, kokoro
   # Embeddings: sfr-embedding-mistral, nomic-embed-text-v1.5, text-embedding-3-large, text-embedding-3-small
-  model: "gpt-4o-mini"
+  model: "mistral-small-3.1"

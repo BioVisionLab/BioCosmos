@@ -1,13 +1,13 @@
 import { SpeciesImageUmap } from "./speciesData";
 
 const TILE_LAYER_URL =
-  "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
 const SECONDARY_TILE_LAYER_URL =
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const TILE_LAYER_ATTRIBUTION_URL =
-  '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  '&copy; <a href="https://carto.com/" target="_blank">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const CLUSTER_COLORS = [
   "#7c3aed", // Purple
