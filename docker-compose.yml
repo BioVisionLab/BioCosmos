@@ -8,8 +8,18 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8001:80"
+    environment:
+      # Container-internal paths (match the volume mounts below)
+      - DUCK_DIR=/app/duck_db
+      - LANCE_DIR=/app/lance_db
+      - IMAGE_DIR=/app/static/webp
+      - IMAGE_META_DIR=/app/data
+      - GBIF_DIR=/app/data
+      - UMAP_DIR=/app/data
     env_file:
-      - ./backend/.env
+      # Optional — create ./backend/.env for LLM_API_URL / LLM_API_KEY secrets
+      - path: ./backend/.env
+        required: false
     volumes:
       - ./backend/duck_db:/app/duck_db
       - ./backend/lance_db_lite:/app/lance_db
