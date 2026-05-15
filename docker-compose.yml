@@ -8,11 +8,18 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8001:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
     environment:
       # Container-internal paths (match the volume mounts below)
       - DUCK_DIR=/app/duck_db
       - LANCE_DIR=/app/lance_db
-      - IMAGE_DIR=/app/static/webp
+      - IMAGE_DIR=/app/images
       - IMAGE_META_DIR=/app/data
       - GBIF_DIR=/app/data
       - UMAP_DIR=/app/data
