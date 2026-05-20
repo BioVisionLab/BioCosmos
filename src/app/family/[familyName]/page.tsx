@@ -2,13 +2,13 @@ import HomeClient from "@/components/HomePage"; // Reuse HomeClient for genus gr
 import Link from "next/link";
 
 interface FamilyPageProps {
-  params: {
-    familyName: string; // This comes from the folder name [familyName]
-  };
+  params: Promise<{
+    familyName: string;
+  }>;
 }
 
 export default async function FamilyPage({ params }: FamilyPageProps) {
-  const { familyName } = params;
+  const { familyName } = await params;
   const decodedFamilyName = decodeURIComponent(familyName);
 
   // Fetch the list of genera for this family

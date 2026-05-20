@@ -1,5 +1,4 @@
 import numpy as np
-import io
 import polars as pl
 import logging
 
@@ -52,41 +51,39 @@ class ImagePersistData:
             return None
         return result
 
-    def get_img_by_id(
+    def get_img_path_by_id(
         self,
         img_id: str,
-    ) -> bytes | None:
-        """Fetch an image by its ID."""
+    ) -> str | None:
+        """Fetch the file path for an image by its ID."""
         try:
-            img: list[LanceSchema] = (
+            results = (
                 self.db_table.search()
                 .where(f"img_id == '{img_id}'")
                 .limit(1)
-                .to_pydantic(LanceSchema)
+                .to_polars()
             )
-            if not img:
+            if results.is_empty():
                 self.logger.warning(f"No image found with ID '{img_id}'.")
                 return None
-            return img[0].img_bytes
+            return results["img_path"][0]
 
         except Exception as e:
-            self.logger.error(f"Error fetching image with ID '{img_id}': {e}")
+            self.logger.error(f"Error fetching image path for ID '{img_id}': {e}")
             return None
 
-    def fetch_image(self, species_name: str) -> io.BytesIO | None:
-        """Fetch a high-resolution image for a specific species.
+    def fetch_image_path(self, species_name: str) -> str | None:
+        """Fetch the file path for a species image.
 
-        How it works:
-        1. Query the database for images matching the species name.
-        2. Compute the centroid of the embeddings.
-        3. Select the image closest to the centroid.
-        4. If not found, return None.
-        :param species_name: The name of the species to fetch the image for.
-        :return: The image bytes in PNG format or None if not found."""
-        query = self._query_image(species_name)
-        if query is None:
+        Looks up image IDs for the species via metadata, then returns
+        the disk path for the first image found in LanceDB.
+        """
+        image_ids = ImageMetaService(
+            duckdb=self.meta_table
+        ).get_image_ids_by_species(species_name)
+        if not image_ids:
             return None
-        return query[0].image_bytes_png
+        return self.get_img_path_by_id(image_ids[0])
 
     def fetch_similar_images_from_text(
         self,
@@ -324,12 +321,9 @@ class ImagePersistData:
             )
             return None
 
-    def fetch_thumbnail(self, species_name: str, limit: int = 5) -> io.BytesIO | None:
-        """Fetch thumbnails for a specific species."""
-        query = self._query_image(species_name)
-        if query is None:
-            return None
-        return query[0].thumbnail_bytes_png
+    def fetch_thumbnail_path(self, species_name: str) -> str | None:
+        """Fetch the file path for a species image (for thumbnail generation)."""
+        return self.fetch_image_path(species_name)
 
     def _query_embedding(
         self,

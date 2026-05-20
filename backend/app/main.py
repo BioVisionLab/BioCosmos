@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,8 +77,8 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    LLM_API_URL: str
-    LLM_API_KEY: str
+    LLM_API_URL: Optional[str] = None
+    LLM_API_KEY: Optional[str] = None
     IMAGE_META_DIR: str
     GBIF_DIR: str
     UMAP_DIR: str

@@ -1,10 +1,9 @@
-import GenusSpeciesClient from "@/components/GenusSpeciesClient"; // We will create this next
 import Link from "next/link";
 
 interface GenusPageProps {
-  params: {
-    genusName: string; // This comes from the folder name [genusName]
-  };
+  params: Promise<{
+    genusName: string;
+  }>;
 }
 
 export default async function GenusPage({ params }: GenusPageProps) {

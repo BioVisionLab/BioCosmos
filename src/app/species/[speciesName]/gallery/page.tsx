@@ -1,6 +1,6 @@
 import SpecimenGallery from "../components/SpecimenGallery";
 
-export default function SpeciesImageGalleryPage({ params }: { params: { speciesName: string } }) {
-  const speciesName = params?.speciesName ?? "";
+export default async function SpeciesImageGalleryPage({ params }: { params: Promise<{ speciesName: string }> }) {
+  const { speciesName } = await params;
   return <SpecimenGallery speciesName={speciesName} />;
 }
