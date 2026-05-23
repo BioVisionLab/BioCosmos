@@ -76,6 +76,10 @@ A personalized, museum-quality biodiversity image platform that combines cutting
 ```bash
 biocosmos/
 ├── backend/                  # Python backend (FastAPI)
+│   ├── duck_db/                # DuckDB database files (git-ignored)
+│   ├── lance_db_lite/          # LanceDB vector database files (git-ignored)
+│   ├── data/                   # Metadata files: parquet, CSV, TSV (git-ignored)
+│   ├── static/                 # Processed images, thumbnails, tiles (git-ignored)
 │   ├── app/                    # Core application code
 │   │   ├── main.py             # FastAPI entrypoint
 │   │   ├── configs/            # Configuration files and settings
@@ -131,7 +135,7 @@ biocosmos/
 │       ├── types.ts            # TypeScript types
 │       └── ...                 # Other utilities
 ├── public/                   # Static assets
-│   ├── images/                 # Species images
+│   ├── images/                 # Species images (git-ignored)
 │   ├── dataset-metadata/       # Metadata files
 │   └── leaflet/                # Leaflet map assets
 ├── tools/                    # Data processing scripts
@@ -218,15 +222,16 @@ If you prefer to run the services manually without Docker, follow these steps:
     **Backend** - Create a `.env` file in the `backend/` directory:
 
     ```bash
-    # Optional: Database directory paths (defaults to current directory if not set)
     DUCK_DIR=./duck_db
-    LANCE_DIR=./lance_db
-    GBIF_DIR=./data
+    LANCE_DIR=./lance_db_lite
     IMAGE_DIR=../public/images
-    
-    # Optional: Custom AI service (UF AI or similar)
-    # UF_AI_URL=your_ai_service_url
-    # UF_AI_API_KEY=your_ai_api_key
+    IMAGE_META_DIR=./data
+    GBIF_DIR=./data
+    UMAP_DIR=./data
+
+    # Optional: Custom LLM service
+    # LLM_API_URL=your_llm_endpoint
+    # LLM_API_KEY=your_api_key
     ```
 
 5. **Prepare the Dataset**
@@ -356,28 +361,89 @@ docker-compose up -d
 docker-compose down
 ```
 
-### Environment Variables
+### Without Docker Compose (Podman / Docker)
 
-For production deployment, ensure the following environment variables are set:
+If you don't have `docker-compose` or `podman-compose`, you can run the containers manually with `podman` or `docker`.
 
-**Frontend** (`.env` in root directory):
+**Step 1: Create a shared network**
 
 ```bash
-API_HOST=http://backend:8000  # Or your production backend URL
+podman network create biocosmos
 ```
 
-**Backend** (`.env` in `backend/` directory):
+**Step 2: Build the images**
 
 ```bash
-# Database directories
-DUCK_DIR=./duck_db
-LANCE_DIR=./lance_db
-GBIF_DIR=./data
-IMAGE_DIR=../public/images
+# From project root
+podman build -t biocosmos-backend ./backend
+podman build -t biocosmos-frontend -f Dockerfile.frontend .
+```
 
-# Optional: Custom AI service
-UF_AI_URL=your_ai_service_url
-UF_AI_API_KEY=your_ai_api_key
+**Step 3: Run the backend**
+
+```bash
+podman run -d \
+  --name backend \
+  --network biocosmos \
+  -p 8000:80 \
+  -e DUCK_DIR=/app/duck_db \
+  -e LANCE_DIR=/app/lance_db \
+  -e IMAGE_DIR=/app/images \
+  -e IMAGE_META_DIR=/app/data \
+  -e GBIF_DIR=/app/data \
+  -e UMAP_DIR=/app/data \
+  --env-file ./backend/.env \
+  -v ./backend/duck_db:/app/duck_db:Z \
+  -v ./backend/lance_db_lite:/app/lance_db:Z \
+  -v ./backend/data:/app/data:Z \
+  -v ./backend/static:/app/static:Z \
+  -v ./public/images:/app/images:Z \
+  biocosmos-backend
+```
+
+**Step 4: Run the frontend**
+
+```bash
+podman run -d \
+  --name frontend \
+  --network biocosmos \
+  -p 3000:3000 \
+  -e API_HOST=http://backend:80 \
+  biocosmos-frontend
+```
+
+**Useful commands**
+
+```bash
+# View logs
+podman logs -f backend
+podman logs -f frontend
+
+# Stop & remove
+podman stop backend frontend
+podman rm backend frontend
+
+# Clean up network
+podman network rm biocosmos
+```
+
+> Replace `podman` with `docker` if you are using Docker without Compose.
+
+### Environment Variables
+
+For Docker runs, the compose file already sets the backend data paths. You only need `backend/.env` for optional secrets.
+
+**Frontend** (set by docker-compose):
+
+```bash
+API_HOST=http://backend:80
+```
+
+**Optional backend overrides** (`backend/.env`):
+
+```bash
+# LLM_API_URL=your_llm_endpoint
+# LLM_API_KEY=your_api_key
 ```
 
 ## 🔌 API Endpoints
