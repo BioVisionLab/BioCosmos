@@ -2,26 +2,25 @@
 """
 Precompute per-species visual similarity and store results in DuckDB.
 
-Mirrors the exact runtime logic from SpeciesSimilarity.find_similar_species():
-  1. For each species, get image IDs from image_meta
-  2. Filter by dorsal/ventral side
-  3. Fetch UNICOM embeddings from LanceDB
-  4. Compute centroid
-  5. Query LanceDB for top-K similar (cosine distance)
-  6. Merge with metadata, filter unique species, remove self
-  7. Store payload-ready rows in DuckDB
+Strategy (optimized for speed):
+  1. Load ALL embeddings + metadata into memory once
+  2. Group images by species+side, compute centroids in bulk
+  3. Use batch matrix multiplication (numpy BLAS) for cosine similarity
+     — this parallelizes across all CPU cores automatically
+  4. For each centroid, pick top-K nearest images, deduplicate by species
+  5. Bulk insert all results into DuckDB
 
 Usage:
     cd backend
-    .venv/bin/python scripts/precompute_similarity.py \
+    python scripts/precompute_similarity.py \
         --lance-dir lance_db_lite --duck-dir duck_db
 
     # Single species test:
-    .venv/bin/python scripts/precompute_similarity.py \
+    python scripts/precompute_similarity.py \
         --lance-dir lance_db_lite --duck-dir duck_db --species "vanessa_cardui"
 
     # Force recreate:
-    .venv/bin/python scripts/precompute_similarity.py \
+    python scripts/precompute_similarity.py \
         --lance-dir lance_db_lite --duck-dir duck_db --force
 """
 
@@ -42,80 +41,264 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Defaults matching the runtime configuration
+# Defaults
 DEFAULT_LANCE_FILE = "biocosmos.lance"
 DEFAULT_DUCK_FILE = "biocosmos.duckdb"
 DEFAULT_LANCE_TABLE = "nymphalidae"
 DEFAULT_META_TABLE = "image_meta"
 DEFAULT_SIMILARITY_TABLE = "species_similarity"
-DEFAULT_TOP_K = 20  # LanceDB vector search limit (pre-dedup)
-DEFAULT_LIMIT = 10  # Final similar species per side (matches runtime)
+DEFAULT_TOP_K = 800
+DEFAULT_LIMIT = 10
 SIDES = ["dorsal", "ventral"]
+# Batch size for matrix multiply (controls peak memory: batch_size * n_images * 4 bytes)
+BATCH_SIZE = 200
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Precompute per-species visual similarity."
+        description="Precompute per-species visual similarity (optimized)."
     )
-    parser.add_argument(
-        "--lance-dir",
-        default="lance_db_lite",
-        help="LanceDB directory (default: lance_db_lite)",
-    )
-    parser.add_argument(
-        "--duck-dir",
-        default="duck_db",
-        help="DuckDB directory (default: duck_db)",
-    )
-    parser.add_argument(
-        "--lance-file",
-        default=DEFAULT_LANCE_FILE,
-        help=f"LanceDB filename (default: {DEFAULT_LANCE_FILE})",
-    )
-    parser.add_argument(
-        "--duck-file",
-        default=DEFAULT_DUCK_FILE,
-        help=f"DuckDB filename (default: {DEFAULT_DUCK_FILE})",
-    )
-    parser.add_argument(
-        "--lance-table",
-        default=DEFAULT_LANCE_TABLE,
-        help=f"LanceDB table name (default: {DEFAULT_LANCE_TABLE})",
-    )
-    parser.add_argument(
-        "--meta-table",
-        default=DEFAULT_META_TABLE,
-        help=f"DuckDB metadata table (default: {DEFAULT_META_TABLE})",
-    )
-    parser.add_argument(
-        "--similarity-table",
-        default=DEFAULT_SIMILARITY_TABLE,
-        help=f"DuckDB output table (default: {DEFAULT_SIMILARITY_TABLE})",
-    )
-    parser.add_argument(
-        "--top-k",
-        type=int,
-        default=DEFAULT_TOP_K,
-        help=f"Vector search limit before dedup (default: {DEFAULT_TOP_K})",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=DEFAULT_LIMIT,
-        help=f"Final similar species per side (default: {DEFAULT_LIMIT})",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Drop and recreate the similarity table",
-    )
-    parser.add_argument(
-        "--species",
-        type=str,
-        default=None,
-        help="Compute for a single species (for testing)",
-    )
+    parser.add_argument("--lance-dir", default="lance_db_lite")
+    parser.add_argument("--duck-dir", default="duck_db")
+    parser.add_argument("--lance-file", default=DEFAULT_LANCE_FILE)
+    parser.add_argument("--duck-file", default=DEFAULT_DUCK_FILE)
+    parser.add_argument("--lance-table", default=DEFAULT_LANCE_TABLE)
+    parser.add_argument("--meta-table", default=DEFAULT_META_TABLE)
+    parser.add_argument("--similarity-table", default=DEFAULT_SIMILARITY_TABLE)
+    parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K,
+                        help="Neighbors to fetch per centroid before dedup")
+    parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
+                        help="Final unique species per side")
+    parser.add_argument("--force", action="store_true",
+                        help="Drop and recreate the similarity table")
+    parser.add_argument("--species", type=str, default=None,
+                        help="Compute for a single species (for testing)")
     return parser.parse_args()
+
+
+def load_all_embeddings(lance_table) -> tuple[np.ndarray, np.ndarray]:
+    """Load all UNICOM embeddings and img_ids from LanceDB into memory.
+
+    Returns:
+        embeddings: (N, 768) float32 array, L2-normalized
+        img_ids: (N,) array of image ID strings
+    """
+    logger.info("Loading all embeddings into memory...")
+    t0 = time.time()
+
+    df = lance_table.to_polars().select(["img_id", "unicom_embeddings"]).collect()
+    img_ids = df["img_id"].to_numpy()
+    embeddings = np.array(df["unicom_embeddings"].to_list(), dtype=np.float32)
+
+    # L2-normalize for cosine similarity via dot product
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0  # avoid division by zero
+    embeddings = embeddings / norms
+
+    logger.info(
+        f"Loaded {len(img_ids)} embeddings ({embeddings.nbytes / 1e9:.2f} GB) "
+        f"in {time.time() - t0:.1f}s"
+    )
+    return embeddings, img_ids
+
+
+def load_metadata(duck_conn, meta_table: str) -> pl.DataFrame:
+    """Load image metadata (img_id, species, class_dv) into a Polars DataFrame."""
+    logger.info("Loading image metadata...")
+    meta = duck_conn.execute(f"""
+        SELECT img_id,
+               REPLACE(LOWER(species), ' ', '_') AS species,
+               LOWER(class_dv) AS side
+        FROM {meta_table}
+    """).pl()
+    logger.info(f"Loaded {len(meta)} metadata rows")
+    return meta
+
+
+def compute_centroids(
+    meta: pl.DataFrame,
+    embeddings: np.ndarray,
+    img_ids: np.ndarray,
+    species_filter: str | None = None,
+) -> tuple[list[tuple[str, str]], np.ndarray]:
+    """Compute normalized centroids for each (species, side) group.
+
+    Returns:
+        keys: list of (species, side) tuples
+        centroids: (M, 768) normalized float32 array
+    """
+    logger.info("Computing centroids...")
+    t0 = time.time()
+
+    # Build img_id -> index lookup
+    id_to_idx = {img_id: i for i, img_id in enumerate(img_ids)}
+
+    # Filter metadata to only species we want
+    if species_filter:
+        meta = meta.filter(pl.col("species") == species_filter)
+
+    # Group by species + side
+    groups = meta.group_by(["species", "side"]).agg(pl.col("img_id"))
+
+    keys = []
+    centroid_list = []
+
+    for row in groups.iter_rows(named=True):
+        species = row["species"]
+        side = row["side"]
+        group_img_ids = row["img_id"]
+
+        if side not in SIDES:
+            continue
+
+        # Get indices for this group's images
+        indices = [id_to_idx[iid] for iid in group_img_ids if iid in id_to_idx]
+        if not indices:
+            continue
+
+        # Compute centroid (mean of normalized embeddings, then re-normalize)
+        centroid = embeddings[indices].mean(axis=0)
+        norm = np.linalg.norm(centroid)
+        if norm > 0:
+            centroid /= norm
+
+        keys.append((species, side))
+        centroid_list.append(centroid)
+
+    centroids = np.array(centroid_list, dtype=np.float32)
+    logger.info(
+        f"Computed {len(keys)} centroids in {time.time() - t0:.1f}s"
+    )
+    return keys, centroids
+
+
+def batch_similarity_search(
+    centroids: np.ndarray,
+    embeddings: np.ndarray,
+    top_k: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute top-K most similar images for each centroid using batch matmul.
+
+    Since both are L2-normalized, dot product = cosine similarity.
+    Distance = 1 - similarity (so lower = more similar).
+
+    Returns:
+        top_indices: (M, top_k) int array of image indices
+        top_distances: (M, top_k) float array of cosine distances
+    """
+    logger.info(f"Running batch similarity search ({len(centroids)} centroids × {len(embeddings)} images)...")
+    t0 = time.time()
+
+    n_centroids = len(centroids)
+    actual_top_k = min(top_k, len(embeddings))
+    top_indices = np.empty((n_centroids, actual_top_k), dtype=np.int64)
+    top_distances = np.empty((n_centroids, actual_top_k), dtype=np.float32)
+
+    # Process in batches to control memory
+    for start in range(0, n_centroids, BATCH_SIZE):
+        end = min(start + BATCH_SIZE, n_centroids)
+        batch = centroids[start:end]
+
+        # Cosine similarity via dot product (both normalized)
+        # Shape: (batch_size, n_images)
+        similarities = batch @ embeddings.T
+
+        # Convert to distance (lower = more similar)
+        distances = 1.0 - similarities
+
+        # Get top-K indices (smallest distances)
+        # Use argpartition for O(n) partial sort, then sort the top-K
+        if actual_top_k < distances.shape[1]:
+            part_idx = np.argpartition(distances, actual_top_k, axis=1)[:, :actual_top_k]
+            # Gather the distances for these indices
+            batch_dists = np.take_along_axis(distances, part_idx, axis=1)
+            # Sort within the top-K
+            sort_idx = np.argsort(batch_dists, axis=1)
+            top_indices[start:end] = np.take_along_axis(part_idx, sort_idx, axis=1)
+            top_distances[start:end] = np.take_along_axis(batch_dists, sort_idx, axis=1)
+        else:
+            sort_idx = np.argsort(distances, axis=1)
+            top_indices[start:end] = sort_idx
+            top_distances[start:end] = np.take_along_axis(distances, sort_idx, axis=1)
+
+        if (start // BATCH_SIZE) % 10 == 0 and start > 0:
+            elapsed = time.time() - t0
+            progress = end / n_centroids
+            eta = elapsed / progress * (1 - progress)
+            logger.info(
+                f"  Similarity search: {end}/{n_centroids} "
+                f"({progress*100:.0f}%), ETA {eta:.0f}s"
+            )
+
+    logger.info(f"Similarity search completed in {time.time() - t0:.1f}s")
+    return top_indices, top_distances
+
+
+def build_results(
+    keys: list[tuple[str, str]],
+    top_indices: np.ndarray,
+    top_distances: np.ndarray,
+    img_ids: np.ndarray,
+    meta: pl.DataFrame,
+    limit: int,
+) -> pl.DataFrame:
+    """Filter results to unique species (excluding self) and build final DataFrame."""
+    logger.info("Building final results...")
+    t0 = time.time()
+
+    # Build img_id -> species lookup from metadata
+    img_species_map = dict(zip(
+        meta["img_id"].to_list(),
+        meta["species"].to_list(),
+    ))
+
+    all_rows = []
+
+    for i, (query_species, side) in enumerate(keys):
+        seen_species = set()
+        rank = 0
+
+        for j in range(top_indices.shape[1]):
+            idx = top_indices[i, j]
+            img_id = img_ids[idx]
+            distance = float(top_distances[i, j])
+
+            # Look up species for this image
+            similar_species = img_species_map.get(img_id)
+            if similar_species is None:
+                continue
+
+            # Normalize for comparison
+            normalized_similar = similar_species.lower().replace(" ", "_")
+
+            # Skip self
+            if normalized_similar == query_species:
+                continue
+
+            # Skip duplicates (one image per species)
+            if normalized_similar in seen_species:
+                continue
+
+            seen_species.add(normalized_similar)
+            rank += 1
+
+            all_rows.append({
+                "species": query_species,
+                "side": side,
+                "similar_species": similar_species,
+                "img_id": img_id,
+                "distance": distance,
+                "rank": rank,
+            })
+
+            if rank >= limit:
+                break
+
+    result_df = pl.DataFrame(all_rows)
+    logger.info(
+        f"Built {len(result_df)} result rows in {time.time() - t0:.1f}s"
+    )
+    return result_df
 
 
 def create_table(duck_conn, table_name: str, force: bool):
@@ -135,184 +318,6 @@ def create_table(duck_conn, table_name: str, force: bool):
         )
     """)
     logger.info(f"Table '{table_name}' ready")
-
-
-def get_all_species(duck_conn, meta_table: str) -> list[str]:
-    """Get all unique normalized species names from image_meta."""
-    result = duck_conn.execute(f"""
-        SELECT DISTINCT REPLACE(LOWER(species), ' ', '_') AS species
-        FROM {meta_table}
-        ORDER BY species
-    """).fetchall()
-    return [row[0] for row in result]
-
-
-def get_image_ids_for_side(
-    duck_conn, meta_table: str, species: str, side: str
-) -> list[str]:
-    """Get image IDs for a species + side. Mirrors _filter_by_side."""
-    result = duck_conn.execute(
-        f"""
-        SELECT img_id FROM {meta_table}
-        WHERE REPLACE(LOWER(species), ' ', '_') = ?
-          AND LOWER(class_dv) = ?
-        """,
-        [species, side.lower()],
-    ).fetchall()
-    return [row[0] for row in result]
-
-
-def fetch_embeddings_batch(
-    lance_table, image_ids: list[str]
-) -> np.ndarray:
-    """Fetch UNICOM embeddings for image IDs. Returns Nx768 array."""
-    if not image_ids:
-        return np.array([])
-
-    ids_sql = ", ".join(f"'{img_id}'" for img_id in image_ids)
-    where_clause = f"img_id IN ({ids_sql})"
-
-    results = (
-        lance_table.search()
-        .where(where_clause)
-        .limit(len(image_ids))
-        .select(["img_id", "unicom_embeddings"])
-        .to_polars()
-    )
-
-    if results.is_empty():
-        return np.array([])
-
-    return np.array(results["unicom_embeddings"].to_list())
-
-
-def query_similar(
-    lance_table, centroid: np.ndarray, top_k: int
-) -> pl.DataFrame | None:
-    """Query LanceDB for similar images. Mirrors _query_embedding."""
-    results = (
-        lance_table.search(
-            centroid,
-            vector_column_name="unicom_embeddings",
-        )
-        .distance_type("cosine")
-        .limit(top_k)
-        .to_polars()
-    )
-
-    safe_cols = [c for c in ("img_id", "_distance") if c in results.columns]
-    if not safe_cols:
-        return None
-
-    cleaned = results.select(safe_cols).rename(
-        {"img_id": "imgId", "_distance": "distance"}
-    )
-    cleaned = cleaned.unique(subset=["imgId"])
-    return cleaned
-
-
-def merge_with_metadata(
-    duck_conn, meta_table: str, results: pl.DataFrame
-) -> pl.DataFrame | None:
-    """Merge search results with image_meta. Mirrors _merge_result_with_metadata."""
-    duck_conn.register("_tmp_results", results)
-    try:
-        merged = duck_conn.execute(f"""
-            SELECT
-                t.*,
-                m.species,
-                m.source_db,
-                m.class_dv
-            FROM _tmp_results t
-            INNER JOIN {meta_table} m ON t.imgId = m.img_id
-        """).pl()
-    finally:
-        duck_conn.unregister("_tmp_results")
-
-    if merged is None or merged.is_empty():
-        return None
-    return merged
-
-
-def filter_by_species(results: pl.DataFrame, species: str) -> pl.DataFrame:
-    """Keep one best image per species, remove self. Mirrors _filter_by_species + _filter_similar_images."""
-    # Keep best (lowest distance) per species
-    filtered = results.sort("distance", descending=False).unique(
-        subset=["species"], maintain_order=True
-    )
-    # Remove self-species (same normalization as runtime)
-    filtered = filtered.filter(
-        pl.col("species").str.to_lowercase().str.replace_all(" ", "_", literal=True)
-        != species.lower().replace(" ", "_")
-    )
-    return filtered
-
-
-def compute_for_species_side(
-    species: str,
-    side: str,
-    lance_table,
-    duck_conn,
-    meta_table: str,
-    top_k: int,
-    limit: int,
-) -> list[dict]:
-    """Compute similarity for one species + one side. Returns payload-ready rows."""
-    # Step 1: Get image IDs for this species + side
-    image_ids = get_image_ids_for_side(duck_conn, meta_table, species, side)
-    if not image_ids:
-        return []
-
-    # Step 2: Fetch UNICOM embeddings
-    embeddings = fetch_embeddings_batch(lance_table, image_ids)
-    if embeddings.size == 0:
-        return []
-
-    # Step 3: Compute centroid
-    centroid = np.mean(embeddings, axis=0)
-
-    # Step 4: Query LanceDB
-    results = query_similar(lance_table, centroid, top_k)
-    if results is None or results.is_empty():
-        return []
-
-    # Step 5: Merge with metadata
-    merged = merge_with_metadata(duck_conn, meta_table, results)
-    if merged is None or merged.is_empty():
-        return []
-
-    # Step 6: Filter (unique species, remove self)
-    filtered = filter_by_species(merged, species)
-    if filtered.is_empty():
-        return []
-
-    # Step 7: Take top `limit` and build output rows
-    filtered = filtered.head(limit)
-    rows = []
-    for rank, row in enumerate(filtered.iter_rows(named=True), 1):
-        rows.append({
-            "species": species,
-            "side": side,
-            "similar_species": row["species"],
-            "img_id": row["imgId"],
-            "distance": row["distance"],
-            "rank": rank,
-        })
-    return rows
-
-
-def flush_results(duck_conn, results: list[dict], table_name: str):
-    """Insert accumulated results into DuckDB."""
-    if not results:
-        return
-    df = pl.DataFrame(results)
-    duck_conn.register("_batch_results", df)
-    try:
-        duck_conn.execute(
-            f"INSERT INTO {table_name} SELECT * FROM _batch_results"
-        )
-    finally:
-        duck_conn.unregister("_batch_results")
 
 
 def verify(duck_conn, table_name: str):
@@ -350,78 +355,66 @@ def main():
         logger.error(f"DuckDB file not found: {duck_path}")
         sys.exit(1)
 
-    # Connect
+    start_time = time.time()
+
+    # --- Phase 1: Load data into memory ---
     logger.info(f"Connecting to LanceDB: {lance_path}")
     lance_db = lancedb.connect(lance_path)
     lance_table = lance_db.open_table(args.lance_table)
     logger.info(f"LanceDB table '{args.lance_table}': {lance_table.count_rows()} rows")
 
+    embeddings, img_ids = load_all_embeddings(lance_table)
+
     logger.info(f"Connecting to DuckDB: {duck_path}")
     duck_conn = duckdb.connect(database=duck_path)
+    meta = load_metadata(duck_conn, args.meta_table)
 
-    # Create output table
+    # --- Phase 2: Compute centroids ---
+    species_filter = None
+    if args.species:
+        species_filter = args.species.strip().lower().replace(" ", "_")
+        logger.info(f"Computing for single species: {species_filter}")
+
+    keys, centroids = compute_centroids(meta, embeddings, img_ids, species_filter)
+
+    if len(keys) == 0:
+        logger.warning("No species+side groups found. Exiting.")
+        duck_conn.close()
+        return
+
+    # --- Phase 3: Batch similarity search ---
+    top_indices, top_distances = batch_similarity_search(
+        centroids, embeddings, args.top_k
+    )
+
+    # --- Phase 4: Build filtered results ---
+    results_df = build_results(
+        keys, top_indices, top_distances, img_ids, meta, args.limit
+    )
+
+    # --- Phase 5: Write to DuckDB ---
     create_table(duck_conn, args.similarity_table, args.force)
 
-    # Get species list
-    if args.species:
-        species_list = [args.species.strip().lower().replace(" ", "_")]
-        # Delete existing rows for this species (for single-species recompute)
+    if args.species and not args.force:
         duck_conn.execute(
             f"DELETE FROM {args.similarity_table} WHERE species = ?",
-            [species_list[0]],
+            [species_filter],
         )
-        logger.info(f"Computing for single species: {species_list[0]}")
-    else:
-        species_list = get_all_species(duck_conn, args.meta_table)
-    logger.info(f"Processing {len(species_list)} species")
 
-    # Main loop
-    all_results = []
-    total = len(species_list)
-    start_time = time.time()
-    skipped = 0
+    if not results_df.is_empty():
+        duck_conn.register("_final_results", results_df)
+        duck_conn.execute(
+            f"INSERT INTO {args.similarity_table} SELECT * FROM _final_results"
+        )
+        duck_conn.unregister("_final_results")
+        logger.info(f"Inserted {len(results_df)} rows into '{args.similarity_table}'")
 
-    for i, species in enumerate(species_list):
-        for side in SIDES:
-            rows = compute_for_species_side(
-                species=species,
-                side=side,
-                lance_table=lance_table,
-                duck_conn=duck_conn,
-                meta_table=args.meta_table,
-                top_k=args.top_k,
-                limit=args.limit,
-            )
-            if rows:
-                all_results.extend(rows)
-            else:
-                skipped += 1
-
-        # Progress
-        if (i + 1) % 50 == 0 or i == total - 1:
-            elapsed = time.time() - start_time
-            rate = (i + 1) / elapsed if elapsed > 0 else 0
-            eta = (total - i - 1) / rate if rate > 0 else 0
-            logger.info(
-                f"[{i + 1}/{total}] {elapsed:.1f}s elapsed, "
-                f"~{eta:.1f}s remaining, {len(all_results)} rows buffered"
-            )
-
-        # Flush every 1000 rows to bound memory
-        if len(all_results) >= 1000:
-            flush_results(duck_conn, all_results, args.similarity_table)
-            all_results.clear()
-
-    # Final flush
-    if all_results:
-        flush_results(duck_conn, all_results, args.similarity_table)
-
-    logger.info(f"Skipped {skipped} species+side combos (no images or no results)")
-
-    # Verify
+    # --- Phase 6: Verify ---
     verify(duck_conn, args.similarity_table)
     duck_conn.close()
-    logger.info("Done!")
+
+    elapsed = time.time() - start_time
+    logger.info(f"Done! Total time: {elapsed:.1f}s")
 
 
 if __name__ == "__main__":
