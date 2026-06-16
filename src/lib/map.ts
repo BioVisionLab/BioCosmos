@@ -72,20 +72,10 @@ async function fetchGbifOccurrences(
     return [];
   }
 
-  // Construct the GBIF API URL (limit to 200 results for performance)
-  // Using hasCoordinate=true and hasGeospatialIssue=false for cleaner data
-  const gbifLimit = 200;
-  const gbifApiUrl = `https://api.gbif.org/v1/occurrence/search?scientificName=${encodeURIComponent(
-    scientificName
-  )}&limit=${gbifLimit}&hasCoordinate=true&hasGeospatialIssue=false`;
-
-  console.log(`Fetching GBIF data from: ${gbifApiUrl}`); // Log the URL for debugging
-
   try {
-    const response = await fetch(gbifApiUrl, {
-      // Optional: Add cache control if needed, but default Next.js fetch caching is usually sufficient
-      // next: { revalidate: 3600 * 24 } // Example: revalidate once per day
-    });
+    const response = await fetch(
+      `/api/gbif-occurrences?species=${encodeURIComponent(scientificName.trim())}`
+    );
 
     if (!response.ok) {
       throw new Error(
@@ -104,7 +94,7 @@ async function fetchGbifOccurrences(
 
     const occurrences = data.results
       .map((occ: GbifRawOccurrence) => ({
-        key: occ.key, // GBIF unique key for the occurrence
+        key: occ.key,
         decimalLatitude: occ.decimalLatitude,
         decimalLongitude: occ.decimalLongitude,
       }))
@@ -125,7 +115,7 @@ async function fetchGbifOccurrences(
       `Error fetching GBIF occurrences for ${scientificName}:`,
       error
     );
-    return []; // Return empty array on error
+    return [];
   }
 }
 
