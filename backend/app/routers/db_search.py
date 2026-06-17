@@ -14,18 +14,19 @@ logger = logging.getLogger(__name__)
     "/search/db",
     tags=["Conventional Search"],
 )
-async def search_db(request: Request, q: str, limit: int = 50):
+async def search_db(request: Request, q: str, field: str = "all", limit: int = 50):
     """Endpoint for conventional database search.
 
-    Expects a query parameter 'q' for the taxon to search.
-    The taxon name can be a full species, genus, or higher-level taxon.
-    Returns the taxon classification information from the database.
+    Expects a query parameter 'q' for the value to search.
+    Expects a query parameter 'field' for the column to search.
+    Returns the matching taxon classification information from the database.
     Args:
-        q (str): The taxon name to search for.
+        q (str): The search term to search for.
+        field (str): The specific column to search, or 'all'.
         limit (int, optional): The maximum number of results to return. Defaults to 50.
     """
     # Placeholder implementation
-    logger.info(f"Searching database for taxon: {q} with limit {limit}")
+    logger.info(f"Searching database for taxon: {q} in field: {field} with limit {limit}")
     if not q or q.strip() == "":
         logger.warning("Empty taxon search query received")
         return JSONResponse(
@@ -33,7 +34,9 @@ async def search_db(request: Request, q: str, limit: int = 50):
             status_code=400,
         )
     try:
-        search_results = TextToDbSearch(request=request, query=q, limit=limit).search()
+        search_results = TextToDbSearch(
+            request=request, query=q, field=field, limit=limit
+        ).search()
         if not search_results:
             message = f"No data found for taxon: {q}"
             logger.info(message)

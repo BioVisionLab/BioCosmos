@@ -4,9 +4,9 @@ export interface DbResultItems {
   score: number;
 }
 
-async function searchDatabase(query: string): Promise<DbResultItems[]> {
+async function searchDatabase(query: string, field: string = "all"): Promise<DbResultItems[]> {
   const response = await fetch(
-    "/api/db-search?q=" + encodeURIComponent(query),
+    `/api/db-search?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}`,
     {
       method: "GET",
       headers: { Accept: "application/json" },
@@ -25,7 +25,7 @@ async function searchDatabase(query: string): Promise<DbResultItems[]> {
     return [];
   }
 
-  return json.results.map((item: any) => ({
+  return json.results.map((item: { matched_fields: string[]; score: number; species: string }) => ({
     matched_fields: item.matched_fields,
     score: item.score,
     species: item.species,

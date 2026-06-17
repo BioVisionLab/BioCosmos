@@ -10,6 +10,7 @@ const LIMIT = 20;
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
+  const field = searchParams.get("field") || "all";
 
   if (!query) {
     return NextResponse.json(
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
 
   try {
     const response = await fetch(
-      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&limit=${LIMIT}`
+      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&limit=${LIMIT}`
     );
     if (!response.ok) {
       throw new Error(`Failed to fetch taxon data: ${response.statusText}`);
