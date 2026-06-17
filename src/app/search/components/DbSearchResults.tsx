@@ -1,16 +1,13 @@
 import { ImageLoading } from "@/components/Loadings";
 import SearchForm from "@/components/SearchForm";
 import Tips from "@/components/Tips";
-import {
-  DbResultItems,
-  SpecimenMetadata,
-  searchDatabase,
-} from "@/lib/dbSearch";
+import { DbResultItems, SpecimenMetadata, searchDatabase } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail } from "@/lib/images";
 import { cleanSpeciesName, formatSpeciesNameForUrl } from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 const IMAGE_SIZE = 128;
@@ -47,7 +44,7 @@ function HighlightText({
           </mark>
         ) : (
           part
-        ),
+        )
       )}
     </>
   );
@@ -56,10 +53,9 @@ function HighlightText({
 function renderSpeciesLink(
   speciesName: string | null | undefined,
   query: string,
-  isMatched: boolean,
+  isMatched: boolean
 ) {
-  if (!speciesName)
-    return <span className="text-gray-400 dark:text-gray-600">—</span>;
+  if (!speciesName) return <span className="text-gray-400 dark:text-gray-600">—</span>;
 
   const normalized = speciesName.replace(/_/g, " ").trim();
   const parts = normalized.split(/\s+/);
@@ -70,8 +66,7 @@ function renderSpeciesLink(
     const binomialUrl = binomial.toLowerCase().replace(/ /g, "_");
 
     // Capitalize genus
-    const capitalizedBinomial =
-      binomial.charAt(0).toUpperCase() + binomial.slice(1);
+    const capitalizedBinomial = binomial.charAt(0).toUpperCase() + binomial.slice(1);
 
     return (
       <span className="italic whitespace-nowrap">
@@ -79,34 +74,21 @@ function renderSpeciesLink(
           href={`/species/${binomialUrl}`}
           className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
         >
-          <HighlightText
-            text={capitalizedBinomial}
-            highlight={query}
-            isMatched={isMatched}
-          />
+          <HighlightText text={capitalizedBinomial} highlight={query} isMatched={isMatched} />
         </Link>
         {rest ? (
           <>
             {" "}
-            <HighlightText
-              text={rest}
-              highlight={query}
-              isMatched={isMatched}
-            />
+            <HighlightText text={rest} highlight={query} isMatched={isMatched} />
           </>
         ) : null}
       </span>
     );
   } else {
-    const capitalized =
-      speciesName.charAt(0).toUpperCase() + speciesName.slice(1);
+    const capitalized = speciesName.charAt(0).toUpperCase() + speciesName.slice(1);
     return (
       <span className="italic whitespace-nowrap">
-        <HighlightText
-          text={capitalized}
-          highlight={query}
-          isMatched={isMatched}
-        />
+        <HighlightText text={capitalized} highlight={query} isMatched={isMatched} />
       </span>
     );
   }
@@ -115,7 +97,7 @@ function renderSpeciesLink(
 function renderCoordinateCell(
   lat: number | null | undefined,
   lon: number | null | undefined,
-  matchedFields: string[],
+  matchedFields: string[]
 ) {
   const hasLat = lat !== null && lat !== undefined;
   const hasLon = lon !== null && lon !== undefined;
@@ -148,20 +130,29 @@ function DbSearch({
   query: string;
   initialField?: string;
 }) {
+  const searchParams = useSearchParams();
+  const pageParam = searchParams.get("page") || "1";
+  const initialPage = parseInt(pageParam, 10) || 1;
+
   const [results, setResults] = useState<DbResultItems[]>([]);
   const [specimens, setSpecimens] = useState<SpecimenMetadata[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [field, setField] = useState(initialField);
+  const [page, setPage] = useState(initialPage);
+  const [totalSpecimens, setTotalSpecimens] = useState(0);
+  const [limit, setLimit] = useState(50);
 
   useEffect(() => {
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await searchDatabase(query, field);
+        const response = await searchDatabase(query, field, page);
         setResults(response.results);
         setSpecimens(response.specimens);
+        setTotalSpecimens(response.total_specimens);
+        setLimit(response.limit);
       } catch (error) {
         setError("Failed to fetch search results");
       } finally {
@@ -172,21 +163,28 @@ function DbSearch({
     if (query) {
       fetchResults();
     }
-  }, [query, field]);
+  }, [query, field, page]);
 
   const handleSearch = (newQuery: string, mode: string) => {
     setError(null);
     setLoading(true);
     setResults([]);
     setSpecimens([]);
+    setPage(1);
     // Update the URL without refreshing the page
-    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}&field=${encodeURIComponent(field)}`;
+    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}&field=${encodeURIComponent(field)}&page=1`;
     window.history.pushState({}, "", newUrl);
     // Trigger useEffect to fetch new results
     setTimeout(() => {
       setLoading(false);
       window.location.reload();
     }, 100); // Slight delay to ensure URL is updated
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    const newUrl = `/search?q=${encodeURIComponent(query)}&mode=text&field=${encodeURIComponent(field)}&page=${newPage}`;
+    window.history.pushState({}, "", newUrl);
   };
 
   if (error) {
@@ -228,7 +226,8 @@ function DbSearch({
               onChange={(e) => {
                 const newField = e.target.value;
                 setField(newField);
-                const newUrl = `/search?q=${encodeURIComponent(query)}&mode=text&field=${encodeURIComponent(newField)}`;
+                setPage(1);
+                const newUrl = `/search?q=${encodeURIComponent(query)}&mode=text&field=${encodeURIComponent(newField)}&page=1`;
                 window.history.pushState({}, "", newUrl);
                 setTimeout(() => {
                   window.location.reload();
@@ -238,7 +237,7 @@ function DbSearch({
             >
               <option value="all">All Fields</option>
               <optgroup
-                label="Taxonomy"
+                label="Taxonomy (Highest to Lowest Rank)"
                 className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
               >
                 <option
@@ -349,6 +348,10 @@ function DbSearch({
           specimens={specimens}
           query={query}
           loading={loading}
+          totalSpecimens={totalSpecimens}
+          page={page}
+          limit={limit}
+          onPageChange={handlePageChange}
         />
       </div>
     </div>
@@ -360,11 +363,19 @@ function DbSearchResults({
   specimens,
   query,
   loading,
+  totalSpecimens,
+  page,
+  limit,
+  onPageChange,
 }: {
   results: DbResultItems[];
   specimens: SpecimenMetadata[];
   query: string;
   loading: boolean;
+  totalSpecimens: number;
+  page: number;
+  limit: number;
+  onPageChange: (newPage: number) => void;
 }) {
   if (query.trim() === "" && !loading) {
     return (
@@ -380,8 +391,7 @@ function DbSearchResults({
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400 font-medium">
-          No results found for &ldquo;{query}&rdquo;. Please try a different
-          query.
+          No results found for &ldquo;{query}&rdquo;. Please try a different query.
         </p>
       </div>
     );
@@ -403,7 +413,7 @@ function DbSearchResults({
                   id="specimen-results"
                   className="text-2xl font-bold tracking-tight text-gray-800 dark:text-gray-100 font-serif"
                 >
-                  Specimens matching query ({specimens.length})
+                  Specimens matching query ({totalSpecimens})
                 </h2>
                 <Tips message="Species names are linked to their respective species pages. Text matching the query is highlighted." />
               </div>
@@ -412,42 +422,18 @@ function DbSearchResults({
                 <table className="w-full text-left text-sm text-gray-700 dark:text-gray-300 border-collapse">
                   <thead className="bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-semibold tracking-wider text-xs uppercase border-b border-gray-200 dark:border-gray-700">
                     <tr>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Species
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Kingdom
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Phylum
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Class
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Order
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Family
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Sex
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Life Stage
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Common Name
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        View
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Locality
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Source DB
-                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Species</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Kingdom</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Phylum</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Class</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Order</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Family</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Sex</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Life Stage</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Common Name</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">View</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Locality</th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">Source DB</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
@@ -459,88 +445,40 @@ function DbSearchResults({
                           className="hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
                         >
                           <td className="px-4 py-3 align-middle font-medium">
-                            {renderSpeciesLink(
-                              specimen.species,
-                              query,
-                              matched.includes("species"),
-                            )}
+                            {renderSpeciesLink(specimen.species, query, matched.includes("species"))}
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.kingdom}
-                              highlight={query}
-                              isMatched={matched.includes("kingdom")}
-                            />
+                            <HighlightText text={specimen.kingdom} highlight={query} isMatched={matched.includes("kingdom")} />
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.phylum}
-                              highlight={query}
-                              isMatched={matched.includes("phylum")}
-                            />
+                            <HighlightText text={specimen.phylum} highlight={query} isMatched={matched.includes("phylum")} />
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.class}
-                              highlight={query}
-                              isMatched={matched.includes("class")}
-                            />
+                            <HighlightText text={specimen.class} highlight={query} isMatched={matched.includes("class")} />
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.order}
-                              highlight={query}
-                              isMatched={matched.includes("order")}
-                            />
+                            <HighlightText text={specimen.order} highlight={query} isMatched={matched.includes("order")} />
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.family}
-                              highlight={query}
-                              isMatched={matched.includes("family")}
-                            />
+                            <HighlightText text={specimen.family} highlight={query} isMatched={matched.includes("family")} />
                           </td>
                           <td className="px-4 py-3 align-middle capitalize">
-                            <HighlightText
-                              text={specimen.sex}
-                              highlight={query}
-                              isMatched={matched.includes("sex")}
-                            />
+                            <HighlightText text={specimen.sex} highlight={query} isMatched={matched.includes("sex")} />
                           </td>
                           <td className="px-4 py-3 align-middle capitalize">
-                            <HighlightText
-                              text={specimen.life_stage}
-                              highlight={query}
-                              isMatched={matched.includes("life_stage")}
-                            />
+                            <HighlightText text={specimen.life_stage} highlight={query} isMatched={matched.includes("life_stage")} />
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.common_name}
-                              highlight={query}
-                              isMatched={matched.includes("common_name")}
-                            />
+                            <HighlightText text={specimen.common_name} highlight={query} isMatched={matched.includes("common_name")} />
                           </td>
                           <td className="px-4 py-3 align-middle uppercase">
-                            <HighlightText
-                              text={specimen.class_dv}
-                              highlight={query}
-                              isMatched={matched.includes("class_dv")}
-                            />
+                            <HighlightText text={specimen.class_dv} highlight={query} isMatched={matched.includes("class_dv")} />
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            {renderCoordinateCell(
-                              specimen.lat,
-                              specimen.lon,
-                              matched,
-                            )}
+                            {renderCoordinateCell(specimen.lat, specimen.lon, matched)}
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.source_db}
-                              highlight={query}
-                              isMatched={matched.includes("source_db")}
-                            />
+                            <HighlightText text={specimen.source_db} highlight={query} isMatched={matched.includes("source_db")} />
                           </td>
                         </tr>
                       );
@@ -548,6 +486,97 @@ function DbSearchResults({
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {totalSpecimens > limit && (
+                <div className="mt-4 flex items-center justify-between px-4 py-3 bg-white/30 dark:bg-gray-800/30 backdrop-blur border border-gray-200 dark:border-gray-700/80 rounded-2xl">
+                  <div className="flex-1 flex justify-between sm:hidden">
+                    <button
+                      onClick={() => onPageChange(page - 1)}
+                      disabled={page <= 1}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-200 dark:border-gray-700 text-sm font-medium rounded-xl text-gray-700 dark:text-gray-200 bg-white/70 dark:bg-gray-800/60 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => onPageChange(page + 1)}
+                      disabled={page >= Math.ceil(totalSpecimens / limit)}
+                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 dark:border-gray-700 text-sm font-medium rounded-xl text-gray-700 dark:text-gray-200 bg-white/70 dark:bg-gray-800/60 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing{" "}
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {(page - 1) * limit + 1}
+                        </span>{" "}
+                        to{" "}
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {Math.min(page * limit, totalSpecimens)}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {totalSpecimens}
+                        </span>{" "}
+                        specimens
+                      </p>
+                    </div>
+                    <div>
+                      <nav
+                        className="relative z-0 inline-flex rounded-md shadow-xs -space-x-px"
+                        aria-label="Pagination"
+                      >
+                        <button
+                          onClick={() => onPageChange(page - 1)}
+                          disabled={page <= 1}
+                          className="relative inline-flex items-center px-3 py-2 rounded-l-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/60 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                        >
+                          <span className="sr-only">Previous</span>
+                          <svg
+                            className="h-5 w-5"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                        <span className="relative inline-flex items-center px-4 py-2 border-t border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/40 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {page} of {Math.ceil(totalSpecimens / limit)}
+                        </span>
+                        <button
+                          onClick={() => onPageChange(page + 1)}
+                          disabled={page >= Math.ceil(totalSpecimens / limit)}
+                          className="relative inline-flex items-center px-3 py-2 rounded-r-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/60 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                        >
+                          <span className="sr-only">Next</span>
+                          <svg
+                            className="h-5 w-5"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -565,10 +594,7 @@ function DbSearchResults({
               </div>
               <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
                 {results.map((item, index) => (
-                  <Suspense
-                    key={index}
-                    fallback={<div>Loading species...</div>}
-                  >
+                  <Suspense key={index} fallback={<div>Loading species...</div>}>
                     <DbResultCard data={item} />
                   </Suspense>
                 ))}

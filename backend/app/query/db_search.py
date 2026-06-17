@@ -15,16 +15,19 @@ class DbSearchPayload(BaseModel):
     query: str
     results: list[dict]
     specimens: list[dict] = []
+    total_specimens: int = 0
+    page: int = 1
+    limit: int = 50
 
     @classmethod
-    def from_data(cls, query: str, results: list[dict], specimens: list[dict] = None):
+    def from_data(cls, query: str, results: list[dict], specimens: list[dict] = None, total_specimens: int = 0, page: int = 1, limit: int = 50):
         """ """
-        return cls(query=query, results=results, specimens=specimens or [])
+        return cls(query=query, results=results, specimens=specimens or [], total_specimens=total_specimens, page=page, limit=limit)
 
     @classmethod
     def empty(cls, query: str):
         """ """
-        return cls(query=query, results=[], specimens=[])
+        return cls(query=query, results=[], specimens=[], total_specimens=0, page=1, limit=50)
 
 
 class TextToDbSearch:
@@ -37,6 +40,7 @@ class TextToDbSearch:
         request: Request,
         query: str = "",
         field: str = "all",
+        page: int = 1,
         limit: int = 50,
     ):
         """
@@ -45,7 +49,9 @@ class TextToDbSearch:
         self.request = request
         self.query = query.strip()
         self.field = field.strip().lower()
+        self.page = max(1, page)
         self.limit = limit
+        self.offset = (self.page - 1) * self.limit
 
     def search(self) -> dict | None:
         """
@@ -116,9 +122,17 @@ class TextToDbSearch:
                     FROM {table_name}
                     WHERE lat BETWEEN ? AND ?
                       AND lon BETWEEN ? AND ?
-                    LIMIT ?
+                    LIMIT ? OFFSET ?
                 """
-                specimen_params = [lat_min, lat_max, lon_min, lon_max, self.limit]
+                specimen_params = [lat_min, lat_max, lon_min, lon_max, self.limit, self.offset]
+
+                count_query = f"""
+                    SELECT COUNT(*)
+                    FROM {table_name}
+                    WHERE lat BETWEEN ? AND ?
+                      AND lon BETWEEN ? AND ?
+                """
+                count_params = [lat_min, lat_max, lon_min, lon_max]
             elif field != "all":
                 col_name = f'"{field}"'
                 
@@ -139,9 +153,16 @@ class TextToDbSearch:
                     SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
                     FROM {table_name}
                     WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
-                    LIMIT ?
+                    LIMIT ? OFFSET ?
                 """
-                specimen_params = [q_param, self.limit]
+                specimen_params = [q_param, self.limit, self.offset]
+
+                count_query = f"""
+                    SELECT COUNT(*)
+                    FROM {table_name}
+                    WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
+                """
+                count_params = [q_param]
             else:
                 conditions = []
                 selects = []
@@ -177,9 +198,16 @@ class TextToDbSearch:
                     SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
                     FROM {table_name}
                     WHERE {conditions_str}
-                    LIMIT ?
+                    LIMIT ? OFFSET ?
                 """
-                specimen_params = [q_param] * len(search_fields) + [self.limit]
+                specimen_params = [q_param] * len(search_fields) + [self.limit, self.offset]
+
+                count_query = f"""
+                    SELECT COUNT(*)
+                    FROM {table_name}
+                    WHERE {conditions_str}
+                """
+                count_params = [q_param] * len(search_fields)
                 
             if results_df.is_empty():
                 logger.info(f"No results found for query: {self.query}")
@@ -254,9 +282,13 @@ class TextToDbSearch:
                         "matched_fields": matched_cols
                     })
 
-            logger.info(f"Found {len(db_results)} unique species and {len(db_specimens)} specimens for query: {self.query}")
+            # Execute count query
+            count_df = self.request.app.state.duck_db.execute_prepared_to_pl(count_query, count_params)
+            total_specimens = count_df[0, 0] if not count_df.is_empty() else 0
+
+            logger.info(f"Found {len(db_results)} unique species, total {total_specimens} specimens (showing page {self.page}) for query: {self.query}")
             return DbSearchPayload.from_data(
-                query=self.query, results=db_results, specimens=db_specimens
+                query=self.query, results=db_results, specimens=db_specimens, total_specimens=total_specimens, page=self.page, limit=self.limit
             ).model_dump()
             
         except Exception as e:

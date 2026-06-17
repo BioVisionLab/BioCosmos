@@ -25,14 +25,18 @@ export interface SpecimenMetadata {
 export interface DbSearchResponse {
   results: DbResultItems[];
   specimens: SpecimenMetadata[];
+  total_specimens: number;
+  page: number;
+  limit: number;
 }
 
 async function searchDatabase(
   query: string,
   field: string = "all",
+  page: number = 1,
 ): Promise<DbSearchResponse> {
   const response = await fetch(
-    `/api/db-search?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}`,
+    `/api/db-search?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${encodeURIComponent(page)}`,
     {
       method: "GET",
       headers: { Accept: "application/json" },
@@ -71,7 +75,13 @@ async function searchDatabase(
     matched_fields: item.matched_fields || [],
   }));
 
-  return { results, specimens };
+  return {
+    results,
+    specimens,
+    total_specimens: json.total_specimens || 0,
+    page: json.page || 1,
+    limit: json.limit || 50,
+  };
 }
 
 export { searchDatabase };

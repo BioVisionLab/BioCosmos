@@ -5,12 +5,13 @@ import { NextResponse } from "next/server";
 
 const DB_SEARCH_ENDPOINT = `${API_HOST}/search/db`;
 
-const LIMIT = 20;
+const LIMIT = 50;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
   const field = searchParams.get("field") || "all";
+  const page = searchParams.get("page") || "1";
 
   if (!query) {
     return NextResponse.json(
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 
   try {
     const response = await fetch(
-      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&limit=${LIMIT}`
+      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${encodeURIComponent(page)}&limit=${LIMIT}`
     );
     if (!response.ok) {
       throw new Error(`Failed to fetch taxon data: ${response.statusText}`);
