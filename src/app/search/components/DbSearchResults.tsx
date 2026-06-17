@@ -91,7 +91,7 @@ function DbSearch({ query, initialField = "all" }: { query: string; initialField
               }}
               className="appearance-none bg-white/70 dark:bg-gray-800/60 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-xs hover:border-emerald-500/50 hover:shadow-sm transition-all text-gray-800 dark:text-gray-100 cursor-pointer font-medium"
             >
-              <option value="all">✨ All Fields</option>
+              <option value="all">All Fields</option>
               <option value="species">Species</option>
               <option value="common_name">Common Name</option>
               <option value="family">Family</option>
