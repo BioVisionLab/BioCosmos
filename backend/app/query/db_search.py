@@ -14,16 +14,17 @@ class DbSearchPayload(BaseModel):
 
     query: str
     results: list[dict]
+    specimens: list[dict] = []
 
     @classmethod
-    def from_data(cls, query: str, results: list[dict]):
+    def from_data(cls, query: str, results: list[dict], specimens: list[dict] = None):
         """ """
-        return cls(query=query, results=results)
+        return cls(query=query, results=results, specimens=specimens or [])
 
     @classmethod
     def empty(cls, query: str):
         """ """
-        return cls(query=query, results=[])
+        return cls(query=query, results=[], specimens=[])
 
 
 class TextToDbSearch:
@@ -78,7 +79,7 @@ class TextToDbSearch:
         if field not in valid_fields:
             field = "all"
 
-        q_param = f"%{self.query}%"
+        q_param = f"%{self.query.replace('_', ' ')}%"
         
         try:
             if field == "coordinate":
@@ -109,6 +110,15 @@ class TextToDbSearch:
                 """
                 params = [lat_min, lat_max, lon_min, lon_max, self.limit]
                 results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
+
+                specimen_query = f"""
+                    SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
+                    FROM {table_name}
+                    WHERE lat BETWEEN ? AND ?
+                      AND lon BETWEEN ? AND ?
+                    LIMIT ?
+                """
+                specimen_params = [lat_min, lat_max, lon_min, lon_max, self.limit]
             elif field != "all":
                 col_name = f'"{field}"'
                 
@@ -116,14 +126,22 @@ class TextToDbSearch:
                     SELECT
                         LOWER(REPLACE(species, ' ', '_')) AS species_key,
                         FIRST(species) AS species,
-                        bool_or({col_name} ILIKE ?) AS match_field
+                        bool_or(REPLACE({col_name}, '_', ' ') ILIKE ?) AS match_field
                     FROM {table_name}
-                    WHERE {col_name} ILIKE ?
+                    WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
                     GROUP BY species_key
                     LIMIT ?
                 """
                 params = [q_param, q_param, self.limit]
                 results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
+
+                specimen_query = f"""
+                    SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
+                    FROM {table_name}
+                    WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
+                    LIMIT ?
+                """
+                specimen_params = [q_param, self.limit]
             else:
                 conditions = []
                 selects = []
@@ -133,8 +151,8 @@ class TextToDbSearch:
                 for col in search_fields:
                     col_esc = f'"{col}"'
                     
-                    conditions.append(f"{col_esc} ILIKE ?")
-                    selects.append(f"bool_or({col_esc} ILIKE ?) AS match_{col}")
+                    conditions.append(f"REPLACE({col_esc}, '_', ' ') ILIKE ?")
+                    selects.append(f"bool_or(REPLACE({col_esc}, '_', ' ') ILIKE ?) AS match_{col}")
                     params.append(q_param)
                 
                 params.extend([q_param] * len(search_fields))
@@ -154,6 +172,14 @@ class TextToDbSearch:
                     LIMIT ?
                 """
                 results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
+
+                specimen_query = f"""
+                    SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
+                    FROM {table_name}
+                    WHERE {conditions_str}
+                    LIMIT ?
+                """
+                specimen_params = [q_param] * len(search_fields) + [self.limit]
                 
             if results_df.is_empty():
                 logger.info(f"No results found for query: {self.query}")
@@ -192,9 +218,45 @@ class TextToDbSearch:
             
             db_results.sort(key=lambda x: x["score"], reverse=True)
             
-            logger.info(f"Found {len(db_results)} results for query: {self.query}")
+            # Execute specimens query
+            specimens_df = self.request.app.state.duck_db.execute_prepared_to_pl(specimen_query, specimen_params)
+            db_specimens = []
+            if not specimens_df.is_empty():
+                search_fields = [f for f in valid_fields if f != "coordinate"]
+                for row in specimens_df.iter_rows(named=True):
+                    matched_cols = []
+                    if field == "coordinate":
+                        matched_cols = ["lat", "lon"]
+                    elif field != "all":
+                        matched_cols = [field]
+                    else:
+                        query_lower = self.query.lower().replace("_", " ")
+                        for col in search_fields:
+                            val = row.get(col)
+                            if val is not None and query_lower in str(val).lower().replace("_", " "):
+                                matched_cols.append(col)
+                    
+                    db_specimens.append({
+                        "img_id": row["img_id"],
+                        "species": row["species"],
+                        "family": row["family"],
+                        "common_name": row["common_name"],
+                        "sex": row["sex"],
+                        "life_stage": row["life_stage"],
+                        "class_dv": row["class_dv"],
+                        "lat": row["lat"],
+                        "lon": row["lon"],
+                        "source_db": row["source_db"],
+                        "kingdom": row["kingdom"],
+                        "phylum": row["phylum"],
+                        "class": row["class"],
+                        "order": row["order"],
+                        "matched_fields": matched_cols
+                    })
+
+            logger.info(f"Found {len(db_results)} unique species and {len(db_specimens)} specimens for query: {self.query}")
             return DbSearchPayload.from_data(
-                query=self.query, results=db_results
+                query=self.query, results=db_results, specimens=db_specimens
             ).model_dump()
             
         except Exception as e:

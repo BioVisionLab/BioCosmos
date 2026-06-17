@@ -1,15 +1,145 @@
 import { ImageLoading } from "@/components/Loadings";
 import SearchForm from "@/components/SearchForm";
 import Tips from "@/components/Tips";
-import { DbResultItems, searchDatabase } from "@/lib/dbSearch";
+import {
+  DbResultItems,
+  SpecimenMetadata,
+  searchDatabase,
+} from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail } from "@/lib/images";
 import { cleanSpeciesName, formatSpeciesNameForUrl } from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 const IMAGE_SIZE = 128;
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function HighlightText({
+  text,
+  highlight,
+  isMatched,
+}: {
+  text: string | null | undefined;
+  highlight: string;
+  isMatched: boolean;
+}) {
+  if (!text) return <span className="text-gray-400 dark:text-gray-600">—</span>;
+  if (!isMatched || !highlight) return <>{text}</>;
+
+  // Substring matching case-insensitive
+  const regex = new RegExp(`(${escapeRegExp(highlight)})`, "gi");
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        regex.test(part) ? (
+          <mark
+            key={index}
+            className="bg-yellow-200 dark:bg-yellow-800/80 text-black dark:text-white px-0.5 rounded-xs"
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+function renderSpeciesLink(
+  speciesName: string | null | undefined,
+  query: string,
+  isMatched: boolean,
+) {
+  if (!speciesName)
+    return <span className="text-gray-400 dark:text-gray-600">—</span>;
+
+  const normalized = speciesName.replace(/_/g, " ").trim();
+  const parts = normalized.split(/\s+/);
+
+  if (parts.length >= 2) {
+    const binomial = `${parts[0]} ${parts[1]}`;
+    const rest = parts.slice(2).join(" ");
+    const binomialUrl = binomial.toLowerCase().replace(/ /g, "_");
+
+    // Capitalize genus
+    const capitalizedBinomial =
+      binomial.charAt(0).toUpperCase() + binomial.slice(1);
+
+    return (
+      <span className="italic whitespace-nowrap">
+        <Link
+          href={`/species/${binomialUrl}`}
+          className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+        >
+          <HighlightText
+            text={capitalizedBinomial}
+            highlight={query}
+            isMatched={isMatched}
+          />
+        </Link>
+        {rest ? (
+          <>
+            {" "}
+            <HighlightText
+              text={rest}
+              highlight={query}
+              isMatched={isMatched}
+            />
+          </>
+        ) : null}
+      </span>
+    );
+  } else {
+    const capitalized =
+      speciesName.charAt(0).toUpperCase() + speciesName.slice(1);
+    return (
+      <span className="italic whitespace-nowrap">
+        <HighlightText
+          text={capitalized}
+          highlight={query}
+          isMatched={isMatched}
+        />
+      </span>
+    );
+  }
+}
+
+function renderCoordinateCell(
+  lat: number | null | undefined,
+  lon: number | null | undefined,
+  matchedFields: string[],
+) {
+  const hasLat = lat !== null && lat !== undefined;
+  const hasLon = lon !== null && lon !== undefined;
+  if (!hasLat && !hasLon) {
+    return <span className="text-gray-400 dark:text-gray-600">—</span>;
+  }
+
+  const isMatched =
+    matchedFields.includes("lat") ||
+    matchedFields.includes("lon") ||
+    matchedFields.includes("coordinate");
+
+  const text = `${hasLat ? lat!.toFixed(4) : "—"}, ${hasLon ? lon!.toFixed(4) : "—"}`;
+
+  if (isMatched) {
+    return (
+      <mark className="bg-yellow-200 dark:bg-yellow-800/80 text-black dark:text-white px-1 rounded-xs">
+        {text}
+      </mark>
+    );
+  }
+
+  return <span>{text}</span>;
+}
 
 function DbSearch({
   query,
@@ -19,6 +149,7 @@ function DbSearch({
   initialField?: string;
 }) {
   const [results, setResults] = useState<DbResultItems[]>([]);
+  const [specimens, setSpecimens] = useState<SpecimenMetadata[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [field, setField] = useState(initialField);
@@ -29,7 +160,8 @@ function DbSearch({
       setError(null);
       try {
         const response = await searchDatabase(query, field);
-        setResults(response);
+        setResults(response.results);
+        setSpecimens(response.specimens);
       } catch (error) {
         setError("Failed to fetch search results");
       } finally {
@@ -46,6 +178,7 @@ function DbSearch({
     setError(null);
     setLoading(true);
     setResults([]);
+    setSpecimens([]);
     // Update the URL without refreshing the page
     const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}&field=${encodeURIComponent(field)}`;
     window.history.pushState({}, "", newUrl);
@@ -105,7 +238,7 @@ function DbSearch({
             >
               <option value="all">All Fields</option>
               <optgroup
-                label="Taxonomy (Highest to Lowest Rank)"
+                label="Taxonomy"
                 className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
               >
                 <option
@@ -211,7 +344,12 @@ function DbSearch({
             Search Results
           </h1>
         </div>
-        <DbSearchResults results={results} query={query} loading={loading} />
+        <DbSearchResults
+          results={results}
+          specimens={specimens}
+          query={query}
+          loading={loading}
+        />
       </div>
     </div>
   );
@@ -219,19 +357,34 @@ function DbSearch({
 
 function DbSearchResults({
   results,
+  specimens,
   query,
   loading,
 }: {
   results: DbResultItems[];
+  specimens: SpecimenMetadata[];
   query: string;
   loading: boolean;
 }) {
   if (query.trim() === "" && !loading) {
-    return <p>Please enter a search query.</p>;
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400 font-medium">
+          Please enter a search query.
+        </p>
+      </div>
+    );
   }
 
-  if (results.length === 0 && !loading) {
-    return <p>No results found for "{query}". Please try a different query.</p>;
+  if (results.length === 0 && specimens.length === 0 && !loading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400 font-medium">
+          No results found for &ldquo;{query}&rdquo;. Please try a different
+          query.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -241,26 +394,187 @@ function DbSearchResults({
           <ImageLoading size={240} msg="Loading results" />
         </div>
       ) : (
-        <div className="mt-5">
-          <div>
-            <div className="mb-4">
-              <h2
-                id="other-results"
-                className="text-lg text-gray-700 dark:text-gray-200"
-              >
-                Found {results.length} other results for "{query}"
-              </h2>
-              <Tips message="Click on an image to view species page" />
+        <div className="flex flex-col gap-12 mt-5">
+          {/* Top Section: Specimen Metadata Table */}
+          {specimens.length > 0 && (
+            <div>
+              <div className="mb-4">
+                <h2
+                  id="specimen-results"
+                  className="text-2xl font-bold tracking-tight text-gray-800 dark:text-gray-100 font-serif"
+                >
+                  Specimens matching query ({specimens.length})
+                </h2>
+                <Tips message="Species names are linked to their respective species pages. Text matching the query is highlighted." />
+              </div>
+
+              <div className="overflow-x-auto w-full rounded-2xl border border-gray-200 dark:border-gray-700/80 shadow-xs bg-white/40 dark:bg-gray-800/40 backdrop-blur-md">
+                <table className="w-full text-left text-sm text-gray-700 dark:text-gray-300 border-collapse">
+                  <thead className="bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-semibold tracking-wider text-xs uppercase border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Species
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Kingdom
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Phylum
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Class
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Order
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Family
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Sex
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Life Stage
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Common Name
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        View
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Locality
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Source DB
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
+                    {specimens.map((specimen, idx) => {
+                      const matched = specimen.matched_fields || [];
+                      return (
+                        <tr
+                          key={specimen.img_id || idx}
+                          className="hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
+                        >
+                          <td className="px-4 py-3 align-middle font-medium">
+                            {renderSpeciesLink(
+                              specimen.species,
+                              query,
+                              matched.includes("species"),
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.kingdom}
+                              highlight={query}
+                              isMatched={matched.includes("kingdom")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.phylum}
+                              highlight={query}
+                              isMatched={matched.includes("phylum")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.class}
+                              highlight={query}
+                              isMatched={matched.includes("class")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.order}
+                              highlight={query}
+                              isMatched={matched.includes("order")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.family}
+                              highlight={query}
+                              isMatched={matched.includes("family")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle capitalize">
+                            <HighlightText
+                              text={specimen.sex}
+                              highlight={query}
+                              isMatched={matched.includes("sex")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle capitalize">
+                            <HighlightText
+                              text={specimen.life_stage}
+                              highlight={query}
+                              isMatched={matched.includes("life_stage")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.common_name}
+                              highlight={query}
+                              isMatched={matched.includes("common_name")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle uppercase">
+                            <HighlightText
+                              text={specimen.class_dv}
+                              highlight={query}
+                              isMatched={matched.includes("class_dv")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            {renderCoordinateCell(
+                              specimen.lat,
+                              specimen.lon,
+                              matched,
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.source_db}
+                              highlight={query}
+                              isMatched={matched.includes("source_db")}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-              {/* Render remaining results */}
-              {results.map((item, index) => (
-                <Suspense key={index} fallback={<div>Loading species...</div>}>
-                  <DbResultCard data={item} />
-                </Suspense>
-              ))}
+          )}
+
+          {/* Bottom Section: Species Cards Grid */}
+          {results.length > 0 && (
+            <div>
+              <div className="mb-4">
+                <h2
+                  id="species-results"
+                  className="text-2xl font-bold tracking-tight text-gray-800 dark:text-gray-100 font-serif"
+                >
+                  Species pages containing query ({results.length})
+                </h2>
+                <Tips message="Click on an image card to navigate to the species detail page." />
+              </div>
+              <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
+                {results.map((item, index) => (
+                  <Suspense
+                    key={index}
+                    fallback={<div>Loading species...</div>}
+                  >
+                    <DbResultCard data={item} />
+                  </Suspense>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -312,7 +626,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
             {cleanSpeciesName(data.species)}
           </h2>
           <p className="text-xs text-gray-500 w-full">
-            Matched fields:{" "}
+            Matched:{" "}
             {data.matched_fields
               .map((field) => field.replace(/_/g, " "))
               .join(", ")}
