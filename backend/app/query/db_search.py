@@ -61,20 +61,17 @@ class TextToDbSearch:
 
         valid_fields = [
             "class_dv",
-            "tax_rank",
-            "tax_status",
             "family",
             "species",
             "sex",
             "life_stage",
-            "lat",
-            "lon",
             "source_db",
             "kingdom",
             "phylum",
             "class",
             "order",
             "common_name",
+            "coordinate",
         ]
 
         field = self.field.replace(" ", "_")
@@ -84,17 +81,44 @@ class TextToDbSearch:
         q_param = f"%{self.query}%"
         
         try:
-            if field != "all":
-                col_name = f'"{field}"'
-                col_expr = f"CAST({col_name} AS VARCHAR)" if field in ("lat", "lon") else col_name
+            if field == "coordinate":
+                parsed = self.parse_coordinate(self.query)
+                if not parsed:
+                    logger.info(f"Invalid coordinate format or values: {self.query}")
+                    return DbSearchPayload.empty(query=self.query).model_dump()
+                
+                lat, lon = parsed
+                import math
+                lat_delta = 100.0 / 111100.0
+                cos_lat = max(math.cos(math.radians(lat)), 0.01)
+                lon_delta = lat_delta / cos_lat
+                
+                lat_min, lat_max = lat - lat_delta, lat + lat_delta
+                lon_min, lon_max = lon - lon_delta, lon + lon_delta
                 
                 query = f"""
                     SELECT
                         LOWER(REPLACE(species, ' ', '_')) AS species_key,
                         FIRST(species) AS species,
-                        bool_or({col_expr} ILIKE ?) AS match_field
+                        bool_or(TRUE) AS match_field
                     FROM {table_name}
-                    WHERE {col_expr} ILIKE ?
+                    WHERE lat BETWEEN ? AND ?
+                      AND lon BETWEEN ? AND ?
+                    GROUP BY species_key
+                    LIMIT ?
+                """
+                params = [lat_min, lat_max, lon_min, lon_max, self.limit]
+                results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
+            elif field != "all":
+                col_name = f'"{field}"'
+                
+                query = f"""
+                    SELECT
+                        LOWER(REPLACE(species, ' ', '_')) AS species_key,
+                        FIRST(species) AS species,
+                        bool_or({col_name} ILIKE ?) AS match_field
+                    FROM {table_name}
+                    WHERE {col_name} ILIKE ?
                     GROUP BY species_key
                     LIMIT ?
                 """
@@ -105,15 +129,15 @@ class TextToDbSearch:
                 selects = []
                 params = []
                 
-                for col in valid_fields:
+                search_fields = [f for f in valid_fields if f != "coordinate"]
+                for col in search_fields:
                     col_esc = f'"{col}"'
-                    col_expr = f"CAST({col_esc} AS VARCHAR)" if col in ("lat", "lon") else col_esc
                     
-                    conditions.append(f"{col_expr} ILIKE ?")
-                    selects.append(f"bool_or({col_expr} ILIKE ?) AS match_{col}")
+                    conditions.append(f"{col_esc} ILIKE ?")
+                    selects.append(f"bool_or({col_esc} ILIKE ?) AS match_{col}")
                     params.append(q_param)
                 
-                params.extend([q_param] * len(valid_fields))
+                params.extend([q_param] * len(search_fields))
                 params.append(self.limit)
                 
                 selects_str = ", ".join(selects)
@@ -184,6 +208,20 @@ class TextToDbSearch:
         if len(parts) >= 2:
             return f"{parts[0]}_{parts[1]}"
         return name_clean
+
+    @staticmethod
+    def parse_coordinate(query: str) -> tuple[float, float] | None:
+        import re
+        match = re.search(r"^\s*([+-]?\d+(?:\.\d+)?)\s*[\s,;]\s*([+-]?\d+(?:\.\d+)?)\s*$", query)
+        if match:
+            try:
+                lat = float(match.group(1))
+                lon = float(match.group(2))
+                if -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0:
+                    return lat, lon
+            except ValueError:
+                pass
+        return None
 
     @staticmethod
     def calculate_score(species: str, matched_fields: list[str], query: str) -> float:
