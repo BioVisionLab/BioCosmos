@@ -1,79 +1,78 @@
-# 🦋 BioCosmos - Biodiversity Image Platform
+# BioCosmos - Biodiversity Image Platform
 
-![Backend-Tests](https://github.com/agporto/BioCosmos/workflows/Backend-Tests/badge.svg)
+[![Backend-Tests](https://github.com/agporto/BioCosmos/workflows/Backend-Tests/badge.svg)](https://github.com/agporto/BioCosmos/actions)
 
-A personalized, museum-quality biodiversity image platform that combines cutting-edge machine learning with intuitive web interfaces to explore and identify butterfly species. Built with Next.js, Python, and advanced computer vision technologies.
+A personalized, museum-quality biodiversity image platform that combines machine learning with intuitive web interfaces to explore and identify butterfly species. Built with Next.js, Python, and advanced computer vision technologies.
 
-## 🌟 Features
+## Features
 
-### 🔍 Multi-Modal Search
+### Multi-Modal Search
 
-- **Text Search**: Traditional species name search with autocomplete
-- **Semantic Search**: Natural language queries like "orange butterfly with black lines"
-- **Visual Search**: Upload an image to find visually similar species
-- **Smart Search Toggle**: Seamlessly switch between search modes
+- **Text Search**: Traditional species name search with autocomplete.
+- **Semantic Search**: Natural language queries like "orange butterfly with black lines".
+- **Visual Search**: Upload an image to find visually similar species.
+- **Smart Search Toggle**: Seamlessly switch between search modes.
 
-### 🗺️ Interactive Visualization
+### Interactive Visualization
 
-- **t-SNE Map**: Explore species relationships through interactive similarity maps
-- **Zoomable Interface**: Navigate through different detail levels
-- **Image Overlays**: Species images positioned by visual similarity
-- **Tile-Based Rendering**: Optimized performance with map tiles
+- **UMAP Map**: Explore species relationships through interactive similarity maps.
+- **Zoomable Interface**: Navigate through different detail levels.
+- **Image Overlays**: Species images positioned by visual similarity.
+- **Tile-Based Rendering**: Optimized performance with map tiles.
 
-### 🏛️ Taxonomic Navigation
+### Taxonomic Navigation
 
-- **Hierarchical Browsing**: Navigate from Class → Order → Family → Genus → Species
-- **Dynamic Routing**: Clean URLs for all taxonomic levels
-- **Breadcrumb Navigation**: Always know where you are in the taxonomy
-- **Representative Images**: Visual previews for each taxonomic group
+- **Hierarchical Browsing**: Navigate from Class -> Order -> Family -> Genus -> Species.
+- **Dynamic Routing**: Clean URLs for all taxonomic levels.
+- **Breadcrumb Navigation**: Path tracking in the taxonomy tree.
+- **Representative Images**: Visual previews for each taxonomic group.
 
-### 🦋 Rich Species Information
+### Rich Species Information
 
-- **Detailed Profiles**: Scientific names, common names, descriptions, conservation status
-- **Image Galleries**: High-quality images with lightbox viewing
-- **Geographic Maps**: Species distribution visualization
-- **Taxonomic Classification**: Complete hierarchical classification
+- **Detailed Profiles**: Scientific names, common names, biological descriptions, and conservation status.
+- **Image Galleries**: High-quality images with lightbox viewing.
+- **Geographic Maps**: Species distribution visualization using Leaflet and GBIF occurrence data.
+- **Taxonomic Classification**: Complete hierarchical classification.
 
-### 🤖 AI Integration
+### AI Integration
 
-- **Intelligent Chatbot**: Ask questions about biodiversity, taxonomy, and conservation
-- **CLIP Embeddings**: Advanced computer vision for semantic understanding
-- **Natural Language Processing**: Powered by OpenAI's language models
+- **CLIP Embeddings**: OpenAI's CLIP model for semantic understanding.
+- **UNICOM**: Advanced computer vision model for visual similarity.
+- **Agentic Search**: OpenAI function-calling search queries to intelligently query multiple data sources.
 
-### 🎨 Modern User Experience
+### Modern User Experience
 
-- **Dark/Light Mode**: Automatic system preference detection with manual toggle
-- **Responsive Design**: Optimized for desktop, tablet, and mobile
-- **Loading States**: Smooth transitions and progress indicators
-- **Error Handling**: Graceful error recovery with user-friendly messages
+- **Dark/Light Mode**: Automatic system preference detection with a manual toggle.
+- **Responsive Layout**: Optimized for desktop, tablet, and mobile devices.
+- **Loading States**: Smooth transitions and skeleton loading indicators.
+- **Error Handling**: Graceful error recovery with user-friendly messages.
 
-## 🏗️ Architecture
+## Architecture
 
 ### Frontend Stack
 
-- **Next.js**: React-based framework with App Router
-- **React**: For building user interfaces
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first styling with custom theming
-- **Leaflet.js**: Interactive maps for visualization
-- **Lucide React**: Beautiful, customizable icons
+- **Next.js**: React-based framework with App Router.
+- **React**: Component-based user interface library.
+- **TypeScript**: Type-safe development.
+- **Tailwind CSS**: Utility-first styling with custom themes.
+- **Leaflet.js & React Leaflet**: Interactive maps for geographic distribution.
+- **Lucide React**: Clean, customizable iconography.
 
 ### Backend Stack
 
-- **FastAPI**: Modern, high-performance web framework for building APIs
-- **Python 3.10+**: Core backend language
-- **LanceDB**: Vector database for embedding storage and similarity search
-- **DuckDB**: In-process SQL OLAP database for structured data
-- **CLIP**: OpenAI's vision-language model for semantic search
-- **UNICOM**: Advanced computer vision model for visual similarity
-- **Polars**: High-performance DataFrame library for data processing
-- **ChromaDB**: Vector database for additional embedding operations
-- **Transformers**: Hugging Face library for ML model integration
-- **PyTorch**: Deep learning framework for model inference
+- **FastAPI**: Modern, high-performance web framework for APIs.
+- **Python 3.10+**: Core backend language.
+- **LanceDB**: Vector database for embedding storage and similarity search.
+- **DuckDB**: In-process SQL OLAP database for structured metadata and taxonomy.
+- **CLIP**: OpenAI's vision-language model for semantic search.
+- **UNICOM**: Computer vision model optimized for fine-grained biological image similarity.
+- **Polars**: High-performance DataFrame library for data processing.
+- **Transformers**: Hugging Face library for ML model integration.
+- **PyTorch**: Deep learning framework for model inference.
 
-## 📁 Project Structure
+## Project Structure
 
-```bash
+```
 biocosmos/
 ├── backend/                  # Python backend (FastAPI)
 │   ├── duck_db/                # DuckDB database files (git-ignored)
@@ -88,6 +87,14 @@ biocosmos/
 │   │   │   ├── lance.py        # LanceDB operations
 │   │   │   └── model.py        # Data models
 │   │   ├── query/              # Database query logic
+│   │   │   ├── agent_query.py          # Agent query parsing
+│   │   │   ├── db_search.py            # DuckDB SQL text search
+│   │   │   ├── image_files.py          # Image path retrieval
+│   │   │   ├── image_search.py         # Vector database searches
+│   │   │   ├── precomputed_similarity.py # Precomputed visual similarity
+│   │   │   ├── species_similarity.py   # Runtime visual similarity
+│   │   │   ├── specimen_data.py        # Specimen and UMAP queries
+│   │   │   └── taxon_data.py           # Taxonomic query service
 │   │   ├── routers/            # API endpoints
 │   │   │   ├── agent_search.py # Agentic search endpoints
 │   │   │   ├── data_stats.py   # Statistics endpoints
@@ -95,27 +102,27 @@ biocosmos/
 │   │   │   ├── image_retrieval.py  # Image serving endpoints
 │   │   │   ├── ml_search.py    # ML-based search endpoints
 │   │   │   ├── species_data.py # Species data endpoints
-│   │   │   └── text_summarization.py  # AI chatbot endpoints
+│   │   │   └── text_summarization.py  # AI summarization endpoints
 │   │   └── services/           # Business logic and ML services
 │   │       ├── agent.py        # Agentic search and automation logic
 │   │       ├── clip.py         # CLIP model integration
 │   │       ├── embedder.py     # Embedder base classes and operations
 │   │       ├── gbif.py         # GBIF API integration
-│   │       ├── image_meta.py   # Image metadata processing
 │   │       ├── images.py       # Image processing and management
 │   │       ├── leptraits.py    # Trait data processing
+│   │       ├── metadata.py     # Metadata ingestion/query services
 │   │       ├── openai.py       # OpenAI API integration
 │   │       ├── umap.py         # UMAP dimensionality reduction
 │   │       └── unicom.py       # UNICOM model integration
 │   ├── tests/                  # Backend tests
 │   ├── Dockerfile              # Backend Dockerfile
-│   └── pyproject.toml          # Python dependencies (uv)
+│   └── pyproject.toml          # Python dependencies (managed by uv)
 ├── src/                      # Next.js frontend
 │   ├── app/                    # App Router pages and layouts
 │   │   ├── page.tsx            # Home page
 │   │   ├── layout.tsx          # Root layout
 │   │   ├── about/              # About page
-│   │   ├── api/                # API route handlers
+│   │   ├── api/                # API proxy route handlers
 │   │   ├── collections/        # Collections pages
 │   │   ├── family/             # Family taxonomy pages
 │   │   ├── genus/              # Genus taxonomy pages
@@ -124,14 +131,15 @@ biocosmos/
 │   │   ├── species/            # Species detail pages
 │   │   └── visualization/      # t-SNE visualization page
 │   ├── components/             # React components
-│   │   ├── ui/                 # UI components
-│   │   ├── ChatbotPanel.tsx    # AI chatbot
-│   │   ├── ImageSearch.tsx     # Image search component
-│   │   ├── SearchBar.tsx       # Search interface
-│   │   ├── SpeciesMap.tsx      # Geographic maps
+│   │   ├── ui/                 # UI components (buttons, dialogs, etc.)
+│   │   ├── Attribution.tsx     # Data attribution
+│   │   ├── HomePage.tsx        # Homepage content
+│   │   ├── ImageSearch.tsx     # Image search interface
+│   │   ├── SearchBar.tsx       # Navigation search bar
+│   │   ├── SpeciesMap.tsx      # Leaflet geographic maps
 │   │   └── ...                 # Other components
 │   └── lib/                    # Helper functions and utilities
-│       ├── backend.ts          # Backend API client
+│       ├── backend.ts          # Backend status verification
 │       ├── types.ts            # TypeScript types
 │       └── ...                 # Other utilities
 ├── public/                   # Static assets
@@ -157,16 +165,16 @@ biocosmos/
 └── tailwind.config.ts        # Tailwind CSS configuration
 ```
 
-## 🚀 Local Development Setup
+## Local Development Setup
 
 ### Prerequisites
 
-- **Bun** package manager (recommended), or **Node.js** (v18+) with **Yarn**
+- **Yarn** (recommended), **Bun**, or **Node.js** (v18+)
 - **Python** (v3.10 or higher)
 - **uv** - Modern Python package manager (recommended)
 - **Git**
-- **Docker** and **Docker Compose** (for containerized deployment)
-- **OpenAI API Key** (optional, for chatbot functionality)
+- **Docker** and **Docker Compose** (optional, for containerized deployment)
+- **OpenAI API Key** (optional, for agentic search functionality)
 
 ### Manual Setup (Development)
 
@@ -182,7 +190,7 @@ If you prefer to run the services manually without Docker, follow these steps:
 2. **Install Frontend Dependencies**
 
     ```bash
-    bun install
+    yarn install
     ```
 
 3. **Set Up Python Environment**
@@ -212,7 +220,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     **Frontend** - Create a `.env.local` file in the root directory:
 
     ```bash
-    # Optional: OpenAI API key for chatbot functionality
+    # Optional: OpenAI API key for agentic search
     OPENAI_API_KEY=your_openai_api_key_here
     
     # API host for local development
@@ -236,7 +244,7 @@ If you prefer to run the services manually without Docker, follow these steps:
 
 5. **Prepare the Dataset**
 
-    Organize your butterfly images in the appropriate directory structure. See the data preparation section for details.
+    Organize your butterfly images in the appropriate directory structure under `public/images/`.
 
 6. **Generate Embeddings (First Time Setup)**
 
@@ -264,7 +272,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     ./scripts/run_frontend.sh
     ```
 
-    **Option B - Manual commands:**`
+    **Option B - Manual commands:**
 
     **Terminal 1 - Backend:**
 
@@ -277,7 +285,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     **Terminal 2 - Frontend:**
 
     ```bash
-    bun run dev
+    yarn dev
     ```
 
 8. **Access the Application**
@@ -286,33 +294,36 @@ If you prefer to run the services manually without Docker, follow these steps:
     - **Backend API**: [http://localhost:8000](http://localhost:8000)
     - **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## 🗄️ Data Management
+## Data Management
 
 ### Database Structure
 
 BioCosmos uses two complementary databases:
 
 1. **LanceDB** (Vector Database)
-   - Stores image embeddings for similarity search
-   - Supports both CLIP and UNICOM embeddings
-   - Enables fast nearest-neighbor queries
+   - Stores image embeddings for similarity search.
+   - Supports both CLIP and UNICOM embeddings.
+   - Enables fast nearest-neighbor queries.
 
 2. **DuckDB** (Analytical Database)
-   - Stores species metadata and taxonomic information
-   - Handles structured queries and aggregations
-   - Provides trait and geographic data
+   - Stores species metadata and taxonomic information.
+   - Handles structured queries and aggregations.
+   - Provides trait and geographic data.
 
 ### Data Preparation
 
 The `tools/` directory contains scripts for data processing:
 
-- **embed_images.py**: Generate CLIP and UNICOM embeddings for images
-- **generate_tsne_coords.py**: Create t-SNE visualization coordinates
-- **create_metadata_json.py**: Process and format metadata
+- **embed_images.py**: Generate CLIP and UNICOM embeddings for images.
+- **generate_tsne_coords.py**: Create t-SNE visualization coordinates.
+- **create_metadata_json.py**: Process and format metadata.
+- **create_tiles.py**: Generate map tiles for the UMAP/t-SNE visualization map.
 
-## 🧪 Testing
+## Testing
 
 ### Backend Tests
+
+Run pytest in the backend directory:
 
 ```bash
 cd backend
@@ -321,30 +332,32 @@ uv run pytest
 
 ### Frontend Linting
 
+Run ESLint to check for frontend issues:
+
 ```bash
-bun run lint
+yarn lint
 ```
 
-## 🛠️ Development Tips
+## Development Tips
 
 ### Backend Development
 
-- **Hot Reload**: Use `--reload` flag with uvicorn for auto-restart on code changes
-- **API Docs**: FastAPI automatically generates interactive API documentation at `/docs`
-- **Logging**: Configure logging levels in `backend/app/configs/config.yaml`
-- **Dependencies**: Add new packages with `uv add <package>`
-- **Environment Variables**: Backend reads from `backend/.env` file for configuration
-- **Convenience Scripts**: Use `scripts/run_backend.sh` (or `.ps1` for Windows) for quick startup
+- **Hot Reload**: Use `--reload` flag with uvicorn or run `fastapi dev` for auto-restart on code changes.
+- **API Docs**: FastAPI automatically generates interactive API documentation at `/docs`.
+- **Logging**: Configure logging levels in `backend/app/configs/config.yaml`.
+- **Dependencies**: Add new packages with `uv add <package>`.
+- **Environment Variables**: Backend reads from `backend/.env` file for configuration.
+- **Convenience Scripts**: Use `scripts/run_backend.sh` for quick startup.
 
 ### Frontend Development
 
-- **TypeScript**: All components use TypeScript for type safety
-- **Tailwind CSS**: Utility-first styling with custom theme configuration
-- **Dark Mode**: Theme handled by `next-themes` with system preference detection
-- **API Integration**: Backend API calls centralized in `src/lib/backend.ts`
-- **Convenience Scripts**: Use `scripts/run_frontend.sh` (or `.ps1` for Windows) for quick startup
+- **TypeScript**: All components use TypeScript for type safety.
+- **Tailwind CSS**: Utility-first styling with custom theme configuration.
+- **Dark Mode**: Theme handled by `next-themes` with system preference detection.
+- **API Integration**: Next.js route handlers in `src/app/api/` proxy requests to the backend.
+- **Convenience Scripts**: Use `scripts/run_frontend.sh` for quick startup.
 
-## 🚀 Deployment
+## Deployment
 
 ### Docker Deployment
 
@@ -361,28 +374,28 @@ docker-compose up -d
 docker-compose down
 ```
 
-### Without Docker Compose (Podman / Docker)
+### Podman / Docker (Manual Container Runs)
 
-If you don't have `docker-compose` or `podman-compose`, you can run the containers manually with `podman` or `docker`.
+If you don't have `docker-compose`, you can run the containers manually:
 
 **Step 1: Create a shared network**
 
 ```bash
-podman network create biocosmos
+docker network create biocosmos
 ```
 
 **Step 2: Build the images**
 
 ```bash
 # From project root
-podman build -t biocosmos-backend ./backend
-podman build -t biocosmos-frontend -f Dockerfile.frontend .
+docker build -t biocosmos-backend ./backend
+docker build -t biocosmos-frontend -f Dockerfile.frontend .
 ```
 
 **Step 3: Run the backend**
 
 ```bash
-podman run -d \
+docker run -d \
   --name backend \
   --network biocosmos \
   -p 8000:80 \
@@ -404,7 +417,7 @@ podman run -d \
 **Step 4: Run the frontend**
 
 ```bash
-podman run -d \
+docker run -d \
   --name frontend \
   --network biocosmos \
   -p 3000:3000 \
@@ -412,71 +425,51 @@ podman run -d \
   biocosmos-frontend
 ```
 
-**Useful commands**
+## API Endpoints
 
-```bash
-# View logs
-podman logs -f backend
-podman logs -f frontend
+### Frontend proxy API endpoints (Next.js API route handlers)
 
-# Stop & remove
-podman stop backend frontend
-podman rm backend frontend
+- `GET /api/status` - Checks the backend status.
+- `GET /api/db-search` - Conventional database search. Query parameters: `q` (search term), `field` (column to search, e.g., `"all"`), `page` (page number).
+- `GET /api/gbif-occurrences` - Retrieves species occurrence data from the public GBIF API. Query parameters: `species`.
+- `GET /api/images/id` - Fetches species image by ID. Query parameters: `imageId`.
+- `GET /api/images/id/metadata` - Fetches metadata for an image ID. Query parameters: `imageId`.
+- `GET /api/images/metadata` - Retrieves all image IDs for a species. Query parameters: `scientificName`.
+- `GET /api/images/species` - Fetches representative species image. Query parameters: `scientificName`, `type` (`"thumbnail"` or `"full"`).
+- `GET /api/ml-search/agent` - Agentic semantic search. Query parameters: `q`.
+- `POST /api/ml-search/image` - Image-to-image similarity search. Expects file upload (`file`).
+- `GET /api/ml-search/similarity` - Fetches visually similar species. Query parameters: `species`.
+- `GET /api/ml-search/text` - Text-based semantic image search. Query parameters: `q`.
+- `GET /api/specimens` - Fetches specimens for a species. Query parameters: `species`.
+- `GET /api/stats/umap` - Fetches UMAP coordinates for a species. Query parameters: `species`.
+- `GET /api/taxon-search` - Fetches biological taxonomy and trait data for a species. Query parameters: `species`.
 
-# Clean up network
-podman network rm biocosmos
-```
+### Backend API endpoints (Python FastAPI)
 
-> Replace `podman` with `docker` if you are using Docker without Compose.
+- `GET /status` - Server health status check.
+- `GET /search/text` - Text-based semantic search. Query parameters: `q` (search query), `limit` (max results, default 50).
+- `POST /search/image` - Image-based similarity search. Expects multipart file upload (`file`).
+- `GET /search/db` - Conventional database search. Query parameters: `q` (search term), `field` (specific field or `"all"`), `page` (default 1), `limit` (default 50).
+- `GET /search/agent` - Agentic multi-modal search. Query parameters: `q`.
+- `GET /species/{scientific_name}/biology` - Detailed biological profile, taxonomic classification, traits, and similar species.
+- `GET /species/{scientific_name}/similar` - Visually similar species (precomputed or runtime fallback).
+- `GET /species/{scientific_name}/specimens` - Specimen details and images.
+- `GET /family/{family_name}/classification` - GBIF classification data for a family.
+- `GET /genus/{genus_name}/classification` - GBIF classification data for a genus.
+- `GET /species/{genus}/{specific_epithet}/classification` - GBIF classification data for a species using genus and specific epithet.
+- `GET /image/id/{image_id}` - Get full-resolution species image by image ID.
+- `GET /image/id/{image_id}/metadata` - Fetch metadata for a single image ID.
+- `GET /image/id/{image_id}/thumbnail` - Fetch thumbnail image for a single image ID.
+- `GET /image/{scientific_name}/metadata` - Get all image IDs associated with a species.
+- `GET /image/{scientific_name}/thumbnail` - Get representative thumbnail for a species.
+- `GET /image/{scientific_name}/high-resolution` - Get representative high-resolution image for a species.
+- `GET /stats/taxon` - Taxonomic statistics (counts of species in each taxon).
+- `GET /stats/umap/{species}` - UMAP statistics/embeddings for a given species.
+- `GET /summarize/{species_name}` - AI text summarization and profile generation for a species.
 
-### Environment Variables
+For complete backend API documentation, visit [http://localhost:8000/docs](http://localhost:8000/docs) when running the backend locally.
 
-For Docker runs, the compose file already sets the backend data paths. You only need `backend/.env` for optional secrets.
-
-**Frontend** (set by docker-compose):
-
-```bash
-API_HOST=http://backend:80
-```
-
-**Optional backend overrides** (`backend/.env`):
-
-```bash
-# LLM_API_URL=your_llm_endpoint
-# LLM_API_KEY=your_api_key
-```
-
-## 🔌 API Endpoints
-
-The backend provides the following key API endpoints:
-
-### Search & Retrieval
-
-- `GET /api/ml-search/text-search` - Text-based semantic search
-- `POST /api/ml-search/image-search` - Image-based similarity search
-- `GET /api/db-search/taxon` - Taxonomic data search
-
-### Species Data
-
-- `GET /api/species/{species_name}` - Get detailed species information
-- `GET /api/species/{species_name}/similar` - Find similar species
-
-### Images
-
-- `GET /api/images/{species_name}` - Retrieve species images
-- `GET /api/images/thumbnail/{species_name}` - Get thumbnail images
-
-### Statistics
-
-- `GET /api/stats/summary` - Dataset statistics and metrics
-
-### AI Chat
-
-- `POST /api/chat` - Conversational AI about biodiversity
-
-For complete API documentation, visit [http://localhost:8000/docs](http://localhost:8000/docs) when running the backend.
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -484,11 +477,11 @@ For complete API documentation, visit [http://localhost:8000/docs](http://localh
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **OpenAI CLIP**: Vision-language model for semantic understanding
 - **UNICOM**: Advanced computer vision model for biological images
@@ -501,4 +494,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**BioCosmos** - Exploring biodiversity through the lens of AI 🦋✨
+**BioCosmos** - Exploring biodiversity through the lens of AI.
