@@ -90,11 +90,12 @@ class TextToDbSearch:
                 
                 query = f"""
                     SELECT
-                        species,
+                        LOWER(REPLACE(species, ' ', '_')) AS species_key,
+                        FIRST(species) AS species,
                         bool_or({col_expr} ILIKE ?) AS match_field
                     FROM {table_name}
                     WHERE {col_expr} ILIKE ?
-                    GROUP BY species
+                    GROUP BY species_key
                     LIMIT ?
                 """
                 params = [q_param, q_param, self.limit]
@@ -120,11 +121,12 @@ class TextToDbSearch:
                 
                 query = f"""
                     SELECT
-                        species,
+                        LOWER(REPLACE(species, ' ', '_')) AS species_key,
+                        FIRST(species) AS species,
                         {selects_str}
                     FROM {table_name}
                     WHERE {conditions_str}
-                    GROUP BY species
+                    GROUP BY species_key
                     LIMIT ?
                 """
                 results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
@@ -134,8 +136,15 @@ class TextToDbSearch:
                 return DbSearchPayload.empty(query=self.query).model_dump()
             
             db_results = []
+            seen_species = set()
             for row in results_df.iter_rows(named=True):
                 species = row["species"]
+                cleaned_species = self.extract_binomial_species(species)
+                
+                if cleaned_species in seen_species:
+                    continue
+                seen_species.add(cleaned_species)
+                
                 matched_cols = []
                 
                 if field != "all":
@@ -149,8 +158,7 @@ class TextToDbSearch:
                 if not matched_cols:
                     matched_cols = [field] if field != "all" else ["species"]
                 
-                score = self.calculate_score(species, matched_cols, self.query)
-                cleaned_species = species.strip().lower().replace(" ", "_")
+                score = self.calculate_score(cleaned_species, matched_cols, self.query)
                 
                 db_results.append({
                     "species": cleaned_species,
@@ -168,6 +176,14 @@ class TextToDbSearch:
         except Exception as e:
             logger.error(f"Error performing db search: {e}", exc_info=True)
             raise e
+
+    @staticmethod
+    def extract_binomial_species(name: str) -> str:
+        name_clean = name.strip().lower().replace(" ", "_")
+        parts = [p for p in name_clean.split("_") if p]
+        if len(parts) >= 2:
+            return f"{parts[0]}_{parts[1]}"
+        return name_clean
 
     @staticmethod
     def calculate_score(species: str, matched_fields: list[str], query: str) -> float:
