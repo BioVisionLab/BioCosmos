@@ -17,6 +17,7 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
   const mode = searchParams.get("mode");
+  const field = searchParams.get("field") || "all";
 
   if (!mode) {
     return (
@@ -52,7 +53,7 @@ function SearchContent() {
     case "semantic":
       return <SemanticSearchResults query={query} />;
     case "text":
-      return <DbSearch query={query} />;
+      return <DbSearch query={query} initialField={field} />;
     case "image":
       return <ImageSearchResult imageUrl={query} />;
   }

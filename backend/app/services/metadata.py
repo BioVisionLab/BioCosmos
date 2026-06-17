@@ -44,9 +44,45 @@ class ImageMetaService:
                 )
             else:
                 raise ValueError(f"Unsupported format: {self.format}")
+            
+            # Create a full-text search index on relevant metadata columns
+            self._index_columns()
         except Exception as e:
             logger.error(f"Failed to ingest image metadata into '{self.table}': {e}")
             raise e
+
+    def _index_columns(self):
+        """
+        Create a full-text search index on relevant columns of the metadata table.
+        """
+        try:
+            IMAGE_META_COLUMNS_INDEXED = [
+                "class_dv",
+                "tax_rank",
+                "tax_status",
+                "family",
+                "species",
+                "sex",
+                "life_stage",
+                "lat",
+                "lon",
+                "source_db",
+                "kingdom",
+                "phylum",
+                "class",
+                "order",
+                "common_name",
+            ]
+            self.db_client.index_table(
+                table_name=self.table,
+                id_column="rowid",
+                columns=IMAGE_META_COLUMNS_INDEXED,
+                overwrite=True,
+            )
+            logger.info("Full-text search index created on image metadata table.")
+        except Exception as e:
+            logger.error(f"Failed to create full-text search index on image metadata table: {e}")
+            raise
 
     def get_image_count_by_species(self, scientific_name: str) -> int | None:
         """
