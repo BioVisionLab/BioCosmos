@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.*
+backend
+tools
+*.md
+LICENSE
+docker-compose.yml
+Dockerfile.frontend
