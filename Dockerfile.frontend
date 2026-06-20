@@ -1,7 +1,7 @@
 # Dockerfile for the frontend
 
 # Stage 1: Build the Next.js application
-FROM oven/bun:1 AS builder
+FROM docker.io/oven/bun:1 AS builder
 WORKDIR /app
 
 # Copy configuration and dependency files
@@ -20,7 +20,7 @@ RUN bun install --frozen-lockfile
 RUN bun run build
 
 # Stage 2: Create the production image
-FROM oven/bun:1
+FROM docker.io/oven/bun:1
 WORKDIR /app
 
 # Copy built application from the builder stage
