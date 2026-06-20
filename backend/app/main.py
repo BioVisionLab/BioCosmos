@@ -227,7 +227,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://biocosmos.rc.ufl.edu",
+        "https://biocosmos.rc.ufl.edu",
+        "http://biocosmos-admin.rc.ufl.edu",
+        "https://biocosmos-admin.rc.ufl.edu",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
