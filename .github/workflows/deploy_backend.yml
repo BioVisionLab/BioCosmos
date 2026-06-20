@@ -1,0 +1,70 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        id: py
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            backend/.venv
+          key: ${{ runner.os }}-py${{ steps.py.outputs.python-version }}-uv-${{ hashFiles('backend/pyproject.toml', 'backend/uv.lock') }}
+
+      - name: Install and test
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+        run: |
+          pip install uv
+          uv sync --dev
+          uv run pytest -q
+
+  deploy:
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Set image name
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/biocosmos-backend" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        run: |
+          podman build -t ${{ steps.img.outputs.name }}:latest \
+                       -t ${{ steps.img.outputs.name }}:${{ github.sha }} \
+                       -f backend/Dockerfile backend/
+          podman push ${{ steps.img.outputs.name }}:latest
+          podman push ${{ steps.img.outputs.name }}:${{ github.sha }}
+
+      - name: Pull new image and restart service
+        run: |
+          podman pull ${{ steps.img.outputs.name }}:latest
+          systemctl --user restart biocosmos-backend.service

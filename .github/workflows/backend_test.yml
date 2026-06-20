@@ -1,14 +1,10 @@
 name: Backend-Tests
 
 on:
-    push:
-        paths:
-            - "backend/**"
-            - ".github/workflows/test.yml"
     pull_request:
         paths:
             - "backend/**"
-            - ".github/workflows/test.yml"
+            - ".github/workflows/backend_test.yml"
 
 permissions:
     contents: read

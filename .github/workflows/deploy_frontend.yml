@@ -1,0 +1,49 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "bun.lock"
+      - "next.config.ts"
+      - "tsconfig.json"
+      - "postcss.config.mjs"
+      - "tailwind.config.ts"
+      - "Dockerfile.frontend"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Set image name
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/biocosmos-frontend" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        run: |
+          podman build -t ${{ steps.img.outputs.name }}:latest \
+                       -t ${{ steps.img.outputs.name }}:${{ github.sha }} \
+                       -f Dockerfile.frontend .
+          podman push ${{ steps.img.outputs.name }}:latest
+          podman push ${{ steps.img.outputs.name }}:${{ github.sha }}
+
+      - name: Pull new image and restart service
+        run: |
+          podman pull ${{ steps.img.outputs.name }}:latest
+          systemctl --user restart biocosmos-frontend.service
