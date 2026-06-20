@@ -43,7 +43,5 @@ jobs:
           podman push ${{ steps.img.outputs.name }}:latest
           podman push ${{ steps.img.outputs.name }}:${{ github.sha }}
 
-      - name: Pull new image and restart service
-        run: |
-          podman pull ${{ steps.img.outputs.name }}:latest
-          systemctl --user restart biocosmos-frontend.service
+      - name: Restart service
+        run: systemctl --user restart biocosmos-frontend.service

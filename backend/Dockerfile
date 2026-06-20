@@ -16,4 +16,4 @@ RUN uv sync --frozen --no-cache
 COPY app ./app
 
 # Run the application
-CMD ["uv", "run", "fastapi", "run", "--host", "0.0.0.0", "--port", "80", "app/main.py"]
+CMD ["uv", "run", "fastapi", "run", "--host", "0.0.0.0", "--port", "8000", "app/main.py"]
