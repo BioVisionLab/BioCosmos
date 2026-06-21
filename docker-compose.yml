@@ -7,7 +7,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:80"
+      - "8000:8000"
     deploy:
       resources:
         reservations:
@@ -42,6 +42,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - API_HOST=http://backend:80
+      - API_HOST=http://backend:8000
     depends_on:
       - backend

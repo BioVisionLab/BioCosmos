@@ -190,7 +190,7 @@ If you prefer to run the services manually without Docker, follow these steps:
 2. **Install Frontend Dependencies**
 
     ```bash
-    yarn install
+    bun install
     ```
 
 3. **Set Up Python Environment**
@@ -285,7 +285,7 @@ If you prefer to run the services manually without Docker, follow these steps:
     **Terminal 2 - Frontend:**
 
     ```bash
-    yarn dev
+    bun dev
     ```
 
 8. **Access the Application**
@@ -335,7 +335,7 @@ uv run pytest
 Run ESLint to check for frontend issues:
 
 ```bash
-yarn lint
+bun lint
 ```
 
 ## Development Tips
