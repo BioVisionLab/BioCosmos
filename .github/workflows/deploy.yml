@@ -1,22 +1,19 @@
-name: Deploy Backend
+name: Build, Push and Deploy
 
 on:
   push:
     branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/**"
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: deploy-backend
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  test:
+  test-backend:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -46,26 +43,41 @@ jobs:
 
   deploy:
     runs-on: self-hosted
-    needs: test
+    needs: test-backend
     steps:
       - uses: actions/checkout@v4
 
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Set image name
+      - name: Set image names
         id: img
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/biocosmos-backend" >> $GITHUB_OUTPUT
-
-      - name: Build and push
         run: |
-          podman build -t ${{ steps.img.outputs.name }}:latest \
-                       -t ${{ steps.img.outputs.name }}:${{ github.sha }} \
-                       -f backend/Dockerfile backend/
-          podman push ${{ steps.img.outputs.name }}:latest
-          podman push ${{ steps.img.outputs.name }}:${{ github.sha }}
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "backend=ghcr.io/${OWNER}/biocosmos-backend" >> $GITHUB_OUTPUT
+          echo "frontend=ghcr.io/${OWNER}/biocosmos-frontend" >> $GITHUB_OUTPUT
 
-      - name: Login to registry and restart service
+      - name: Build backend image
+        run: |
+          podman build -t ${{ steps.img.outputs.backend }}:latest \
+                       -t ${{ steps.img.outputs.backend }}:${{ github.sha }} \
+                       -f backend/Dockerfile backend/
+
+      - name: Build frontend image
+        run: |
+          podman build -t ${{ steps.img.outputs.frontend }}:latest \
+                       -t ${{ steps.img.outputs.frontend }}:${{ github.sha }} \
+                       -f Dockerfile.frontend .
+
+      - name: Push images
+        run: |
+          podman push ${{ steps.img.outputs.backend }}:latest
+          podman push ${{ steps.img.outputs.backend }}:${{ github.sha }}
+          podman push ${{ steps.img.outputs.frontend }}:latest
+          podman push ${{ steps.img.outputs.frontend }}:${{ github.sha }}
+
+      - name: Login to registry and restart services
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
           systemctl --user restart biocosmos-backend.service
+          systemctl --user restart biocosmos-frontend.service
