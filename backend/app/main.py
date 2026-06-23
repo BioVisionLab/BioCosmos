@@ -234,6 +234,8 @@ app.add_middleware(
         "https://biocosmos.rc.ufl.edu",
         "http://biocosmos-admin.rc.ufl.edu",
         "https://biocosmos-admin.rc.ufl.edu",
+        "https://lepiverse.com",
+        "https://www.lepiverse.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
