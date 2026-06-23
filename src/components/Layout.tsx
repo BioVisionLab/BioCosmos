@@ -28,7 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
 
       {/* Footer */}
       <footer className="bg-gray-200 dark:bg-gray-800 py-4 text-center text-sm text-gray-600 dark:text-gray-400">
-        © {new Date().getFullYear()} biocosmos. All rights reserved.
+        © {new Date().getFullYear()} Lepiverse. All rights reserved.
         {/* Add other footer links here */}
       </footer>
 

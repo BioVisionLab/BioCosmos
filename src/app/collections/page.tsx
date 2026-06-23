@@ -2,8 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { API_HOST } from "@/lib/config";
 
-// Skip build-time pre-render; cache for 1 hour at runtime (ISR)
-export const revalidate = 3600;
+// Never pre-render at build time (API_HOST unavailable during Docker build)
+export const dynamic = "force-dynamic";
 
 interface TaxonStats {
   gbifEntries: number;
@@ -14,7 +14,9 @@ interface TaxonStats {
 
 async function fetchTaxonStats(): Promise<TaxonStats | null> {
   try {
-    const response = await fetch(`${API_HOST}/stats/taxon`);
+    const response = await fetch(`${API_HOST}/stats/taxon`, {
+      next: { revalidate: 3600 },
+    });
     if (!response.ok) return null;
     return await response.json();
   } catch {
