@@ -15,7 +15,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "biocosmos",
+  title: "Lepiverse",
   description: "A personalized, museum-quality biodiversity image platform",
 };
 

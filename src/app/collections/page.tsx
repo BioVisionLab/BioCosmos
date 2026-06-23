@@ -1,21 +1,43 @@
 import React from "react";
 import Link from "next/link";
+import { API_HOST } from "@/lib/config";
 
-export default function CollectionsPage() {
-  const gbifEntries = 123_456; // placeholder
-  const lepTraitsEntries = 78_432; // placeholder
-  const imageEntries = 50_234; // placeholder
-  const gbifSpeciesCount = 9_876; // placeholder
+interface TaxonStats {
+  gbifEntries: number;
+  lepTraitsEntries: number;
+  imageEntries: number;
+  gbifSpeciesCount: number;
+}
+
+async function fetchTaxonStats(): Promise<TaxonStats | null> {
+  try {
+    const response = await fetch(`${API_HOST}/stats/taxon`, {
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+export default async function CollectionsPage() {
+  const data = await fetchTaxonStats();
+  const statsUnavailable = data === null;
 
   const stats = [
-    { label: "GBIF Occurrences", value: gbifEntries, href: "https://www.gbif.org/" },
+    {
+      label: "GBIF Occurrences",
+      value: data?.gbifEntries ?? 0,
+      href: "https://www.gbif.org/",
+    },
     {
       label: "LepTraits Entries",
-      value: lepTraitsEntries,
+      value: data?.lepTraitsEntries ?? 0,
       href: "https://github.com/RiesLabGU/LepTraits",
     },
-    { label: "Image Entries", value: imageEntries },
-    { label: "GBIF Species Count", value: gbifSpeciesCount },
+    { label: "Image Entries", value: data?.imageEntries ?? 0 },
+    { label: "GBIF Species Count", value: data?.gbifSpeciesCount ?? 0 },
   ];
 
   const orderCount = 120; // placeholder
@@ -40,9 +62,16 @@ export default function CollectionsPage() {
       </div>
 
       <p className="mb-6 text-gray-700 dark:text-gray-300">
-        Statistics on our current dataset, including the number of images, species, and entries in our databases. 
-        (CURRENTLY PLACEHOLDER DATA)
+        Statistics on our current dataset, including the number of images,
+        species, and entries in our databases.
       </p>
+
+      {statsUnavailable && (
+        <div className="mb-6 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          Live statistics are temporarily unavailable. The values shown below may
+          be outdated.
+        </div>
+      )}
 
       <section aria-label="Dataset statistics">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -81,7 +110,9 @@ export default function CollectionsPage() {
               <div className="text-3xl font-extrabold text-gray-900 dark:text-white">
                 {t.value.toLocaleString()}
               </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t.label}</div>
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {t.label}
+              </div>
             </article>
           ))}
         </div>
