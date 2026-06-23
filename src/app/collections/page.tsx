@@ -2,6 +2,9 @@ import React from "react";
 import Link from "next/link";
 import { API_HOST } from "@/lib/config";
 
+// Skip build-time pre-render; cache for 1 hour at runtime (ISR)
+export const revalidate = 3600;
+
 interface TaxonStats {
   gbifEntries: number;
   lepTraitsEntries: number;
@@ -11,9 +14,7 @@ interface TaxonStats {
 
 async function fetchTaxonStats(): Promise<TaxonStats | null> {
   try {
-    const response = await fetch(`${API_HOST}/stats/taxon`, {
-      next: { revalidate: 3600 },
-    });
+    const response = await fetch(`${API_HOST}/stats/taxon`);
     if (!response.ok) return null;
     return await response.json();
   } catch {
