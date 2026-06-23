@@ -14,6 +14,7 @@ export default function Navigation() {
 
   const [activeTab, setActiveTab] = useState(navItems[0].id);
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const pathname = usePathname();
 
@@ -28,94 +29,107 @@ export default function Navigation() {
     setActiveTab(id);
   }, [pathname]);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   const baseBtn =
     "inline-flex items-center justify-center px-8 py-1 rounded-full text-1xl font-semibold transition-all";
 
+  const pillClasses =
+    `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
+    `bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-200 text-black border-transparent ` +
+    `dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 dark:text-white`;
+
   return (
     <div className="flex flex-col items-end w-full">
-      <div className="flex items-center mt-4 mr-8">
-        <div
-          className={
-            `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
-            `bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-200 text-black border-transparent ` +
-            `dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 dark:text-white`
-          }
-          role="tablist"
+      {/* Mobile: hamburger button */}
+      <div className="md:hidden flex items-center mt-4 mr-4">
+        <button
+          type="button"
+          onClick={() => setMenuOpen(!menuOpen)}
+          className={`p-2 rounded-lg backdrop-blur-lg ${pillClasses.includes("dark:") ? "bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-200 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800" : ""}`}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
         >
+          {menuOpen ? (
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile: vertical dropdown */}
+      {menuOpen && (
+        <div className="md:hidden w-full px-4 mt-2">
+          <div
+            className={
+              `flex flex-col gap-2 p-3 rounded-2xl backdrop-blur-lg ` +
+              `bg-gradient-to-b from-emerald-200 via-teal-200 to-cyan-200 text-black border-transparent ` +
+              `dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 dark:text-white`
+            }
+          >
+            {navItems.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <Link
+                  key={tab.id}
+                  href={tab.href}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setMenuOpen(false);
+                  }}
+                  className={`px-4 py-2 rounded-full text-base font-semibold transition-all ${
+                    isActive
+                      ? "bg-white/30 dark:bg-white/12"
+                      : "hover:bg-white/20 dark:hover:bg-white/8"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop: horizontal pill nav */}
+      <div className="hidden md:flex items-center mt-4 mr-8">
+        <div className={pillClasses} role="tablist">
           {navItems.map((tab) => {
             const isActive = activeTab === tab.id;
             const textColor = "text-black dark:text-white";
-
             const outerClasses = `${baseBtn} ${textColor} relative first:ml-1 last:mr-1`;
-
             const showOval = hoveredTab !== null ? hoveredTab === tab.id : isActive;
-
             const bgSpanClasses = `absolute inset-0 rounded-full transition-opacity pointer-events-none ${
               showOval ? "opacity-100" : "opacity-0"
             } bg-white/30 dark:bg-white/12`;
 
-            if (tab.href) {
-              return (
-                <Link
-                  href={tab.href}
-                  key={tab.id}
-                    id={`tab-${tab.id}`}
-                    className={outerClasses}
-                    role="tab"
-                    aria-controls={`tabpanel-${tab.id}`}
-                    tabIndex={activeTab === tab.id ? 0 : -1}
-                    onClick={() => setActiveTab(tab.id)}
-                    onMouseEnter={() => setHoveredTab(tab.id)}
-                    onMouseLeave={() => setHoveredTab(null)}
-                  >
-                    <span className={bgSpanClasses} aria-hidden />
-                    <span className="relative z-10">{tab.label}</span>
-                  </Link>
-              );
-            }
-
             return (
-              <button
-                id={`tab-${tab.id}`}
+              <Link
+                href={tab.href}
                 key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                onMouseEnter={() => setHoveredTab(tab.id)}
-                onMouseLeave={() => setHoveredTab(null)}
+                id={`tab-${tab.id}`}
                 className={outerClasses}
                 role="tab"
                 aria-controls={`tabpanel-${tab.id}`}
                 tabIndex={activeTab === tab.id ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                onMouseEnter={() => setHoveredTab(tab.id)}
+                onMouseLeave={() => setHoveredTab(null)}
               >
                 <span className={bgSpanClasses} aria-hidden />
-                {isActive && (
-                  <svg
-                    className="w-6 h-6 relative z-10"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                  </svg>
-                )}
                 <span className="relative z-10">{tab.label}</span>
-              </button>
+              </Link>
             );
           })}
         </div>
-      </div>
-
-      <div className="p-4 mt-2 rounded-lg w-full">
-        {navItems.map((tab) => (
-          <div
-            key={tab.id}
-            id={`tabpanel-${tab.id}`}
-            role="tabpanel"
-            aria-labelledby={`tab-${tab.id}`}
-            className={activeTab === tab.id ? "" : "hidden"}
-          />
-        ))}
       </div>
     </div>
   );

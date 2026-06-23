@@ -85,3 +85,12 @@ body {
 .dynamic-content a:hover {
   color: #b0b2b5;
 }
+
+/* Hide scrollbar but keep scrollable */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

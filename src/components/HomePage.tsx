@@ -17,7 +17,7 @@ export default function HomePage() {
       <ButterflyAiIcon className="w-24 h-24 fill-emerald-400" />
       <div className="mt-2 mb-6 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
-          BioCosmos
+          Lepiverse
         </h1>
         <p className="mt-3 text-base sm:text-lg text-gray-600 dark:text-gray-300">
           Discover species & traits with AI: fast, visual, and intelligent
