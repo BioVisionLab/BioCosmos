@@ -92,7 +92,7 @@ export default function HeaderClient() {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
+    <header className="bg-white dark:bg-deep-mocha-800 shadow-md sticky top-0 z-10">
       <nav className="container mx-auto px-4 py-3 flex justify-between items-center gap-4">
         {/* Logo Link */}
         <Link href="/" legacyBehavior={false} className="flex-shrink-0">
@@ -104,7 +104,7 @@ export default function HeaderClient() {
               height={32}
               className="h-8 w-8"
             />
-            <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 font-poppins whitespace-nowrap">
+            <span className="text-2xl font-bold text-deep-mocha-900 dark:text-deep-mocha-100 font-poppins whitespace-nowrap">
               Biocosmos
             </span>
           </div>
@@ -120,12 +120,12 @@ export default function HeaderClient() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 disabled={isSearching} // Disable input while searching
-                className={`w-full px-4 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 min-w-0 ${isSearching ? 'opacity-50' : ''}`}
+                className={`w-full px-4 py-2 rounded-md border border-deep-mocha-300 dark:border-deep-mocha-700 bg-deep-mocha-50 dark:bg-deep-mocha-700 focus:outline-none focus:ring-2 focus:ring-green-500 min-w-0 ${isSearching ? 'opacity-50' : ''}`}
               />
               {/* Loading indicator inside input */}
               {isSearching && (
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                  <Loader2 className="h-5 w-5 text-deep-mocha-400 animate-spin" />
                 </div>
               )}
             </div>
@@ -134,14 +134,14 @@ export default function HeaderClient() {
               onClick={toggleSearchMode}
               disabled={isSearching || !isMounted} // Disable until mounted
               title={!isMounted ? "Loading mode..." : isSemantic ? "Switch to Text Search" : "Switch to Semantic Search"}
-              className={`flex-shrink-0 p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 ${isSemantic ? 'bg-green-100 dark:bg-green-900' : ''} disabled:opacity-50 disabled:cursor-not-allowed ${!isMounted ? 'opacity-50' : ''}`}
+              className={`flex-shrink-0 p-2 rounded-md hover:bg-deep-mocha-200 dark:hover:bg-deep-mocha-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 ${isSemantic ? 'bg-green-100 dark:bg-green-900' : ''} disabled:opacity-50 disabled:cursor-not-allowed ${!isMounted ? 'opacity-50' : ''}`}
             >
               {!isMounted ? (
-                <Search className="h-5 w-5 text-gray-400" />
+                <Search className="h-5 w-5 text-deep-mocha-400" />
               ) : isSemantic ? (
                 <FlaskConical className="h-5 w-5 text-green-700 dark:text-green-300" />
               ) : (
-                <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <Search className="h-5 w-5 text-deep-mocha-600 dark:text-deep-mocha-400" />
               )}
             </button>
             {/* Hidden submit button */}
@@ -149,7 +149,7 @@ export default function HeaderClient() {
           </form>
            {/* Display Search Error */} 
            {searchError && (
-             <p className="text-xs text-red-500 mt-1">Error: {searchError}</p>
+             <p className="text-xs text-burnt-peach-500 mt-1">Error: {searchError}</p>
            )}
         </div>
 
@@ -160,7 +160,7 @@ export default function HeaderClient() {
           </Link>
           <a href="#" className="hover:text-green-600 dark:hover:text-green-400 whitespace-nowrap">Collections</a>
           {/* User Profile Icon Placeholder */}
-          <div className="w-8 h-8 bg-gray-400 rounded-full flex-shrink-0"></div>
+          <div className="w-8 h-8 bg-deep-mocha-400 rounded-full flex-shrink-0"></div>
           <ThemeToggle />
         </div>
       </nav>

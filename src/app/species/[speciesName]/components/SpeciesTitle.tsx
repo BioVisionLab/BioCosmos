@@ -43,7 +43,7 @@ function CommonName({
 }) {
   const name = vernacularName ?? commonName;
 
-  return <p className="text-2xl text-gray-700 dark:text-gray-300">{name}</p>;
+  return <p className="text-2xl text-deep-mocha-700 dark:text-deep-mocha-300">{name}</p>;
 }
 
 function SpeciesHeader({

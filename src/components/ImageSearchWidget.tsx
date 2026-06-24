@@ -123,23 +123,23 @@ export default function ImageSearchWidget() {
 
     return (
         <div 
-            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow sticky top-[calc(6rem+6rem)] mt-6" // Adjust top/mt as needed
+            className="bg-white dark:bg-deep-mocha-800 p-4 rounded-lg shadow sticky top-[calc(6rem+6rem)] mt-6" // Adjust top/mt as needed
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            <h3 className="text-lg font-semibold mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <h3 className="text-lg font-semibold mb-3 text-deep-mocha-700 dark:text-deep-mocha-300 flex items-center gap-2">
                 <ImageIcon size={18} />
                 Image Search
             </h3>
             
-            <div className="flex flex-col items-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 text-center mb-3">
+            <div className="flex flex-col items-center border-2 border-dashed border-deep-mocha-300 dark:border-deep-mocha-600 rounded-md p-4 text-center mb-3">
                 {previewUrl ? (
                     <div className="relative w-full aspect-square mb-2">
                         <Image src={previewUrl} alt="Selected preview" layout="fill" objectFit="contain" className="rounded" />
                     </div>
                 ) : (
-                    <UploadCloud className="h-10 w-10 text-gray-400 mb-2" />
+                    <UploadCloud className="h-10 w-10 text-deep-mocha-400 mb-2" />
                 )}
                 
                 <input 
@@ -152,11 +152,11 @@ export default function ImageSearchWidget() {
                 />
                 <label 
                     htmlFor="imageUpload" 
-                    className={`text-sm font-medium cursor-pointer px-3 py-1 rounded ${isSearching ? 'text-gray-400 cursor-not-allowed' : 'text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900'}`}
+                    className={`text-sm font-medium cursor-pointer px-3 py-1 rounded ${isSearching ? 'text-deep-mocha-400 cursor-not-allowed' : 'text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900'}`}
                 >
                     {selectedFile ? 'Change Image' : 'Upload Image'}
                 </label>
-                 {!selectedFile && <p className="text-xs text-gray-500 mt-1">or drag & drop</p>} 
+                 {!selectedFile && <p className="text-xs text-deep-mocha-500 mt-1">or drag & drop</p>} 
             </div>
 
             <button 
@@ -176,7 +176,7 @@ export default function ImageSearchWidget() {
             </button>
 
             {searchError && (
-                 <p className="text-xs text-red-500 mt-2 text-center">Error: {searchError}</p>
+                 <p className="text-xs text-burnt-peach-500 mt-2 text-center">Error: {searchError}</p>
             )}
         </div>
     );

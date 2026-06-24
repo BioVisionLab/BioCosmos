@@ -15,15 +15,15 @@ export default async function GenusPage({ params }: GenusPageProps) {
   return (
     <section>
       {/* Updated Breadcrumbs */}
-      <nav className="text-sm mb-4 text-gray-600 dark:text-gray-400 flex items-center gap-2">
+      <nav className="text-sm mb-4 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2">
         <Link href="/" className="hover:underline">
           Home
         </Link>
         <span>&gt;</span>
         {/* Link to the Family page */}
-        <span className="text-gray-400 italic">Family Name</span>
+        <span className="text-deep-mocha-400 italic">Family Name</span>
         <span>&gt;</span>
-        <span className="italic font-semibold text-gray-800 dark:text-gray-200">
+        <span className="italic font-semibold text-deep-mocha-800 dark:text-deep-mocha-200">
           {decodedGenusName}
         </span>
       </nav>

@@ -81,11 +81,11 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
   }, [prevImageIds, nextImageIds]);
 
   return (
-    <div className="p-5 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-700 dark:text-gray-400 leading-3.5">
+    <div className="p-5 bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl text-sm text-deep-mocha-700 dark:text-deep-mocha-400 leading-3.5">
       <h3 className="text-base font-semibold mb-2">Image Metadata</h3>
       <div className="flex flex-col gap-1">
         {loading ? (
-          <div className="text-center text-sm text-gray-500">Loading metadata…</div>
+          <div className="text-center text-sm text-deep-mocha-500">Loading metadata…</div>
         ) : !meta ? (
           <NoData text={imageId ? "No metadata available." : "No image selected."} />
         ) : (
@@ -93,8 +93,8 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
               {/* Left column: View, Source DB, Coordinates */}
               <div className="flex items-center min-w-0">
-                <span className="font-sm text-gray-700 dark:text-gray-400 whitespace-nowrap">View:</span>
-                <span className="ml-1 truncate text-gray-700 dark:text-gray-400">
+                <span className="font-sm text-deep-mocha-700 dark:text-deep-mocha-400 whitespace-nowrap">View:</span>
+                <span className="ml-1 truncate text-deep-mocha-700 dark:text-deep-mocha-400">
                   {meta.class_dv ? (typeof meta.class_dv === 'string' ? meta.class_dv.charAt(0).toUpperCase() + meta.class_dv.slice(1) : meta.class_dv) : "—"}
                 </span>
               </div>
@@ -104,7 +104,7 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
                     href={meta.uri}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 font-sm text-gray-700 dark:text-gray-400 underline truncate"
+                    className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate"
                     aria-label="Open image link"
                   >
                     Image Link
@@ -113,12 +113,12 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
               </div>
 
               <div className="flex items-center min-w-0">
-                <span className="font-sm text-gray-700 dark:text-gray-400 whitespace-nowrap">Source DB:</span>
+                <span className="font-sm text-deep-mocha-700 dark:text-deep-mocha-400 whitespace-nowrap">Source DB:</span>
                 <a
                   href={getSourceDbHref(meta.uuid)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1 font-sm text-gray-700 dark:text-gray-400 underline truncate"
+                  className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate"
                   aria-label="Open source database link"
                 >
                   {meta.source_db
@@ -132,19 +132,19 @@ export default function ImageMetadata({ speciesName, imageId, prevImageIds, next
                     href={meta.license}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 font-sm text-gray-700 dark:text-gray-400 underline truncate"
+                    className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate"
                     aria-label="Open license"
                   >
                     License
                   </a>
                 ) : (
-                  <span className="text-gray-400 dark:text-gray-600">—</span>
+                  <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
                 )}
               </div>
 
               <div className="flex items-center min-w-0">
-                <span className="font-sm text-gray-700 dark:text-gray-400 whitespace-nowrap">Coordinates:</span>
-                <span className="ml-1 truncate text-gray-700 dark:text-gray-400">
+                <span className="font-sm text-deep-mocha-700 dark:text-deep-mocha-400 whitespace-nowrap">Coordinates:</span>
+                <span className="ml-1 truncate text-deep-mocha-700 dark:text-deep-mocha-400">
                   {(meta.lat || meta.lon) ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}` : "—"}
                 </span>
               </div>

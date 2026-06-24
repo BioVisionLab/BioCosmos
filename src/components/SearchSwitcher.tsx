@@ -18,29 +18,29 @@ const tabData = [
 const SearchSwitcher = () => {
   const [mode, setMode] = useState(tabData[1].id);
   const baseBtn =
-    "px-4 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900";
+    "px-4 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-hunter-green-500 focus:ring-offset-2 dark:focus:ring-offset-deep-mocha-900";
   
   const getActiveClass = (id: string) => {
     switch (id) {
       case "semantic":
-        return "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 text-white shadow";
+        return "bg-gradient-to-r from-hunter-green-600 via-pacific-blue-600 to-frozen-water-700 text-white shadow";
       case "text":
-        return "bg-emerald-200 dark:bg-emerald-900 text-gray-900 dark:text-emerald-50 shadow";
+        return "bg-hunter-green-200 dark:bg-hunter-green-900 text-deep-mocha-900 dark:text-hunter-green-50 shadow";
       case "image":
-        return "bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow";
+        return "bg-gradient-to-r from-hunter-green-600 to-pacific-blue-700 text-white shadow";
       default:
-        return "bg-emerald-600 text-white shadow";
+        return "bg-hunter-green-600 text-white shadow";
     }
   };
 
   const inactive =
-    "text-gray-700 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700/70";
+    "text-deep-mocha-700 dark:text-deep-mocha-300 hover:bg-deep-mocha-200/70 dark:hover:bg-deep-mocha-700/70";
 
   return (
     <div className="flex flex-col items-center w-full my-8">
       <div className="flex items-center gap-3 mt-2">
         <div 
-          className="flex rounded-full border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur"
+          className="flex rounded-full border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur"
           role="tablist"
           aria-label="Search Modes"
         >

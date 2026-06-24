@@ -71,15 +71,15 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData, speciesSlug 
   const baseBtn =
     "px-4 py-1.5 rounded-full text-sm font-medium transition-colors";
   const active =
-    "bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white shadow";
+    "bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-white shadow";
   const inactive =
-    "text-gray-600 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700/70";
+    "text-deep-mocha-600 dark:text-deep-mocha-300 hover:bg-deep-mocha-200/70 dark:hover:bg-deep-mocha-700/70";
 
   return (
     <div className="flex flex-col items-center w-full">
       <div className="w-full overflow-x-auto mt-2 flex md:justify-center px-4 md:px-0 scrollbar-hide">
         <div
-          className="inline-flex shrink-0 rounded-full border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur-lg whitespace-nowrap"
+          className="inline-flex shrink-0 rounded-full border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur-lg whitespace-nowrap"
           role="tablist"
         >
           {tabsData.map((tab) => (

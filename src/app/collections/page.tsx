@@ -59,12 +59,12 @@ export default async function CollectionsPage() {
     <main className="max-w-5xl mx-auto p-8">
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-3xl font-bold">Collections</h1>
-        <Link href="/" className="text-teal-600 hover:underline">
+        <Link href="/" className="text-pacific-blue-600 hover:underline">
           ← Back to Home
         </Link>
       </div>
 
-      <p className="mb-6 text-gray-700 dark:text-gray-300">
+      <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
         Statistics on our current dataset, including the number of images,
         species, and entries in our databases.
       </p>
@@ -81,18 +81,18 @@ export default async function CollectionsPage() {
           {stats.map((s) => (
             <article
               key={s.label}
-              className="rounded-lg p-6 bg-gradient-to-br from-emerald-200 via-teal-200 to-cyan-200 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 border border-gray-200 dark:border-gray-700 shadow-sm transform transition hover:scale-105"
+              className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 shadow-sm transform transition hover:scale-105"
             >
-              <div className="text-4xl font-extrabold text-gray-900 dark:text-white">
+              <div className="text-4xl font-extrabold text-deep-mocha-900 dark:text-white">
                 {s.value.toLocaleString()}
               </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              <div className="mt-2 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
                 {s.href ? (
                   <a
                     href={s.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline decoration-teal-600 dark:decoration-teal-300"
+                    className="underline decoration-pacific-blue-600 dark:decoration-pacific-blue-300"
                   >
                     {s.label}
                   </a>
@@ -108,12 +108,12 @@ export default async function CollectionsPage() {
           {taxonomyStats.map((t) => (
             <article
               key={t.label}
-              className="rounded-lg p-6 bg-gradient-to-br from-emerald-200 via-teal-200 to-cyan-200 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 border border-gray-200 dark:border-gray-700 shadow-sm transform transition hover:scale-105"
+              className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 shadow-sm transform transition hover:scale-105"
             >
-              <div className="text-3xl font-extrabold text-gray-900 dark:text-white">
+              <div className="text-3xl font-extrabold text-deep-mocha-900 dark:text-white">
                 {t.value.toLocaleString()}
               </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              <div className="mt-2 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
                 {t.label}
               </div>
             </article>

@@ -39,8 +39,8 @@ export default function Navigation() {
 
   const pillClasses =
     `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
-    `bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-200 text-black border-transparent ` +
-    `dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 dark:text-white`;
+    `bg-gradient-to-r from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 text-black border-transparent ` +
+    `dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 dark:text-white`;
 
   return (
     <div className="flex flex-col items-end w-full">
@@ -49,7 +49,7 @@ export default function Navigation() {
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          className={`p-2 rounded-lg backdrop-blur-lg ${pillClasses.includes("dark:") ? "bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-200 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800" : ""}`}
+          className={`p-2 rounded-lg backdrop-blur-lg ${pillClasses.includes("dark:") ? "bg-gradient-to-r from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800" : ""}`}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
         >
@@ -71,8 +71,8 @@ export default function Navigation() {
           <div
             className={
               `flex flex-col gap-2 p-3 rounded-2xl backdrop-blur-lg ` +
-              `bg-gradient-to-b from-emerald-200 via-teal-200 to-cyan-200 text-black border-transparent ` +
-              `dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 dark:text-white`
+              `bg-gradient-to-b from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 text-black border-transparent ` +
+              `dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 dark:text-white`
             }
           >
             {navItems.map((tab) => {

@@ -33,10 +33,10 @@ export default function SemanticForm({
         <div
           className={`
         relative flex items-stretch gap-2 rounded-l-2xl px-4 py-2
-        bg-white/70 dark:bg-gray-800/60 backdrop-blur
-        ring-1 ring-gray-200 dark:ring-gray-700
+        bg-white/70 dark:bg-deep-mocha-800/60 backdrop-blur
+        ring-1 ring-deep-mocha-200 dark:ring-deep-mocha-700
         shadow-sm hover:shadow-md transition-all
-        focus-within:ring-2 focus-within:ring-emerald-500/60
+        focus-within:ring-2 focus-within:ring-hunter-green-500/60
         w-full h-full
         `}
         >
@@ -44,8 +44,8 @@ export default function SemanticForm({
             <Icon
               className={`h-6 w-6 transition-colors ${
                 searchTerm
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-gray-400 dark:text-gray-500"
+                  ? "text-hunter-green-600 dark:text-hunter-green-400"
+                  : "text-deep-mocha-400 dark:text-deep-mocha-500"
               }`}
             />
           </div>
@@ -58,8 +58,8 @@ export default function SemanticForm({
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`
           flex-1 bg-transparent border-0 focus:outline-none
-          placeholder:text-gray-400 dark:placeholder:text-gray-500
-          text-gray-800 dark:text-gray-100
+          placeholder:text-deep-mocha-400 dark:placeholder:text-deep-mocha-500
+          text-deep-mocha-800 dark:text-deep-mocha-100
           text-sm md:text-base
           disabled:opacity-60
         `}
@@ -70,7 +70,7 @@ export default function SemanticForm({
             type="submit"
             disabled={!searchTerm.trim()}
             className={`
-              flex items-center justify-center px-5 text-sm font-medium rounded-r-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:from-gray-600 dark:disabled:to-gray-600 dark:disabled:text-gray-400 h-full 
+              flex items-center justify-center px-5 text-sm font-medium rounded-r-2xl bg-gradient-to-br from-hunter-green-500 to-pacific-blue-600 text-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-hunter-green-500 disabled:from-deep-mocha-300 disabled:to-deep-mocha-300 disabled:text-deep-mocha-500 disabled:cursor-not-allowed dark:disabled:from-deep-mocha-600 dark:disabled:to-deep-mocha-600 dark:disabled:text-deep-mocha-400 h-full 
               `}
             aria-label="Submit species search"
           >

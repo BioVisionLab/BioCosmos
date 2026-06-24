@@ -46,7 +46,7 @@ function SemanticSearchResults({ query }: { query: string }) {
   };
 
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <p className="text-burnt-peach-500">Error: {error}</p>;
   }
 
   return (
@@ -67,7 +67,7 @@ function SemanticSearchResults({ query }: { query: string }) {
       </div>
       <div id="results-section" className="mt-2">
         <div className="mb-6 text-center">
-          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-linear-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
+          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-linear-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
             Search Results
           </h1>
         </div>
@@ -113,7 +113,7 @@ function MlSearchResults({
                 <div className="mb-4">
                   <h2
                     id="other-results"
-                    className="text-lg text-gray-700 dark:text-gray-200"
+                    className="text-lg text-deep-mocha-700 dark:text-deep-mocha-200"
                   >
                     Found {results.length - 1} other results for "{query}"
                   </h2>

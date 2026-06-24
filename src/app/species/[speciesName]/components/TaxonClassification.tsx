@@ -8,19 +8,19 @@ export function SpeciesClassification({
 }) {
   if (!taxonomyData) {
     return (
-      <p className="text-gray-500 dark:text-gray-400">
+      <p className="text-deep-mocha-500 dark:text-deep-mocha-400">
         No classification data available.
       </p>
     );
   }
 
   return (
-    <div className="bg-linear-to-r from-white/50 to-white/30 dark:from-teal-900/30 dark:to-gray-800/50 rounded-xl backdrop-blur-lg">
-      <div className="bg-linear-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-xl">
+    <div className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg">
+      <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl">
         <h2 className="text-2xl font-semibold">Classification</h2>
       </div>
       <div className="p-4 ml-4">
-        <table className="text-sm text-gray-700 dark:text-gray-300 w-full min-w-0">
+        <table className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300 w-full min-w-0">
           <tbody>
             <tr>
               <td className="font-medium pr-1 align-top whitespace-nowrap">
