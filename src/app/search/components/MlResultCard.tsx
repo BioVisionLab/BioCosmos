@@ -7,7 +7,7 @@ import {
   fetchSpeciesImageIds,
   fetchThumbnailById,
 } from "@/lib/images";
-import { cleanSpeciesName } from "@/lib/names";
+import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
 import { MlResultItems } from "@/lib/ml_search";
@@ -69,7 +69,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <Link
-          href={`/species/${data.species}`}
+          href={`/species/${speciesUrlFromName(data.species)}`}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
@@ -177,7 +177,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
       </div>
 
       <div className="p-4">
-        <Link href={`/species/${data.species}`}>
+        <Link href={`/species/${speciesUrlFromName(data.species)}`}>
           <h2 className="text-2xl font-semibold mb-2 italic text-start text-deep-mocha-300 dark:text-deep-mocha-300 mt-4">
             {cleanSpeciesName(data.species)}
           </h2>
@@ -222,7 +222,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
 
               <div className="mt-4">
                 <Link
-                  href={`/species/${data.species}`}
+                  href={`/species/${speciesUrlFromName(data.species)}`}
                   className="mb-2 inline-block rounded-lg bg-gradient-to-br from-hunter-green-500/50 to-pacific-blue-700/50 w-fit px-4 py-2 hover:bg-pacific-blue-600/70 transition text-deep-mocha-100"
                 >
                   Show species page →

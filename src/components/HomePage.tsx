@@ -7,7 +7,7 @@ import { fetchSpeciesThumbnail } from "@/lib/images";
 import Link from "next/link";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
-import { cleanSpeciesName } from "@/lib/names";
+import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
 
@@ -129,7 +129,7 @@ function SpeciesThumbnail({
     fetchThumbnail();
   }, [species]);
 
-  const linkUrl = thumbnailUrl ? `/species/${species}` : "#";
+  const linkUrl = thumbnailUrl ? `/species/${speciesUrlFromName(species)}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
     <Link
