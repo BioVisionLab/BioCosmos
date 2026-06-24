@@ -26,7 +26,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     } else {
       setSelectedFileUrl(null);
       setSearchError(
-        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, WEBP."
+        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, WEBP.",
       );
     }
     // Reset the input value to allow selecting the same file again
