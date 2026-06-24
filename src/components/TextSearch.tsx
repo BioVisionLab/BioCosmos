@@ -34,7 +34,7 @@ export default function TextSearch() {
   return (
     <div className="w-full max-w-2xl mx-auto p-[2px] mb-6 rounded-3xl bg-emerald-300 dark:bg-emerald-700">
       <div className="bg-emerald-200 dark:bg-emerald-900 p-6 rounded-[calc(1.5rem-2px)] flex flex-col items-center">
-        <div className="mb-4 text-center text-gray-700 dark:text-emerald-100 text-sm">
+        <div className="mb-4 text-center text-gray-700 dark:text-gray-300 text-sm">
           <p>
             Conventional text-based search. Filter results by species, family,
             or other keywords. Results are ranked by relevance to your query.

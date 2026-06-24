@@ -29,7 +29,7 @@ export default function SemanticSearchBar() {
 
   return (
     <div className="w-full max-w-2xl mx-auto p-[2px] mb-6 rounded-3xl bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500 dark:from-emerald-600 dark:via-teal-600 dark:to-cyan-700 animate-spin-slow">
-      <div className="bg-emerald-50/50 dark:bg-gray-800/50 p-6 rounded-3xl opacity-80 backdrop-blur-sm">
+      <div className="bg-emerald-50/50 dark:bg-gray-800/50 p-6 rounded-3xl backdrop-blur-sm">
         <div className="mb-4 text-center text-gray-700 dark:text-gray-300 text-sm">
           <p>
             AI-powered search using natural language descriptions. Try
