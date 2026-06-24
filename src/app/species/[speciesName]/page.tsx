@@ -63,7 +63,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
   return (
     <section>
       {!loading && speciesData && (
-        <nav className="text-sm mb-1 text-gray-600 dark:text-gray-400 flex items-center gap-2 border border-gray-300 dark:border-gray-600 bg-white/70 dark:bg-gray-800/70 backdrop-blur w-fit py-1 px-4 rounded-full">
+        <nav className="text-sm mb-1 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur w-fit py-1 px-4 rounded-full">
           <Link
             href={`/family/${speciesData.taxonomy.family}`}
             className="hover:underline"
@@ -79,7 +79,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
             {speciesData.taxonomy.genus}
           </Link>
           <span>&gt;</span>
-          <span className="italic text-gray-800 dark:text-gray-200">
+          <span className="italic text-deep-mocha-800 dark:text-deep-mocha-200">
             {speciesData.taxonomy.species}
           </span>
         </nav>

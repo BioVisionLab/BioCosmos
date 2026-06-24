@@ -10,7 +10,7 @@ export function GbifAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-xs text-gray-500 mt-2 ${isLarge ? "text-lg" : ""}`}>
+    <p className={`text-xs text-deep-mocha-500 mt-2 ${isLarge ? "text-lg" : ""}`}>
       {leadingText}{" "}
       <a
         href={gbifURL}
@@ -30,7 +30,7 @@ export function LepTraitsAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-gray-500 mt-3 mb-1 ml-1 ${isLarge ? "text-lg" : "text-xs"}`}>
+    <p className={`text-deep-mocha-500 mt-3 mb-1 ml-1 ${isLarge ? "text-lg" : "text-xs"}`}>
       Source:{" "}
       <a
         href={lepTraitURL}
@@ -56,14 +56,14 @@ export function LepTraitsAttribution({
 
 export function LepTraitDataSourceInfo() {
   return (
-    <div className="text-md text-gray-600 dark:text-gray-400 border border-teal-300/30 bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-xl mt-8">
+    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-8">
       <p>
         The trait data is sourced from the{" "}
         <a
           href={lepTraitURL}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-teal-300"
+          className="underline hover:text-pacific-blue-300"
         >
           LepTraits database
         </a>
@@ -79,7 +79,7 @@ export function LepTraitDataSourceInfo() {
           href={lepTraitPublication}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-teal-300"
+          className="underline hover:text-pacific-blue-300"
         >
           https://doi.org/10.1038/s41597-022-01473-5
         </a>
@@ -96,7 +96,7 @@ export function NcbiAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-gray-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
+    <p className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
       {leadingText}{" "}
       <a
         href="https://www.ncbi.nlm.nih.gov/"
@@ -118,7 +118,7 @@ export function CrossRefAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-gray-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
+    <p className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
       {leadingText}{" "}
       <a
         href="https://www.crossref.org/"

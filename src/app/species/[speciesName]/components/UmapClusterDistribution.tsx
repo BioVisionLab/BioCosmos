@@ -192,7 +192,7 @@ export default function UmapClusterDistribution({
 
   if (occurrences.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-500 rounded-xl border border-gray-500">
+      <div className="h-full flex items-center justify-center text-deep-mocha-500 rounded-xl border border-deep-mocha-500">
         No geographic distribution data available.
       </div>
     );
