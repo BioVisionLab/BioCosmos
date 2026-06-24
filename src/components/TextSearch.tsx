@@ -32,146 +32,147 @@ export default function TextSearch() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto mb-6 bg-emerald-200/50 dark:bg-gray-700/50 p-6 rounded-3xl flex flex-col items-center">
-      <div className="mb-4 text-center text-gray-600 dark:text-gray-400 text-sm">
-        <p>
-          Conventional text-based search to query BIOCOSMOS database. Search by
-          species, family, or other keywords. Results are ranked by relevance to
-          your query.
-        </p>
-      </div>
-      <div className="w-full">
-        <SearchForm
-          mode="text"
-          icon={Search}
-          onSubmit={handleSearch}
-          placeholder="Danaus plexippus"
-        />
-      </div>
+    <div className="w-full max-w-2xl mx-auto p-[2px] mb-6 rounded-3xl bg-emerald-300 dark:bg-emerald-700">
+      <div className="bg-emerald-200 dark:bg-emerald-900 p-6 rounded-[calc(1.5rem-2px)] flex flex-col items-center">
+        <div className="mb-4 text-center text-gray-700 dark:text-emerald-100 text-sm">
+          <p>
+            Conventional text-based search. Filter results by species, family,
+            or other keywords. Results are ranked by relevance to your query.
+          </p>
+        </div>
+        <div className="w-full">
+          <SearchForm
+            mode="text"
+            icon={Search}
+            onSubmit={handleSearch}
+            placeholder="Danaus plexippus"
+          />
+        </div>
 
-      <div className="mt-4 flex items-center justify-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-        <label
-          htmlFor="home-search-field-select"
-          className="font-semibold tracking-wide uppercase text-xs text-gray-500 dark:text-gray-400"
-        >
-          Search by:
-        </label>
-        <div className="relative">
-          <select
-            id="home-search-field-select"
-            value={field}
-            onChange={(e) => setField(e.target.value)}
-            className="appearance-none bg-white/70 dark:bg-gray-800/60 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-xs hover:border-emerald-500/50 hover:shadow-sm transition-all text-gray-800 dark:text-gray-100 cursor-pointer font-medium"
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm text-gray-600 dark:text-gray-300 w-full">
+          <label
+            htmlFor="home-search-field-select"
+            className="font-semibold tracking-wide uppercase text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
           >
-            <option value="all">All Fields</option>
-            <optgroup
-              label="Taxonomy"
-              className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
+            Search by:
+          </label>
+          <div className="relative w-full max-w-[200px]">
+            <select
+              id="home-search-field-select"
+              value={field}
+              onChange={(e) => setField(e.target.value)}
+              className="appearance-none w-full bg-white/70 dark:bg-gray-800/60 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-xs hover:border-emerald-500/50 hover:shadow-sm transition-all text-gray-800 dark:text-gray-100 cursor-pointer font-medium"
             >
-              <option
-                value="kingdom"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+              <option value="all">All Fields</option>
+              <optgroup
+                label="Taxonomy"
+                className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
               >
-                Kingdom
-              </option>
-              <option
-                value="phylum"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                <option
+                  value="kingdom"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Kingdom
+                </option>
+                <option
+                  value="phylum"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Phylum
+                </option>
+                <option
+                  value="class"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Class
+                </option>
+                <option
+                  value="order"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Order
+                </option>
+                <option
+                  value="family"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Family
+                </option>
+                <option
+                  value="species"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Species
+                </option>
+              </optgroup>
+              <optgroup
+                label="Specimen Metadata"
+                className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
               >
-                Phylum
-              </option>
-              <option
-                value="class"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                <option
+                  value="common_name"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Common Name
+                </option>
+                <option
+                  value="class_dv"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Dorso/Ventral View
+                </option>
+                <option
+                  value="sex"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Sex
+                </option>
+                <option
+                  value="life_stage"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Life Stage
+                </option>
+                <option
+                  value="source_db"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Source Database
+                </option>
+              </optgroup>
+              <optgroup
+                label="Geography"
+                className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
               >
-                Class
-              </option>
-              <option
-                value="order"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                <option
+                  value="coordinate"
+                  className="text-gray-800 dark:text-gray-100 font-normal text-sm"
+                >
+                  Coordinate (100m radius)
+                </option>
+              </optgroup>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 dark:text-gray-400">
+              <svg
+                className="fill-current h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
               >
-                Order
-              </option>
-              <option
-                value="family"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Family
-              </option>
-              <option
-                value="species"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Species
-              </option>
-            </optgroup>
-            <optgroup
-              label="Specimen Metadata"
-              className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
-            >
-              <option
-                value="common_name"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Common Name
-              </option>
-              <option
-                value="class_dv"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Dorso/Ventral View
-              </option>
-              <option
-                value="sex"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Sex
-              </option>
-              <option
-                value="life_stage"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Life Stage
-              </option>
-              <option
-                value="source_db"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Source Database
-              </option>
-            </optgroup>
-            <optgroup
-              label="Geography"
-              className="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 font-semibold text-xs"
-            >
-              <option
-                value="coordinate"
-                className="text-gray-800 dark:text-gray-100 font-normal text-sm"
-              >
-                Coordinate (100m radius)
-              </option>
-            </optgroup>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 dark:text-gray-400">
-            <svg
-              className="fill-current h-4 w-4"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-            </svg>
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
           </div>
         </div>
-      </div>
 
-      {searchError && (
-        <p
-          role="alert"
-          className="text-xs text-red-500 mt-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md px-3 py-2 w-full"
-        >
-          {searchError}
-        </p>
-      )}
+        {searchError && (
+          <p
+            role="alert"
+            className="text-xs text-red-500 mt-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md px-3 py-2 w-full"
+          >
+            {searchError}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

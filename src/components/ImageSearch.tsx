@@ -7,7 +7,7 @@ import { UploadCloud, Image as ImageIcon, Search } from "lucide-react";
 
 export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(
-    fileUrl || null
+    fileUrl || null,
   );
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     } else {
       setSelectedFileUrl(null);
       setSearchError(
-        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, GIF, WEBP."
+        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, GIF, WEBP.",
       );
     }
     // Reset the input value to allow selecting the same file again
@@ -45,14 +45,14 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     try {
       // Navigate to search page with results
       router.push(
-        `/search?q=${encodeURIComponent(selectedFileUrl)}&mode=image`
+        `/search?q=${encodeURIComponent(selectedFileUrl)}&mode=image`,
       );
     } catch (err) {
       console.error("Image search error:", err);
       setSearchError(
         err instanceof Error
           ? err.message
-          : "An unknown image search error occurred."
+          : "An unknown image search error occurred.",
       );
     } finally {
       setIsSearching(false);
@@ -65,7 +65,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
       event.preventDefault(); // Necessary to allow drop
       event.currentTarget.classList.add("border-emerald-500"); // Highlight effect
     },
-    []
+    [],
   );
 
   const handleDragLeave = useCallback(
@@ -73,7 +73,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
       event.preventDefault();
       event.currentTarget.classList.remove("border-emerald-500");
     },
-    []
+    [],
   );
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -91,15 +91,15 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
   }, []);
 
   return (
-    <div className="w-full max-w-2xl mx-auto mb-6">
-      <div className="flex flex-col gap-3">
+    <div className="w-full max-w-2xl mx-auto p-[2px] mb-6 rounded-3xl bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500 dark:from-emerald-600 dark:via-teal-600 dark:to-cyan-700 animate-spin-slow">
+      <div className="bg-emerald-50/50 dark:bg-gray-800/50 p-6 rounded-3xl backdrop-blur-sm flex flex-col gap-3">
         <div
           className="relative flex flex-col items-center justify-center p-4 rounded-2xl bg-white/70 dark:bg-gray-800/60 backdrop-blur shadow-sm hover:shadow-md transition-all"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div className="flex flex-col items-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 text-center mb-2 w-full">
+          <div className="flex flex-col items-center border-2 border-dashed border-gray-600 dark:border-gray-200 rounded-md p-4 text-center mb-2 w-full">
             {selectedFileUrl ? (
               <div className="relative w-full max-h-80 mb-2 flex items-center justify-center overflow-hidden rounded">
                 <Image
@@ -112,7 +112,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
                 />
               </div>
             ) : (
-              <UploadCloud className="h-10 w-10 text-gray-400 mb-2" />
+              <UploadCloud className="h-10 w-10 text-gray-500 dark:text-gray-400 mb-2" />
             )}
 
             <input
@@ -136,7 +136,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
             {!selectedFileUrl && (
               <div
                 id="upload-instructions"
-                className="text-center text-xs text-gray-500"
+                className="text-center text-xs text-gray-600 dark:text-gray-300"
               >
                 <p>or drag & drop</p>
                 <p className="mt-4">
@@ -148,7 +148,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
           <button
             onClick={handleImageSearch}
             disabled={!selectedFileUrl || isSearching}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-md hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:from-gray-600 dark:disabled:to-gray-600 dark:disabled:text-gray-400 transition-all"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-md hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed dark:disabled:from-gray-600 dark:disabled:to-gray-600 dark:disabled:text-gray-400 transition-all"
           >
             {isSearching ? (
               <>
