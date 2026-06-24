@@ -13,7 +13,7 @@ import { isBackendAlive } from "@/lib/backend";
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <div className="mt-2 mb-6 text-center">
+      <div className="mt-12 mb-6 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
           Lepiverse
         </h1>
@@ -21,9 +21,9 @@ export default function HomePage() {
           A BioCosmos portal for Lepidoptera, featuring all butterfly families.
         </p>
         <p className="mt-8 text-base sm:text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-          LepiVerse uses computer vision, deep learning, and natural language
-          processing to analyze wing patterns, synthesize scientific records,
-          and unlock insights into butterfly evolution.
+          BioCosmos uses computer vision and natural language processing to
+          analyze wing patterns, synthesize scientific records, and unlock
+          insights into species evolution.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
           <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
