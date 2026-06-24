@@ -9,7 +9,7 @@ import { SimilarSpeciesList, SimilarSpeciesMeta } from "@/lib/similarSpecies";
 
 const IMAGE_SIZE = 120;
 
-const labelColor = "text-gray-500 dark:text-gray-400";
+const labelColor = "text-deep-mocha-500 dark:text-deep-mocha-400";
 
 function VisuallySimilarSpecies({ species }: { species: string }) {
   const [similarSpecies, setSimilarSpecies] =
@@ -52,10 +52,10 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
     !similarSpecies ||
     (similarSpecies.dorsal.length === 0 && similarSpecies.ventral.length === 0);
   return (
-    <div className="mt-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur">
-      <div className="border-b border-gray-300 dark:border-gray-600 p-4">
+    <div className="mt-4 border border-deep-mocha-300 dark:border-deep-mocha-600 rounded-xl bg-deep-mocha-200/50 dark:bg-deep-mocha-800/50 backdrop-blur">
+      <div className="border-b border-deep-mocha-300 dark:border-deep-mocha-600 p-4">
         <h2 className="text-2xl font-semibold">Visually Similar Species</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
           Other species that look similar to <i>{species}</i> based on image
           embedding similarity.
         </p>
@@ -68,7 +68,7 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
           />
         </div>
       ) : isNotFound ? (
-        <div className="p-4 text-sm text-center text-gray-500 dark:text-gray-400">
+        <div className="p-4 text-sm text-center text-deep-mocha-500 dark:text-deep-mocha-400">
           No visually similar species found.
         </div>
       ) : (
@@ -141,7 +141,7 @@ function SimilarSpeciesImage({
       <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-2">
         {thumbnailUrl ? (
           <>
-            <div className="flex w-[120px] h-[120px] relative my-auto bg-gray-200 dark:bg-gray-700 rounded-xl p-2 items-center justify-center">
+            <div className="flex w-[120px] h-[120px] relative my-auto bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl p-2 items-center justify-center">
               <Image
                 src={thumbnailUrl}
                 alt={`Similar species image ${meta.imgId}`}
@@ -150,7 +150,7 @@ function SimilarSpeciesImage({
                 className="object-contain"
               />
             </div>
-            <p className="text-sm text-center w-[120px] text-gray-500 dark:text-gray-400 italic break-words whitespace-normal">
+            <p className="text-sm text-center w-[120px] text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
               {speciesName}
             </p>
           </>

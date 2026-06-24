@@ -8,29 +8,33 @@ import Link from "next/link";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName } from "@/lib/names";
-import { ButterflyAiIcon } from "./ui/Butterfly";
 import { isBackendAlive } from "@/lib/backend";
+import Logo from "./Logo";
 
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <ButterflyAiIcon className="w-24 h-24 fill-emerald-400" />
-      <div className="mt-2 mb-6 text-center">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
-          Lepiverse
-        </h1>
-        <p className="mt-3 text-base sm:text-lg text-gray-600 dark:text-gray-300">
-          Discover species & traits with AI: fast, visual, and intelligent
-          search
+      <div className="mt-12 mb-6 text-center">
+        <div className="flex justify-center mb-2">
+          <h1 className="sr-only">Lepiverse</h1>
+          <Logo className="w-64 sm:w-80 md:w-96" />
+        </div>
+        <p className="text-base sm:text-md text-deep-mocha-600 dark:text-deep-mocha-300">
+          A BioCosmos portal for Lepidoptera, featuring all butterfly families.
+        </p>
+        <p className="mt-8 text-base sm:text-lg text-deep-mocha-600 dark:text-deep-mocha-300 max-w-3xl mx-auto">
+          BioCosmos uses computer vision and natural language processing to
+          analyze wing patterns, synthesize scientific records, and unlock
+          insights into species evolution.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
-          <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+          <span className="px-3 py-1 rounded-full bg-hunter-green-100 dark:bg-hunter-green-900/40 text-hunter-green-700 dark:text-hunter-green-300">
             Image Search
           </span>
-          <span className="px-3 py-1 rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300">
+          <span className="px-3 py-1 rounded-full bg-frozen-water-100 dark:bg-frozen-water-900/40 text-frozen-water-700 dark:text-frozen-water-300">
             Smart Text Query
           </span>
-          <span className="px-3 py-1 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
+          <span className="px-3 py-1 rounded-full bg-pacific-blue-100 dark:bg-pacific-blue-900/40 text-pacific-blue-700 dark:text-pacific-blue-300">
             Open Biodiversity Data
           </span>
         </div>
@@ -71,7 +75,7 @@ function HomeContent() {
   if (backendAlive === false) {
     return (
       <div className="mt-12">
-        <p className="text-red-600 dark:text-red-400">
+        <p className="text-burnt-peach-600 dark:text-burnt-peach-400">
           Unable to connect to the backend service. Please try again later.
         </p>
       </div>
@@ -83,14 +87,14 @@ function HomeContent() {
       <SearchSwitcher />
       <div className="w-full max-w-5xl mt-12 mb-4 px-4 mx-auto">
         <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
-          <h2 className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-300 flex items-center gap-2">
+          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50" />
+          <h2 className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-hunter-green-600 dark:text-hunter-green-300 flex items-center gap-2">
             <span className="text-lg">🦋</span>
             Featured Butterflies
           </h2>
-          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-emerald-400/50 via-teal-400/50 to-cyan-400/50" />
+          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50" />
         </div>
-        <p className="mt-3 text-center text-sm sm:text-base text-gray-600 dark:text-gray-400">
+        <p className="mt-3 text-center text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
           Get started with a curated list of butterflies.
         </p>
       </div>
@@ -125,33 +129,37 @@ function SpeciesThumbnail({
     fetchThumbnail();
   }, [species]);
 
-  let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
+  const linkUrl = thumbnailUrl ? `/species/${species}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
-    <div className="w-full my-auto flex flex-col justify-center items-center text-center">
-      <Link key={index} href={linkUrl}>
-        {thumbnailUrl ? (
-          <>
-            <div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
-              <Image
-                src={thumbnailUrl}
-                alt={`Species Thumbnail ${index + 1}`}
-                width={140}
-                height={140}
-                className="mx-auto object-contain"
-              />
-            </div>
-            <h2
-              className="text-md truncate italic text-center text-gray-400 mt-2"
-              title={speciesName}
-            >
-              {speciesName}
-            </h2>
-          </>
-        ) : (
-          <ImageLoading size={150} />
-        )}
-      </Link>
-    </div>
+    <Link
+      key={index}
+      href={linkUrl}
+      className="w-full flex flex-col justify-center items-center text-center group"
+    >
+      {thumbnailUrl ? (
+        <>
+          <div className="relative w-full aspect-square bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+            <Image
+              src={thumbnailUrl}
+              alt={`Species Thumbnail ${index + 1}`}
+              fill
+              className="object-contain p-4"
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+            />
+          </div>
+          <h2
+            className="w-full text-sm truncate italic text-center text-deep-mocha-400 mt-2 px-1"
+            title={speciesName}
+          >
+            {speciesName}
+          </h2>
+        </>
+      ) : (
+        <div className="w-full aspect-square flex flex-col items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-800 rounded-2xl">
+          <ImageLoading size={60} />
+        </div>
+      )}
+    </Link>
   );
 }

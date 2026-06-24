@@ -11,8 +11,8 @@ export function SpeciesDescription({
   species: string;
 }) {
   return (
-    <div className="mt-4 rounded-xl bg-gradient-to-t from-emerald-500/5 to-transparent">
-      <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-3 rounded-t-xl">
+    <div className="mt-4 rounded-xl bg-gradient-to-t from-hunter-green-500/5 to-transparent">
+      <div className="bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-3 rounded-t-xl">
         <h2 className="text-xl font-semibold mt-1 mb-1 ml-1">Key Traits</h2>
       </div>
       <div className="p-3">
@@ -32,7 +32,7 @@ function SpeciesDescriptionText({
 }) {
   if (!traits) {
     return (
-      <p className="text-gray-500 dark:text-gray-400 mt-2">
+      <p className="text-deep-mocha-500 dark:text-deep-mocha-400 mt-2">
         No traits available for <i>{species}</i>.
       </p>
     );
@@ -43,7 +43,7 @@ function SpeciesDescriptionText({
   const showCanopy =
     typeof traits.canopy_affinity === "string" &&
     traits.canopy_affinity.trim() !== "";
-  const keyTraitIconClass = "w-20 h-20 m-1 fill-teal-500";
+  const keyTraitIconClass = "w-20 h-20 m-1 fill-pacific-blue-500";
 
   return (
     <section

@@ -17,12 +17,12 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
   return (
     <section>
       {/* Breadcrumbs */}
-      <nav className="text-sm mb-4 text-gray-600 dark:text-gray-400 flex items-center gap-2">
+      <nav className="text-sm mb-4 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2">
         <Link href="/" className="hover:underline">
           Home
         </Link>
         <span>&gt;</span>
-        <span className="font-semibold text-gray-800 dark:text-gray-200">
+        <span className="font-semibold text-deep-mocha-800 dark:text-deep-mocha-200">
           {decodedFamilyName}
         </span>
       </nav>

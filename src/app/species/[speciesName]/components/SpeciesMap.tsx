@@ -25,18 +25,18 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
     <div>
       <h2 className="text-2xl font-semibold mb-1">Distribution Map</h2>
       {loading ? (
-        <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+        <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl flex items-center justify-center">
           <TextLoading msg="Fetching GBIF occurrence data" />
         </div>
       ) : (
         <>
           {occurrences.length > 0 ? (
-            <p className="text-xs mb-3 text-gray-700 dark:text-gray-300">
+            <p className="text-xs mb-3 text-deep-mocha-700 dark:text-deep-mocha-300">
               Showing {occurrences.length} GBIF occurrences. Use the zoom and
               pan controls to explore the map.
             </p>
           ) : (
-            <p className="text-xs mb-2 text-gray-700 dark:text-gray-300">
+            <p className="text-xs mb-2 text-deep-mocha-700 dark:text-deep-mocha-300">
               No GBIF occurrences found. Showing map without points.
             </p>
           )}

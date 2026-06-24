@@ -48,7 +48,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
         </a>
       </div>
       <div className="mt-8 mb-6 text-center">
-        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
+        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
           Image Similarity Search
         </h1>
       </div>
@@ -58,7 +58,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
             <ImageLoading size={240} msg="Searching for species" />
           </div>
         ) : error ? (
-          <p className="text-red-500">Error: {error}</p>
+          <p className="text-burnt-peach-500">Error: {error}</p>
         ) : results.length === 0 ? (
           <p>No results found for "{imageUrl}".</p>
         ) : (
@@ -80,7 +80,7 @@ function MlImageResultCard({ data }: { data: MlResultItems[] }) {
       <div className="mb-4">
         <h2
           id="other-results"
-          className="text-lg text-gray-700 dark:text-gray-200"
+          className="text-lg text-deep-mocha-700 dark:text-deep-mocha-200"
         >
           Found {data.length} other results"
         </h2>

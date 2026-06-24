@@ -10,6 +10,66 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-frozen-water-50: #e5ffff;
+  --color-frozen-water-100: #ccffff;
+  --color-frozen-water-200: #99ffff;
+  --color-frozen-water-300: #66ffff;
+  --color-frozen-water-400: #33ffff;
+  --color-frozen-water-500: #00ffff;
+  --color-frozen-water-600: #00cccc;
+  --color-frozen-water-700: #009999;
+  --color-frozen-water-800: #006666;
+  --color-frozen-water-900: #003333;
+  --color-frozen-water-950: #002424;
+
+  --color-burnt-peach-50: #fbeee9;
+  --color-burnt-peach-100: #f7ddd4;
+  --color-burnt-peach-200: #f0baa8;
+  --color-burnt-peach-300: #e8987d;
+  --color-burnt-peach-400: #e07552;
+  --color-burnt-peach-500: #d95326;
+  --color-burnt-peach-600: #ad421f;
+  --color-burnt-peach-700: #823217;
+  --color-burnt-peach-800: #57210f;
+  --color-burnt-peach-900: #2b1108;
+  --color-burnt-peach-950: #1e0c05;
+
+  --color-hunter-green-50: #eff7ee;
+  --color-hunter-green-100: #e0efdc;
+  --color-hunter-green-200: #c0deba;
+  --color-hunter-green-300: #a1ce97;
+  --color-hunter-green-400: #82be74;
+  --color-hunter-green-500: #62ad52;
+  --color-hunter-green-600: #4f8b41;
+  --color-hunter-green-700: #3b6831;
+  --color-hunter-green-800: #274521;
+  --color-hunter-green-900: #142310;
+  --color-hunter-green-950: #0e180b;
+
+  --color-pacific-blue-50: #ecf7f9;
+  --color-pacific-blue-100: #d8eff3;
+  --color-pacific-blue-200: #b2dee6;
+  --color-pacific-blue-300: #8bceda;
+  --color-pacific-blue-400: #65bdcd;
+  --color-pacific-blue-500: #3eadc1;
+  --color-pacific-blue-600: #328a9a;
+  --color-pacific-blue-700: #256874;
+  --color-pacific-blue-800: #19454d;
+  --color-pacific-blue-900: #0c2327;
+  --color-pacific-blue-950: #09181b;
+
+  --color-deep-mocha-50: #f3f1f1;
+  --color-deep-mocha-100: #e8e3e3;
+  --color-deep-mocha-200: #d1c7c7;
+  --color-deep-mocha-300: #b9acac;
+  --color-deep-mocha-400: #a29090;
+  --color-deep-mocha-500: #8b7474;
+  --color-deep-mocha-600: #6f5d5d;
+  --color-deep-mocha-700: #534646;
+  --color-deep-mocha-800: #382e2e;
+  --color-deep-mocha-900: #1c1717;
+  --color-deep-mocha-950: #131010;
 }
 
 /*
