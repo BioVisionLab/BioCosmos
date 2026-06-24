@@ -22,8 +22,12 @@ export async function POST(request: Request) {
 
     // Create a new FormData object to send to FastAPI
     // IMPORTANT: Use "file" as the parameter name to match FastAPI's UploadFile parameter
+    // Re-wrap as a File with explicit type to preserve MIME through the proxy
     const fastApiFormData = new FormData();
-    fastApiFormData.append("file", image, image.name);
+    const forwardedFile = new File([await image.arrayBuffer()], image.name, {
+      type: image.type || "application/octet-stream",
+    });
+    fastApiFormData.append("file", forwardedFile);
 
     // Forward the request to your FastAPI service
     const response = await fetch(IMAGE_SEARCH, {
