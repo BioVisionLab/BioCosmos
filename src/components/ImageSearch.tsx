@@ -4,6 +4,7 @@ import React, { useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { UploadCloud, Image as ImageIcon, Search } from "lucide-react";
+import { setSearchImage } from "@/lib/imageSearchStore";
 
 export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(
@@ -18,14 +19,14 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     const file = event.target.files?.[0];
     // Exclude avif format because it's not supported by the backend
     if (file && file.type.startsWith("image/") && file.type !== "image/avif") {
-      // use session storage to store the file URL for retrieval in the search results page
       const fileUrl = URL.createObjectURL(file);
+      setSearchImage(file, fileUrl);
       setSelectedFileUrl(fileUrl);
       setSearchError(null); // Clear previous error on new selection
     } else {
       setSelectedFileUrl(null);
       setSearchError(
-        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, GIF, WEBP."
+        "Please select a valid image file. Supported formats: JPEG, JPG, PNG, WEBP."
       );
     }
     // Reset the input value to allow selecting the same file again
@@ -82,6 +83,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     const file = event.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/") && file.type !== "image/avif") {
       const fileUrl = URL.createObjectURL(file);
+      setSearchImage(file, fileUrl);
       setSelectedFileUrl(fileUrl);
       setSearchError(null);
     } else {

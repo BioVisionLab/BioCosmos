@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
 import Tips from "@/components/Tips";
+import { getSearchImage, clearSearchImage } from "@/lib/imageSearchStore";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -17,12 +18,45 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
       setError(null);
       try {
         const data = new FormData();
-        const response = await fetch(imageUrl);
-        const imageBlob = await response.blob();
-        const file = new File([imageBlob], "search-image", {
-          type: imageBlob.type,
-        });
-        data.append("image", file);
+
+        // Prefer the original File from the in-memory store (preserves MIME type and name)
+        const storedFile = getSearchImage(imageUrl);
+        if (storedFile) {
+          data.append("image", storedFile);
+          clearSearchImage();
+        } else {
+          // Fallback for page refresh / direct URL access: re-fetch blob and sniff MIME
+          const response = await fetch(imageUrl);
+          const imageBlob = await response.blob();
+
+          let mimeType = imageBlob.type;
+          if (!mimeType) {
+            const arr = new Uint8Array(await imageBlob.slice(0, 12).arrayBuffer());
+            const isJpeg = arr[0] === 0xff && arr[1] === 0xd8;
+            const isPng =
+              arr[0] === 0x89 &&
+              arr[1] === 0x50 &&
+              arr[2] === 0x4e &&
+              arr[3] === 0x47;
+            const isWebp =
+              arr[0] === 0x52 &&
+              arr[1] === 0x49 &&
+              arr[2] === 0x46 &&
+              arr[3] === 0x46 &&
+              arr[8] === 0x57 &&
+              arr[9] === 0x45 &&
+              arr[10] === 0x42 &&
+              arr[11] === 0x50;
+            if (isJpeg) mimeType = "image/jpeg";
+            else if (isPng) mimeType = "image/png";
+            else if (isWebp) mimeType = "image/webp";
+            else mimeType = "application/octet-stream";
+          }
+
+          const file = new File([imageBlob], "search-image", { type: mimeType });
+          data.append("image", file);
+        }
+
         const results = await searchFromImage(data);
         setResults(results);
       } catch (err) {

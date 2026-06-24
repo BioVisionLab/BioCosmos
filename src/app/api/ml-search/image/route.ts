@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       );
       if (errorBody.includes("Invalid file type")) {
         throw new Error(
-          "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, GIF, WEBP."
+          "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, WEBP."
         );
       } else {
         throw new Error(
