@@ -9,15 +9,17 @@ import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
+import Logo from "./Logo";
 
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center min-h-screen">
       <div className="mt-12 mb-6 text-center">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
-          Lepiverse
-        </h1>
-        <p className="mt-2 text-base sm:text-md text-gray-600 dark:text-gray-300">
+        <div className="flex justify-center mb-2">
+          <h1 className="sr-only">Lepiverse</h1>
+          <Logo className="w-64 sm:w-80 md:w-96" />
+        </div>
+        <p className="text-base sm:text-md text-gray-600 dark:text-gray-300">
           A BioCosmos portal for Lepidoptera, featuring all butterfly families.
         </p>
         <p className="mt-8 text-base sm:text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
@@ -130,9 +132,9 @@ function SpeciesThumbnail({
   let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
-    <Link 
-      key={index} 
-      href={linkUrl} 
+    <Link
+      key={index}
+      href={linkUrl}
       className="w-full flex flex-col justify-center items-center text-center group"
     >
       {thumbnailUrl ? (
@@ -147,7 +149,7 @@ function SpeciesThumbnail({
             />
           </div>
           <h2
-            className="w-full text-md truncate italic text-center text-gray-400 mt-2 px-1"
+            className="w-full text-sm truncate italic text-center text-gray-400 mt-2 px-1"
             title={speciesName}
           >
             {speciesName}
