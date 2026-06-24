@@ -130,30 +130,34 @@ function SpeciesThumbnail({
   let linkUrl = thumbnailUrl ? `/species/${species}` : "#";
   const speciesName = cleanSpeciesName(species);
   return (
-    <div className="w-full my-auto flex flex-col justify-center items-center text-center">
-      <Link key={index} href={linkUrl}>
-        {thumbnailUrl ? (
-          <>
-            <div className="h-full bg-gray-200 dark:bg-gray-700 rounded-2xl p-4">
-              <Image
-                src={thumbnailUrl}
-                alt={`Species Thumbnail ${index + 1}`}
-                width={140}
-                height={140}
-                className="mx-auto object-contain"
-              />
-            </div>
-            <h2
-              className="text-md truncate italic text-center text-gray-400 mt-2"
-              title={speciesName}
-            >
-              {speciesName}
-            </h2>
-          </>
-        ) : (
-          <ImageLoading size={150} />
-        )}
-      </Link>
-    </div>
+    <Link 
+      key={index} 
+      href={linkUrl} 
+      className="w-full flex flex-col justify-center items-center text-center group"
+    >
+      {thumbnailUrl ? (
+        <>
+          <div className="relative w-full aspect-square bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+            <Image
+              src={thumbnailUrl}
+              alt={`Species Thumbnail ${index + 1}`}
+              fill
+              className="object-contain p-4"
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+            />
+          </div>
+          <h2
+            className="w-full text-md truncate italic text-center text-gray-400 mt-2 px-1"
+            title={speciesName}
+          >
+            {speciesName}
+          </h2>
+        </>
+      ) : (
+        <div className="w-full aspect-square flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-2xl">
+          <ImageLoading size={60} />
+        </div>
+      )}
+    </Link>
   );
 }
