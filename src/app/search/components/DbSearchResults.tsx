@@ -29,7 +29,10 @@ function HighlightText({
   highlight: string;
   isMatched: boolean;
 }) {
-  if (!text) return <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>;
+  if (!text)
+    return (
+      <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+    );
   if (!isMatched || !highlight) return <>{text}</>;
 
   // Substring matching case-insensitive
@@ -60,7 +63,9 @@ function renderSpeciesLink(
   isMatched: boolean,
 ) {
   if (!speciesName)
-    return <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>;
+    return (
+      <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+    );
 
   const normalized = speciesName.replace(/_/g, " ").trim();
   const parts = normalized.split(/\s+/);
@@ -121,7 +126,9 @@ function renderCoordinateCell(
   const hasLat = lat !== null && lat !== undefined;
   const hasLon = lon !== null && lon !== undefined;
   if (!hasLat && !hasLon) {
-    return <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>;
+    return (
+      <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+    );
   }
 
   const isMatched =
@@ -470,18 +477,6 @@ function DbSearchResults({
                         Species
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Kingdom
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Phylum
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Class
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
-                        Order
-                      </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Family
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
@@ -519,35 +514,7 @@ function DbSearchResults({
                               matched.includes("species"),
                             )}
                           </td>
-                          <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.kingdom}
-                              highlight={query}
-                              isMatched={matched.includes("kingdom")}
-                            />
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.phylum}
-                              highlight={query}
-                              isMatched={matched.includes("phylum")}
-                            />
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.class}
-                              highlight={query}
-                              isMatched={matched.includes("class")}
-                            />
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <HighlightText
-                              text={specimen.order}
-                              highlight={query}
-                              isMatched={matched.includes("order")}
-                            />
-                          </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-4 py-3 align-middle capitalize">
                             <HighlightText
                               text={specimen.family}
                               highlight={query}
@@ -589,7 +556,7 @@ function DbSearchResults({
                               matched,
                             )}
                           </td>
-                          <td className="px-4 py-3 align-middle">
+                          <td className="px-4 py-3 align-middle uppercase">
                             <HighlightText
                               text={specimen.source_db}
                               highlight={query}
