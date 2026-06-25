@@ -12,7 +12,7 @@ There are many ways to contribute to BioCosmos, from writing code and documentat
 
 - **Reporting Bugs:** If you find a bug, please open an issue on our GitHub issue tracker.
 - **Suggesting Enhancements:** If you have an idea for a new feature, open an issue to discuss it.
-- **Pull Requests:** We welcome pull requests! Please raise PRs to the `main` branch. When ready for deployment, `main` is merged into the `release` branch which triggers the CI/CD pipeline. Follow the steps below.
+- **Pull Requests:** We welcome pull requests! Please follow the steps below.
 
 ## Development Environment Setup
 
