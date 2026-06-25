@@ -7,7 +7,11 @@ import {
   searchDatabase,
 } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail } from "@/lib/images";
-import { cleanSpeciesName, formatSpeciesNameForUrl, speciesUrlFromName } from "@/lib/names";
+import {
+  cleanSpeciesName,
+  formatSpeciesNameForUrl,
+  speciesUrlFromName,
+} from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -542,7 +546,7 @@ function DbSearchResults({
                               isMatched={matched.includes("common_name")}
                             />
                           </td>
-                          <td className="px-4 py-3 align-middle uppercase">
+                          <td className="px-4 py-3 align-middle capitalize">
                             <HighlightText
                               text={specimen.class_dv}
                               highlight={query}
