@@ -7,7 +7,7 @@ import {
   searchDatabase,
 } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail } from "@/lib/images";
-import { cleanSpeciesName, formatSpeciesNameForUrl } from "@/lib/names";
+import { cleanSpeciesName, formatSpeciesNameForUrl, speciesUrlFromName } from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -696,7 +696,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <Link
-          href={`/species/${formatSpeciesNameForUrl(data.species)}`}
+          href={`/species/${speciesUrlFromName(data.species)}`}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
