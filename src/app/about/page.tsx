@@ -24,7 +24,7 @@ const coreTeam = [
       "Co-PI of the UF AI\u00B2 award supporting BioCosmos, with expertise in natural language processing, AI systems, and research computing infrastructure.",
   },
   {
-    name: "Venkata Yarava",
+    name: "Venkata Suresh Yarava",
     role: "DevOps and Research Computing",
     affiliation: "University of Florida",
     description:
