@@ -14,6 +14,15 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
+    gate-release:
+        if: github.base_ref == 'release' && github.head_ref != 'main'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Block non-main PRs to release
+              run: |
+                  echo "::error::Only the main branch can be merged into release. Got: ${{ github.head_ref }}"
+                  exit 1
+
     test:
         runs-on: ubuntu-latest
         defaults:
