@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import { cleanSpeciesName } from "@/lib/names";
+import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { SimilarSpeciesList, SimilarSpeciesMeta } from "@/lib/similarSpecies";
 
 const IMAGE_SIZE = 120;
@@ -137,7 +137,7 @@ function SimilarSpeciesImage({
   const speciesName = cleanSpeciesName(meta.species);
 
   return (
-    <Link key={index} href={`/species/${meta.species}`}>
+    <Link key={index} href={`/species/${speciesUrlFromName(meta.species)}`}>
       <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-2">
         {thumbnailUrl ? (
           <>
