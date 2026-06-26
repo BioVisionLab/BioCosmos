@@ -15,7 +15,10 @@ interface TabsComponentProps {
   speciesSlug?: string;
 }
 
-const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData, speciesSlug }) => {
+const TabsComponent: React.FC<TabsComponentProps> = ({
+  speciesData,
+  speciesSlug,
+}) => {
   // Tab data with placeholders for Traits and Specimens
   const tabsData = [
     {
@@ -77,7 +80,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({ speciesData, speciesSlug 
 
   return (
     <div className="flex flex-col items-center w-full">
-      <div className="w-full overflow-x-auto mt-2 flex md:justify-center px-4 md:px-0 scrollbar-hide">
+      <div className="w-full overflow-x-auto mt-2 flex md:justify-center md:px-0 scrollbar-hide">
         <div
           className="inline-flex shrink-0 rounded-full border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur-lg whitespace-nowrap"
           role="tablist"
