@@ -1,5 +1,6 @@
 const INITIAL_SPECIES = [
   "agrias_narcissus",
+  "limenitis_archippus",
   "athyma_libnites",
   "danaus_gilippus",
   "euploea_eleusina",
