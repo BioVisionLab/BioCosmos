@@ -47,6 +47,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Clean up old images and layers
+        run: podman system prune -af
+
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 

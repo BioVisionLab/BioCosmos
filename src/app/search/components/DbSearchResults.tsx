@@ -388,6 +388,63 @@ function DbSearch({
   );
 }
 
+const SPECIES_PER_PAGE = 20;
+
+const BTN = "relative inline-flex items-center px-4 py-2 border border-deep-mocha-200 dark:border-deep-mocha-700 text-sm font-medium rounded-xl text-deep-mocha-700 dark:text-deep-mocha-200 bg-white/70 dark:bg-deep-mocha-800/60 hover:bg-hunter-green-500/10 dark:hover:bg-hunter-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer";
+const ARROW_BTN = "relative inline-flex items-center px-3 py-2 border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/70 dark:bg-deep-mocha-800/60 text-sm font-medium text-deep-mocha-500 dark:text-deep-mocha-400 hover:bg-hunter-green-500/10 dark:hover:bg-hunter-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer";
+const HIGHLIGHT = "font-semibold text-hunter-green-600 dark:text-hunter-green-400";
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  label,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  label: string;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  const start = (currentPage - 1) * itemsPerPage + 1;
+  const end = Math.min(currentPage * itemsPerPage, totalItems);
+
+  return (
+    <div className="mt-4 flex items-center justify-between px-4 py-3 bg-white/30 dark:bg-deep-mocha-800/30 backdrop-blur border border-deep-mocha-200 dark:border-deep-mocha-700/80 rounded-2xl">
+      <div className="flex-1 flex justify-between sm:hidden">
+        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} className={BTN}>Previous</button>
+        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages} className={`ml-3 ${BTN}`}>Next</button>
+      </div>
+      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
+          Showing <span className={HIGHLIGHT}>{start}</span> to <span className={HIGHLIGHT}>{end}</span> of <span className={HIGHLIGHT}>{totalItems}</span> {label}
+        </p>
+        <nav className="relative z-0 inline-flex rounded-md shadow-xs -space-x-px" aria-label={`${label} pagination`}>
+          <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} className={`rounded-l-xl ${ARROW_BTN}`}>
+            <span className="sr-only">Previous</span>
+            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <span className="relative inline-flex items-center px-4 py-2 border-t border-b border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/50 dark:bg-deep-mocha-800/40 text-sm font-medium text-deep-mocha-700 dark:text-deep-mocha-300">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages} className={`rounded-r-xl ${ARROW_BTN}`}>
+            <span className="sr-only">Next</span>
+            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </nav>
+      </div>
+    </div>
+  );
+}
+
 function DbSearchResults({
   results,
   specimens,
@@ -407,6 +464,14 @@ function DbSearchResults({
   limit: number;
   onPageChange: (newPage: number) => void;
 }) {
+  const [speciesPage, setSpeciesPage] = useState(1);
+  const totalSpeciesPages = Math.ceil(results.length / SPECIES_PER_PAGE);
+  const speciesStart = (speciesPage - 1) * SPECIES_PER_PAGE;
+  const paginatedSpecies = results.slice(
+    speciesStart,
+    speciesStart + SPECIES_PER_PAGE,
+  );
+
   if (query.trim() === "" && !loading) {
     return (
       <div className="text-center py-12">
@@ -449,15 +514,24 @@ function DbSearchResults({
                 <Tips message="Click on an image card to navigate to the species detail page." />
               </div>
               <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-                {results.map((item, index) => (
+                {paginatedSpecies.map((item, index) => (
                   <Suspense
-                    key={index}
+                    key={speciesStart + index}
                     fallback={<div>Loading species...</div>}
                   >
                     <DbResultCard data={item} />
                   </Suspense>
                 ))}
               </div>
+
+              <PaginationControls
+                currentPage={speciesPage}
+                totalPages={totalSpeciesPages}
+                totalItems={results.length}
+                itemsPerPage={SPECIES_PER_PAGE}
+                label="species"
+                onPageChange={setSpeciesPage}
+              />
             </div>
           )}
           {/* Bottom Section: Specimen Metadata Table */}
@@ -574,96 +648,14 @@ function DbSearchResults({
                 </table>
               </div>
 
-              {/* Pagination Controls */}
-              {totalSpecimens > limit && (
-                <div className="mt-4 flex items-center justify-between px-4 py-3 bg-white/30 dark:bg-deep-mocha-800/30 backdrop-blur border border-deep-mocha-200 dark:border-deep-mocha-700/80 rounded-2xl">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => onPageChange(page - 1)}
-                      disabled={page <= 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-deep-mocha-200 dark:border-deep-mocha-700 text-sm font-medium rounded-xl text-deep-mocha-700 dark:text-deep-mocha-200 bg-white/70 dark:bg-deep-mocha-800/60 hover:bg-hunter-green-500/10 dark:hover:bg-hunter-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => onPageChange(page + 1)}
-                      disabled={page >= Math.ceil(totalSpecimens / limit)}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-deep-mocha-200 dark:border-deep-mocha-700 text-sm font-medium rounded-xl text-deep-mocha-700 dark:text-deep-mocha-200 bg-white/70 dark:bg-deep-mocha-800/60 hover:bg-hunter-green-500/10 dark:hover:bg-hunter-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
-                        Showing{" "}
-                        <span className="font-semibold text-hunter-green-600 dark:text-hunter-green-400">
-                          {(page - 1) * limit + 1}
-                        </span>{" "}
-                        to{" "}
-                        <span className="font-semibold text-hunter-green-600 dark:text-hunter-green-400">
-                          {Math.min(page * limit, totalSpecimens)}
-                        </span>{" "}
-                        of{" "}
-                        <span className="font-semibold text-hunter-green-600 dark:text-hunter-green-400">
-                          {totalSpecimens}
-                        </span>{" "}
-                        specimens
-                      </p>
-                    </div>
-                    <div>
-                      <nav
-                        className="relative z-0 inline-flex rounded-md shadow-xs -space-x-px"
-                        aria-label="Pagination"
-                      >
-                        <button
-                          onClick={() => onPageChange(page - 1)}
-                          disabled={page <= 1}
-                          className="relative inline-flex items-center px-3 py-2 rounded-l-xl border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/70 dark:bg-deep-mocha-800/60 text-sm font-medium text-deep-mocha-500 dark:text-deep-mocha-400 hover:bg-hunter-green-500/10 dark:hover:bg-hunter-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-                        >
-                          <span className="sr-only">Previous</span>
-                          <svg
-                            className="h-5 w-5"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                        <span className="relative inline-flex items-center px-4 py-2 border-t border-b border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/50 dark:bg-deep-mocha-800/40 text-sm font-medium text-deep-mocha-700 dark:text-deep-mocha-300">
-                          Page {page} of {Math.ceil(totalSpecimens / limit)}
-                        </span>
-                        <button
-                          onClick={() => onPageChange(page + 1)}
-                          disabled={page >= Math.ceil(totalSpecimens / limit)}
-                          className="relative inline-flex items-center px-3 py-2 rounded-r-xl border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/70 dark:bg-deep-mocha-800/60 text-sm font-medium text-deep-mocha-500 dark:text-deep-mocha-400 hover:bg-hunter-green-500/10 dark:hover:bg-hunter-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-                        >
-                          <span className="sr-only">Next</span>
-                          <svg
-                            className="h-5 w-5"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <PaginationControls
+                currentPage={page}
+                totalPages={Math.ceil(totalSpecimens / limit)}
+                totalItems={totalSpecimens}
+                itemsPerPage={limit}
+                label="specimens"
+                onPageChange={onPageChange}
+              />
             </div>
           )}
         </div>
