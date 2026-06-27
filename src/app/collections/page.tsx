@@ -40,19 +40,6 @@ export default async function CollectionsPage() {
       href: "https://github.com/RiesLabGU/LepTraits",
     },
     { label: "Image Entries", value: data?.imageEntries ?? 0 },
-    { label: "GBIF Species Count", value: data?.gbifSpeciesCount ?? 0 },
-  ];
-
-  const orderCount = 120; // placeholder
-  const familyCount = 950; // placeholder
-  const genusCount = 4_321; // placeholder
-  const taxonomicGroupCount = 12; // placeholder
-
-  const taxonomyStats = [
-    { label: "Order Count", value: orderCount },
-    { label: "Family Count", value: familyCount },
-    { label: "Genus Count", value: genusCount },
-    { label: "Taxonomic Groups", value: taxonomicGroupCount },
   ];
 
   return (
@@ -71,8 +58,8 @@ export default async function CollectionsPage() {
 
       {statsUnavailable && (
         <div className="mb-6 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          Live statistics are temporarily unavailable. The values shown below may
-          be outdated.
+          Live statistics are temporarily unavailable. The values shown below
+          may be outdated.
         </div>
       )}
 
@@ -99,22 +86,6 @@ export default async function CollectionsPage() {
                 ) : (
                   s.label
                 )}
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {taxonomyStats.map((t) => (
-            <article
-              key={t.label}
-              className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 shadow-sm transform transition hover:scale-105"
-            >
-              <div className="text-3xl font-extrabold text-deep-mocha-900 dark:text-white">
-                {t.value.toLocaleString()}
-              </div>
-              <div className="mt-2 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
-                {t.label}
               </div>
             </article>
           ))}
