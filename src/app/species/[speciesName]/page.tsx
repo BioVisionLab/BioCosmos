@@ -15,7 +15,7 @@ export default function SpeciesPage({
   const { speciesName } = use(params);
 
   return (
-    <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-2 py-8">
       <SpeciesContent speciesName={speciesName} />
     </main>
   );
@@ -33,12 +33,15 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
         if (data) {
           setSpeciesData(data);
           try {
-              // cache species data in localStorage so gallery pages (even new tabs)
-              // can reuse it without refetching
-              localStorage.setItem(`speciesData:${speciesName}`, JSON.stringify(data));
-            } catch (e) {
-              // ignore storage errors
-            }
+            // cache species data in localStorage so gallery pages (even new tabs)
+            // can reuse it without refetching
+            localStorage.setItem(
+              `speciesData:${speciesName}`,
+              JSON.stringify(data),
+            );
+          } catch (e) {
+            // ignore storage errors
+          }
         } else {
           setError("Species data not found.");
         }
@@ -63,7 +66,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
   return (
     <section>
       {!loading && speciesData && (
-        <nav className="text-sm mb-1 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur w-fit py-1 px-4 rounded-full">
+        <nav className="text-sm mb-1 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur py-1 px-2 rounded-full">
           <Link
             href={`/family/${speciesData.taxonomy.family}`}
             className="hover:underline"
@@ -94,7 +97,10 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
           />
 
           <div className="mt-8">
-            <TabsComponent speciesData={speciesData} speciesSlug={speciesName} />
+            <TabsComponent
+              speciesData={speciesData}
+              speciesSlug={speciesName}
+            />
           </div>
         </div>
       )}

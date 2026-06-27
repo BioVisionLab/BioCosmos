@@ -74,9 +74,23 @@ function HomeContent() {
 
   if (backendAlive === false) {
     return (
-      <div className="mt-12">
-        <p className="text-burnt-peach-600 dark:text-burnt-peach-400">
-          Unable to connect to the backend service. Please try again later.
+      <div className="mt-12 text-center flex flex-col items-center px-4">
+        <p className="text-burnt-peach-600 dark:text-burnt-peach-400 mb-2">
+          Unable to connect to the backend service.
+        </p>
+        <p className="text-deep-mocha-600 dark:text-deep-mocha-400 text-sm max-w-md">
+          This usually occurs during website updates (approx. 3-15 minutes
+          downtime). Please close this page and try again later. If the issue
+          persists for more than 15 minutes, please{" "}
+          <a
+            href="https://github.com/BioVisionLab/BioCosmos/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-pacific-blue-600 dark:text-pacific-blue-400 hover:underline"
+          >
+            file an issue on GitHub
+          </a>
+          .
         </p>
       </div>
     );
@@ -129,7 +143,9 @@ function SpeciesThumbnail({
     fetchThumbnail();
   }, [species]);
 
-  const linkUrl = thumbnailUrl ? `/species/${speciesUrlFromName(species)}` : "#";
+  const linkUrl = thumbnailUrl
+    ? `/species/${speciesUrlFromName(species)}`
+    : "#";
   const speciesName = cleanSpeciesName(species);
   return (
     <Link

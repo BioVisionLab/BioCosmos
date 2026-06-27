@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import React, { useEffect, useState, useCallback } from "react";
-import { ImageLoading } from "@/components/Loadings";
+import React, { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { SpeciesImageGallery } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
@@ -51,28 +50,47 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
   }
 
   return (
-    <div>
+    <div className="min-h-[400px]">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <SpeciesImageGallery
             speciesName={taxonomy?.species ?? ""}
-            onSelectionChange={useCallback((payload: { imageId: string | null; items: string[]; selectedIndex: number }) => {
-              setSelectedImageId(payload.imageId ?? null);
-              setPrevImageIds(
-                payload.items && payload.selectedIndex > 0
-                  ? payload.items.slice(Math.max(0, payload.selectedIndex - 2), payload.selectedIndex)
-                  : []
-              );
-              setNextImageIds(
-                payload.items && payload.selectedIndex < payload.items.length - 1
-                  ? payload.items.slice(payload.selectedIndex + 1, payload.selectedIndex + 3)
-                  : []
-              );
-            }, [setSelectedImageId, setPrevImageIds, setNextImageIds])}
+            onSelectionChange={useCallback(
+              (payload: {
+                imageId: string | null;
+                items: string[];
+                selectedIndex: number;
+              }) => {
+                setSelectedImageId(payload.imageId ?? null);
+                setPrevImageIds(
+                  payload.items && payload.selectedIndex > 0
+                    ? payload.items.slice(
+                        Math.max(0, payload.selectedIndex - 2),
+                        payload.selectedIndex,
+                      )
+                    : [],
+                );
+                setNextImageIds(
+                  payload.items &&
+                    payload.selectedIndex < payload.items.length - 1
+                    ? payload.items.slice(
+                        payload.selectedIndex + 1,
+                        payload.selectedIndex + 3,
+                      )
+                    : [],
+                );
+              },
+              [setSelectedImageId, setPrevImageIds, setNextImageIds],
+            )}
           />
 
           <div className="mt-4">
-            <ImageMetadata speciesName={taxonomy?.species ?? ""} imageId={selectedImageId} prevImageIds={prevImageIds} nextImageIds={nextImageIds} />
+            <ImageMetadata
+              speciesName={taxonomy?.species ?? ""}
+              imageId={selectedImageId}
+              prevImageIds={prevImageIds}
+              nextImageIds={nextImageIds}
+            />
           </div>
 
           <SpeciesDescription
@@ -85,7 +103,10 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         <div className="lg:col-span-1 space-y-5">
           <SpeciesClassification taxonomyData={taxonomy} />
 
-          <RedListStatus statusCode={taxonomy?.redlistCategory ?? "Unknown"} horizontal />
+          <RedListStatus
+            statusCode={taxonomy?.redlistCategory ?? "Unknown"}
+            horizontal
+          />
 
           <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
         </div>
