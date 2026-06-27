@@ -231,7 +231,8 @@ function GalleryFullImage({
       alt={`Image of ${speciesName}`}
       fill
       sizes="(max-width:768px) 100vw, 800px"
-      className="object-contain"
+      className="object-contain m-1"
+      unoptimized
     />
   );
 }
@@ -270,13 +271,14 @@ function GalleryThumbnail({
   return loading ? (
     <ImageLoading size={48} msg="" />
   ) : (
-    <div className="p-4">
+    <div className="relative w-full h-full">
       <Image
         src={thumbUrl}
         alt={`Thumbnail ${idx + 1} of ${speciesName}`}
         fill
         sizes="96px"
         className="object-contain"
+        unoptimized
       />
     </div>
   );

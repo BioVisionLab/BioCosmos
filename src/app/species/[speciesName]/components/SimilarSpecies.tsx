@@ -148,6 +148,7 @@ function SimilarSpeciesImage({
                 width={IMAGE_SIZE}
                 height={IMAGE_SIZE}
                 className="object-contain"
+                unoptimized
               />
             </div>
             <p className="text-sm text-center w-[120px] text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">

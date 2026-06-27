@@ -15,9 +15,9 @@ export default function SpeciesPage({
   const { speciesName } = use(params);
 
   return (
-    <main className="container mx-auto px-2 py-8">
+    <div className="m-2 ">
       <SpeciesContent speciesName={speciesName} />
-    </main>
+    </div>
   );
 }
 

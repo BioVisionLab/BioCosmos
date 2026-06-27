@@ -147,10 +147,10 @@ function UmapScatterPlot({
   return (
     <div
       id="umap-scatter-plot"
-      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-deep-mocha-200 dark:border-deep-mocha-700"
+      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-deep-mocha-200 dark:border-deep-mocha-700 overflow-x-auto"
     >
-      <div className="p-4 h-[calc(100%-2rem)]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="p-4 h-[calc(100%-2rem)] min-w-[600px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={600} minHeight={0}>
           <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
             <XAxis
               type="number"
@@ -298,12 +298,15 @@ function ClusterImage({ imgId }: { imgId: string }) {
   }
 
   return (
-    <Image
-      src={imgUrl}
-      alt={`Cluster ${imgId}`}
-      width={CLUSTER_IMAGE_SIZE}
-      height={CLUSTER_IMAGE_SIZE}
-    />
+    <div style={{ position: "relative", width: CLUSTER_IMAGE_SIZE, height: CLUSTER_IMAGE_SIZE }}>
+      <Image
+        src={imgUrl}
+        alt={`Cluster ${imgId}`}
+        fill
+        className="object-contain"
+        unoptimized
+      />
+    </div>
   );
 }
 
@@ -351,13 +354,15 @@ function UmapTooltipImage({
 
   return (
     <div className="p-2 border border-hunter-green-500 bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl shadow">
-      <Image
-        src={imgUrl}
-        alt={`Specimen ${imgId}`}
-        width={80}
-        height={80}
-        className="rounded-xl border"
-      />
+      <div style={{ position: "relative", width: 80, height: 80 }}>
+        <Image
+          src={imgUrl}
+          alt={`Specimen ${imgId}`}
+          fill
+          className="rounded-xl border object-contain"
+          unoptimized
+        />
+      </div>
       <p className="mt-2 text-center text-sm text-deep-mocha-200 dark:text-deep-mocha-400">
         Cluster {cluster}
       </p>
