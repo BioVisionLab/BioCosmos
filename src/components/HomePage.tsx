@@ -1,6 +1,6 @@
 "use client"; // Mark this component as a Client Component
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { getSpeciesList } from "@/lib/speciesList";
 import { fetchSpeciesThumbnail } from "@/lib/images";
