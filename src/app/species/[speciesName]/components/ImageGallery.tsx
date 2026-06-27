@@ -78,9 +78,9 @@ export function SpeciesImageGallery({
 
   return (
     <div
-      className={`relative w-full aspect-video overflow-hidden rounded-xl bg-deep-mocha-100 dark:bg-deep-mocha-900 ${
+      className={`relative w-full overflow-hidden rounded-xl bg-deep-mocha-100 dark:bg-deep-mocha-900 ${
         loading
-          ? "flex items-center justify-center border border-deep-mocha-200 dark:border-deep-mocha-700"
+          ? "flex items-center justify-center border border-deep-mocha-200 dark:border-deep-mocha-700 min-h-[400px]"
           : ""
       }`}
     >
@@ -92,7 +92,7 @@ export function SpeciesImageGallery({
         <div className="flex flex-col gap-3 h-full">
           {/* add outer padding so thumbs have breathing room */}
           {/* Main image */}
-          <div className="relative w-full flex-grow rounded-xl overflow-hidden border  border-deep-mocha-200 dark:border-deep-mocha-700">
+          <div className="relative w-full min-h-[400px] flex-grow rounded-xl overflow-hidden border  border-deep-mocha-200 dark:border-deep-mocha-700">
             {/* Left/right circular nav buttons (scroll through the 8 images) */}
             <button
               aria-label="Previous image"
