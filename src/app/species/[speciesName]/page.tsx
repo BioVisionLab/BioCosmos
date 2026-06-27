@@ -66,7 +66,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
   return (
     <section>
       {!loading && speciesData && (
-        <nav className="text-sm mb-1 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur py-1 px-2 rounded-full">
+        <nav className="text-sm mb-1 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur py-1 px-2 w-fit rounded-full">
           <Link
             href={`/family/${speciesData.taxonomy.family}`}
             className="hover:underline"
