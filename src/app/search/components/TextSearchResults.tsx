@@ -738,6 +738,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
               width={IMAGE_SIZE}
               height={IMAGE_SIZE}
               className="mx-auto object-contain"
+              unoptimized
             />
           </div>
 

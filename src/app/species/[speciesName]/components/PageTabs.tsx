@@ -104,7 +104,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
         </div>
       </div>
 
-      <div className="p-4 mt-2 rounded-xl w-full">
+      <div className="mt-8 rounded-xl w-full">
         {tabsData.map((tab) => (
           <div
             key={tab.id}

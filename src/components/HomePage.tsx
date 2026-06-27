@@ -1,6 +1,6 @@
 "use client"; // Mark this component as a Client Component
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { getSpeciesList } from "@/lib/speciesList";
 import { fetchSpeciesThumbnail } from "@/lib/images";
@@ -162,6 +162,7 @@ function SpeciesThumbnail({
               fill
               className="object-contain p-4"
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+              unoptimized
             />
           </div>
           <h2

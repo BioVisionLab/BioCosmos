@@ -79,6 +79,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
               width={IMAGE_SIZE}
               height={IMAGE_SIZE}
               className="mx-auto object-contain"
+              unoptimized
             />
           </div>
 
@@ -195,6 +196,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                   width={260}
                   height={260}
                   className="rounded-lg object-contain"
+                  unoptimized
                 />
               )}
             </div>
@@ -214,6 +216,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                         width={70}
                         height={70}
                         className="rounded-lg object-contain"
+                        unoptimized
                       />
                     </div>
                   ))}
