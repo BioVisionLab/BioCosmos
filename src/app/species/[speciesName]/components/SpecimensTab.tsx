@@ -36,10 +36,19 @@ type ThumbItem = {
   thumbUrl?: string;
 };
 
-const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, showAll: propsShowAll, showUmap: propsShowUmap, showImageCount: propsShowImageCount, initialSpecimenData }) => {
+const SpecimensTab: React.FC<SpecimensTabProps> = ({
+  specimens,
+  speciesName,
+  showAll: propsShowAll,
+  showUmap: propsShowUmap,
+  showImageCount: propsShowImageCount,
+  initialSpecimenData,
+}) => {
   const [items, setItems] = useState<ThumbItem[]>([]); // current page items
   // initialize specimen metadata from optional prop to avoid re-fetching
-  const [specimenData, setSpecimenData] = useState<SpecimenData | null>(initialSpecimenData ?? null);
+  const [specimenData, setSpecimenData] = useState<SpecimenData | null>(
+    initialSpecimenData ?? null,
+  );
   const [specimenLoading, setSpecimenLoading] = useState(false);
   const [allIds, setAllIds] = useState<string[] | null>(null); // all image ids for species
   const allIdsRef = useRef<string[] | null>(null);
@@ -85,7 +94,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
 
     const request = (async () => {
       try {
-        const res = await fetch(`/api/images/id/metadata?imageId=${encodeURIComponent(id)}`);
+        const res = await fetch(
+          `/api/images/id/metadata?imageId=${encodeURIComponent(id)}`,
+        );
         if (!res.ok) return null;
         const data = await res.json();
         modalMetaCache.current.set(id, data ?? null);
@@ -107,8 +118,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     }
   };
 
-    // moved logic into named helpers below and call them here
-    useEffect(() => {
+  // moved logic into named helpers below and call them here
+  useEffect(() => {
     let mountedMeta = true;
     let mounted = true;
 
@@ -170,7 +181,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       allIdsRef.current = ids;
       // if backend returned fewer than the requested preview, we've loaded all available ids
       if (ids.length < limit) setExhaustedIds(true);
-      if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts) setExhaustedIds(true);
+      if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts)
+        setExhaustedIds(true);
       const toUse = ids.slice(0, limit);
       const results = await fetchThumbnailsForIds(toUse);
       if (!mountedFlag) return;
@@ -190,7 +202,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   // helper to normalize a name string
   const nameOr = (n?: string) => n ?? "";
 
-  const getSafeExternalHref = (rawUrl: unknown, fallback = "https://www.gbif.org") => {
+  const getSafeExternalHref = (
+    rawUrl: unknown,
+    fallback = "https://www.gbif.org",
+  ) => {
     if (typeof rawUrl !== "string") return fallback;
     const trimmed = rawUrl.trim();
     if (!trimmed) return fallback;
@@ -258,7 +273,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     const promises = ids.map((id) =>
       fetchThumbnailById(id)
         .then((url) => ({ id, url }))
-        .catch(() => ({ id, url: undefined }))
+        .catch(() => ({ id, url: undefined })),
     );
     return Promise.all(promises);
   }
@@ -292,7 +307,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       // if backend returned fewer than the initial request, we've loaded all available ids
       if (ids.length < initialLimit) setExhaustedIds(true);
       // if specimen metadata is known and we already fetched all images, mark exhausted
-      if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts) setExhaustedIds(true);
+      if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts)
+        setExhaustedIds(true);
       const toUse = ids.slice(0, PAGE_SIZE);
       const results = await fetchThumbnailsForIds(toUse);
       if (!mountedFlag) return;
@@ -329,7 +345,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     try {
       const existing = allIds ?? [];
       const offset = existing.length;
-      const fetched = await fetchSpeciesImageIds(speciesName, PAGE_SIZE, offset);
+      const fetched = await fetchSpeciesImageIds(
+        speciesName,
+        PAGE_SIZE,
+        offset,
+      );
       // if backend returns fewer than requested, we've exhausted available ids
       if (!fetched || fetched.length === 0) {
         setExhaustedIds(true);
@@ -374,10 +394,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     }
   };
 
-  
-
   // fallback when a specimens array is passed in (client-provided data)
-  async function loadFromSpecimensFallback(specimensArr: any[], mountedFlag = true) {
+  async function loadFromSpecimensFallback(
+    specimensArr: any[],
+    mountedFlag = true,
+  ) {
     const idsFromSpecimens: string[] = specimensArr
       .map((s) => s?.imgId ?? s?.imageId ?? s?.id)
       .filter(Boolean);
@@ -406,7 +427,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         if (r.url) createdUrls.current.push(r.url);
         thumbCache.current.set(r.id, r.url);
       });
-      if (mountedFlag) setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
+      if (mountedFlag)
+        setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
       // sync display/committed page
       setCurrentPage(1);
       setDisplayPage(1);
@@ -510,7 +532,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     const idsSource = allIdsRef.current ?? allIds ?? [];
     if (idsSource.length === 0) return;
     const startPage = page + 1;
-    const endPage = Math.min(Math.ceil(idsSource.length / PAGE_SIZE), page + count);
+    const endPage = Math.min(
+      Math.ceil(idsSource.length / PAGE_SIZE),
+      page + count,
+    );
     for (let p = startPage; p <= endPage; p++) {
       const start = (p - 1) * PAGE_SIZE;
       const ids = idsSource.slice(start, start + PAGE_SIZE);
@@ -549,7 +574,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
           setModalIndex(idx >= 0 ? idx : null);
           // limit modal navigation to the currently displayed page
           const pageStart = (displayPage - 1) * PAGE_SIZE;
-          const pageEnd = Math.min(allIds.length - 1, pageStart + PAGE_SIZE - 1);
+          const pageEnd = Math.min(
+            allIds.length - 1,
+            pageStart + PAGE_SIZE - 1,
+          );
           setModalPageRange({ start: pageStart, end: pageEnd });
         } else {
           setModalIndex(null);
@@ -649,8 +677,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       setModalMeta(data ?? null);
     } catch (err) {
       console.error("Error fetching image metadata:", err);
-    }
-    finally {
+    } finally {
       setModalMetaLoading(false);
     }
   };
@@ -662,7 +689,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalIndex, setModalIndex] = useState<number | null>(null); // index into allIds
   // modal navigation limited to the currently displayed page's index range
-  const [modalPageRange, setModalPageRange] = useState<{ start: number; end: number } | null>(null);
+  const [modalPageRange, setModalPageRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
 
   // prevent background scrolling when the modal is open; restore previous overflow on close
   const originalBodyOverflow = useRef<string | null>(null);
@@ -746,10 +776,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!modalOpen || modalIndex == null || !allIds) return;
-        if (e.key === "ArrowLeft") {
+      if (e.key === "ArrowLeft") {
         if (modalIndex > 0) navigateModalTo(modalIndex - 1);
       } else if (e.key === "ArrowRight") {
-        if (modalIndex < (allIds || []).length - 1) navigateModalTo(modalIndex + 1);
+        if (modalIndex < (allIds || []).length - 1)
+          navigateModalTo(modalIndex + 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -763,7 +794,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     if (newIndex < 0 || newIndex >= cappedTotal) return;
     // prevent navigating outside the currently displayed page range
     if (modalPageRange) {
-      if (newIndex < modalPageRange.start || newIndex > modalPageRange.end) return;
+      if (newIndex < modalPageRange.start || newIndex > modalPageRange.end)
+        return;
     }
     const id = allIds[newIndex];
     // if cached, use it immediately
@@ -807,10 +839,17 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
   };
 
   // compute pagination info
-  const loadedPages = Math.max(1, Math.ceil((allIds ? allIds.length : items.length) / PAGE_SIZE));
-  const speciesTotalImages = specimenData?.imageCounts ?? (allIds ? allIds.length : items.length);
+  const loadedPages = Math.max(
+    1,
+    Math.ceil((allIds ? allIds.length : items.length) / PAGE_SIZE),
+  );
+  const speciesTotalImages =
+    specimenData?.imageCounts ?? (allIds ? allIds.length : items.length);
   // show true species total pages (don't cap here) so pagination reflects full dataset
-  const speciesTotalPages = Math.max(1, Math.ceil(speciesTotalImages / PAGE_SIZE));
+  const speciesTotalPages = Math.max(
+    1,
+    Math.ceil(speciesTotalImages / PAGE_SIZE),
+  );
   // totalPages represents the number of pages currently loaded (not full species)
   const totalPages = loadedPages;
 
@@ -819,7 +858,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     const requested = Math.max(1, p);
 
     // compute currently loaded pages from available ids
-    const currentLoadedPages = Math.max(1, Math.ceil((allIds ? allIds.length : items.length) / PAGE_SIZE));
+    const currentLoadedPages = Math.max(
+      1,
+      Math.ceil((allIds ? allIds.length : items.length) / PAGE_SIZE),
+    );
 
     // If the requested page is already loaded, show it immediately.
     if (requested <= currentLoadedPages) {
@@ -830,7 +872,13 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       // the old highlight and the newly requested display page while
       // `loadPage` is still fetching thumbnails.
       {
-        const displayTotal = Math.max(1, Math.ceil((specimenData?.imageCounts ?? (allIds ? allIds.length : items.length)) / PAGE_SIZE));
+        const displayTotal = Math.max(
+          1,
+          Math.ceil(
+            (specimenData?.imageCounts ??
+              (allIds ? allIds.length : items.length)) / PAGE_SIZE,
+          ),
+        );
         const windowSize = 10;
         const half = Math.floor(windowSize / 2);
         let start = requested - half;
@@ -840,7 +888,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
           end = displayTotal;
           start = Math.max(1, end - windowSize + 1);
         }
-        const inMiddleRange = requested > half && requested <= displayTotal - half;
+        const inMiddleRange =
+          requested > half && requested <= displayTotal - half;
         const newHighlight = inMiddleRange ? start + half : requested;
         setHighlightPage(newHighlight);
       }
@@ -863,7 +912,13 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
     // flash between the previous highlight and the newly requested one
     // while additional IDs/thumbnails are being fetched.
     {
-      const displayTotal = Math.max(1, Math.ceil((specimenData?.imageCounts ?? (allIds ? allIds.length : items.length)) / PAGE_SIZE));
+      const displayTotal = Math.max(
+        1,
+        Math.ceil(
+          (specimenData?.imageCounts ??
+            (allIds ? allIds.length : items.length)) / PAGE_SIZE,
+        ),
+      );
       const windowSize = 10;
       const half = Math.floor(windowSize / 2);
       // prefer to center the highlight when possible
@@ -874,7 +929,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
         end = displayTotal;
         start = Math.max(1, end - windowSize + 1);
       }
-      const inMiddleRange = requested > half && requested <= displayTotal - half;
+      const inMiddleRange =
+        requested > half && requested <= displayTotal - half;
       const newHighlight = inMiddleRange ? start + half : requested;
       setHighlightPage(newHighlight);
     }
@@ -889,7 +945,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       if (remaining > 0 && speciesName) {
         setIsLoadingMore(true);
         try {
-          const fetched = await fetchSpeciesImageIds(speciesName, remaining, existing.length);
+          const fetched = await fetchSpeciesImageIds(
+            speciesName,
+            remaining,
+            existing.length,
+          );
           if (!fetched || fetched.length === 0) {
             setExhaustedIds(true);
           } else {
@@ -911,7 +971,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       }
 
       // after fetching, compute the page we can actually show (cap to available pages)
-      const availablePages = Math.max(1, Math.ceil((allIdsRef.current ? allIdsRef.current.length : 0) / PAGE_SIZE));
+      const availablePages = Math.max(
+        1,
+        Math.ceil(
+          (allIdsRef.current ? allIdsRef.current.length : 0) / PAGE_SIZE,
+        ),
+      );
       const toShow = Math.min(requested, availablePages);
       // Ensure we load the page that actually exists now (may be less than requested if exhausted)
       await loadPage(toShow);
@@ -944,7 +1009,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                 </p>
               </>
             ) : (
-              <p className="text-sm text-deep-mocha-500">Image count unavailable</p>
+              <p className="text-sm text-deep-mocha-500">
+                Image count unavailable
+              </p>
             )}
           </div>
         </div>
@@ -959,7 +1026,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
       )}
       <div id="specimen-thumbs" className="mt-8">
         {!showAll && (
-          <h2 className="text-xl font-medium text-deep-mocha-700 dark:text-deep-mocha-300 mb-3">Specimen Images</h2>
+          <h2 className="text-xl font-medium text-deep-mocha-700 dark:text-deep-mocha-300 mb-3">
+            Specimen Images
+          </h2>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mb-6">
           {/* Render a stable grid for the current page using thumbCache to avoid
@@ -969,11 +1038,20 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             // If we're showing a preview (not full gallery), render only two rows (16 images)
             if (!showAll) {
               const MAX_PREVIEW = 16;
-              const pageIds = allIds ? allIds.slice(0, MAX_PREVIEW) : items.map((it) => it.id).slice(0, MAX_PREVIEW);
-              const renderIds = pageIds.length > 0 ? pageIds : Array.from({ length: MAX_PREVIEW }).map((_, i) => `ph-${i}`);
+              const pageIds = allIds
+                ? allIds.slice(0, MAX_PREVIEW)
+                : items.map((it) => it.id).slice(0, MAX_PREVIEW);
+              const renderIds =
+                pageIds.length > 0
+                  ? pageIds
+                  : Array.from({ length: MAX_PREVIEW }).map(
+                      (_, i) => `ph-${i}`,
+                    );
 
               return renderIds.map((idOrPlaceholder) => {
-                const isPlaceholder = typeof idOrPlaceholder !== "string" || idOrPlaceholder.startsWith("ph-");
+                const isPlaceholder =
+                  typeof idOrPlaceholder !== "string" ||
+                  idOrPlaceholder.startsWith("ph-");
                 const id = isPlaceholder ? undefined : idOrPlaceholder;
                 const cached = id ? thumbCache.current.get(id) : undefined;
                 const isLoaded = id ? loadedThumbIds.has(id) : false;
@@ -1003,7 +1081,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                         />
                         <div
                           className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100/70 dark:bg-deep-mocha-800/70 transition-opacity ${
-                            isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                            isLoaded
+                              ? "opacity-0 pointer-events-none"
+                              : "opacity-100"
                           }`}
                         >
                           <ImageLoading size={110} msg={"Images loading"} />
@@ -1025,10 +1105,15 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
               : items.map((it) => it.id);
 
             // If there are no ids at all, show PAGE_SIZE placeholders
-            const renderIds = pageIds.length > 0 ? pageIds : Array.from({ length: PAGE_SIZE }).map((_, i) => `ph-${i}`);
+            const renderIds =
+              pageIds.length > 0
+                ? pageIds
+                : Array.from({ length: PAGE_SIZE }).map((_, i) => `ph-${i}`);
 
             return renderIds.map((idOrPlaceholder) => {
-              const isPlaceholder = typeof idOrPlaceholder !== "string" || idOrPlaceholder.startsWith("ph-");
+              const isPlaceholder =
+                typeof idOrPlaceholder !== "string" ||
+                idOrPlaceholder.startsWith("ph-");
               const id = isPlaceholder ? undefined : idOrPlaceholder;
               const cached = id ? thumbCache.current.get(id) : undefined;
 
@@ -1065,7 +1150,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
 
                       <div
                         className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100/70 dark:bg-deep-mocha-800/70 transition-opacity ${
-                          isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                          isLoaded
+                            ? "opacity-0 pointer-events-none"
+                            : "opacity-100"
                         }`}
                       >
                         <ImageLoading size={110} msg={"Images loading"} />
@@ -1151,15 +1238,21 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
             <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 w-full h-full flex-1 flex items-center justify-center relative">
               {/* left nav (aligned to image) */}
               <button
-                onClick={() => (modalIndex != null ? navigateModalTo(modalIndex - 1) : null)}
+                onClick={() =>
+                  modalIndex != null ? navigateModalTo(modalIndex - 1) : null
+                }
                 disabled={
                   modalIndex == null ||
-                  (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0)
+                  (modalPageRange
+                    ? modalIndex <= modalPageRange.start
+                    : modalIndex <= 0)
                 }
                 aria-label="Previous image"
                 className={`absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
-                  (modalIndex == null ||
-                    (modalPageRange ? modalIndex <= modalPageRange.start : modalIndex <= 0))
+                  modalIndex == null ||
+                  (modalPageRange
+                    ? modalIndex <= modalPageRange.start
+                    : modalIndex <= 0)
                     ? "text-deep-mocha-400 cursor-not-allowed"
                     : "text-white bg-black/30 hover:bg-white/10"
                 }`}
@@ -1186,7 +1279,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                     <ImageLoading size={250} />
                   </div>
                 </div>
-                ) : modalImageUrl ? (
+              ) : modalImageUrl ? (
                 // use native img for blob URLs; constrain to the container so the box doesn't resize
                 <img
                   src={modalImageUrl}
@@ -1200,7 +1293,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
               )}
               {/* right nav (aligned to image) */}
               <button
-                onClick={() => (modalIndex != null ? navigateModalTo(modalIndex + 1) : null)}
+                onClick={() =>
+                  modalIndex != null ? navigateModalTo(modalIndex + 1) : null
+                }
                 disabled={
                   modalIndex == null ||
                   (modalPageRange
@@ -1209,10 +1304,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                 }
                 aria-label="Next image"
                 className={`absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
-                  (modalIndex == null ||
-                    (modalPageRange
-                      ? modalIndex >= modalPageRange.end
-                      : modalIndex >= (allIds || []).length - 1))
+                  modalIndex == null ||
+                  (modalPageRange
+                    ? modalIndex >= modalPageRange.end
+                    : modalIndex >= (allIds || []).length - 1)
                     ? "text-deep-mocha-400 cursor-not-allowed"
                     : "text-white bg-black/30 hover:bg-white/10"
                 }`}
@@ -1239,44 +1334,64 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({ specimens, speciesName, sho
                 <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 text-xs text-deep-mocha-800 dark:text-white">
                   <div className="flex flex-col gap-2">
                     {modalMetaLoading ? (
-                      <div className="text-center text-sm text-deep-mocha-500">Loading metadata…</div>
+                      <div className="text-center text-sm text-deep-mocha-500">
+                        Loading metadata…
+                      </div>
                     ) : (
                       <>
                         {/* class_dv */}
                         {modalMeta?.class_dv && (
                           <div>
-                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">View: </span>
-                            <span className="text-deep-mocha-700 dark:text-white">{typeof modalMeta.class_dv === 'string' ? modalMeta.class_dv.charAt(0).toUpperCase() + modalMeta.class_dv.slice(1) : modalMeta.class_dv}</span>
+                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                              View:{" "}
+                            </span>
+                            <span className="text-deep-mocha-700 dark:text-white">
+                              {typeof modalMeta.class_dv === "string"
+                                ? modalMeta.class_dv.charAt(0).toUpperCase() +
+                                  modalMeta.class_dv.slice(1)
+                                : modalMeta.class_dv}
+                            </span>
                           </div>
                         )}
                         {/* lat/lon */}
                         {(modalMeta?.lat || modalMeta?.lon) && (
                           <div>
-                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">Location: </span>
-                            <span className="text-deep-mocha-700 dark:text-white">{modalMeta?.lat ?? "—"}, {modalMeta?.lon ?? "—"}</span>
+                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                              Location:{" "}
+                            </span>
+                            <span className="text-deep-mocha-700 dark:text-white">
+                              {modalMeta?.lat ?? "—"}, {modalMeta?.lon ?? "—"}
+                            </span>
                           </div>
                         )}
                         {/* source_db */}
                         {modalMeta?.source_db && (
                           <div>
-                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">Source DB: </span>
-                            <span className="text-deep-mocha-700 dark:text-white">{typeof modalMeta.source_db === 'string' ? modalMeta.source_db.charAt(0).toUpperCase() + modalMeta.source_db.slice(1) : modalMeta.source_db}</span>
+                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                              Source DB:{" "}
+                            </span>
+                            <span className="text-deep-mocha-700 dark:text-white uppercase">
+                              {typeof modalMeta.source_db === "string"
+                                ? modalMeta.source_db
+                                : modalMeta.source_db}
+                            </span>
                           </div>
                         )}
 
                         {/* Action buttons (License, Source, Image) - pill-shaped */}
                         <div className="mt-3 flex flex-wrap gap-2 justify-center">
-                          {typeof modalMeta?.license === "string" && modalMeta.license.startsWith("http") && (
-                            <a
-                              href={modalMeta.license}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                              aria-label="Open license"
-                            >
-                              License
-                            </a>
-                          )}
+                          {typeof modalMeta?.license === "string" &&
+                            modalMeta.license.startsWith("http") && (
+                              <a
+                                href={modalMeta.license}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
+                                aria-label="Open license"
+                              >
+                                License
+                              </a>
+                            )}
                           {(modalMeta?.uuid || modalMeta?.source_db) && (
                             <a
                               href={getSafeExternalHref(modalMeta?.uuid)}
