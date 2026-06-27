@@ -1,7 +1,9 @@
 import logging
+import polars as pl
 
 from pydantic import BaseModel
 from fastapi import Request
+import math
 
 from ..services.metadata import ImageMetaService
 from ..services.gbif import GbifPersistData, SearchGbifData
@@ -64,7 +66,6 @@ class TextToDbSearch:
         logger.info(f"Performing text to database search for query: {self.query} in field: {self.field}")
         
         meta_service = ImageMetaService(duckdb=self.request.app.state.duck_db)
-        table_name = meta_service.table
 
         valid_fields = [
             "class_dv",
@@ -95,196 +96,32 @@ class TextToDbSearch:
                     return DbSearchPayload.empty(query=self.query).model_dump()
                 
                 lat, lon = parsed
-                import math
-                lat_delta = 100.0 / 111100.0
+                lat_delta = 50000.0 / 111100.0
                 cos_lat = max(math.cos(math.radians(lat)), 0.01)
                 lon_delta = lat_delta / cos_lat
                 
                 lat_min, lat_max = lat - lat_delta, lat + lat_delta
                 lon_min, lon_max = lon - lon_delta, lon + lon_delta
                 
-                query = f"""
-                    SELECT
-                        LOWER(REPLACE(species, ' ', '_')) AS species_key,
-                        FIRST(species) AS species,
-                        bool_or(TRUE) AS match_field
-                    FROM {table_name}
-                    WHERE lat BETWEEN ? AND ?
-                      AND lon BETWEEN ? AND ?
-                    GROUP BY species_key
-                    LIMIT ?
-                """
-                params = [lat_min, lat_max, lon_min, lon_max, self.limit]
-                results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
-
-                specimen_query = f"""
-                    SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-                    FROM {table_name}
-                    WHERE lat BETWEEN ? AND ?
-                      AND lon BETWEEN ? AND ?
-                    LIMIT ? OFFSET ?
-                """
-                specimen_params = [lat_min, lat_max, lon_min, lon_max, self.limit, self.offset]
-
-                count_query = f"""
-                    SELECT COUNT(*)
-                    FROM {table_name}
-                    WHERE lat BETWEEN ? AND ?
-                      AND lon BETWEEN ? AND ?
-                """
-                count_params = [lat_min, lat_max, lon_min, lon_max]
+                results_df, specimens_df, total_specimens = meta_service.search_by_coordinate(
+                    lat_min, lat_max, lon_min, lon_max, self.limit, self.offset
+                )
             elif field != "all":
-                col_name = f'"{field}"'
-                
-                query = f"""
-                    SELECT
-                        LOWER(REPLACE(species, ' ', '_')) AS species_key,
-                        FIRST(species) AS species,
-                        bool_or(REPLACE({col_name}, '_', ' ') ILIKE ?) AS match_field
-                    FROM {table_name}
-                    WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
-                    GROUP BY species_key
-                    LIMIT ?
-                """
-                params = [q_param, q_param, self.limit]
-                results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
-
-                specimen_query = f"""
-                    SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-                    FROM {table_name}
-                    WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
-                    LIMIT ? OFFSET ?
-                """
-                specimen_params = [q_param, self.limit, self.offset]
-
-                count_query = f"""
-                    SELECT COUNT(*)
-                    FROM {table_name}
-                    WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
-                """
-                count_params = [q_param]
+                results_df, specimens_df, total_specimens = meta_service.search_by_field(
+                    field, q_param, self.limit, self.offset
+                )
             else:
-                conditions = []
-                selects = []
-                params = []
-                
                 search_fields = [f for f in valid_fields if f != "coordinate"]
-                for col in search_fields:
-                    col_esc = f'"{col}"'
-                    
-                    conditions.append(f"REPLACE({col_esc}, '_', ' ') ILIKE ?")
-                    selects.append(f"bool_or(REPLACE({col_esc}, '_', ' ') ILIKE ?) AS match_{col}")
-                    params.append(q_param)
-                
-                params.extend([q_param] * len(search_fields))
-                params.append(self.limit)
-                
-                selects_str = ", ".join(selects)
-                conditions_str = " OR ".join(conditions)
-                
-                query = f"""
-                    SELECT
-                        LOWER(REPLACE(species, ' ', '_')) AS species_key,
-                        FIRST(species) AS species,
-                        {selects_str}
-                    FROM {table_name}
-                    WHERE {conditions_str}
-                    GROUP BY species_key
-                    LIMIT ?
-                """
-                results_df = self.request.app.state.duck_db.execute_prepared_to_pl(query, params)
-
-                specimen_query = f"""
-                    SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-                    FROM {table_name}
-                    WHERE {conditions_str}
-                    LIMIT ? OFFSET ?
-                """
-                specimen_params = [q_param] * len(search_fields) + [self.limit, self.offset]
-
-                count_query = f"""
-                    SELECT COUNT(*)
-                    FROM {table_name}
-                    WHERE {conditions_str}
-                """
-                count_params = [q_param] * len(search_fields)
+                results_df, specimens_df, total_specimens = meta_service.search_all_fields(
+                    search_fields, q_param, self.limit, self.offset
+                )
                 
             if results_df.is_empty():
                 logger.info(f"No results found for query: {self.query}")
                 return DbSearchPayload.empty(query=self.query).model_dump()
             
-            db_results = []
-            seen_species = set()
-            for row in results_df.iter_rows(named=True):
-                species = row["species"]
-                cleaned_species = self.extract_binomial_species(species)
-                
-                if cleaned_species in seen_species:
-                    continue
-                seen_species.add(cleaned_species)
-                
-                matched_cols = []
-                
-                if field != "all":
-                    if row.get("match_field"):
-                        matched_cols.append(field)
-                else:
-                    for col in valid_fields:
-                        if row.get(f"match_{col}"):
-                            matched_cols.append(col)
-                
-                if not matched_cols:
-                    matched_cols = [field] if field != "all" else ["species"]
-                
-                score = self.calculate_score(cleaned_species, matched_cols, self.query)
-                
-                db_results.append({
-                    "species": cleaned_species,
-                    "matched_fields": matched_cols,
-                    "score": score
-                })
-            
-            db_results.sort(key=lambda x: x["score"], reverse=True)
-            
-            # Execute specimens query
-            specimens_df = self.request.app.state.duck_db.execute_prepared_to_pl(specimen_query, specimen_params)
-            db_specimens = []
-            if not specimens_df.is_empty():
-                search_fields = [f for f in valid_fields if f != "coordinate"]
-                for row in specimens_df.iter_rows(named=True):
-                    matched_cols = []
-                    if field == "coordinate":
-                        matched_cols = ["lat", "lon"]
-                    elif field != "all":
-                        matched_cols = [field]
-                    else:
-                        query_lower = self.query.lower().replace("_", " ")
-                        for col in search_fields:
-                            val = row.get(col)
-                            if val is not None and query_lower in str(val).lower().replace("_", " "):
-                                matched_cols.append(col)
-                    
-                    db_specimens.append({
-                        "img_id": row["img_id"],
-                        "species": row["species"],
-                        "family": row["family"],
-                        "common_name": row["common_name"],
-                        "sex": row["sex"],
-                        "life_stage": row["life_stage"],
-                        "class_dv": row["class_dv"],
-                        "lat": row["lat"],
-                        "lon": row["lon"],
-                        "source_db": row["source_db"],
-                        "kingdom": row["kingdom"],
-                        "phylum": row["phylum"],
-                        "class": row["class"],
-                        "order": row["order"],
-                        "matched_fields": matched_cols
-                    })
-
-            # Execute count query
-            count_df = self.request.app.state.duck_db.execute_prepared_to_pl(count_query, count_params)
-            total_specimens = count_df[0, 0] if not count_df.is_empty() else 0
+            db_results = self._process_results(results_df, field, valid_fields)
+            db_specimens = self._process_specimens(specimens_df, field, valid_fields)
 
             logger.info(f"Found {len(db_results)} unique species, total {total_specimens} specimens (showing page {self.page}) for query: {self.query}")
             return DbSearchPayload.from_data(
@@ -294,6 +131,80 @@ class TextToDbSearch:
         except Exception as e:
             logger.error(f"Error performing db search: {e}", exc_info=True)
             raise e
+
+    def _process_results(self, results_df, field: str, valid_fields: list[str]) -> list[dict]:
+        db_results = []
+        seen_species = set()
+        for row in results_df.iter_rows(named=True):
+            species = row["species"]
+            cleaned_species = self.extract_binomial_species(species)
+            
+            if cleaned_species in seen_species:
+                continue
+            seen_species.add(cleaned_species)
+            
+            matched_cols = []
+            
+            if field != "all":
+                if row.get("match_field"):
+                    matched_cols.append(field)
+            else:
+                for col in valid_fields:
+                    if row.get(f"match_{col}"):
+                        matched_cols.append(col)
+            
+            if not matched_cols:
+                matched_cols = [field] if field != "all" else ["species"]
+            
+            score = self.calculate_score(cleaned_species, matched_cols, self.query)
+            
+            db_results.append({
+                "species": cleaned_species,
+                "matched_fields": matched_cols,
+                "score": score
+            })
+        
+        db_results.sort(key=lambda x: x["score"], reverse=True)
+        return db_results
+
+    def _process_specimens(self, specimens_df, field: str, valid_fields: list[str]) -> list[dict]:
+        db_specimens = []
+        if specimens_df.is_empty():
+            return db_specimens
+            
+        search_fields = [f for f in valid_fields if f != "coordinate"]
+        for row in specimens_df.iter_rows(named=True):
+            matched_cols = []
+            if field == "coordinate":
+                matched_cols = ["lat", "lon"]
+            elif field != "all":
+                matched_cols = [field]
+            else:
+                query_lower = self.query.lower().replace("_", " ")
+                for col in search_fields:
+                    val = row.get(col)
+                    if val is not None and query_lower in str(val).lower().replace("_", " "):
+                        matched_cols.append(col)
+            # We return kingdom, phylum, class, order just in case we need it in the future.
+            # The frontend drop this column for viewing.
+            db_specimens.append({
+                "img_id": row["img_id"],
+                "species": row["species"],
+                "family": row["family"],
+                "common_name": row["common_name"],
+                "sex": row["sex"],
+                "life_stage": row["life_stage"],
+                "class_dv": row["class_dv"],
+                "lat": row["lat"],
+                "lon": row["lon"],
+                "source_db": row["source_db"],
+                "kingdom": row["kingdom"],
+                "phylum": row["phylum"],
+                "class": row["class"],
+                "order": row["order"],
+                "matched_fields": matched_cols
+            })
+        return db_specimens
 
     @staticmethod
     def extract_binomial_species(name: str) -> str:

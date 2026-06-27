@@ -148,7 +148,7 @@ export default function TextSearch() {
                   value="coordinate"
                   className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
                 >
-                  Coordinate (100m radius)
+                  Coordinate (10,000 km² area)
                 </option>
               </optgroup>
             </select>
