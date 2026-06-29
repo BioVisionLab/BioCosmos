@@ -46,7 +46,8 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   }
   const containerClasses = "relative rounded-xl p-2 overflow-hidden";
   const boxClasses = containerClasses.replace("my-2", "");
-  const lineClasses = "border-t border-deep-mocha-300 dark:border-deep-mocha-700 my-2";
+  const lineClasses =
+    "border-t border-deep-mocha-300 dark:border-deep-mocha-700 my-2";
   const gridClasses = "grid gap-2 md:grid-cols-2 transition-all mb-4";
   const categoryClasses = "text-xl font-semibold mt-2";
   return (
@@ -198,7 +199,9 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
         <h3 className="text-xl m-2">Adult Presence</h3>
         <MonthPresence traits={traits} />
       </div>
-      <LepTraitDataSourceInfo />
+      <div className="w-full flex justify-center items-center mt-12 mb-6">
+        <LepTraitDataSourceInfo />
+      </div>
     </div>
   );
 }
@@ -406,7 +409,11 @@ function Affinity({
   return (
     <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        {icon ? icon : <CanopyIcon className={iconClassName ?? commonIconClass} />}
+        {icon ? (
+          icon
+        ) : (
+          <CanopyIcon className={iconClassName ?? commonIconClass} />
+        )}
       </IconContainer>
       <div>
         <p className={valueClass}>{affinity}</p>

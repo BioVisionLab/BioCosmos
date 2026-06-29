@@ -10,6 +10,75 @@ from ..database.duckdb import DuckDBClient
 logger = logging.getLogger(__name__)
 
 
+class ImageMetaStats:
+    """Class to handle image persistence operations stats."""
+
+    def __init__(self, duckdb: DuckDBClient):
+        config = ImageMetaConfig()
+        self.table = config.table
+        self.db_client = duckdb
+
+    def get_entries_count(self) -> int | None:
+        """Count the number of entries in the image collection."""
+        result = self.db_client.execute(f"SELECT COUNT(*) AS entries FROM {self.table}").pl()
+        if result.is_empty():
+            logger.warning("No entries found in the image collection.")
+            return None
+        return result["entries"][0]
+
+    def get_family_count(self) -> int | None:
+        """Get the number of families in the image collection."""
+        result = self.db_client.execute(f"SELECT COUNT(DISTINCT family) AS families FROM {self.table}").pl()
+        if result.is_empty():
+            logger.warning("No families found in the image collection.")
+            return None
+        return result["families"][0]
+
+    def get_species_count(self) -> int | None:
+        """Get the number of species in the image collection."""
+        result = self.db_client.execute(f"SELECT COUNT(DISTINCT species) AS species FROM {self.table}").pl()
+        if result.is_empty():
+            logger.warning("No species found in the image collection.")
+            return None
+        return result["species"][0]
+
+    def get_source_db_count(self) -> dict | None:
+        """Get the count of images from each source database in the image collection.
+
+        The canonical source databases are 'gbif', 'ecdysis', and 'scanbugs'.
+        Any other source_db value is aggregated under the key 'other'.
+        """
+        result = self.db_client.execute(
+            f"SELECT source_db, COUNT(*) AS count FROM {self.table} GROUP BY source_db"
+        ).pl()
+        if result.is_empty():
+            logger.warning("No source databases found in the image collection.")
+            return None
+
+        CANONICAL = {"gbif", "ecdysis", "scanbugs"}
+        counts: dict[str, int] = {}
+        for source_db, count in zip(result["source_db"].to_list(), result["count"].to_list()):
+            key = source_db if source_db in CANONICAL else "other"
+            counts[key] = counts.get(key, 0) + count
+        return counts
+
+    def count_images_per_family(self) -> dict | None:
+        """Get the count of images for each family in the image collection."""
+        result = self.db_client.execute(f"SELECT family, COUNT(*) AS count FROM {self.table} GROUP BY family").pl()
+        if result.is_empty():
+            logger.warning("No families found in the image collection.")
+            return None
+        return dict(zip(result["family"].to_list(), result["count"].to_list()))
+    
+    def get_top_ten_species(self) -> dict | None:
+        """Get the top 10 species with the most images in the image collection."""
+        result = self.db_client.execute(f"SELECT species, COUNT(*) AS count FROM {self.table} GROUP BY species ORDER BY count DESC LIMIT 10").pl()
+        if result.is_empty():
+            logger.warning("No species found in the image collection.")
+            return None
+        return dict(zip(result["species"].to_list(), result["count"].to_list()))
+
+
 class ImageMetaService:
     """
     Service class for handling image metadata operations.

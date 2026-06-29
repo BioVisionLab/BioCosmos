@@ -1,3 +1,5 @@
+from app.services.metadata import ImageMetaStats
+from app.services.metadata import ImageMetaService
 import logging
 
 from fastapi import Request
@@ -21,7 +23,13 @@ class TaxonStatPayload(BaseModel):
     gbifEntries: int
     lepTraitsEntries: int
     imageEntries: int
-    gbifSpeciesCount: int
+    familyCount: int
+    speciesCount: int
+    sourceDbCount: dict[str, int] | None
+    entriesByFamily: dict | None
+    topTenSpecies: dict | None
+    
+
 
     @classmethod
     def from_data(
@@ -29,7 +37,11 @@ class TaxonStatPayload(BaseModel):
         gbif_entries: int | None,
         lep_traits_entries: int | None,
         image_entries: int | None,
-        gbif_species_count: int | None,
+        family_count: int | None,
+        species_count: int | None,
+        source_db_count: dict[str, int] | None,
+        entries_by_family: dict | None,
+        top_ten_species: dict | None,
     ):
         """
         Create a TaxonStatPayload instance from the provided data.
@@ -49,9 +61,11 @@ class TaxonStatPayload(BaseModel):
             if lep_traits_entries is not None
             else 0,
             imageEntries=image_entries if image_entries is not None else 0,
-            gbifSpeciesCount=gbif_species_count
-            if gbif_species_count is not None
-            else 0,
+            familyCount=family_count if family_count is not None else 0,
+            speciesCount=species_count if species_count is not None else 0,
+            sourceDbCount=source_db_count if source_db_count is not None else {},
+            entriesByFamily=entries_by_family if entries_by_family is not None else {},
+            topTenSpecies=top_ten_species if top_ten_species is not None else [],
         )
 
 
@@ -283,31 +297,26 @@ class TaxonSearch:
         """
         gbif_service = GbifPersistData(duckdb=self.request.app.state.duck_db)
         leptraits_service = LepTraits(duckdb=self.request.app.state.duck_db)
-        img_service = ImagePersistData(
-            lance_db=self.request.app.state.lance_db,
-            duckdb=self.request.app.state.duck_db,
-        )
+        img_meta_stats = ImageMetaStats(duckdb=self.request.app.state.duck_db)
         try:
             counts_gbif: int | None = gbif_service.count_entries()
             count_leptrait: int | None = leptraits_service.count_entries()
-            count_img: int | None = img_service.entries()
-            count_unique_species: int | None = gbif_service.count_unique_species()
-
-            if (
-                counts_gbif is None
-                and count_leptrait is None
-                and count_img is None
-                and count_unique_species is None
-            ):
-                logger.info("No counts data found.")
-                return None
-            logger.info(f"Counts data found: {counts_gbif}, {count_leptrait}")
+            count_img: int | None = img_meta_stats.get_entries_count()
+            count_families: int | None = img_meta_stats.get_family_count()
+            count_species: int | None = img_meta_stats.get_species_count()
+            source_db_count: dict[str, int] | None = img_meta_stats.get_source_db_count()
+            entries_by_family: dict[str, int] | None = img_meta_stats.count_images_per_family()
+            top_ten_species: list[str] | None = img_meta_stats.get_top_ten_species()
 
             payload = TaxonStatPayload.from_data(
                 gbif_entries=counts_gbif,
                 lep_traits_entries=count_leptrait,
                 image_entries=count_img,
-                gbif_species_count=count_unique_species,
+                family_count=count_families,
+                species_count=count_species,
+                source_db_count=source_db_count,
+                entries_by_family=entries_by_family,
+                top_ten_species=top_ten_species,
             )
             return payload.model_dump()
         except Exception as e:
