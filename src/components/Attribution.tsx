@@ -10,7 +10,9 @@ export function GbifAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-xs text-deep-mocha-500 mt-2 ${isLarge ? "text-lg" : ""}`}>
+    <p
+      className={`text-xs text-deep-mocha-500 mt-2 ${isLarge ? "text-lg" : ""}`}
+    >
       {leadingText}{" "}
       <a
         href={gbifURL}
@@ -24,13 +26,34 @@ export function GbifAttribution({
   );
 }
 
+export function GbifDataSourceInfo() {
+  return (
+    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+      <p>
+        The occurrence data is sourced from{" "}
+        <a
+          href={gbifURL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          the Global Biodiversity Information Facility (GBIF)
+        </a>
+        .
+      </p>
+    </div>
+  );
+}
+
 export function LepTraitsAttribution({
   isLarge = false,
 }: {
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-deep-mocha-500 mt-3 mb-1 ml-1 ${isLarge ? "text-lg" : "text-xs"}`}>
+    <p
+      className={`text-deep-mocha-500 mt-3 mb-1 ml-1 ${isLarge ? "text-lg" : "text-xs"}`}
+    >
       Source:{" "}
       <a
         href={lepTraitURL}
@@ -56,7 +79,7 @@ export function LepTraitsAttribution({
 
 export function LepTraitDataSourceInfo() {
   return (
-    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-8">
+    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
       <p>
         The trait data is sourced from the{" "}
         <a
@@ -96,7 +119,9 @@ export function NcbiAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
+    <p
+      className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}
+    >
       {leadingText}{" "}
       <a
         href="https://www.ncbi.nlm.nih.gov/"
@@ -110,6 +135,35 @@ export function NcbiAttribution({
   );
 }
 
+export function NcbiDataSourceInfo() {
+  return (
+    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+      <p>
+        Genetic data is sourced from{" "}
+        <a
+          href="https://www.ncbi.nlm.nih.gov/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          the United States National Center for Biotechnology Information (NCBI)
+        </a>
+        . BioCosmos queries realtime data using{" "}
+        <a
+          href="https://www.ncbi.nlm.nih.gov/datasets/docs/v2/api/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          NCBI Datasets API
+        </a>
+        . It includes only genes that have been sequenced for the queried
+        species.
+      </p>
+    </div>
+  );
+}
+
 export function CrossRefAttribution({
   leadingText = "Source: ",
   isLarge = false,
@@ -118,7 +172,9 @@ export function CrossRefAttribution({
   isLarge?: boolean;
 }) {
   return (
-    <p className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}>
+    <p
+      className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}
+    >
       {leadingText}{" "}
       <a
         href="https://www.crossref.org/"
