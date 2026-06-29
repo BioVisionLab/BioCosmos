@@ -62,6 +62,22 @@ class ImageMetaStats:
             counts[key] = counts.get(key, 0) + count
         return counts
 
+    def count_images_per_family(self) -> dict | None:
+        """Get the count of images for each family in the image collection."""
+        result = self.db_client.execute(f"SELECT family, COUNT(*) AS count FROM {self.table} GROUP BY family").pl()
+        if result.is_empty():
+            logger.warning("No families found in the image collection.")
+            return None
+        return dict(zip(result["family"].to_list(), result["count"].to_list()))
+    
+    def get_top_ten_species(self) -> dict | None:
+        """Get the top 10 species with the most images in the image collection."""
+        result = self.db_client.execute(f"SELECT species, COUNT(*) AS count FROM {self.table} GROUP BY species ORDER BY count DESC LIMIT 10").pl()
+        if result.is_empty():
+            logger.warning("No species found in the image collection.")
+            return None
+        return dict(zip(result["species"].to_list(), result["count"].to_list()))
+
 
 class ImageMetaService:
     """

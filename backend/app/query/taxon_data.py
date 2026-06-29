@@ -26,6 +26,9 @@ class TaxonStatPayload(BaseModel):
     familyCount: int
     speciesCount: int
     sourceDbCount: dict[str, int] | None
+    entriesByFamily: dict | None
+    topTenSpecies: dict | None
+    
 
 
     @classmethod
@@ -37,6 +40,8 @@ class TaxonStatPayload(BaseModel):
         family_count: int | None,
         species_count: int | None,
         source_db_count: dict[str, int] | None,
+        entries_by_family: dict | None,
+        top_ten_species: dict | None,
     ):
         """
         Create a TaxonStatPayload instance from the provided data.
@@ -59,6 +64,8 @@ class TaxonStatPayload(BaseModel):
             familyCount=family_count if family_count is not None else 0,
             speciesCount=species_count if species_count is not None else 0,
             sourceDbCount=source_db_count if source_db_count is not None else {},
+            entriesByFamily=entries_by_family if entries_by_family is not None else {},
+            topTenSpecies=top_ten_species if top_ten_species is not None else [],
         )
 
 
@@ -298,6 +305,8 @@ class TaxonSearch:
             count_families: int | None = img_meta_stats.get_family_count()
             count_species: int | None = img_meta_stats.get_species_count()
             source_db_count: dict[str, int] | None = img_meta_stats.get_source_db_count()
+            entries_by_family: dict[str, int] | None = img_meta_stats.count_images_per_family()
+            top_ten_species: list[str] | None = img_meta_stats.get_top_ten_species()
 
             payload = TaxonStatPayload.from_data(
                 gbif_entries=counts_gbif,
@@ -306,6 +315,8 @@ class TaxonSearch:
                 family_count=count_families,
                 species_count=count_species,
                 source_db_count=source_db_count,
+                entries_by_family=entries_by_family,
+                top_ten_species=top_ten_species,
             )
             return payload.model_dump()
         except Exception as e:

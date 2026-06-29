@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { fetchTaxonStats } from "@/lib/metaStats";
+import CollectionCharts from "./CollectionCharts";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
 export const dynamic = "force-dynamic";
@@ -9,31 +10,34 @@ export default async function CollectionsPage() {
   const data = await fetchTaxonStats();
   const statsUnavailable = data === null;
 
-  const stats = [
+  const summaryStats = [
     { label: "Images", value: data?.imageEntries ?? 0 },
     { label: "Families", value: data?.familyCount ?? 0 },
     { label: "Species", value: data?.speciesCount ?? 0 },
-    {
-      label: "GBIF aggregated",
-      value: data?.sourceDbCount?.["gbif"] ?? 0,
-      href: "https://www.gbif.org/",
-    },
-    {
-      label: "Ecdysis aggregated",
-      value: data?.sourceDbCount?.["ecdysis"] ?? 0,
-      href: "https://github.com/RiesLabGU/LepTraits",
-    },
-    {
-      label: "SCANBUGS aggregated",
-      value: data?.sourceDbCount?.["scanbugs"] ?? 0,
-      href: "https://www.scanbugs.org/",
-    },
-    { label: "Other aggregated", value: data?.sourceDbCount?.["other"] ?? 0 },
     {
       label: "LepTraits Entries",
       value: data?.lepTraitsEntries ?? 0,
       href: "https://github.com/RiesLabGU/LepTraits",
     },
+  ];
+
+  const sourceStats = [
+    {
+      label: "GBIF",
+      value: data?.sourceDbCount?.["gbif"] ?? 0,
+      href: "https://www.gbif.org/",
+    },
+    {
+      label: "Ecdysis",
+      value: data?.sourceDbCount?.["ecdysis"] ?? 0,
+      href: "https://github.com/RiesLabGU/LepTraits",
+    },
+    {
+      label: "SCANBUGS",
+      value: data?.sourceDbCount?.["scanbugs"] ?? 0,
+      href: "https://www.scanbugs.org/",
+    },
+    { label: "Other", value: data?.sourceDbCount?.["other"] ?? 0 },
   ];
 
   return (
@@ -60,10 +64,39 @@ export default async function CollectionsPage() {
 
       <section aria-label="Dataset statistics">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((s) => (
+          {summaryStats.map((s) => (
             <CollectionCard key={s.label} {...s} />
           ))}
         </div>
+      </section>
+
+      <section
+        aria-label="Aggregated entries by source databases"
+        className="mt-12"
+      >
+        <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
+        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
+          Image and metadata are provided by museum providers and aggregated by
+          data aggregators. Below are counts of image entries sourced from
+          different data aggregators.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {sourceStats.map((s) => (
+            <CollectionCard key={s.label} {...s} />
+          ))}
+        </div>
+      </section>
+
+      <section aria-label="Collection visualizations" className="mt-12">
+        <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
+        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
+          Proportion of image entries across butterfly families and the top ten
+          most-represented species in the collection.
+        </p>
+        <CollectionCharts
+          entriesByFamily={data?.entriesByFamily ?? null}
+          topTenSpecies={data?.topTenSpecies ?? null}
+        />
       </section>
     </main>
   );
@@ -81,7 +114,7 @@ function CollectionCard({
   return (
     <article
       key={label}
-      className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 shadow-sm transform transition hover:scale-105"
+      className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
     >
       <div className="text-4xl font-extrabold text-deep-mocha-900 dark:text-white">
         {value.toLocaleString()}

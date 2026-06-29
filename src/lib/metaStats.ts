@@ -7,12 +7,14 @@ export interface TaxonStats {
     familyCount: number;
     speciesCount: number;
     sourceDbCount: Record<string, number> | null;
+    entriesByFamily: Record<string, number> | null;
+    topTenSpecies: Record<string, number> | null;
 }
 
 async function fetchTaxonStats(): Promise<TaxonStats | null> {
     try {
         const response = await fetch(`${API_HOST}/stats/taxon`, {
-            next: { revalidate: 18000 }, // Cache for 5 hours
+            // next: { revalidate: 18000 }, // Cache for 5 hours
         });
         if (!response.ok) return null;
         return await response.json();
