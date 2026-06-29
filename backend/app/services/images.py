@@ -33,7 +33,6 @@ class SpeciesImage(BaseModel):
             "imageIds": self.imageIds,
         }
 
-
 class ImagePersistData:
     """Class to handle image persistence operations."""
 

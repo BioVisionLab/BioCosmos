@@ -40,6 +40,15 @@ export default function ResourcesPage() {
           >
             iDigBio
           </a>
+          ,{" "}
+          <a
+            href="https://ecdysis.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-blue-700"
+          >
+            Ecdysis
+          </a>
           , and{" "}
           <a
             href="https://scan-all-bugs.org/"
@@ -98,7 +107,8 @@ export default function ResourcesPage() {
         <h2 className="text-2xl font-semibold">Literature</h2>
         <p>
           The literature data is obtained from <CrossRefLink />. BioCosmos
-          filter the data to get the most relevant literatures for the species.
+          filter the data to get the most relevant information for literature
+          lists.
         </p>
       </section>
     </main>
