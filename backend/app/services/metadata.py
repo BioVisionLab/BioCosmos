@@ -10,6 +10,75 @@ from ..database.duckdb import DuckDBClient
 logger = logging.getLogger(__name__)
 
 
+class ImageMetaStats:
+    """Class to handle image persistence operations stats."""
+
+    def __init__(self, duckdb: DuckDBClient):
+        config = ImageMetaConfig()
+        self.table = config.table
+        self.db_client = duckdb
+
+    def get_entries_count(self) -> int | None:
+        """Count the number of entries in the image collection."""
+        result = self.db_client.execute(f"SELECT COUNT(*) AS entries FROM {self.table}").pl()
+        if result.is_empty():
+            logger.warning("No entries found in the image collection.")
+            return None
+        return result["entries"][0]
+
+    def get_family_count(self) -> int | None:
+        """Get the number of families in the image collection."""
+        result = self.db_client.execute(f"SELECT COUNT(DISTINCT family) AS families FROM {self.table}").pl()
+        if result.is_empty():
+            logger.warning("No families found in the image collection.")
+            return None
+        return result["families"][0]
+
+    def get_species_count(self) -> int | None:
+        """Get the number of species in the image collection."""
+        result = self.db_client.execute(f"SELECT COUNT(DISTINCT species) AS species FROM {self.table}").pl()
+        if result.is_empty():
+            logger.warning("No species found in the image collection.")
+            return None
+        return result["species"][0]
+
+    def get_source_db_count(self) -> dict | None:
+        """Get the count of images from each source database in the image collection.
+
+        The canonical source databases are 'gbif', 'ecdysis', and 'scanbugs'.
+        Any other source_db value is aggregated under the key 'other'.
+        """
+        result = self.db_client.execute(
+            f"SELECT source_db, COUNT(*) AS count FROM {self.table} GROUP BY source_db"
+        ).pl()
+        if result.is_empty():
+            logger.warning("No source databases found in the image collection.")
+            return None
+
+        CANONICAL = {"gbif", "ecdysis", "scanbugs"}
+        counts: dict[str, int] = {}
+        for source_db, count in zip(result["source_db"].to_list(), result["count"].to_list()):
+            key = source_db if source_db in CANONICAL else "other"
+            counts[key] = counts.get(key, 0) + count
+        return counts
+
+    def count_images_per_family(self) -> dict | None:
+        """Get the count of images for each family in the image collection."""
+        result = self.db_client.execute(f"SELECT family, COUNT(*) AS count FROM {self.table} GROUP BY family").pl()
+        if result.is_empty():
+            logger.warning("No families found in the image collection.")
+            return None
+        return dict(zip(result["family"].to_list(), result["count"].to_list()))
+    
+    def get_top_ten_species(self) -> dict | None:
+        """Get the top 10 species with the most images in the image collection."""
+        result = self.db_client.execute(f"SELECT species, COUNT(*) AS count FROM {self.table} GROUP BY species ORDER BY count DESC LIMIT 10").pl()
+        if result.is_empty():
+            logger.warning("No species found in the image collection.")
+            return None
+        return dict(zip(result["species"].to_list(), result["count"].to_list()))
+
+
 class ImageMetaService:
     """
     Service class for handling image metadata operations.
@@ -389,3 +458,129 @@ class ImageMetaService:
         :return: The sanitized species name.
         """
         return species.strip().lower().replace(" ", "_")
+
+
+    def search_by_coordinate(self, lat_min: float, lat_max: float, lon_min: float, lon_max: float, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
+        """Search metadata by geographic coordinate bounding box."""
+        query = f"""
+            SELECT
+                LOWER(REPLACE(species, ' ', '_')) AS species_key,
+                FIRST(species) AS species,
+                bool_or(TRUE) AS match_field
+            FROM {self.table}
+            WHERE lat BETWEEN ? AND ?
+              AND lon BETWEEN ? AND ?
+            GROUP BY species_key
+            LIMIT ?
+        """
+        params = [lat_min, lat_max, lon_min, lon_max, limit]
+        results_df = self.db_client.execute_prepared_to_pl(query, params)
+
+        specimen_query = f"""
+            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
+            FROM {self.table}
+            WHERE lat BETWEEN ? AND ?
+              AND lon BETWEEN ? AND ?
+            LIMIT ? OFFSET ?
+        """
+        specimen_params = [lat_min, lat_max, lon_min, lon_max, limit, offset]
+        specimens_df = self.db_client.execute_prepared_to_pl(specimen_query, specimen_params)
+
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM {self.table}
+            WHERE lat BETWEEN ? AND ?
+              AND lon BETWEEN ? AND ?
+        """
+        count_params = [lat_min, lat_max, lon_min, lon_max]
+        count_df = self.db_client.execute_prepared_to_pl(count_query, count_params)
+        total_specimens = count_df[0, 0] if not count_df.is_empty() else 0
+
+        return results_df, specimens_df, total_specimens
+
+    def search_by_field(self, field: str, q_param: str, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
+        """Search metadata by a specific field."""
+        col_name = f'"{field}"'
+        
+        query = f"""
+            SELECT
+                LOWER(REPLACE(species, ' ', '_')) AS species_key,
+                FIRST(species) AS species,
+                bool_or(REPLACE({col_name}, '_', ' ') ILIKE ?) AS match_field
+            FROM {self.table}
+            WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
+            GROUP BY species_key
+            LIMIT ?
+        """
+        params = [q_param, q_param, limit]
+        results_df = self.db_client.execute_prepared_to_pl(query, params)
+
+        specimen_query = f"""
+            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
+            FROM {self.table}
+            WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
+            LIMIT ? OFFSET ?
+        """
+        specimen_params = [q_param, limit, offset]
+        specimens_df = self.db_client.execute_prepared_to_pl(specimen_query, specimen_params)
+
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM {self.table}
+            WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
+        """
+        count_params = [q_param]
+        count_df = self.db_client.execute_prepared_to_pl(count_query, count_params)
+        total_specimens = count_df[0, 0] if not count_df.is_empty() else 0
+
+        return results_df, specimens_df, total_specimens
+
+    def search_all_fields(self, search_fields: list[str], q_param: str, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
+        """Search metadata across all valid fields."""
+        conditions = []
+        selects = []
+        params = []
+        
+        for col in search_fields:
+            col_esc = f'"{col}"'
+            conditions.append(f"REPLACE({col_esc}, '_', ' ') ILIKE ?")
+            selects.append(f"bool_or(REPLACE({col_esc}, '_', ' ') ILIKE ?) AS match_{col}")
+            params.append(q_param)
+        
+        params.extend([q_param] * len(search_fields))
+        params.append(limit)
+        
+        selects_str = ", ".join(selects)
+        conditions_str = " OR ".join(conditions)
+        
+        query = f"""
+            SELECT
+                LOWER(REPLACE(species, ' ', '_')) AS species_key,
+                FIRST(species) AS species,
+                {selects_str}
+            FROM {self.table}
+            WHERE {conditions_str}
+            GROUP BY species_key
+            LIMIT ?
+        """
+        results_df = self.db_client.execute_prepared_to_pl(query, params)
+
+        specimen_query = f"""
+            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
+            FROM {self.table}
+            WHERE {conditions_str}
+            LIMIT ? OFFSET ?
+        """
+        specimen_params = [q_param] * len(search_fields) + [limit, offset]
+        specimens_df = self.db_client.execute_prepared_to_pl(specimen_query, specimen_params)
+
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM {self.table}
+            WHERE {conditions_str}
+        """
+        count_params = [q_param] * len(search_fields)
+        count_df = self.db_client.execute_prepared_to_pl(count_query, count_params)
+        total_specimens = count_df[0, 0] if not count_df.is_empty() else 0
+
+        return results_df, specimens_df, total_specimens

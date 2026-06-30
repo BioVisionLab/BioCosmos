@@ -43,7 +43,7 @@ export default function Navigation() {
     `dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 dark:text-white`;
 
   return (
-    <div className="flex flex-col items-end w-full">
+    <div className="flex flex-col items-end w-full relative z-[1000]">
       {/* Mobile: hamburger button */}
       <div className="md:hidden flex items-center mt-4 mr-4">
         <button
@@ -54,12 +54,32 @@ export default function Navigation() {
           aria-expanded={menuOpen}
         >
           {menuOpen ? (
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           ) : (
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             </svg>
           )}
         </button>
@@ -67,7 +87,7 @@ export default function Navigation() {
 
       {/* Mobile: vertical dropdown */}
       {menuOpen && (
-        <div className="md:hidden w-full px-4 mt-2">
+        <div className="md:hidden absolute top-full right-0 w-full px-4 mt-2 py-2">
           <div
             className={
               `flex flex-col gap-2 p-3 rounded-2xl backdrop-blur-lg ` +
@@ -106,7 +126,8 @@ export default function Navigation() {
             const isActive = activeTab === tab.id;
             const textColor = "text-black dark:text-white";
             const outerClasses = `${baseBtn} ${textColor} relative first:ml-1 last:mr-1`;
-            const showOval = hoveredTab !== null ? hoveredTab === tab.id : isActive;
+            const showOval =
+              hoveredTab !== null ? hoveredTab === tab.id : isActive;
             const bgSpanClasses = `absolute inset-0 rounded-full transition-opacity pointer-events-none ${
               showOval ? "opacity-100" : "opacity-0"
             } bg-white/30 dark:bg-white/12`;

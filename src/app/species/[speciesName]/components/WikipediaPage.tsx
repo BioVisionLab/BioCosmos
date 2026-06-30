@@ -133,7 +133,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         .wiki-container img { max-width: 100%; height: auto; }
       `}</style>
 
-      <div className="rounded-xl p-6">
+      <div className="rounded-xl">
         {isLoading && (
           <div className="text-center p-10 rounded-xl">
             <p className="text-xl text-slate-600 dark:text-hunter-green-100">
@@ -147,14 +147,14 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         {!isLoading && !error && parsedContent.length > 0 && (
           <>
             <div
-              className={`font-sans rounded-xl p-6 shadow-lg backdrop-blur-sm
+              className={`font-sans rounded-xl p-2 shadow-lg backdrop-blur-sm
                 bg-white/80 text-slate-800 border border-slate-200
                 dark:bg-gradient-to-tr dark:from-deep-mocha-900 dark:via-deep-mocha-800 dark:to-deep-mocha-700 dark:text-hunter-green-100 dark:border-slate-700`}
             >
               <WikipediaAttribution speciesName={speciesName} />
               <div className="rounded-xl overflow-hidden bg-transparent">
                 {/* wrapper to scope wiki HTML overrides */}
-                <div className="wiki-container p-4 md:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="wiki-container p-2 grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2 space-y-8">
                     {mainContent.map((item, index) => (
                       <div key={index}>
@@ -202,7 +202,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                     {infobox && (
                       <div className="sticky top-8 mx-auto flex justify-center items-center">
                         <div
-                          className="rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
+                          className="rounded-xl overflow-hidden w-[22em] max-w-full p-2
                           bg-gradient-to-r from-pacific-blue-50 to-hunter-green-50 
                             dark:bg-gradient-to-r dark:from-pacific-blue-800 dark:to-hunter-green-600/50 dark:text-deep-mocha-100"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
@@ -226,7 +226,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
  * @returns The processed HTML content of the page.
  */
 const fetchWikipediaPage = async (
-  title: string
+  title: string,
 ): Promise<{ title: string; html: string }> => {
   if (!title) {
     throw new Error("Title is required");

@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ImageSearchResult } from "./components/ImageSearchResult";
 import SemanticSearchResults from "./components/SemanticSearchResults";
-import { DbSearch } from "./components/DbSearchResults";
+import { DbSearch } from "./components/TextSearchResults";
 
 const MODE_OPTIONS = ["semantic", "text", "image"] as const;
 type SearchMode = (typeof MODE_OPTIONS)[number];

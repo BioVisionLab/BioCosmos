@@ -136,7 +136,7 @@ export default function ImageSearchWidget() {
             <div className="flex flex-col items-center border-2 border-dashed border-deep-mocha-300 dark:border-deep-mocha-600 rounded-md p-4 text-center mb-3">
                 {previewUrl ? (
                     <div className="relative w-full aspect-square mb-2">
-                        <Image src={previewUrl} alt="Selected preview" layout="fill" objectFit="contain" className="rounded" />
+                        <Image src={previewUrl} alt="Selected preview" layout="fill" objectFit="contain" className="rounded" unoptimized />
                     </div>
                 ) : (
                     <UploadCloud className="h-10 w-10 text-deep-mocha-400 mb-2" />
