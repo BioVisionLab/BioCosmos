@@ -35,7 +35,7 @@ export default async function CollectionsPage() {
     {
       label: "SCANBUGS",
       value: data?.sourceDbCount?.["scanbugs"] ?? 0,
-      href: "https://www.scanbugs.org/",
+      href: "https://scan-all-bugs.org/",
     },
     { label: "Other", value: data?.sourceDbCount?.["other"] ?? 0 },
   ];
