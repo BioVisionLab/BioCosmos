@@ -47,9 +47,21 @@ function formatNumberToLocaleString(num: number): string {
   return num.toLocaleString("en-US");
 }
 
+function toSpeciesName(raw: string): string {
+  const parts = raw
+    .trim()
+    .toLowerCase()
+    .split("_")
+    .filter((p) => p.length > 0);
+  if (parts.length === 0) return raw;
+  parts[0] = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  return parts.join(" ");
+}
+
 export {
   toTitleCase,
   toSentenceCase,
+  toSpeciesName,
   decodeHtmlEntities,
   toAuthorNameCase,
   formatNumberToLocaleString,

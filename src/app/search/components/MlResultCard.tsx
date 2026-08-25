@@ -7,7 +7,7 @@ import {
   fetchSpeciesImageIds,
   fetchThumbnailById,
 } from "@/lib/images";
-import { cleanSpeciesName } from "@/lib/names";
+import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
 import { MlResultItems } from "@/lib/ml_search";
@@ -53,23 +53,23 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
     const base =
       "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium";
     if (pct < 65)
-      return `${base} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
+      return `${base} bg-burnt-peach-100 text-burnt-peach-800 dark:bg-burnt-peach-900 dark:text-burnt-peach-200`;
     if (pct < 70)
       return `${base} bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200`;
     if (pct < 75)
       return `${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
     if (pct < 80)
-      return `${base} bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200`;
-    return `${base} bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100`;
+      return `${base} bg-hunter-green-100 text-hunter-green-800 dark:bg-hunter-green-900 dark:text-hunter-green-200`;
+    return `${base} bg-hunter-green-200 text-hunter-green-900 dark:bg-hunter-green-800 dark:text-hunter-green-100`;
   };
 
   return (
-    <div className="bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-[160px] min-h-[200px]">
+    <div className="bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-[160px] min-h-[200px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <Link
-          href={`/species/${data.species}`}
+          href={`/species/${speciesUrlFromName(data.species)}`}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
@@ -79,10 +79,11 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
               width={IMAGE_SIZE}
               height={IMAGE_SIZE}
               className="mx-auto object-contain"
+              unoptimized
             />
           </div>
 
-          <h2 className="text-sm truncate text-center text-gray-400 italic w-full">
+          <h2 className="text-sm truncate text-center text-deep-mocha-400 italic w-full">
             {speciesName}
           </h2>
 
@@ -148,19 +149,19 @@ function TopResultCard({ data }: { data: MlResultItems }) {
     const base =
       "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
     if (pct < 65)
-      return `${base} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
+      return `${base} bg-burnt-peach-100 text-burnt-peach-800 dark:bg-burnt-peach-900 dark:text-burnt-peach-200`;
     if (pct < 70)
       return `${base} bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200`;
     if (pct < 75)
       return `${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
     if (pct < 80)
-      return `${base} bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200`;
-    return `${base} bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100`;
+      return `${base} bg-hunter-green-100 text-hunter-green-800 dark:bg-hunter-green-900 dark:text-hunter-green-200`;
+    return `${base} bg-hunter-green-200 text-hunter-green-900 dark:bg-hunter-green-800 dark:text-hunter-green-100`;
   };
 
   return (
-    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-teal-700/50 dark:to-gray-800/50 min-w-4xl">
-      <div className="bg-gradient-to-br from-teal-500/20 to-emerald-300/10 p-4 rounded-t-2xl flex items-center gap-3">
+    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-pacific-blue-700/50 dark:to-deep-mocha-800/50 min-w-4xl">
+      <div className="bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-2xl flex items-center gap-3">
         <h2 className="text-lg font-semibold p-1">Top Result</h2>
         {data.score !== undefined && (
           <span className={getMatchPillClass(computeMatchPercent(data.score))}>
@@ -177,8 +178,8 @@ function TopResultCard({ data }: { data: MlResultItems }) {
       </div>
 
       <div className="p-4">
-        <Link href={`/species/${data.species}`}>
-          <h2 className="text-2xl font-semibold mb-2 italic text-start text-gray-300 dark:text-gray-300 mt-4">
+        <Link href={`/species/${speciesUrlFromName(data.species)}`}>
+          <h2 className="text-2xl font-semibold mb-2 italic text-start text-deep-mocha-300 dark:text-deep-mocha-300 mt-4">
             {cleanSpeciesName(data.species)}
           </h2>
         </Link>
@@ -195,18 +196,19 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                   width={260}
                   height={260}
                   className="rounded-lg object-contain"
+                  unoptimized
                 />
               )}
             </div>
 
             <div className="flex flex-col items-start">
-              <h3 className="text-sm mb-2 text-gray-400">Other forms:</h3>
+              <h3 className="text-sm mb-2 text-deep-mocha-400">Other forms:</h3>
               {otherImageUrls && (
                 <div className="gap-2 overflow-auto flex">
                   {otherImageUrls.map((url, index) => (
                     <div
                       key={index}
-                      className="p-3 border border-gray-500 rounded-lg bg-gray-100 dark:bg-gray-700"
+                      className="p-3 border border-deep-mocha-500 rounded-lg bg-deep-mocha-100 dark:bg-deep-mocha-700"
                     >
                       <Image
                         src={url}
@@ -214,6 +216,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                         width={70}
                         height={70}
                         className="rounded-lg object-contain"
+                        unoptimized
                       />
                     </div>
                   ))}
@@ -222,8 +225,8 @@ function TopResultCard({ data }: { data: MlResultItems }) {
 
               <div className="mt-4">
                 <Link
-                  href={`/species/${data.species}`}
-                  className="mb-2 inline-block rounded-lg bg-gradient-to-br from-emerald-500/50 to-teal-700/50 w-fit px-4 py-2 hover:bg-teal-600/70 transition text-gray-100"
+                  href={`/species/${speciesUrlFromName(data.species)}`}
+                  className="mb-2 inline-block rounded-lg bg-gradient-to-br from-hunter-green-500/50 to-pacific-blue-700/50 w-fit px-4 py-2 hover:bg-pacific-blue-600/70 transition text-deep-mocha-100"
                 >
                   Show species page →
                 </Link>

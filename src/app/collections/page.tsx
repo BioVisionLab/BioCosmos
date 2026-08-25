@@ -1,96 +1,138 @@
-import React from "react";
 import Link from "next/link";
 
-export default function CollectionsPage() {
-  const gbifEntries = 123_456; // placeholder
-  const lepTraitsEntries = 78_432; // placeholder
-  const imageEntries = 50_234; // placeholder
-  const gbifSpeciesCount = 9_876; // placeholder
+import { fetchTaxonStats } from "@/lib/metaStats";
+import CollectionCharts from "./CollectionCharts";
 
-  const stats = [
-    { label: "GBIF Occurrences", value: gbifEntries, href: "https://www.gbif.org/" },
+// Never pre-render at build time (API_HOST unavailable during Docker build)
+export const dynamic = "force-dynamic";
+
+export default async function CollectionsPage() {
+  const data = await fetchTaxonStats();
+  const statsUnavailable = data === null;
+
+  const summaryStats = [
+    { label: "Images", value: data?.imageEntries ?? 0 },
+    { label: "Families", value: data?.familyCount ?? 0 },
+    { label: "Species", value: data?.speciesCount ?? 0 },
     {
       label: "LepTraits Entries",
-      value: lepTraitsEntries,
+      value: data?.lepTraitsEntries ?? 0,
       href: "https://github.com/RiesLabGU/LepTraits",
     },
-    { label: "Image Entries", value: imageEntries },
-    { label: "GBIF Species Count", value: gbifSpeciesCount },
   ];
 
-  const orderCount = 120; // placeholder
-  const familyCount = 950; // placeholder
-  const genusCount = 4_321; // placeholder
-  const taxonomicGroupCount = 12; // placeholder
-
-  const taxonomyStats = [
-    { label: "Order Count", value: orderCount },
-    { label: "Family Count", value: familyCount },
-    { label: "Genus Count", value: genusCount },
-    { label: "Taxonomic Groups", value: taxonomicGroupCount },
+  const sourceStats = [
+    {
+      label: "GBIF",
+      value: data?.sourceDbCount?.["gbif"] ?? 0,
+      href: "https://www.gbif.org/",
+    },
+    {
+      label: "Ecdysis",
+      value: data?.sourceDbCount?.["ecdysis"] ?? 0,
+      href: "https://github.com/RiesLabGU/LepTraits",
+    },
+    {
+      label: "SCANBUGS",
+      value: data?.sourceDbCount?.["scanbugs"] ?? 0,
+      href: "https://scan-all-bugs.org/",
+    },
+    { label: "Other", value: data?.sourceDbCount?.["other"] ?? 0 },
   ];
 
   return (
-    <main className="max-w-5xl mx-auto p-8">
+    <main className="max-w-7xl mx-auto p-8">
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-3xl font-bold">Collections</h1>
+        <Link href="/" className="text-pacific-blue-600 hover:underline">
+          ← Back to Home
+        </Link>
       </div>
 
-      <p className="mb-6 text-gray-700 dark:text-gray-300">
-        Statistics on our current dataset, including the number of images, species, and entries in our databases. 
-        (CURRENTLY PLACEHOLDER DATA)
+      <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
+        Statistics on our current dataset, including the number of images,
+        species, LepTrait entries, and entries aggregated by source databases
+        (GBIF, Ecdysis, SCANBUGS, and others).
       </p>
+
+      {statsUnavailable && (
+        <div className="mb-6 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          Live statistics are temporarily unavailable. The values shown below
+          may be outdated.
+        </div>
+      )}
 
       <section aria-label="Dataset statistics">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((s) => (
-            <article
-              key={s.label}
-              className="rounded-lg p-6 bg-gradient-to-br from-emerald-200 via-teal-200 to-cyan-200 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 border border-gray-200 dark:border-gray-700 shadow-sm transform transition hover:scale-105"
-            >
-              <div className="text-4xl font-extrabold text-gray-900 dark:text-white">
-                {s.value.toLocaleString()}
-              </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                {s.href ? (
-                  <a
-                    href={s.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline decoration-teal-600 dark:decoration-teal-300"
-                  >
-                    {s.label}
-                  </a>
-                ) : (
-                  s.label
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {taxonomyStats.map((t) => (
-            <article
-              key={t.label}
-              className="rounded-lg p-6 bg-gradient-to-br from-emerald-200 via-teal-200 to-cyan-200 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-800 border border-gray-200 dark:border-gray-700 shadow-sm transform transition hover:scale-105"
-            >
-              <div className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                {t.value.toLocaleString()}
-              </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t.label}</div>
-            </article>
+          {summaryStats.map((s) => (
+            <CollectionCard key={s.label} {...s} />
           ))}
         </div>
       </section>
 
-      <section aria-label="UMAP vector embedding" className="mt-12">
-        <h2 className="text-2xl font-bold">UMAP Vector Embedding</h2>
-        <div
-          className="mt-6 mb-6 w-full rounded-lg border border-gray-300 dark:border-gray-600 min-h-[70vh]"
-          aria-label="UMAP embedding placeholder"
+      <section
+        aria-label="Aggregated entries by source databases"
+        className="mt-12"
+      >
+        <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
+        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
+          Image and metadata are provided by museum providers and aggregated by
+          data aggregators. Below are counts of image entries sourced from
+          different data aggregators.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {sourceStats.map((s) => (
+            <CollectionCard key={s.label} {...s} />
+          ))}
+        </div>
+      </section>
+
+      <section aria-label="Collection visualizations" className="mt-12">
+        <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
+        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
+          Proportion of image entries across butterfly families and the top ten
+          most-represented species in the collection.
+        </p>
+        <CollectionCharts
+          entriesByFamily={data?.entriesByFamily ?? null}
+          topTenSpecies={data?.topTenSpecies ?? null}
         />
       </section>
     </main>
+  );
+}
+
+function CollectionCard({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: number;
+  href?: string;
+}) {
+  return (
+    <article
+      key={label}
+      className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
+    >
+      <div className="text-4xl font-extrabold text-deep-mocha-900 dark:text-white">
+        {value.toLocaleString()}
+      </div>
+      <div className="mt-2 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-pacific-blue-600 dark:decoration-pacific-blue-300"
+          >
+            {label}
+          </a>
+        ) : (
+          label
+        )}
+      </div>
+    </article>
   );
 }

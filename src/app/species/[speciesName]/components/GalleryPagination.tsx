@@ -24,16 +24,16 @@ export default function GalleryPagination({
       <button
         onClick={() => gotoPage(displayPage - 1)}
         disabled={displayPage <= 1 || isLoadingMore || loading}
-        className={`h-8 flex items-center px-4 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
+        className={`h-8 flex items-center px-4 rounded-full text-sm font-medium transition-colors bg-deep-mocha-800/80 border border-deep-mocha-600/50 shadow-sm ${
           displayPage <= 1 || isLoadingMore
-            ? "text-gray-500 cursor-not-allowed"
-            : "text-gray-200 hover:bg-gray-700"
+            ? "text-deep-mocha-500 cursor-not-allowed"
+            : "text-deep-mocha-200 hover:bg-deep-mocha-700"
         }`}
       >
         Prev
       </button>
 
-      <div className="inline-flex items-center rounded-full bg-gray-800/80 p-1 border border-gray-600/50 shadow-sm">
+      <div className="inline-flex items-center rounded-full bg-deep-mocha-800/80 p-1 border border-deep-mocha-600/50 shadow-sm">
         {(() => {
           const elems: React.ReactNode[] = [];
           const displayTotal = speciesTotalPages;
@@ -53,7 +53,7 @@ export default function GalleryPagination({
                 key={`p-${p}`}
                 onClick={() => gotoPage(p)}
                 className={`h-8 flex items-center px-3 py-1 mx-0.5 rounded-full text-sm font-medium transition-colors ${
-                  isHighlighted ? "bg-emerald-500 text-white" : "text-gray-200 hover:bg-gray-700"
+                  isHighlighted ? "bg-hunter-green-500 text-white" : "text-deep-mocha-200 hover:bg-deep-mocha-700"
                 }`}
                 aria-current={isHighlighted ? "page" : undefined}
               >
@@ -69,10 +69,10 @@ export default function GalleryPagination({
       <button
         onClick={() => gotoPage(displayPage + 1)}
         disabled={displayPage >= speciesTotalPages || isLoadingMore || loading}
-        className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-colors bg-gray-800/80 border border-gray-600/50 shadow-sm ${
+        className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-colors bg-deep-mocha-800/80 border border-deep-mocha-600/50 shadow-sm ${
           displayPage >= speciesTotalPages || isLoadingMore
-            ? "text-gray-500 cursor-not-allowed"
-            : "text-gray-200 hover:bg-gray-700"
+            ? "text-deep-mocha-500 cursor-not-allowed"
+            : "text-deep-mocha-200 hover:bg-deep-mocha-700"
         }`}
       >
         Next

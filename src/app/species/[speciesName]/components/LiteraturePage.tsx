@@ -77,7 +77,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
         <p className="text-xl font-semibold mb-2">
           Found {Object.values(relevantLiterature).flat().length} publications
         </p>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
           Publications are sorted by year and relevance to the species. Limited
           to 50 most relevant publications from the past ~20 years.
         </p>
@@ -94,14 +94,14 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
           })
           .map(([year, publications]) => (
             <div key={year} className="m-2">
-              <h3 className="text-xl font-semibold text-teal-700 dark:text-teal-400">
+              <h3 className="text-xl font-semibold text-pacific-blue-700 dark:text-pacific-blue-400">
                 {year}
               </h3>
-              <div className="border-l-2 border-teal-500 mx-2 pl-4 pb-2">
+              <div className="border-l-2 border-pacific-blue-500 mx-2 pl-4 pb-2">
                 {publications.map((pub, index) => (
                   <div key={index} className="">
                     <JournalTitle title={pub.title} />
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400 mb-1">
                       {pub.authors.join(", ")}.{" "}
                       {pub.published_year ? ` (${pub.published_year}). ` : ""}
                       <span className="italic">{pub.journal}</span>
@@ -115,7 +115,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
                             href={pub.doi}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="underline hover:text-teal-700"
+                            className="underline hover:text-pacific-blue-700"
                           >
                             {pub.doi}
                           </Link>
@@ -171,7 +171,7 @@ function JournalViewButton({ doi }: { doi: string }) {
   return (
     <div
       key={doi}
-      className="border border-teal-700 px-2 py-1 rounded-md w-fit mt-2 mb-4 hover:bg-teal-700 hover:text-white text-sm"
+      className="border border-pacific-blue-700 px-2 py-1 rounded-md w-fit mt-2 mb-4 hover:bg-pacific-blue-700 hover:text-white text-sm"
     >
       <Link
         href={`https://doi.org/${doi}`}

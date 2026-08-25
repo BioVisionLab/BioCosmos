@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
 import Tips from "@/components/Tips";
+import { getSearchImage, clearSearchImage } from "@/lib/imageSearchStore";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -17,12 +18,45 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
       setError(null);
       try {
         const data = new FormData();
-        const response = await fetch(imageUrl);
-        const imageBlob = await response.blob();
-        const file = new File([imageBlob], "search-image", {
-          type: imageBlob.type,
-        });
-        data.append("image", file);
+
+        // Prefer the original File from the in-memory store (preserves MIME type and name)
+        const storedFile = getSearchImage(imageUrl);
+        if (storedFile) {
+          data.append("image", storedFile);
+          clearSearchImage();
+        } else {
+          // Fallback for page refresh / direct URL access: re-fetch blob and sniff MIME
+          const response = await fetch(imageUrl);
+          const imageBlob = await response.blob();
+
+          let mimeType = imageBlob.type;
+          if (!mimeType) {
+            const arr = new Uint8Array(await imageBlob.slice(0, 12).arrayBuffer());
+            const isJpeg = arr[0] === 0xff && arr[1] === 0xd8;
+            const isPng =
+              arr[0] === 0x89 &&
+              arr[1] === 0x50 &&
+              arr[2] === 0x4e &&
+              arr[3] === 0x47;
+            const isWebp =
+              arr[0] === 0x52 &&
+              arr[1] === 0x49 &&
+              arr[2] === 0x46 &&
+              arr[3] === 0x46 &&
+              arr[8] === 0x57 &&
+              arr[9] === 0x45 &&
+              arr[10] === 0x42 &&
+              arr[11] === 0x50;
+            if (isJpeg) mimeType = "image/jpeg";
+            else if (isPng) mimeType = "image/png";
+            else if (isWebp) mimeType = "image/webp";
+            else mimeType = "application/octet-stream";
+          }
+
+          const file = new File([imageBlob], "search-image", { type: mimeType });
+          data.append("image", file);
+        }
+
         const results = await searchFromImage(data);
         setResults(results);
       } catch (err) {
@@ -48,7 +82,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
         </a>
       </div>
       <div className="mt-8 mb-6 text-center">
-        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-transparent bg-clip-text drop-shadow">
+        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
           Image Similarity Search
         </h1>
       </div>
@@ -58,7 +92,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
             <ImageLoading size={240} msg="Searching for species" />
           </div>
         ) : error ? (
-          <p className="text-red-500">Error: {error}</p>
+          <p className="text-burnt-peach-500">Error: {error}</p>
         ) : results.length === 0 ? (
           <p>No results found for "{imageUrl}".</p>
         ) : (
@@ -80,7 +114,7 @@ function MlImageResultCard({ data }: { data: MlResultItems[] }) {
       <div className="mb-4">
         <h2
           id="other-results"
-          className="text-lg text-gray-700 dark:text-gray-200"
+          className="text-lg text-deep-mocha-700 dark:text-deep-mocha-200"
         >
           Found {data.length} other results"
         </h2>

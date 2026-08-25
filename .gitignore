@@ -51,6 +51,7 @@ target/
 chroma_db/
 duck_db/
 lance_db/
+lance_db_lite/
 biocosmos.duckdb
 biocosmos.lance
 
@@ -58,3 +59,7 @@ biocosmos.lance
 /backend/static/thumbnails/
 /backend/static/tiles/
 /backend/static/images/
+
+# backend data files (parquet, tsv, csv)
+backend/data/
+backend/scripts/embedding/

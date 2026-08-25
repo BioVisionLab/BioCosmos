@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,8 +77,8 @@ class AppSettings(BaseSettings):
     LANCE_DIR: str
     IMAGE_DIR: str
     GBIF_DIR: str
-    LLM_API_URL: str
-    LLM_API_KEY: str
+    LLM_API_URL: Optional[str] = None
+    LLM_API_KEY: Optional[str] = None
     IMAGE_META_DIR: str
     GBIF_DIR: str
     UMAP_DIR: str
@@ -226,7 +227,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://biocosmos.rc.ufl.edu",
+        "https://biocosmos.rc.ufl.edu",
+        "http://biocosmos-admin.rc.ufl.edu",
+        "https://biocosmos-admin.rc.ufl.edu",
+        "https://lepiverse.com",
+        "https://www.lepiverse.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -2,26 +2,19 @@
 
 // Render Species Map based on GBIF occurrences
 // Use client
-import {
-  MapContainer,
-  Marker,
-  useMap,
-  Tooltip,
-} from "react-leaflet";
+import { MapContainer, Marker, useMap, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { useMemo, useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import {
-  getTileLayerAttributionUrl,
-  UmapOccurrence,
-} from "@/lib/map";
+import { getTileLayerAttributionUrl, UmapOccurrence } from "@/lib/map";
 
 const DARK_TILE_URL =
-  "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
-const LIGHT_TILE_URL = "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";;
+  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const LIGHT_TILE_URL =
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 import { fetchThumbnailById } from "@/lib/images";
 import { ImageLoading } from "@/components/Loadings";
 import Image from "next/image";
@@ -58,12 +51,21 @@ function MapImage({ imgId }: { imgId: string }) {
 
   return (
     <div className="flex items-center justify-center">
-      <Image
-        src={imgUrl}
-        alt={`Cluster ${imgId}`}
-        width={MAP_IMAGE_SIZE}
-        height={MAP_IMAGE_SIZE}
-      />
+      <div
+        style={{
+          position: "relative",
+          width: MAP_IMAGE_SIZE,
+          height: MAP_IMAGE_SIZE,
+        }}
+      >
+        <Image
+          src={imgUrl}
+          alt={`Cluster ${imgId}`}
+          fill
+          className="object-contain"
+          unoptimized
+        />
+      </div>
     </div>
   );
 }
@@ -189,43 +191,59 @@ export default function UmapClusterDistribution({
     setIsMounted(true);
   }, []);
 
+  // Function to create and memoize icon for each cluster
+  const getClusterIcon = useMemo(() => {
+    const iconCache = new Map<number, L.DivIcon>();
+
+    return (cluster: number) => {
+      if (iconCache.has(cluster)) {
+        return iconCache.get(cluster)!;
+      }
+
+      const size = 14;
+      const fillColor = clusterColors[cluster % clusterColors.length];
+      const html = `<div style="
+        width:${size}px;
+        height:${size}px;
+        background:${fillColor};
+        border-radius:50%;
+        border:1px solid rgba(255,255,255,0.7);
+        opacity:0.9;
+        box-shadow:0 0 0 1px rgba(8, 15, 33, 0.35);
+      "></div>`;
+
+      const icon = L.divIcon({
+        html,
+        className: "",
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2],
+      });
+
+      iconCache.set(cluster, icon);
+      return icon;
+    };
+  }, [clusterColors]);
+
   if (occurrences.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-500 rounded-xl border border-gray-500">
+      <div className="h-full flex items-center justify-center text-deep-mocha-500 rounded-xl border border-deep-mocha-500">
         No geographic distribution data available.
       </div>
     );
   }
 
   if (!isMounted) {
-    return <div style={{ height: "100%", width: "100%", borderRadius: "12px" }} />;
+    return (
+      <div style={{ height: "100%", width: "100%", borderRadius: "12px" }} />
+    );
   }
 
-  // Function to create icon for each cluster
-  const createClusterIcon = (cluster: number) => {
-    const size = 14;
-    const fillColor = clusterColors[cluster % clusterColors.length];
-    const html = `<div style="
-      width:${size}px;
-      height:${size}px;
-      background:${fillColor};
-      border-radius:50%;
-      border:1px solid rgba(255,255,255,0.7);
-      opacity:0.9;
-      box-shadow:0 0 0 1px rgba(8, 15, 33, 0.35);
-    "></div>`;
-
-    return L.divIcon({
-      html,
-      className: "",
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-      popupAnchor: [0, -size / 2],
-    });
-  };
-
   return (
-    <div className={isDarkTheme ? "umap-dark-map" : ""} style={{ height: "100%", width: "100%" }}>
+    <div
+      className={isDarkTheme ? "umap-dark-map" : ""}
+      style={{ height: "100%", width: "100%" }}
+    >
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -252,7 +270,7 @@ export default function UmapClusterDistribution({
           ) {
             console.error(
               `Invalid coordinates for occurrence key ${occ.key}:`,
-              occ
+              occ,
             );
             return null;
           }
@@ -261,7 +279,7 @@ export default function UmapClusterDistribution({
             <Marker
               key={occ.key}
               position={[occ.decimalLatitude, occ.decimalLongitude]}
-              icon={createClusterIcon(occ.cluster)}
+              icon={getClusterIcon(occ.cluster)}
               opacity={0.8}
             >
               <Tooltip>

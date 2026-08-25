@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -16,11 +16,13 @@ const bounds: L.LatLngBoundsExpression = [
 ];
 
 export default function VisualizationMapClient() {
-  const handleMapCreated = (map: L.Map) => {
-    // fitBounds will ensure the full canvas is visible,
-    // centering it based on the defined bounds.
-    setTimeout(() => map.fitBounds(bounds), 0);
-  };
+  const mapRef = useRef<L.Map>(null);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => mapRef.current!.fitBounds(bounds), 0);
+    }
+  }, []);
 
   return (
     <div
@@ -28,6 +30,7 @@ export default function VisualizationMapClient() {
       className="bg-black rounded-md overflow-hidden"
     >
       <MapContainer
+        ref={mapRef}
         center={canvasCenter}
         zoom={MAP_DEFAULT_ZOOM}
         minZoom={3}
@@ -36,7 +39,6 @@ export default function VisualizationMapClient() {
         style={{ height: "100%", width: "100%" }}
         crs={L.CRS.Simple}
         className="select-none"
-        whenCreated={handleMapCreated}
       >
         <TileLayer
           url={TILE_URL}

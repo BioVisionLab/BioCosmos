@@ -231,6 +231,34 @@ class ImageConfig:
         return None
 
     @property
+    def thumbnail_resolution(self) -> int:
+        """Maximum resolution for thumbnails. Default is 128."""
+        thumb_res = self._image_config.get("thumbnail_resolution", 128)
+        try:
+            thumb_res = int(thumb_res)
+            if thumb_res <= 0:
+                logger.info(
+                    f"Thumbnail resolution must be positive, got: {thumb_res}. Using default 128."
+                )
+                return 128
+            return thumb_res
+        except (ValueError, TypeError):
+            logger.info(
+                f"Thumbnail resolution is not a valid integer: {thumb_res}. Using default 128."
+            )
+            return 128
+
+    @property
+    def processed_dir(self) -> str:
+        """Directory where processed images and thumbnails are saved."""
+        return self._image_config.get("processed_dir", "static/webp")
+
+    @property
+    def thumbnail_dir(self) -> str:
+        """Directory where thumbnails are saved."""
+        return os.path.join(self.processed_dir, "thumbnails")
+
+    @property
     def table(self) -> str:
         return self._image_config.get("table", "nymphalidae")
 

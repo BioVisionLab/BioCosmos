@@ -133,10 +133,10 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         .wiki-container img { max-width: 100%; height: auto; }
       `}</style>
 
-      <div className="rounded-xl p-6">
+      <div className="rounded-xl">
         {isLoading && (
           <div className="text-center p-10 rounded-xl">
-            <p className="text-xl text-slate-600 dark:text-emerald-100">
+            <p className="text-xl text-slate-600 dark:text-hunter-green-100">
               Loading content...
             </p>
           </div>
@@ -147,14 +147,14 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
         {!isLoading && !error && parsedContent.length > 0 && (
           <>
             <div
-              className={`font-sans rounded-xl p-6 shadow-lg backdrop-blur-sm
+              className={`font-sans rounded-xl p-2 shadow-lg backdrop-blur-sm
                 bg-white/80 text-slate-800 border border-slate-200
-                dark:bg-gradient-to-tr dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 dark:text-emerald-100 dark:border-slate-700`}
+                dark:bg-gradient-to-tr dark:from-deep-mocha-900 dark:via-deep-mocha-800 dark:to-deep-mocha-700 dark:text-hunter-green-100 dark:border-slate-700`}
             >
               <WikipediaAttribution speciesName={speciesName} />
               <div className="rounded-xl overflow-hidden bg-transparent">
                 {/* wrapper to scope wiki HTML overrides */}
-                <div className="wiki-container p-4 md:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="wiki-container p-2 grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2 space-y-8">
                     {mainContent.map((item, index) => (
                       <div key={index}>
@@ -162,12 +162,12 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                           <section>
                             <h2
                               className="text-2xl font-semibold border-b-2 pb-2 mb-4
-                              text-gray-900 dark:text-gray-100 border-gray-200 dark:border-teal-700"
+                              text-deep-mocha-900 dark:text-deep-mocha-100 border-deep-mocha-200 dark:border-pacific-blue-700"
                             >
                               {item.title}
                             </h2>
                             <div
-                              className="dynamic-content text-gray-800 dark:text-gray-100"
+                              className="dynamic-content text-deep-mocha-800 dark:text-deep-mocha-100"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </section>
@@ -176,7 +176,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                           // Full-bleed (viewport-wide) table container
                           <div
                             className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border
-                            border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 text-slate-700 dark:text-emerald-100"
+                            border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 text-slate-700 dark:text-hunter-green-100"
                           >
                             <div
                               className="inline-block min-w-full p-4"
@@ -186,11 +186,11 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                         )}
                         {item.type === "taxonIdentifier" && (
                           <div className="rounded-xl">
-                            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                            <h3 className="text-lg font-semibold mb-2 text-deep-mocha-900 dark:text-deep-mocha-100">
                               Taxon Identifier
                             </h3>
                             <div
-                              className="dynamic-content pl-2 text-gray-800 dark:text-gray-100"
+                              className="dynamic-content pl-2 text-deep-mocha-800 dark:text-deep-mocha-100"
                               dangerouslySetInnerHTML={{ __html: item.html }}
                             />
                           </div>
@@ -202,9 +202,9 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
                     {infobox && (
                       <div className="sticky top-8 mx-auto flex justify-center items-center">
                         <div
-                          className="rounded-xl overflow-hidden w-[22em] max-w-full p-4 md:p-8
-                          bg-gradient-to-r from-teal-50 to-emerald-50 
-                            dark:bg-gradient-to-r dark:from-teal-800 dark:to-emerald-600/50 dark:text-gray-100"
+                          className="rounded-xl overflow-hidden w-[22em] max-w-full p-2
+                          bg-gradient-to-r from-pacific-blue-50 to-hunter-green-50 
+                            dark:bg-gradient-to-r dark:from-pacific-blue-800 dark:to-hunter-green-600/50 dark:text-deep-mocha-100"
                           dangerouslySetInnerHTML={{ __html: infobox.html }}
                         />
                       </div>
@@ -226,7 +226,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
  * @returns The processed HTML content of the page.
  */
 const fetchWikipediaPage = async (
-  title: string
+  title: string,
 ): Promise<{ title: string; html: string }> => {
   if (!title) {
     throw new Error("Title is required");

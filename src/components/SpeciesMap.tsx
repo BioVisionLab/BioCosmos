@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { useTheme } from "next-themes";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css"; // Added leaflet CSS
 
 const DARK_TILE_URL =
-  "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
+  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 const LIGHT_TILE_URL =
-  "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png";
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
 import { Occurrence } from "@/lib/map";
 
@@ -17,14 +18,8 @@ interface SpeciesMapProps {
 }
 
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
-  const [isMounted, setIsMounted] = useState(false);
   const { resolvedTheme } = useTheme();
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  const isDarkTheme = isMounted && resolvedTheme === "dark";
+  const isDarkTheme = resolvedTheme === "dark";
   const tileUrl = isDarkTheme ? DARK_TILE_URL : LIGHT_TILE_URL;
 
   const customIcon = useMemo(() => {
@@ -55,14 +50,6 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
 
   const mapZoom = occurrences.length > 0 ? 4 : 2;
 
-  if (!isMounted) {
-    return (
-      <div
-        className={isDarkTheme ? "umap-dark-map" : ""}
-        style={{ height: "400px", width: "100%", borderRadius: "12px" }}
-      />
-    );
-  }
 
   return (
     <div
@@ -78,13 +65,12 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
         style={{ height: "400px", width: "100%", borderRadius: "12px" }}
       >
         <TileLayer
-          key={isDarkTheme ? "dark" : "light"}
           url={tileUrl}
           className={isDarkTheme ? "umap-site-tiles" : undefined}
-          attribution='&copy; Stadia Maps, &copy; OpenMapTiles &copy; OpenStreetMap contributors'
+          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
 
-        {occurrences.map((occ) => {
+        {occurrences.map((occ, idx) => {
           if (
             typeof occ.decimalLatitude !== "number" ||
             typeof occ.decimalLongitude !== "number" ||
@@ -96,7 +82,7 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
 
           return (
             <Marker
-              key={occ.key}
+              key={`${occ.key || "occ"}-${idx}`}
               position={[occ.decimalLatitude, occ.decimalLongitude]}
               icon={customIcon}
             >

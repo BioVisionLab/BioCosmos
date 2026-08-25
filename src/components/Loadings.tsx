@@ -20,13 +20,13 @@ function ImageLoading({ size, msg }: { size: number; msg?: string }) {
 
 function TextLoading({ msg }: { msg: string }) {
   return (
-    <p className="mt-1 flex items-baseline justify-center gap-2 text-xs leading-none text-gray-500 mx-auto">
+    <p className="mt-1 flex items-baseline justify-center gap-2 text-xs leading-none text-deep-mocha-500 mx-auto">
       {/* make the message a bit smaller than before */}
       <span className="text-sm">{msg}</span>
       <span className="flex items-center justify-center gap-1">
-        <span className="-ml-1 w-1 h-1 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
-        <span className="w-1 h-1 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
-        <span className="w-1 h-1 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+        <span className="-ml-1 w-1 h-1 rounded-full bg-deep-mocha-400 dark:bg-deep-mocha-500 animate-bounce [animation-delay:0ms]" />
+        <span className="w-1 h-1 rounded-full bg-deep-mocha-400 dark:bg-deep-mocha-500 animate-bounce [animation-delay:150ms]" />
+        <span className="w-1 h-1 rounded-full bg-deep-mocha-400 dark:bg-deep-mocha-500 animate-bounce [animation-delay:300ms]" />
       </span>
     </p>
   );

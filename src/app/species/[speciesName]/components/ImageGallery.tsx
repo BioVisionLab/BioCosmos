@@ -9,7 +9,17 @@ import {
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
-export function SpeciesImageGallery({ speciesName, onSelectionChange }: { speciesName: string; onSelectionChange?: (payload: { imageId: string | null; items: string[]; selectedIndex: number }) => void }) {
+export function SpeciesImageGallery({
+  speciesName,
+  onSelectionChange,
+}: {
+  speciesName: string;
+  onSelectionChange?: (payload: {
+    imageId: string | null;
+    items: string[];
+    selectedIndex: number;
+  }) => void;
+}) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -30,9 +40,14 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
 
       try {
         const ids = await fetchSpeciesImageIds(speciesName, 8);
-          if (!ignore) setItems(ids);
-          // notify initial selection (provide items and selectedIndex)
-          if (!ignore && onSelectionChange) onSelectionChange({ imageId: ids && ids.length ? ids[0] : null, items: ids, selectedIndex: 0 });
+        if (!ignore) setItems(ids);
+        // notify initial selection (provide items and selectedIndex)
+        if (!ignore && onSelectionChange)
+          onSelectionChange({
+            imageId: ids && ids.length ? ids[0] : null,
+            items: ids,
+            selectedIndex: 0,
+          });
       } catch (e) {
         if (!ignore) setItems([]);
       } finally {
@@ -53,15 +68,19 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
   // notify when selectedIndex changes
   useEffect(() => {
     if (onSelectionChange) {
-      onSelectionChange({ imageId: items && items[selectedIndex] ? items[selectedIndex] : null, items, selectedIndex });
+      onSelectionChange({
+        imageId: items && items[selectedIndex] ? items[selectedIndex] : null,
+        items,
+        selectedIndex,
+      });
     }
   }, [selectedIndex, items, onSelectionChange]);
 
   return (
     <div
-      className={`relative w-full aspect-video overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${
+      className={`relative w-full overflow-hidden rounded-xl bg-deep-mocha-100 dark:bg-deep-mocha-900 ${
         loading
-          ? "flex items-center justify-center border border-gray-200 dark:border-gray-700"
+          ? "flex items-center justify-center border border-deep-mocha-200 dark:border-deep-mocha-700 min-h-[400px]"
           : ""
       }`}
     >
@@ -73,7 +92,7 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
         <div className="flex flex-col gap-3 h-full">
           {/* add outer padding so thumbs have breathing room */}
           {/* Main image */}
-          <div className="relative w-full flex-grow rounded-xl overflow-hidden border  border-gray-200 dark:border-gray-700">
+          <div className="relative w-full min-h-[400px] flex-grow rounded-xl overflow-hidden border  border-deep-mocha-200 dark:border-deep-mocha-700">
             {/* Left/right circular nav buttons (scroll through the 8 images) */}
             <button
               aria-label="Previous image"
@@ -83,8 +102,8 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
               disabled={selectedIndex <= 0}
               className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex <= 0
-                  ? "text-gray-400 cursor-not-allowed bg-transparent"
-                  : "text-white bg-teal-500 dark:bg-teal-800 hover:bg-teal-400 dark:hover:bg-teal-700 shadow-md"
+                  ? "text-deep-mocha-400 cursor-not-allowed bg-transparent"
+                  : "text-white bg-pacific-blue-500 dark:bg-pacific-blue-800 hover:bg-pacific-blue-400 dark:hover:bg-pacific-blue-700 shadow-md"
               }`}
             >
               <svg
@@ -118,8 +137,8 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
               disabled={selectedIndex >= items.length - 1}
               className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-full p-2 transition-colors ${
                 selectedIndex >= items.length - 1
-                  ? "text-gray-400 cursor-not-allowed bg-transparent"
-                  : "text-white bg-teal-500 dark:bg-teal-800 hover:bg-teal-400 dark:hover:bg-teal-700 shadow-md"
+                  ? "text-deep-mocha-400 cursor-not-allowed bg-transparent"
+                  : "text-white bg-pacific-blue-500 dark:bg-pacific-blue-800 hover:bg-pacific-blue-400 dark:hover:bg-pacific-blue-700 shadow-md"
               }`}
             >
               <svg
@@ -152,8 +171,8 @@ export function SpeciesImageGallery({ speciesName, onSelectionChange }: { specie
                   onClick={() => handleThumbnailClick(idx)}
                   className={`relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border transition-all p-2 ${
                     idx === selectedIndex
-                      ? "border-emerald-300"
-                      : "border-gray-300 dark:border-gray-700 hover:border-teal-600"
+                      ? "border-hunter-green-300"
+                      : "border-deep-mocha-300 dark:border-deep-mocha-700 hover:border-pacific-blue-600"
                   }`}
                 >
                   <GalleryThumbnail
@@ -212,7 +231,8 @@ function GalleryFullImage({
       alt={`Image of ${speciesName}`}
       fill
       sizes="(max-width:768px) 100vw, 800px"
-      className="object-contain"
+      className="object-contain m-1"
+      unoptimized
     />
   );
 }
@@ -251,13 +271,14 @@ function GalleryThumbnail({
   return loading ? (
     <ImageLoading size={48} msg="" />
   ) : (
-    <div className="p-4">
+    <div className="relative w-full h-full">
       <Image
         src={thumbUrl}
         alt={`Thumbnail ${idx + 1} of ${speciesName}`}
         fill
         sizes="96px"
         className="object-contain"
+        unoptimized
       />
     </div>
   );

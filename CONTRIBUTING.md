@@ -29,45 +29,22 @@ cd BioCosmos
 
 ### 2. Frontend Setup (Next.js)
 
-The frontend is a [Next.js](https://nextjs.org/) application. We use `fnm` to manage Node.js versions and `yarn` for package management.
+The frontend is a [Next.js](https://nextjs.org/) application. We use `bun` as the JavaScript runtime and package manager.
 
-**A. Install and Set Up `fnm`**
+**A. Install `bun`**
 
-If you don't have `fnm` (Fast Node Manager) installed, you can install it using the instructions in its [repository](https://github.com/Schniz/fnm).
-
-Once `fnm` is installed, use it to install and use the Node.js version specified in the `.nvmrc` or `.node-version` file (if present), or the latest LTS version.
-
-Briefly, you can install `fnm` and `Node.js` using the following command:
+If you don't have `bun` installed, you can install it using the following command:
 
 ```bash
-# installs fnm (Fast Node Manager)
-curl -fsSL https://fnm.vercel.app/install | bash
-
-# activate fnm
-source ~/.bashrc
-
-# download and install Node.js
-fnm use --install-if-missing 22
-
-# verifies the correct Node.js version is in the environment
-node -v # should print `v22.11.0`
-
-# verifies the correct npm version is in the environment
-npm -v # should print `10.9.0`
+curl -fsSL https://bun.sh/install | bash
 ```
 
-Follow the instructions on the [Node.js website](https://nodejs.org/en/download/) for other installation methods.
+For other installation methods, see the [Bun website](https://bun.sh/docs/installation).
 
-#### B. Install Dependencies with `yarn`
-
-With the correct Node.js version active, install the frontend dependencies using `yarn`.
+#### B. Install Dependencies with `bun`
 
 ```bash
-# Install yarn if you don't have it
-corepack enable
-
-# Install project dependencies
-yarn install
+bun install
 ```
 
 ### 3. Backend Setup (FastAPI)
@@ -122,7 +99,7 @@ This command will build the images for the frontend and backend services and sta
 
 ### Frontend
 
-- We use [ESLint](https://eslint.org/) for linting. Please run `yarn lint` before committing.
+- We use [ESLint](https://eslint.org/) for linting. Please run `bun lint` before committing.
 - Code is formatted automatically on commit using pre-commit hooks.
 
 ### Backend

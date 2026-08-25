@@ -70,7 +70,7 @@ function ImageUmap({ species }: { species: string }) {
 
   if (error) {
     return (
-      <div className="text-red-500 p-4 border border-red-300 rounded-xl">
+      <div className="text-burnt-peach-500 p-4 border border-burnt-peach-300 rounded-xl">
         Error: {error}
       </div>
     );
@@ -83,7 +83,7 @@ function ImageUmap({ species }: { species: string }) {
   const umapOccurrences = parseUmapCoordinates(umapCoords);
 
   return (
-    <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl max-w-full h-fit">
+    <div className="p-4 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl max-w-full h-fit">
       <UmapHeader />
       <div className="grid md:grid-cols-2 gap-4">
         <UmapScatterPlot
@@ -147,10 +147,10 @@ function UmapScatterPlot({
   return (
     <div
       id="umap-scatter-plot"
-      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-gray-200 dark:border-gray-700"
+      className="mb-4 w-full h-[500px] bg-transparent p-2 rounded-xl border border-deep-mocha-200 dark:border-deep-mocha-700 overflow-x-auto"
     >
-      <div className="p-4 h-[calc(100%-2rem)]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="p-4 h-[calc(100%-2rem)] min-w-[600px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={600} minHeight={0}>
           <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
             <XAxis
               type="number"
@@ -247,7 +247,7 @@ function UmapHeader() {
       <h1 className="text-2xl font-bold">
         Image Similarity & Geographic Distribution
       </h1>
-      <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+      <p className="mb-2 text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
         Specimen image similarity in a 2D space using UMAP dimensionality
         reduction and the geographic location of sampled specimens.
       </p>
@@ -298,12 +298,15 @@ function ClusterImage({ imgId }: { imgId: string }) {
   }
 
   return (
-    <Image
-      src={imgUrl}
-      alt={`Cluster ${imgId}`}
-      width={CLUSTER_IMAGE_SIZE}
-      height={CLUSTER_IMAGE_SIZE}
-    />
+    <div style={{ position: "relative", width: CLUSTER_IMAGE_SIZE, height: CLUSTER_IMAGE_SIZE }}>
+      <Image
+        src={imgUrl}
+        alt={`Cluster ${imgId}`}
+        fill
+        className="object-contain"
+        unoptimized
+      />
+    </div>
   );
 }
 
@@ -342,7 +345,7 @@ function UmapTooltipImage({
   }
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return <div className="text-burnt-peach-500">Error: {error}</div>;
   }
 
   if (!imgUrl) {
@@ -350,18 +353,20 @@ function UmapTooltipImage({
   }
 
   return (
-    <div className="p-2 border border-emerald-500 bg-gray-200 dark:bg-gray-700 rounded-xl shadow">
-      <Image
-        src={imgUrl}
-        alt={`Specimen ${imgId}`}
-        width={80}
-        height={80}
-        className="rounded-xl border"
-      />
-      <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
+    <div className="p-2 border border-hunter-green-500 bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl shadow">
+      <div style={{ position: "relative", width: 80, height: 80 }}>
+        <Image
+          src={imgUrl}
+          alt={`Specimen ${imgId}`}
+          fill
+          className="rounded-xl border object-contain"
+          unoptimized
+        />
+      </div>
+      <p className="mt-2 text-center text-sm text-deep-mocha-200 dark:text-deep-mocha-400">
         Cluster {cluster}
       </p>
-      <p className="mt-1 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p className="mt-1 text-center text-sm text-deep-mocha-200 dark:text-deep-mocha-400">
         {toSentenceCase(classDv)}
       </p>
     </div>

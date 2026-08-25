@@ -18,7 +18,7 @@ BioCosmos is a full-stack biodiversity image platform for butterfly species, com
 - **Run Full Stack (Recommended):**
   - `docker-compose up --build` (requires `.env.local` with `OPENAI_API_KEY` and `API_HOST`)
 - **Manual Local Dev:**
-  - Frontend: `yarn dev` (in project root)
+  - Frontend: `bun dev` (in project root)
   - Backend: `cd backend && uvicorn app.main:app --reload`
   - Python deps: managed with `uv` (`pip install uv` if missing)
 - **Testing:**

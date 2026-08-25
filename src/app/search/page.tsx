@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ImageSearchResult } from "./components/ImageSearchResult";
 import SemanticSearchResults from "./components/SemanticSearchResults";
-import { DbSearch } from "./components/DbSearchResults";
+import { DbSearch } from "./components/TextSearchResults";
 
 const MODE_OPTIONS = ["semantic", "text", "image"] as const;
 type SearchMode = (typeof MODE_OPTIONS)[number];
@@ -17,12 +17,13 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
   const mode = searchParams.get("mode");
+  const field = searchParams.get("field") || "all";
 
   if (!mode) {
     return (
       <div className="p-4 text-center">
-        <p className="text-gray-600">Please specify a search mode.</p>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="text-deep-mocha-600">Please specify a search mode.</p>
+        <p className="text-sm text-deep-mocha-500 mt-2">
           Valid modes: {MODE_OPTIONS.join(", ")}
         </p>
       </div>
@@ -32,8 +33,8 @@ function SearchContent() {
   if (!isValidMode(mode)) {
     return (
       <div className="p-4 text-center">
-        <p className="text-red-600">Invalid search mode: {mode}</p>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="text-burnt-peach-600">Invalid search mode: {mode}</p>
+        <p className="text-sm text-deep-mocha-500 mt-2">
           Valid modes: {MODE_OPTIONS.join(", ")}
         </p>
       </div>
@@ -42,7 +43,7 @@ function SearchContent() {
 
   if (!query && mode !== "image") {
     return (
-      <div className="p-4 text-center text-gray-600">
+      <div className="p-4 text-center text-deep-mocha-600">
         Please enter a search query.
       </div>
     );
@@ -52,7 +53,7 @@ function SearchContent() {
     case "semantic":
       return <SemanticSearchResults query={query} />;
     case "text":
-      return <DbSearch query={query} />;
+      return <DbSearch query={query} initialField={field} />;
     case "image":
       return <ImageSearchResult imageUrl={query} />;
   }

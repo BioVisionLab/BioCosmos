@@ -1,29 +1,13 @@
 import logging
 import os
-import threading
 
-from io import BytesIO
 from fastapi import Request
-from PIL import Image
 
+from ..configs.config import ImageConfig
 from ..services.images import ImagePersistData
 from ..services.metadata import ImageMetaService
 
-STATIC_PATH = "static/"
-THUMBNAIL_MAX_RESOLUTION = 128
-FULL_RES_MAX_RESOLUTION = 800
-
-_LOCK: dict[str, threading.Lock] = {}
-_LOCK_GUARD = threading.Lock()
-
 logger = logging.getLogger(__name__)
-
-
-def _get_lock(key: str) -> threading.Lock:
-    with _LOCK_GUARD:
-        if key not in _LOCK:
-            _LOCK[key] = threading.Lock()
-        return _LOCK[key]
 
 
 class ImageMetaRetrieval:
@@ -73,34 +57,20 @@ class ImageMetaRetrieval:
 
 class ImageFileRetrieval:
     """
-    A class to handle image retrieval operations.
-    This class retrieves images from the LanceDB database,
-    saves them as static files if they don't already exist,
-    and provides paths to these static files.
-    Attributes:
-        lance_db: The LanceDB database instance.
-        file_format: The image file format to use (e.g., "webp").
-    Methods:
-        get_thumbnail(image_id): Retrieve the thumbnail image file path.
-        get_full_res(image_id): Retrieve the full-resolution image file path.
-
-    Maximum resolutions:
-        - Thumbnail: 128 pixels
-        - Full-resolution: 400 pixels
+    Retrieves images from disk. Both full-resolution images and thumbnails
+    are pre-generated during ingestion. Paths and formats are driven by config.yaml.
     """
 
     def __init__(self, request: Request):
-        """
-        Initialize the ImageRetrieval class.
-        """
         self.lance_db = request.app.state.lance_db
         self.duckdb = request.app.state.duck_db
-        self.file_format = "webp"
+        config = ImageConfig()
+        self.file_format = config.format
+        self.processed_dir = config.processed_dir
+        self.thumbnail_dir = config.thumbnail_dir
 
     def get_species_thumbnail(self, scientific_name: str) -> str | None:
-        """
-        Retrieve the thumbnail image file path for a species.
-        """
+        """Retrieve the thumbnail image file path for a species."""
         img_id: str | None = ImageMetaService(
             duckdb=self.duckdb
         ).get_species_main_image_id(scientific_name)
@@ -109,127 +79,43 @@ class ImageFileRetrieval:
         return self.get_thumbnail(img_id)
 
     def get_species_image(self, scientific_name: str) -> str | None:
-        """
-        Retrieve the full-resolution image file path for a species.
-        """
-        persisted = ImagePersistData(
+        """Retrieve the full-resolution image file path for a species."""
+        return ImagePersistData(
             lance_db=self.lance_db, duckdb=self.duckdb
-        ).fetch_image_ids(scientific_name)
-        if isinstance(persisted, dict):
-            image_ids = persisted.get("imageIds", [])
-        else:
-            image_ids = persisted or []
-
-        if not image_ids:
-            return None
-
-        first_image_id = image_ids[0]
-        return self.get_full_res(first_image_id)
+        ).fetch_image_path(scientific_name)
 
     def get_thumbnail(self, image_id: str) -> str | None:
-        """
-        Retrieve the thumbnail image file path.
-        """
-        static_path = self._get_static_thumbnail_path(image_id)
-        if os.path.exists(static_path):
-            return static_path
-
-        lock = _get_lock(f"thumbnail_{image_id}")
-        with lock:
-            if os.path.exists(static_path):
-                return static_path
-            img_bytes = self._get_image_by_id(image_id)
-            if img_bytes is None:
-                return None
-
-            os.makedirs(os.path.dirname(static_path), exist_ok=True)
-            self._write_thumbnail_to_file(static_path, img_bytes)
-            return static_path
+        """Retrieve the pre-generated thumbnail file path."""
+        thumbnail_path = self._get_thumbnail_path(image_id)
+        if os.path.exists(thumbnail_path):
+            return thumbnail_path
+        logger.warning(f"Thumbnail not found on disk: {thumbnail_path}")
+        return None
 
     def get_full_res(self, image_id: str) -> str | None:
-        """
-        Retrieve the full-resolution image file path.
-        """
-        static_path = self._get_static_image_path(image_id)
+        """Retrieve the full-resolution image file path."""
+        static_path = self._get_image_path(image_id)
         if os.path.exists(static_path):
             return static_path
 
-        lock = _get_lock(f"full_res_{image_id}")
-        with lock:
-            if os.path.exists(static_path):
-                return static_path
-
-            img_bytes = self._get_image_by_id(image_id)
-            if img_bytes is None:
-                return None
-
-            os.makedirs(os.path.dirname(static_path), exist_ok=True)
-            self._write_to_file(static_path, img_bytes)
-            return static_path
-
-    def _get_image_by_id(self, image_id: str) -> bytes | None:
-        """
-        Retrieve an image by its ID.
-        """
-        img_bytes: bytes = ImagePersistData(
+        # Fall back to the path stored in LanceDB
+        img_path = ImagePersistData(
             lance_db=self.lance_db,
             duckdb=self.duckdb,
-        ).get_img_by_id(image_id)
-        return img_bytes
+        ).get_img_path_by_id(image_id)
+        if img_path is not None and os.path.exists(img_path):
+            return img_path
 
-    def _write_to_file(
-        self,
-        path,
-        img_bytes: bytes,
-        max_resolution: int = FULL_RES_MAX_RESOLUTION,
-    ) -> None:
-        """
-        Write image bytes to a static file.
-        Resize the image if it exceeds max_resolution.
-        """
-        img = Image.open(BytesIO(img_bytes))
-        if max(img.size) > max_resolution:
-            img.thumbnail(
-                (max_resolution, max_resolution),
-                resample=Image.LANCZOS,
-            )
-        img.save(path, format=self.file_format.upper())
+        return None
 
-    def _write_thumbnail_to_file(
-        self,
-        path,
-        img_bytes: bytes,
-        max_resolution: int = THUMBNAIL_MAX_RESOLUTION,
-    ) -> None:
-        """
-        Write thumbnail image bytes to a static file.
-        Resize the thumbnail if it exceeds 128 pixels.
-        """
-        img = Image.open(BytesIO(img_bytes))
-        if max(img.size) > max_resolution:
-            img.thumbnail(
-                (max_resolution, max_resolution),
-                resample=Image.LANCZOS,
-            )
-        img.save(path, format=self.file_format.upper())
-
-    def _get_static_image_path(self, image_id: str) -> str:
-        """
-        Get the static file path for an image.
-        """
+    def _get_image_path(self, image_id: str) -> str:
         return os.path.join(
-            STATIC_PATH,
-            self.file_format,
+            self.processed_dir,
             f"{image_id}.{self.file_format}",
         )
 
-    def _get_static_thumbnail_path(self, image_id: str) -> str:
-        """
-        Get the static file path for a thumbnail image.
-        """
+    def _get_thumbnail_path(self, image_id: str) -> str:
         return os.path.join(
-            STATIC_PATH,
-            self.file_format,
-            "thumbnails",
+            self.thumbnail_dir,
             f"{image_id}_thumbnail.{self.file_format}",
         )

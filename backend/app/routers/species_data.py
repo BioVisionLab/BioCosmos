@@ -9,6 +9,7 @@ from ..query.species_similarity import (
     SpeciesSimilarity,
     VisuallySimilarSpeciesPayload,
 )
+from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -72,6 +73,10 @@ def get_species_similarity(request: Request) -> SpeciesSimilarity:
     return SpeciesSimilarity(request=request, limit=10)
 
 
+def get_precomputed_similarity(request: Request) -> PrecomputedSpeciesSimilarity:
+    return PrecomputedSpeciesSimilarity(request=request, limit=10)
+
+
 @router.get(
     "/species/{scientific_name}/similar",
     tags=["Species Data", "ML Search"],
@@ -79,10 +84,12 @@ def get_species_similarity(request: Request) -> SpeciesSimilarity:
 )
 async def fetch_visually_similar_species(
     scientific_name: str,
-    service: SpeciesSimilarity = Depends(get_species_similarity),
+    precomputed: PrecomputedSpeciesSimilarity = Depends(get_precomputed_similarity),
+    runtime: SpeciesSimilarity = Depends(get_species_similarity),
 ) -> dict:
     """
     Fetch visually similar species based on image similarity analyses.
+    Uses precomputed results when available, falls back to runtime vector search.
     Returns 404 if no similar species are found.
     """
     logger.info(
@@ -90,7 +97,21 @@ async def fetch_visually_similar_species(
     )
 
     try:
-        similar_species = service.find_similar_species(
+        # Try precomputed first
+        result = precomputed.find_similar_species(scientific_name)
+        if result is not None:
+            logger.info(
+                "Returning precomputed similarity for: %s",
+                scientific_name,
+            )
+            return result
+
+        # Fallback to runtime vector search
+        logger.info(
+            "Falling back to runtime similarity for: %s",
+            scientific_name,
+        )
+        similar_species = runtime.find_similar_species(
             scientific_name
         )
         if similar_species is None:
@@ -106,7 +127,6 @@ async def fetch_visually_similar_species(
     except HTTPException:
         raise
     except Exception:
-        # Includes stack trace.
         logger.exception(
             f"Unhandled error fetching visually similar species for: {scientific_name}"
         )

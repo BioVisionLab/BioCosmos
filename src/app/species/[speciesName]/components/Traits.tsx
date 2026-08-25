@@ -37,7 +37,7 @@ ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
 
 const valueClass = "font-semibold text-grey-600 dark:text-grey-300 text-lg";
 const labelClass = "font-normal text-lg text-grey-600 dark:text-grey-300";
-const iconColor = "fill-teal-500";
+const iconColor = "fill-pacific-blue-500";
 const commonIconClass = `w-12 h-12 ${iconColor} m-2`;
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
@@ -46,7 +46,8 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   }
   const containerClasses = "relative rounded-xl p-2 overflow-hidden";
   const boxClasses = containerClasses.replace("my-2", "");
-  const lineClasses = "border-t border-gray-300 dark:border-gray-700 my-2";
+  const lineClasses =
+    "border-t border-deep-mocha-300 dark:border-deep-mocha-700 my-2";
   const gridClasses = "grid gap-2 md:grid-cols-2 transition-all mb-4";
   const categoryClasses = "text-xl font-semibold mt-2";
   return (
@@ -198,7 +199,9 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
         <h3 className="text-xl m-2">Adult Presence</h3>
         <MonthPresence traits={traits} />
       </div>
-      <LepTraitDataSourceInfo />
+      <div className="w-full flex justify-center items-center mt-12 mb-6">
+        <LepTraitDataSourceInfo />
+      </div>
     </div>
   );
 }
@@ -213,7 +216,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
   // Only render if we have data
   if (Object.keys(presentAbsentMap).length === 0) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400 m-2">
+      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 m-2">
         No month presence data available.
       </p>
     );
@@ -221,7 +224,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
 
   if (isAbsentAllYear(presentAbsentMap)) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400 m-2">
+      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 m-2">
         No data available.
       </p>
     );
@@ -245,10 +248,10 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
               {Object.entries(presentAbsentMap).map(([month, isPresent]) => (
                 <td
                   key={month}
-                  className={`h-5 w-5 border border-gray-300 dark:border-gray-700 ${
+                  className={`h-5 w-5 border border-deep-mocha-300 dark:border-deep-mocha-700 ${
                     isPresent
-                      ? "bg-emerald-600 dark:bg-emerald-400"
-                      : "bg-gray-200/50 dark:bg-gray-800/50"
+                      ? "bg-hunter-green-600 dark:bg-hunter-green-400"
+                      : "bg-deep-mocha-200/50 dark:bg-deep-mocha-800/50"
                   }`}
                 >
                   <span className="sr-only">
@@ -294,7 +297,7 @@ function WingspanCard({
               unspecified={upper_unspecified}
             />
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
               No data available.
             </p>
           )}
@@ -308,7 +311,7 @@ function WingspanCard({
               unspecified={lower_unspecified}
             />
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
               No data available.
             </p>
           )}
@@ -335,7 +338,7 @@ function Wingspan({
   }
 
   return (
-    <ul className="space-y-1 text-gray-700 dark:text-gray-300">
+    <ul className="space-y-1 text-deep-mocha-700 dark:text-deep-mocha-300">
       {hasValue(male) && (
         <li>
           <span className={valueClass}>{male.toPrecision(3)} cm</span>
@@ -406,7 +409,11 @@ function Affinity({
   return (
     <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        {icon ? icon : <CanopyIcon className={iconClassName ?? commonIconClass} />}
+        {icon ? (
+          icon
+        ) : (
+          <CanopyIcon className={iconClassName ?? commonIconClass} />
+        )}
       </IconContainer>
       <div>
         <p className={valueClass}>{affinity}</p>
@@ -455,7 +462,7 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <Egg className={`h-12 w-12 stroke-teal-500 m-2`} />
+        <Egg className={`h-12 w-12 stroke-pacific-blue-500 m-2`} />
       </IconContainer>
       <p className={valueClass}>
         {diapauseLabel.label}{" "}
