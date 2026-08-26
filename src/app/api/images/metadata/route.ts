@@ -20,12 +20,22 @@ export async function GET(request: Request): Promise<NextResponse> {
     );
   }
 
-  console.log(`API: Fetching image metadata for species: ${species}`);
-
   try {
+    // Forward paging params so the backend can return a single page of IDs.
+    // Malformed values are dropped rather than forwarded.
+    const paging = new URLSearchParams();
+    for (const key of ["limit", "offset"] as const) {
+      const raw = searchParams.get(key);
+      if (raw === null) continue;
+      const parsed = Number(raw);
+      if (Number.isInteger(parsed) && parsed >= 0) {
+        paging.set(key, String(parsed));
+      }
+    }
+    const query = paging.size > 0 ? `?${paging.toString()}` : "";
     const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(
       species,
-    )}/metadata`;
+    )}/metadata${query}`;
     const response = await fetch(metadataUri, {
       method: "GET",
     });

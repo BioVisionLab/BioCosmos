@@ -35,8 +35,16 @@ export interface ClassificationSearchResult {
   classification: TaxonomyData;
 }
 
-async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
-  // We will capture the species name from the folder name by splitting on underscores
+/**
+ * Derive the genus and species from a route slug such as
+ * `zeuxidia_amethystus`. Useful for painting the page header before the
+ * taxonomy request resolves.
+ */
+function parseSpeciesSlug(folderName: string): {
+  genus: string;
+  species: string;
+  formattedName: string;
+} {
   let genus = "Unknown";
   let species = "sp.";
   const parts = folderName.split("_");
@@ -44,7 +52,11 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
     genus = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
     species = parts[1].toLowerCase();
   }
-  const formattedName = `${genus} ${species}`;
+  return { genus, species, formattedName: `${genus} ${species}` };
+}
+
+async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
+  const { formattedName } = parseSpeciesSlug(folderName);
 
   // Fetch taxonomy data from the external service
   try {
@@ -119,4 +131,9 @@ async function fetchSpeciesImageUmap(
   }
 }
 
-export { getSpeciesData, fetchTaxonClassification, fetchSpeciesImageUmap };
+export {
+  getSpeciesData,
+  parseSpeciesSlug,
+  fetchTaxonClassification,
+  fetchSpeciesImageUmap,
+};

@@ -298,12 +298,19 @@ class ImageMetaService:
         self,
         scientific_name: str,
         *,
+        limit: int = 100,
+        offset: int = 0,
         raise_on_error: bool = False,
     ) -> list[str]:
         """
-        Retrieve image IDs for a given species.
+        Retrieve a page of image IDs for a given species.
+
+        Results are ordered by image ID so that offset-based paging is stable
+        across requests.
 
         :param scientific_name: The scientific name of the species.
+        :param limit: Maximum number of image IDs to return.
+        :param offset: Number of image IDs to skip before collecting results.
         :return: A list of image IDs.
         """
         cleaned_name = self.sanitize_species_name(scientific_name)
@@ -311,9 +318,14 @@ class ImageMetaService:
             query = f"""
                 SELECT img_id FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
-                LIMIT 100
+                ORDER BY img_id
+                LIMIT ? OFFSET ?
             """
-            results = self.db_client.execute_query(query, cleaned_name).pl()
+            results = self.db_client.execute_prepared_to_pl(
+                query, [cleaned_name, limit, offset]
+            )
+            if results is None or results.is_empty():
+                return []
             image_ids = results["img_id"].to_list()
             return image_ids
         except Exception as e:
