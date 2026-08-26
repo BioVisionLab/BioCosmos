@@ -90,8 +90,9 @@ export default async function CollectionsPage() {
       <section aria-label="Collection visualizations" className="mt-12">
         <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
         <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
-          Proportion of image entries across butterfly families and the top ten
-          most-represented species in the collection.
+          Proportion of image entries across butterfly families, the top ten
+          most-represented species in the collection, and how the CLIP and
+          UNICOM embedding spaces behind image search are distributed.
         </p>
         <CollectionCharts
           entriesByFamily={data?.entriesByFamily ?? null}
