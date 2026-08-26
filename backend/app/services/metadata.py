@@ -175,7 +175,12 @@ class ImageMetaService:
             )
             return None
 
-    def get_image_ids_for_species_list(self, species_list: List[str]) -> List[str]:
+    def get_image_ids_for_species_list(
+        self,
+        species_list: List[str],
+        *,
+        raise_on_error: bool = False,
+    ) -> List[str]:
         """
         Return all image IDs belonging to any species in the provided list.
 
@@ -222,10 +227,12 @@ class ImageMetaService:
                 f"Error retrieving image IDs for species list: {e}",
                 exc_info=True,
             )
+            if raise_on_error:
+                raise
             return []
 
     def get_species_main_image_id_from_list(
-        self, scientific_names: list[str]
+        self, scientific_names: list[str], *, raise_on_error: bool = False
     ) -> pl.DataFrame | None:
         """
         Retrieve the main image IDs for a list of species.
@@ -259,6 +266,8 @@ class ImageMetaService:
             logger.error(
                 f"Error retrieving main image IDs for species list '{scientific_names}': {e}"
             )
+            if raise_on_error:
+                raise
             return None
 
     def get_species_main_image_id(self, scientific_name: str) -> str | None:
@@ -285,7 +294,12 @@ class ImageMetaService:
             )
             return None
 
-    def get_image_ids_by_species(self, scientific_name: str) -> list[str]:
+    def get_image_ids_by_species(
+        self,
+        scientific_name: str,
+        *,
+        raise_on_error: bool = False,
+    ) -> list[str]:
         """
         Retrieve image IDs for a given species.
 
@@ -306,6 +320,8 @@ class ImageMetaService:
             logger.error(
                 f"Error retrieving image IDs for species '{scientific_name}': {e}"
             )
+            if raise_on_error:
+                raise
             return []
 
     def get_image_meta_by_species(self, species: str) -> pl.DataFrame | None:
