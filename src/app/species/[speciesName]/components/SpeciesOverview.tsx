@@ -109,7 +109,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
             horizontal
           />
 
-          {/* The map pulls 200 GBIF occurrences plus the Leaflet bundle, so it
+          {/* The map pulls 200 GBIF occurrences plus the MapLibre bundle, so it
               only mounts once the reader scrolls near it. */}
           <div ref={mapRef}>
             {mapInView ? (

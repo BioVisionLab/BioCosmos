@@ -40,7 +40,7 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
               No GBIF occurrences found. Showing map without points.
             </p>
           )}
-          <SpeciesMap key={speciesName} occurrences={occurrences} />
+          <SpeciesMap occurrences={occurrences} />
           <GbifAttribution leadingText="Occurrence data provided by" />
         </>
       )}

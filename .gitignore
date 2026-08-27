@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# generated MapLibre worker assets (see scripts/copy_maplibre_worker.mjs)
+/public/maplibre/
+
 # vercel
 .vercel
 

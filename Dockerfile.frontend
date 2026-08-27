@@ -11,8 +11,9 @@ COPY tsconfig.json ./
 COPY postcss.config.mjs ./
 COPY tailwind.config.ts ./
 
-# Copy source code and public assets
+# Copy source code, build scripts, and public assets
 COPY src ./src
+COPY scripts ./scripts
 COPY public ./public
 
 # Install dependencies and build the application
