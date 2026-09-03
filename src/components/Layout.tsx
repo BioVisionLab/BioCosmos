@@ -1,5 +1,6 @@
 import React from "react";
 import Navigation from "./Navigation";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -7,11 +8,12 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
   return (
-    <div className="flex flex-col min-h-screen bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-900 dark:text-deep-mocha-100">
+    <div className="relative flex flex-col min-h-screen bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-900 dark:text-deep-mocha-100">
       {/* Use the HeaderClient component */}
       {/* <HeaderClient /> */}
 
       <Navigation />
+      <ThemeToggle />
 
       {/* Main Content - Putting container back on main */}
       <main className="flex-grow container mx-auto px-4 py-4">

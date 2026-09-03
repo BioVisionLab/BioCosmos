@@ -52,8 +52,8 @@ const coreTeam = [
       "Contributes to machine-learning development and evaluation for fine-grained biological retrieval in BioCosmos.",
   },
   {
-    name: "Kira Nitchtawitz",
-    role: "Undergraduate Researcher",
+    name: "Kira Nichtawitz",
+    role: "Undergraduate Researcher / Intern",
     affiliation: "Florida Museum of Natural History, University of Florida",
     description:
       "Contributes to the design of the web layout, data integration, and visualization.",
