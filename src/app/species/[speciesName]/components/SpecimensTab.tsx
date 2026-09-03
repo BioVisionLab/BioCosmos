@@ -14,7 +14,7 @@ import {
 } from "@/lib/images";
 import ImageUmap from "./ImageUmap";
 import Tips from "@/components/Tips";
-import GalleryPagination from "./GalleryPagination";
+import PaginationControls from "@/components/PaginationControls";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -57,7 +57,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   const createdUrls = useRef<string[]>([]);
   // pagination
   const PAGE_SIZE = 24; // images per page
-  const INITIAL_PAGES = 5; // initial pages to request (24 * 5 = 120)
+  // Offset paging works against the backend now, so there is no need to
+  // over-fetch IDs up front; loadNextChunk pulls the rest on demand.
+  const INITIAL_PAGES = 2; // initial pages to request (24 * 2 = 48)
   // preview size for species overview (two rows)
   const MAX_PREVIEW = 16;
   const [currentPage, setCurrentPage] = useState<number>(1); // 1-based
@@ -67,8 +69,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   const [displayPage, setDisplayPage] = useState<number>(1);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [exhaustedIds, setExhaustedIds] = useState<boolean>(false);
-  // stable highlighted page in the pagination UI to avoid flashing.
-  const [highlightPage, setHighlightPage] = useState<number>(1);
 
   // simple cache of fetched thumbnail URLs by image id
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
@@ -292,7 +292,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     setExhaustedIds(false);
 
     try {
-      const initialLimit = PAGE_SIZE * INITIAL_PAGES; // 24 * 5 = 120
+      const initialLimit = PAGE_SIZE * INITIAL_PAGES;
       const ids = await fetchSpeciesImageIds(name, initialLimit, 0);
       if (!mountedFlag) return;
 
@@ -318,17 +318,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
       // prefetch next two pages after initial load
       void prefetchNextPages(1, 2);
-      // initialize stable highlight for pagination
-      {
-        const total = ids.length;
-        const displayTotal = Math.max(1, Math.ceil(total / PAGE_SIZE));
-        const windowSize = 10;
-        const half = Math.floor(windowSize / 2);
-        const p = 1;
-        const inMiddleRange = p > half && p <= displayTotal - half;
-        const newHighlight = inMiddleRange ? Math.max(1, 1 - half) + half : p;
-        setHighlightPage(newHighlight);
-      }
     } catch (err) {
       console.error("SpecimensTab load error:", err);
       if (mountedFlag) setError("Failed to load specimen thumbnails.");
@@ -432,17 +421,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       // sync display/committed page
       setCurrentPage(1);
       setDisplayPage(1);
-      // initialize stable highlight for pagination
-      {
-        const total = idsFromSpecimens.length;
-        const displayTotal = Math.max(1, Math.ceil(total / PAGE_SIZE));
-        const windowSize = 10;
-        const half = Math.floor(windowSize / 2);
-        const p = 1;
-        const inMiddleRange = p > half && p <= displayTotal - half;
-        const newHighlight = inMiddleRange ? Math.max(1, p - half) + half : p;
-        setHighlightPage(newHighlight);
-      }
       // prefetch next two pages for client-provided specimen lists
       void prefetchNextPages(1, 2);
     } catch (err) {
@@ -504,21 +482,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       // commit the page after successful load
       setCurrentPage(p);
       setDisplayPage(p);
-      // update the stable highlight so the pagination doesn't flash.
-      const total = allIdsRef.current ? allIdsRef.current.length : items.length;
-      const displayTotal = Math.max(1, Math.ceil(total / PAGE_SIZE));
-      const windowSize = 10;
-      const half = Math.floor(windowSize / 2);
-      let start = p - half;
-      if (start < 1) start = 1;
-      let end = start + windowSize - 1;
-      if (end > displayTotal) {
-        end = displayTotal;
-        start = Math.max(1, end - windowSize + 1);
-      }
-      const inMiddleRange = p > half && p <= displayTotal - half;
-      const newHighlight = inMiddleRange ? start + half : p;
-      setHighlightPage(newHighlight);
     } catch (err) {
       console.error("Failed to load page thumbnails.", err);
       setError("Failed to load thumbnails for page.");
@@ -855,6 +818,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
 
   const gotoPage = (p: number) => {
     if (!allIds) return;
+    // The shared pagination control has no in-flight state of its own, so the
+    // re-entrancy guard lives here.
+    if (isLoadingMore || loading) return;
     const requested = Math.max(1, p);
 
     // compute currently loaded pages from available ids
@@ -868,31 +834,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       if (requested === currentPage) return; // already viewing
       // displayPage gives immediate feedback; actual commit happens in loadPage
       setDisplayPage(requested);
-      // update stable highlight immediately to avoid flashing between
-      // the old highlight and the newly requested display page while
-      // `loadPage` is still fetching thumbnails.
-      {
-        const displayTotal = Math.max(
-          1,
-          Math.ceil(
-            (specimenData?.imageCounts ??
-              (allIds ? allIds.length : items.length)) / PAGE_SIZE,
-          ),
-        );
-        const windowSize = 10;
-        const half = Math.floor(windowSize / 2);
-        let start = requested - half;
-        if (start < 1) start = 1;
-        let end = start + windowSize - 1;
-        if (end > displayTotal) {
-          end = displayTotal;
-          start = Math.max(1, end - windowSize + 1);
-        }
-        const inMiddleRange =
-          requested > half && requested <= displayTotal - half;
-        const newHighlight = inMiddleRange ? start + half : requested;
-        setHighlightPage(newHighlight);
-      }
       setLoading(true);
       setError(null);
       loadPage(requested);
@@ -908,32 +849,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     setLoading(true);
     setError(null);
 
-    // set a stable highlight immediately so the pagination UI doesn't
-    // flash between the previous highlight and the newly requested one
-    // while additional IDs/thumbnails are being fetched.
-    {
-      const displayTotal = Math.max(
-        1,
-        Math.ceil(
-          (specimenData?.imageCounts ??
-            (allIds ? allIds.length : items.length)) / PAGE_SIZE,
-        ),
-      );
-      const windowSize = 10;
-      const half = Math.floor(windowSize / 2);
-      // prefer to center the highlight when possible
-      let start = requested - half;
-      if (start < 1) start = 1;
-      let end = start + windowSize - 1;
-      if (end > displayTotal) {
-        end = displayTotal;
-        start = Math.max(1, end - windowSize + 1);
-      }
-      const inMiddleRange =
-        requested > half && requested <= displayTotal - half;
-      const newHighlight = inMiddleRange ? start + half : requested;
-      setHighlightPage(newHighlight);
-    }
 
     // otherwise, we need to load additional chunks until we have enough ids
     const neededCount = requested * PAGE_SIZE;
@@ -1068,6 +983,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                         <img
                           src={cached}
                           alt={id ? `Specimen ${id}` : "Loading..."}
+                          loading="lazy"
+                          decoding="async"
                           className="object-contain object-center w-full h-full"
                           onLoad={() => {
                             if (!id) return;
@@ -1136,6 +1053,8 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                       <img
                         src={cached}
                         alt={id ? `Specimen ${id}` : "Loading..."}
+                        loading="lazy"
+                        decoding="async"
                         className="object-contain object-center w-full h-full"
                         onLoad={() => {
                           if (!id) return;
@@ -1183,20 +1102,16 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         </div>
       )}
 
-      {/* Pagination bar (moved to GalleryPagination component) */}
+      {/* Pagination bar (shared with the text search results) */}
       {showAll && (
-        <React.Suspense>
-          {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
-          {/* @ts-ignore */}
-          <GalleryPagination
-            displayPage={displayPage}
-            gotoPage={gotoPage}
-            isLoadingMore={isLoadingMore}
-            loading={loading}
-            speciesTotalPages={speciesTotalPages}
-            highlightPage={highlightPage}
-          />
-        </React.Suspense>
+        <PaginationControls
+          currentPage={displayPage}
+          totalPages={speciesTotalPages}
+          totalItems={speciesTotalImages}
+          itemsPerPage={PAGE_SIZE}
+          label="images"
+          onPageChange={gotoPage}
+        />
       )}
 
       {/* Modal/lightbox for full-size image */}

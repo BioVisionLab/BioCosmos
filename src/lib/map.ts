@@ -1,13 +1,13 @@
 import { SpeciesImageUmap } from "./speciesData";
 
-const TILE_LAYER_URL =
-  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+// OpenFreeMap serves MapLibre vector styles for free, without an API key.
+const BASEMAP_STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
+const BASEMAP_STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
 
-const SECONDARY_TILE_LAYER_URL =
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-const TILE_LAYER_ATTRIBUTION_URL =
-  '&copy; <a href="https://carto.com/" target="_blank">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+// The styles carry their own OpenMapTiles/OpenStreetMap credit, so this only
+// adds the (optional, but appreciated) OpenFreeMap link on top of it.
+const BASEMAP_ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a>';
 
 const CLUSTER_COLORS = [
   "#7c3aed", // Purple
@@ -51,12 +51,12 @@ export interface UmapOccurrence {
   cluster: number;
 }
 
-function getTileLayerUrl(): string {
-  return TILE_LAYER_URL;
+function getBasemapStyleUrl(isDark: boolean): string {
+  return isDark ? BASEMAP_STYLE_DARK : BASEMAP_STYLE_LIGHT;
 }
 
-function getTileLayerAttributionUrl(): string {
-  return TILE_LAYER_ATTRIBUTION_URL;
+function getBasemapAttribution(): string {
+  return BASEMAP_ATTRIBUTION;
 }
 
 function getClusterColor(): string[] {
@@ -147,8 +147,8 @@ function parseUmapCoordinates(umapData: SpeciesImageUmap[]): UmapOccurrence[] {
 
 export {
   fetchGbifOccurrences,
-  getTileLayerUrl,
-  getTileLayerAttributionUrl,
+  getBasemapStyleUrl,
+  getBasemapAttribution,
   parseUmapCoordinates,
   getClusterColor,
 };

@@ -253,6 +253,36 @@ class GbifPersistData:
             )
             return []
 
+    def search_by_country_code(
+        self,
+        country_code: str,
+        limit: int = 500,
+    ) -> list[str]:
+        """Return distinct species for an ISO 3166-1 alpha-2 country code."""
+        normalized_code = (country_code or "").strip().upper()
+        if len(normalized_code) != 2 or not normalized_code.isalpha():
+            raise ValueError("A two-letter country code is required.")
+
+        query = f"""
+            SELECT DISTINCT species
+            FROM {self.table_name}
+            WHERE UPPER(countryCode) = ?
+            ORDER BY species
+            LIMIT ?
+        """
+        result = self.db_client.execute_prepared_to_pl(
+            query,
+            [normalized_code, int(limit)],
+        )
+        if result.is_empty():
+            return []
+        return [
+            str(species).strip()
+            for species in result["species"].to_list()
+            if species and str(species).strip()
+        ]
+
+
     def _index_columns(self):
         """
         Create a full-text search index on relevant columns for location-based searches.

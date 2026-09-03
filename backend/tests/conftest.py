@@ -46,14 +46,18 @@ class FakeDuckDBClient:
 # Fake LanceDB table
 # ---------------------------------------------------------------------------
 
-class FakeLanceTable:
-    """Minimal stand-in for a LanceDB table."""
+class FakeLanceSearch:
+    """Chainable stand-in for a LanceDB search builder.
 
-    def __init__(self, data: pl.DataFrame | None = None):
-        self._data = data if data is not None else pl.DataFrame()
+    A search result materializes to an eager Polars DataFrame, unlike a table
+    (whose `to_polars` is lazy). `select`/`offset`/`limit` are honored so that
+    projected, paged bulk reads can be exercised.
+    """
 
-    def search(self, query=None, vector_column_name=None):
-        return self
+    def __init__(self, data: pl.DataFrame):
+        self._data = data
+        self._offset = 0
+        self._limit: int | None = None
 
     def where(self, condition, prefilter=False):
         return self
@@ -61,14 +65,40 @@ class FakeLanceTable:
     def distance_type(self, dtype):
         return self
 
+    def select(self, columns):
+        if columns:
+            self._data = self._data.select(columns)
+        return self
+
+    def offset(self, n):
+        self._offset = n
+        return self
+
     def limit(self, n):
+        self._limit = n
         return self
 
     def to_polars(self):
-        return self._data
+        if self._offset == 0 and self._limit is None:
+            return self._data
+        return self._data.slice(self._offset, self._limit)
 
     def to_pydantic(self, model):
         return []
+
+
+class FakeLanceTable:
+    """Minimal stand-in for a LanceDB table."""
+
+    def __init__(self, data: pl.DataFrame | None = None):
+        self._data = data if data is not None else pl.DataFrame()
+
+    def search(self, query=None, vector_column_name=None):
+        return FakeLanceSearch(self._data)
+
+    def to_polars(self):
+        """Bulk reads off the table are lazy in the real LanceDB client."""
+        return self._data.lazy()
 
 
 class FakeLanceDB:
@@ -81,7 +111,7 @@ class FakeLanceDB:
         return self._table
 
     def count_entries(self, name: str):
-        return 0
+        return self._table._data.height
 
 
 # ---------------------------------------------------------------------------

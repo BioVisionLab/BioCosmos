@@ -175,7 +175,12 @@ class ImageMetaService:
             )
             return None
 
-    def get_image_ids_for_species_list(self, species_list: List[str]) -> List[str]:
+    def get_image_ids_for_species_list(
+        self,
+        species_list: List[str],
+        *,
+        raise_on_error: bool = False,
+    ) -> List[str]:
         """
         Return all image IDs belonging to any species in the provided list.
 
@@ -222,10 +227,12 @@ class ImageMetaService:
                 f"Error retrieving image IDs for species list: {e}",
                 exc_info=True,
             )
+            if raise_on_error:
+                raise
             return []
 
     def get_species_main_image_id_from_list(
-        self, scientific_names: list[str]
+        self, scientific_names: list[str], *, raise_on_error: bool = False
     ) -> pl.DataFrame | None:
         """
         Retrieve the main image IDs for a list of species.
@@ -259,6 +266,8 @@ class ImageMetaService:
             logger.error(
                 f"Error retrieving main image IDs for species list '{scientific_names}': {e}"
             )
+            if raise_on_error:
+                raise
             return None
 
     def get_species_main_image_id(self, scientific_name: str) -> str | None:
@@ -285,11 +294,23 @@ class ImageMetaService:
             )
             return None
 
-    def get_image_ids_by_species(self, scientific_name: str) -> list[str]:
+    def get_image_ids_by_species(
+        self,
+        scientific_name: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        raise_on_error: bool = False,
+    ) -> list[str]:
         """
-        Retrieve image IDs for a given species.
+        Retrieve a page of image IDs for a given species.
+
+        Results are ordered by image ID so that offset-based paging is stable
+        across requests.
 
         :param scientific_name: The scientific name of the species.
+        :param limit: Maximum number of image IDs to return.
+        :param offset: Number of image IDs to skip before collecting results.
         :return: A list of image IDs.
         """
         cleaned_name = self.sanitize_species_name(scientific_name)
@@ -297,15 +318,22 @@ class ImageMetaService:
             query = f"""
                 SELECT img_id FROM {self.table}
                 WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
-                LIMIT 100
+                ORDER BY img_id
+                LIMIT ? OFFSET ?
             """
-            results = self.db_client.execute_query(query, cleaned_name).pl()
+            results = self.db_client.execute_prepared_to_pl(
+                query, [cleaned_name, limit, offset]
+            )
+            if results is None or results.is_empty():
+                return []
             image_ids = results["img_id"].to_list()
             return image_ids
         except Exception as e:
             logger.error(
                 f"Error retrieving image IDs for species '{scientific_name}': {e}"
             )
+            if raise_on_error:
+                raise
             return []
 
     def get_image_meta_by_species(self, species: str) -> pl.DataFrame | None:
