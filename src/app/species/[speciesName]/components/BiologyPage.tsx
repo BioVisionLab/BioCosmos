@@ -6,7 +6,7 @@ function BiologyPage({
   traits,
 }: {
   speciesName: string;
-  traits: LepTraits;
+  traits: LepTraits | null;
 }) {
   return (
     <div>

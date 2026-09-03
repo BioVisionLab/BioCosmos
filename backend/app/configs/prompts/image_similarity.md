@@ -8,11 +8,6 @@ parameters:
     description: >
       Scientific name of the reference species (e.g. "Danaus plexippus").
       Convert common names to scientific names if possible.
-  limit:
-    type: integer
-    required: false
-    default: 50
-    description: Maximum number of similar images to retrieve.
 ---
 
 Finds species visually similar to a specific scientific name using image

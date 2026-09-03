@@ -8,6 +8,10 @@ from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
 
 router = APIRouter()
 
+# Bounds for the paged species image-ID endpoint.
+DEFAULT_IMAGE_ID_LIMIT = 100
+MAX_IMAGE_ID_LIMIT = 500
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,32 +107,51 @@ async def image_search_thumbnail_by_id(request: Request, image_id: str):
     "/image/{scientific_name}/metadata",
     tags=["Species Data", "Taxon Images"],
 )
-async def fetch_species_image_ids(request: Request, scientific_name: str):
+async def fetch_species_image_ids(
+    request: Request,
+    scientific_name: str,
+    limit: int = DEFAULT_IMAGE_ID_LIMIT,
+    offset: int = 0,
+):
     """
     Takes in a species name.
-    Fetches all the corresponding image IDs.
-    Return a list of image IDs.
-    Returns a 404 error if images are not found.
+    Fetches a page of the corresponding image IDs.
+
+    Args:
+        scientific_name (str): The species to fetch image IDs for.
+        limit (int, optional): Maximum IDs to return. Clamped to
+            1..MAX_IMAGE_ID_LIMIT. Defaults to DEFAULT_IMAGE_ID_LIMIT.
+        offset (int, optional): Number of IDs to skip. Defaults to 0.
+
+    Returns a list of image IDs. Returns a 404 only when the first page is
+    empty; paging past the end yields an empty list so that callers can detect
+    exhaustion without treating it as an error.
     """
-    logger.info(f"Fetching image IDs for species: {scientific_name}")
+    limit = max(1, min(limit, MAX_IMAGE_ID_LIMIT))
+    offset = max(0, offset)
+    logger.info(
+        f"Fetching image IDs for species: {scientific_name} "
+        f"(limit={limit}, offset={offset})"
+    )
 
     try:
         image_ids = ImageMetaRetrieval(request=request).get_species_image_ids(
-            scientific_name
+            scientific_name, limit=limit, offset=offset
         )
-        if not image_ids:
-            logger.warning(f"No images found for species: {scientific_name}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Images not found for species: {scientific_name}",
-            )
-        return JSONResponse(content=image_ids)
     except Exception as e:
         logger.error(f"Error fetching image IDs for {scientific_name}: {e}")
         raise HTTPException(
             status_code=500,
             detail="An internal error occurred while fetching image IDs.",
         )
+
+    if not image_ids and offset == 0:
+        logger.warning(f"No images found for species: {scientific_name}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Images not found for species: {scientific_name}",
+        )
+    return JSONResponse(content=image_ids)
 
 
 @router.get(

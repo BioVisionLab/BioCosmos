@@ -4,6 +4,10 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from ..database.model import UmapEmbedding
+from ..query.embedding_stats import (
+    EmbeddingDistribution,
+    EmbeddingStatsPayload,
+)
 from ..query.specimen_data import SpeciesUmap
 from ..query.taxon_data import TaxonSearch
 
@@ -71,6 +75,44 @@ async def get_umap_stats(
         return JSONResponse(
             content={
                 "message": f"An error occurred while fetching UMAP stats for species {species}: {str(e)}"
+            },
+            status_code=500,
+        )
+
+
+def get_embedding_distribution(request: Request) -> EmbeddingDistribution:
+    return EmbeddingDistribution(request=request)
+
+
+@router.get(
+    "/stats/embeddings",
+    tags=["Data Statistics"],
+    response_model=EmbeddingStatsPayload,
+)
+async def get_embedding_stats(
+    service: EmbeddingDistribution = Depends(get_embedding_distribution),
+):
+    """
+    Get the distribution of CLIP and UNICOM embedding values.
+    """
+    logger.info("Received embedding distribution request")
+    try:
+        data = service.get_distributions()
+        if data is None:
+            logger.info("No embedding distributions found")
+            return JSONResponse(
+                content={"message": "No embedding statistics found"},
+                status_code=404,
+            )
+        logger.info("Embedding distributions computed successfully")
+        return JSONResponse(content=data, status_code=200)
+    except Exception as e:
+        logger.error(
+            f"Error fetching embedding distributions: {e}", exc_info=True
+        )
+        return JSONResponse(
+            content={
+                "message": f"An error occurred while fetching embedding statistics: {str(e)}"
             },
             status_code=500,
         )

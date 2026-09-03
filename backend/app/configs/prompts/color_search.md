@@ -8,11 +8,6 @@ parameters:
     description: >
       Natural language color or pattern description.
       Can be simple ("blue") or complex ("orange and black stripes").
-  limit:
-    type: integer
-    required: false
-    default: 150
-    description: Target number of species to return.
 ---
 
 Finds species matching a color or visual pattern description using

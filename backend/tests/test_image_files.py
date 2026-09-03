@@ -25,6 +25,33 @@ class TestImageMetaRetrieval:
             ids = retrieval.get_species_image_ids("danaus plexippus")
             assert ids == ["img-001", "img-002"]
 
+    def test_get_species_image_ids_forwards_paging(self, fake_request):
+        with patch(
+            "app.query.image_files.ImageMetaService"
+        ) as MockMeta:
+            MockMeta.return_value.get_image_ids_by_species.return_value = ["img-025"]
+            retrieval = ImageMetaRetrieval(request=fake_request)
+            ids = retrieval.get_species_image_ids(
+                "danaus plexippus", limit=24, offset=24
+            )
+
+        assert ids == ["img-025"]
+        MockMeta.return_value.get_image_ids_by_species.assert_called_once_with(
+            "danaus plexippus", limit=24, offset=24
+        )
+
+    def test_get_species_image_ids_defaults(self, fake_request):
+        with patch(
+            "app.query.image_files.ImageMetaService"
+        ) as MockMeta:
+            MockMeta.return_value.get_image_ids_by_species.return_value = []
+            retrieval = ImageMetaRetrieval(request=fake_request)
+            retrieval.get_species_image_ids("danaus plexippus")
+
+        MockMeta.return_value.get_image_ids_by_species.assert_called_once_with(
+            "danaus plexippus", limit=100, offset=0
+        )
+
     def test_get_species_image_ids_empty(self, fake_request):
         with patch(
             "app.query.image_files.ImageMetaService"

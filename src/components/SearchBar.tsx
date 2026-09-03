@@ -98,7 +98,7 @@ export default function HeaderClient() {
         <Link href="/" legacyBehavior={false} className="flex-shrink-0">
           <div className="flex items-center gap-2 cursor-pointer">
             <Image 
-              src="/leaflet/images/logo.png"
+              src="/logo.png"
               alt="biocosmos logo"
               width={32}
               height={32}

@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import React, { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { SpeciesImageGallery } from "./ImageGallery";
@@ -11,6 +10,8 @@ import { TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 import { LepTraits } from "@/lib/leptraits";
 import { NoData } from "@/components/NoData";
+import { ImageLoading } from "@/components/Loadings";
+import { useInView } from "@/lib/useInView";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
@@ -33,19 +34,45 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [prevImageIds, setPrevImageIds] = useState<string[]>([]);
   const [nextImageIds, setNextImageIds] = useState<string[]>([]);
+  const { ref: mapRef, inView: mapInView } = useInView<HTMLDivElement>();
 
+  // Declared above the early return below: taxonomy flips from null to
+  // populated in place, so every hook must run on both renders.
+  const handleSelectionChange = useCallback(
+    (payload: {
+      imageId: string | null;
+      items: string[];
+      selectedIndex: number;
+    }) => {
+      setSelectedImageId(payload.imageId ?? null);
+      setPrevImageIds(
+        payload.items && payload.selectedIndex > 0
+          ? payload.items.slice(
+              Math.max(0, payload.selectedIndex - 2),
+              payload.selectedIndex,
+            )
+          : [],
+      );
+      setNextImageIds(
+        payload.items && payload.selectedIndex < payload.items.length - 1
+          ? payload.items.slice(
+              payload.selectedIndex + 1,
+              payload.selectedIndex + 3,
+            )
+          : [],
+      );
+    },
+    [],
+  );
+
+  // The page shell renders before taxonomy resolves, so a null taxonomy here
+  // means "still loading" — the genuine not-found case is handled upstream in
+  // the species page itself.
   if (!taxonomy) {
     return (
-      <section className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold mb-6">Species Not Found</h1>
-        <p>The requested species could not be found.</p>
-        <Link
-          href="/"
-          className="text-blue-600 hover:underline mt-4 inline-block"
-        >
-          Return to homepage
-        </Link>
-      </section>
+      <div className="flex items-center justify-center py-16">
+        <ImageLoading size={220} msg="Fetching species details" />
+      </div>
     );
   }
 
@@ -55,33 +82,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         <div className="lg:col-span-2">
           <SpeciesImageGallery
             speciesName={taxonomy?.species ?? ""}
-            onSelectionChange={useCallback(
-              (payload: {
-                imageId: string | null;
-                items: string[];
-                selectedIndex: number;
-              }) => {
-                setSelectedImageId(payload.imageId ?? null);
-                setPrevImageIds(
-                  payload.items && payload.selectedIndex > 0
-                    ? payload.items.slice(
-                        Math.max(0, payload.selectedIndex - 2),
-                        payload.selectedIndex,
-                      )
-                    : [],
-                );
-                setNextImageIds(
-                  payload.items &&
-                    payload.selectedIndex < payload.items.length - 1
-                    ? payload.items.slice(
-                        payload.selectedIndex + 1,
-                        payload.selectedIndex + 3,
-                      )
-                    : [],
-                );
-              },
-              [setSelectedImageId, setPrevImageIds, setNextImageIds],
-            )}
+            onSelectionChange={handleSelectionChange}
           />
 
           <div className="mt-4">
@@ -108,7 +109,15 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
             horizontal
           />
 
-          <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
+          {/* The map pulls 200 GBIF occurrences plus the MapLibre bundle, so it
+              only mounts once the reader scrolls near it. */}
+          <div ref={mapRef}>
+            {mapInView ? (
+              <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
+            ) : (
+              <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl" />
+            )}
+          </div>
         </div>
       </div>
       <div className="mt-6">
