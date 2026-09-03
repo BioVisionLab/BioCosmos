@@ -22,11 +22,6 @@ parameters:
     required: false
     enum: [High, Medium, Low]
     description: Tolerance of habitat disturbance.
-  limit:
-    type: integer
-    required: false
-    default: 100
-    description: Maximum number of species to return.
 ---
 
 Finds species by ecological traits and habitat preferences using

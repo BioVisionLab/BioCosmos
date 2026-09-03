@@ -8,7 +8,7 @@ BioCosmos is a full-stack biodiversity image platform for butterfly species, com
 
 ## Architecture & Key Components
 
-- **Frontend (`src/`)**: Next.js (App Router), React, TypeScript, Tailwind CSS, Leaflet.js for maps. Key UI logic in `src/components/` and API calls in `src/app/`.
+- **Frontend (`src/`)**: Next.js (App Router), React, TypeScript, Tailwind CSS, MapLibre GL JS for maps. Key UI logic in `src/components/` and API calls in `src/app/`.
 - **Backend (`backend/app/`)**: FastAPI app (`main.py`), modular routers for search/taxon endpoints, database logic in `database/`, ML/external services in `services/`, and search logic in `searches/`.
 - **Data**: DuckDB for local SQL, LanceDB for vector search, image assets in `public/images/`, t-SNE outputs in `tsne_outputs/`.
 - **Tools (`tools/`)**: Python scripts for embedding, metadata, and visualization prep.
@@ -40,7 +40,7 @@ BioCosmos is a full-stack biodiversity image platform for butterfly species, com
 
 - **OpenAI API:** Used for chatbot and semantic search (requires key).
 - **CLIP Model:** Image embeddings for visual/semantic search (see `services/clip.py`).
-- **Leaflet.js:** Interactive map visualizations in frontend.
+- **MapLibre GL JS:** Interactive map visualizations in frontend, with OpenFreeMap basemaps.
 - **Docker:** Both frontend and backend have Dockerfiles; use Compose for orchestration.
 
 ## Examples

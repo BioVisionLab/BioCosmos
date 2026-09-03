@@ -31,7 +31,7 @@ A personalized, museum-quality biodiversity image platform that combines machine
 
 - **Detailed Profiles**: Scientific names, common names, biological descriptions, and conservation status.
 - **Image Galleries**: High-quality images with lightbox viewing.
-- **Geographic Maps**: Species distribution visualization using Leaflet and GBIF occurrence data.
+- **Geographic Maps**: Species distribution visualization using MapLibre GL JS and GBIF occurrence data.
 - **Taxonomic Classification**: Complete hierarchical classification.
 
 ### AI Integration
@@ -55,7 +55,7 @@ A personalized, museum-quality biodiversity image platform that combines machine
 - **React**: Component-based user interface library.
 - **TypeScript**: Type-safe development.
 - **Tailwind CSS**: Utility-first styling with custom themes.
-- **Leaflet.js & React Leaflet**: Interactive maps for geographic distribution.
+- **MapLibre GL JS**: Interactive vector maps for geographic distribution, with basemaps from OpenFreeMap.
 - **Lucide React**: Clean, customizable iconography.
 
 ### Backend Stack
@@ -136,7 +136,7 @@ biocosmos/
 │   │   ├── HomePage.tsx        # Homepage content
 │   │   ├── ImageSearch.tsx     # Image search interface
 │   │   ├── SearchBar.tsx       # Navigation search bar
-│   │   ├── SpeciesMap.tsx      # Leaflet geographic maps
+│   │   ├── SpeciesMap.tsx      # MapLibre geographic maps
 │   │   └── ...                 # Other components
 │   └── lib/                    # Helper functions and utilities
 │       ├── backend.ts          # Backend status verification
@@ -145,7 +145,6 @@ biocosmos/
 ├── public/                   # Static assets
 │   ├── images/                 # Species images (git-ignored)
 │   ├── dataset-metadata/       # Metadata files
-│   └── leaflet/                # Leaflet map assets
 ├── tools/                    # Data processing scripts
 │   ├── clip_search_service.py  # CLI search using CLIP
 │   ├── create_metadata_json.py # Process metadata
@@ -488,7 +487,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **LanceDB**: Fast vector database for similarity search
 - **FastAPI**: Modern Python web framework
 - **Next.js**: React framework with excellent developer experience
-- **Leaflet**: Open-source mapping library
+- **MapLibre GL JS**: Open-source mapping library (basemaps served by OpenFreeMap)
 - **GBIF**: Global biodiversity data integration
 - **Butterfly Dataset Contributors**: High-quality species images and data
 

@@ -91,53 +91,81 @@ body {
 /* Tailwind v4: base/components/utilities directives removed; main import at top handles everything. */
 /* :root, @theme, and body blocks removed */
 
-/* UMAP dark blue map theme */
-.dark .umap-site-tiles {
-  filter: sepia(0.8) hue-rotate(190deg) saturate(2) brightness(0.8)
-    contrast(1.1);
-}
-
-.dark .umap-dark-map .leaflet-container {
+/* Dark theme chrome for the MapLibre maps */
+.dark .umap-dark-map .maplibregl-map {
   border: 1px solid #354153;
   border-radius: 10px;
 }
 
-.dark .umap-dark-map .leaflet-control-zoom a {
+.dark .umap-dark-map .maplibregl-ctrl-group {
   background-color: #4b4e54;
-  color: #b0b2b5;
-  border: 0.5px solid #b0b2b5;
-}
-
-.dark .umap-dark-map .leaflet-control-zoom a:hover {
-  background-color: #575b61;
-}
-
-.dark .umap-dark-map .leaflet-bar {
   border: 0.5px solid #b0b2b5;
   border-radius: 10px;
   overflow: hidden;
 }
 
-.dark .umap-dark-map .leaflet-control-zoom a:first-child {
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  border-bottom: 0.5px solid #b0b2b5;
+.dark .umap-dark-map .maplibregl-ctrl-group button {
+  background-color: #4b4e54;
+  border-color: #b0b2b5;
 }
 
-.dark .umap-dark-map .leaflet-control-zoom a:last-child {
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
+.dark .umap-dark-map .maplibregl-ctrl-group button:hover {
+  background-color: #575b61;
 }
 
-.dark .umap-dark-map .leaflet-control-attribution {
+.dark .umap-dark-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+
+.dark .umap-dark-map .maplibregl-ctrl-attrib {
   background-color: #3a3c41 !important;
   color: #b0b2b5;
   font-size: 10px;
   border-radius: 10px;
 }
 
-.dark .umap-dark-map .leaflet-control-attribution a {
+.dark .umap-dark-map .maplibregl-ctrl-attrib a {
   color: #b0b2b5;
+}
+
+.dark .umap-dark-map .maplibregl-ctrl-attrib-button {
+  filter: invert(0.85);
+}
+
+.dark .umap-dark-map .maplibregl-popup-content {
+  background-color: #3a3c41;
+  color: #e5e7eb;
+  border-radius: 8px;
+}
+
+.dark .umap-dark-map .maplibregl-popup-close-button {
+  color: #b0b2b5;
+}
+
+/* Attribute prefixes so the corner anchors (top-left, bottom-right, ...) match too. */
+.dark .umap-dark-map [class*="maplibregl-popup-anchor-top"] .maplibregl-popup-tip {
+  border-bottom-color: #3a3c41;
+}
+
+.dark
+  .umap-dark-map
+  [class*="maplibregl-popup-anchor-bottom"]
+  .maplibregl-popup-tip {
+  border-top-color: #3a3c41;
+}
+
+.dark
+  .umap-dark-map
+  .maplibregl-popup-anchor-left
+  .maplibregl-popup-tip {
+  border-right-color: #3a3c41;
+}
+
+.dark
+  .umap-dark-map
+  .maplibregl-popup-anchor-right
+  .maplibregl-popup-tip {
+  border-left-color: #3a3c41;
 }
 
 .dynamic-content a {

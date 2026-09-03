@@ -23,13 +23,18 @@ class ImageMetaRetrieval:
         self.duckdb = request.app.state.duck_db
         self.lance_db = request.app.state.lance_db
 
-    def get_species_image_ids(self, scientific_name: str) -> list[str]:
+    def get_species_image_ids(
+        self,
+        scientific_name: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[str]:
         """
-        Retrieve image IDs associated with a species.
+        Retrieve a page of image IDs associated with a species.
         """
         image_ids: list[str] = ImageMetaService(
             duckdb=self.duckdb
-        ).get_image_ids_by_species(scientific_name)
+        ).get_image_ids_by_species(scientific_name, limit=limit, offset=offset)
         return image_ids
 
     def get_meta_by_id(self, image_id: str) -> dict | None:

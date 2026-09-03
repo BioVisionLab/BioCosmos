@@ -446,6 +446,10 @@ class PromptsConfig:
             },
         }
 
+    def load_tool_description(self, path: str) -> str:
+        """Load only the descriptive body of a tool prompt file."""
+        return self._parse_front_matter(path)[0]
+
     def _resolve_path(self, filename: str) -> str:
         """
         Resolve a filename to its full path under the prompts directory.

@@ -90,6 +90,7 @@ class ImagePersistData:
         text: str,
         limit: int = 50,
         max_distance: float | None = None,
+        raise_on_error: bool = False,
     ) -> list[dict] | None:
         """Fetch images similar to the given text.
         We use CLIP embeddings for text similarity search.
@@ -117,7 +118,11 @@ class ImagePersistData:
                 limit=limit,
                 max_distance=max_distance,
             )
-            if similar_images is None or similar_images.is_empty():
+            if similar_images is None:
+                if raise_on_error:
+                    raise RuntimeError("Text vector search failed.")
+                return None
+            if similar_images.is_empty():
                 self.logger.warning("No similar images found for the given text.")
                 return None
             self.logger.info(
@@ -132,6 +137,8 @@ class ImagePersistData:
 
         except Exception as e:
             self.logger.error(f"Error fetching similar images: {e}")
+            if raise_on_error:
+                raise
             return None
 
     def fetch_similar_images_from_text_filtered(
@@ -140,6 +147,8 @@ class ImagePersistData:
         text: str,
         limit: int,
         filter_img_ids: List[str],
+        *,
+        raise_on_error: bool = False,
     ) -> List[dict]:
         """
         CLIP text search restricted to a specific set of image IDs.
@@ -173,39 +182,21 @@ class ImagePersistData:
                 self.logger.warning("Failed to compute text embedding.")
                 return []
 
-            # Step 2: Build SQL IN clause ? LanceDB WHERE uses SQL syntax
-            # Wrap each ID in single quotes and join with commas
-            ids_sql = ", ".join(f"'{img_id}'" for img_id in filter_img_ids)
-            where_clause = f"img_id IN ({ids_sql})"
-
-            # Step 3: Run vector search with pre-filter
-            results = (
-                self.db_table.search(
-                    query_embedding,
-                    vector_column_name="clip_embeddings",
-                )
-                .where(
-                    where_clause, prefilter=True
-                )  # prefilter=True scopes search to allowlist
-                .distance_type("cosine")
-                .limit(limit)
-                .to_polars()
+            cleaned = self._query_embedding(
+                query_vector=query_embedding,
+                vector_column_name="clip_embeddings",
+                limit=limit,
+                filter_img_ids=filter_img_ids,
             )
-
-            if results is None or results.is_empty():
+            if cleaned is None:
+                if raise_on_error:
+                    raise RuntimeError("Filtered text vector search failed.")
+                return []
+            if cleaned.is_empty():
                 self.logger.warning(
                     f"No similar images found for text '{text}' within {len(filter_img_ids)} filtered IDs."
                 )
                 return []
-
-            # Step 4: Select and rename columns to match pipeline schema
-            safe_cols = [c for c in ("img_id", "_distance") if c in results.columns]
-            if not safe_cols:
-                return []
-
-            cleaned = results.select(safe_cols).rename(
-                {"img_id": "imgId", "_distance": "distance"}
-            )
 
             # Step 5: Merge with metadata (adds species column)
             merged = self._merge_result_with_metadata(cleaned)
@@ -227,6 +218,8 @@ class ImagePersistData:
                 f"Error in fetch_similar_images_from_text_filtered: {e}",
                 exc_info=True,
             )
+            if raise_on_error:
+                raise
             return []
 
     def fetch_similar_images_from_bytes(
@@ -271,7 +264,12 @@ class ImagePersistData:
             return None
 
     def find_similar_images(
-        self, image_ids: list[str], limit: int = 20
+        self,
+        image_ids: list[str],
+        limit: int = 20,
+        filter_img_ids: list[str] | None = None,
+        *,
+        raise_on_error: bool = False,
     ) -> pl.DataFrame | None:
         """Find images from other species similar to the given image list using UNICOM embeddings.
 
@@ -283,8 +281,10 @@ class ImagePersistData:
           5. Remove the original species from the results.
 
         Args:
-            species_name: Species name (case/space insensitive).
+            image_ids: Reference image IDs used to build the centroid.
             limit: Maximum number of similar (distinct) species to return (default 20).
+            filter_img_ids: Optional candidate image IDs used as a vector-search
+                prefilter.
 
         Returns:
             list of dicts with keys: imgId, species, distance (smaller = more similar),
@@ -301,15 +301,22 @@ class ImagePersistData:
                 query_vector=centroid,
                 vector_column_name="unicom_embeddings",
                 limit=limit,
+                filter_img_ids=filter_img_ids,
             )
-            self.logger.info(
-                f"Found {len(results)} similar images for image IDs '{image_ids}'."
-            )
-            if results is None or results.is_empty():
+            if results is None:
+                if raise_on_error:
+                    raise RuntimeError("Image vector search failed.")
+                return None
+            if results.is_empty():
                 self.logger.warning(
                     f"No unique species found in similar images for image IDs '{image_ids}'."
                 )
                 return None
+            self.logger.info(
+                "Found %d similar images for %d reference image IDs.",
+                len(results),
+                len(image_ids),
+            )
             merged_results = self._merge_result_with_metadata(results)
             # Filter to unique species and remove binary/embedding columns before JSON
             similar_images = self._filter_by_species(merged_results)
@@ -318,6 +325,8 @@ class ImagePersistData:
             self.logger.error(
                 f"Error fetching similar images for image IDs '{image_ids}': {e}"
             )
+            if raise_on_error:
+                raise
             return None
 
     def fetch_thumbnail_path(self, species_name: str) -> str | None:
@@ -330,6 +339,7 @@ class ImagePersistData:
         vector_column_name: str,
         limit: int = 5,
         max_distance: float | None = None,
+        filter_img_ids: list[str] | None = None,
     ) -> pl.DataFrame | None:
         """Query the database for similar images based on the embedding vector.
 
@@ -339,17 +349,30 @@ class ImagePersistData:
             limit: Maximum number of results to return
             max_distance: Optional maximum cosine distance threshold (0-2, lower is more similar).
                          If None, no distance filtering is applied.
+            filter_img_ids: Optional image IDs to constrain before vector ranking.
         """
         try:
-            results = (
+            search = (
                 self.db_table.search(
                     query_vector,
                     vector_column_name=vector_column_name,
                 )
                 .distance_type("cosine")
-                .limit(limit)
-                .to_polars()
             )
+            if filter_img_ids is not None:
+                if not filter_img_ids:
+                    return pl.DataFrame(
+                        schema={"imgId": pl.String, "distance": pl.Float64}
+                    )
+                quoted_ids = ", ".join(
+                    f"'{str(img_id).replace(chr(39), chr(39) * 2)}'"
+                    for img_id in filter_img_ids
+                )
+                search = search.where(
+                    f"img_id IN ({quoted_ids})",
+                    prefilter=True,
+                )
+            results = search.limit(limit).to_polars()
             safe_cols = [c for c in ("img_id", "_distance") if c in results.columns]
             if not safe_cols:
                 return None
