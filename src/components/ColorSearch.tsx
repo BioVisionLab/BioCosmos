@@ -126,7 +126,11 @@ export default function ColorSearch() {
         })}
       </div>
 
-      <div className="mt-8 min-h-48" aria-busy={loading} aria-live="polite">
+      <div
+        className={`mt-8 ${selectedColor ? "min-h-48" : ""}`}
+        aria-busy={loading}
+        aria-live="polite"
+      >
         {loading && selectedColor ? (
           <div className="flex justify-center py-8">
             <ImageLoading
