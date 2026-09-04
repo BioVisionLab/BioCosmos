@@ -10,6 +10,7 @@ import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
+import ColorSearch from "./ColorSearch";
 
 export default function HomePage() {
   return (
@@ -99,6 +100,7 @@ function HomeContent() {
   return (
     <div>
       <SearchSwitcher />
+      <ColorSearch />
       <div className="w-full max-w-5xl mt-12 mb-4 px-4 mx-auto">
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-gradient-to-r rounded-full from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50" />
