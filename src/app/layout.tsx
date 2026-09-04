@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Layout from "@/components/Layout";
-import 'leaflet/dist/leaflet.css';
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 // Import Poppins font weights

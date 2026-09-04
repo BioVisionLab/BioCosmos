@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useMemo } from "react";
 import { useTheme } from "next-themes";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css"; // Added leaflet CSS
-
-const DARK_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const LIGHT_TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-
+import PointMap, { MapPoint } from "@/components/map/PointMap";
 import { Occurrence } from "@/lib/map";
+
+const OCCURRENCE_COLOR = "#10b981";
+const CIRCLE_RADIUS = 4;
 
 interface SpeciesMapProps {
   occurrences?: Occurrence[];
@@ -20,81 +15,58 @@ interface SpeciesMapProps {
 const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === "dark";
-  const tileUrl = isDarkTheme ? DARK_TILE_URL : LIGHT_TILE_URL;
 
-  const customIcon = useMemo(() => {
-    const size = 8;
-    const html = `<div style="
-      width:${size}px;
-      height:${size}px;
-      background:#10b981;
-      opacity:0.8;
-      border-radius:50%;
-      border:1px solid rgba(255,255,255,0.7);
-      box-shadow:0 0 0 1px rgba(8, 15, 33, 0.35);
-    "></div>`;
+  const points = useMemo<MapPoint[]>(
+    () =>
+      occurrences
+        .filter(
+          (occ) =>
+            typeof occ.decimalLatitude === "number" &&
+            typeof occ.decimalLongitude === "number" &&
+            !Number.isNaN(occ.decimalLatitude) &&
+            !Number.isNaN(occ.decimalLongitude),
+        )
+        .map((occ, idx) => ({
+          id: `${occ.key || "occ"}-${idx}`,
+          lat: occ.decimalLatitude,
+          lon: occ.decimalLongitude,
+          color: OCCURRENCE_COLOR,
+        })),
+    [occurrences],
+  );
 
-    return L.divIcon({
-      html,
-      className: "",
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-      popupAnchor: [0, -size / 2],
-    });
-  }, []);
+  const mapCenter: [number, number] =
+    points.length > 0 ? [points[0].lon, points[0].lat] : [0, 20];
 
-  const mapCenter: L.LatLngExpression =
-    occurrences.length > 0
-      ? [occurrences[0].decimalLatitude, occurrences[0].decimalLongitude]
-      : [20, 0];
-
-  const mapZoom = occurrences.length > 0 ? 4 : 2;
-
+  const mapZoom = points.length > 0 ? 4 : 2;
 
   return (
     <div
       className={isDarkTheme ? "umap-dark-map" : ""}
       style={{ height: "400px", width: "100%" }}
     >
-      <MapContainer
+      <PointMap
+        points={points}
+        circleRadius={CIRCLE_RADIUS}
         center={mapCenter}
         zoom={mapZoom}
-        maxZoom={18}
         minZoom={2}
-        scrollWheelZoom
-        style={{ height: "400px", width: "100%", borderRadius: "12px" }}
-      >
-        <TileLayer
-          url={tileUrl}
-          className={isDarkTheme ? "umap-site-tiles" : undefined}
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-
-        {occurrences.map((occ, idx) => {
-          if (
-            typeof occ.decimalLatitude !== "number" ||
-            typeof occ.decimalLongitude !== "number" ||
-            Number.isNaN(occ.decimalLatitude) ||
-            Number.isNaN(occ.decimalLongitude)
-          ) {
-            return null;
-          }
-
-          return (
-            <Marker
-              key={`${occ.key || "occ"}-${idx}`}
-              position={[occ.decimalLatitude, occ.decimalLongitude]}
-              icon={customIcon}
-            >
-              <Popup>
-                Occurrence Record <br />
-                Lat: {occ.decimalLatitude.toFixed(4)} <br />
-                Lon: {occ.decimalLongitude.toFixed(4)}
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
+        maxZoom={18}
+        interaction="click"
+        renderPopup={(point) => (
+          <>
+            Occurrence Record <br />
+            Lat: {point.lat.toFixed(4)} <br />
+            Lon: {point.lon.toFixed(4)}
+          </>
+        )}
+        style={{
+          height: "400px",
+          width: "100%",
+          borderRadius: "12px",
+          overflow: "hidden",
+        }}
+      />
     </div>
   );
 };

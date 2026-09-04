@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { SimilarSpeciesList, SimilarSpeciesMeta } from "@/lib/similarSpecies";
+import { useInView } from "@/lib/useInView";
 
 const IMAGE_SIZE = 120;
 
@@ -15,6 +16,7 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
   const [similarSpecies, setSimilarSpecies] =
     useState<SimilarSpeciesList | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { ref, inView } = useInView<HTMLDivElement>();
 
   useEffect(() => {
     if (!species) {
@@ -22,10 +24,10 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
       setSimilarSpecies(null);
       return;
     }
+    // This embedding search is expensive and the panel sits below the fold, so
+    // hold off until the reader actually scrolls towards it.
+    if (!inView) return;
     const fetchSimilarSpecies = async () => {
-      // We add a small delay to avoid this expensive call happening too quickly
-      // after the main species data fetch.
-      await new Promise((resolve) => setTimeout(resolve, 500));
       try {
         const response = await fetch(
           `/api/ml-search/similarity?species=${encodeURIComponent(species)}`,
@@ -46,13 +48,16 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
       }
     };
     fetchSimilarSpecies();
-  }, [species]);
+  }, [species, inView]);
 
   const isNotFound =
     !similarSpecies ||
     (similarSpecies.dorsal.length === 0 && similarSpecies.ventral.length === 0);
   return (
-    <div className="mt-4 border border-deep-mocha-300 dark:border-deep-mocha-600 rounded-xl bg-deep-mocha-200/50 dark:bg-deep-mocha-800/50 backdrop-blur">
+    <div
+      ref={ref}
+      className="mt-4 border border-deep-mocha-300 dark:border-deep-mocha-600 rounded-xl bg-deep-mocha-200/50 dark:bg-deep-mocha-800/50 backdrop-blur"
+    >
       <div className="border-b border-deep-mocha-300 dark:border-deep-mocha-600 p-4">
         <h2 className="text-2xl font-semibold">Visually Similar Species</h2>
         <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
