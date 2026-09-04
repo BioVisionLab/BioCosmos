@@ -72,16 +72,20 @@ async function fetchSpeciesImage(speciesName: string): Promise<string> {
   )}&type=full`;
 }
 
+
+function imageUrlById(
+  imageId: string,
+  type: "full" | "thumbnail" = "full"
+): string {
+  return `${IMAGE_API_BASE}/id?imageId=${encodeURIComponent(imageId)}&type=${type}`;
+}
+
 async function fetchImgById(imageId: string): Promise<string> {
-  return `${IMAGE_API_BASE}/id?imageId=${encodeURIComponent(
-    imageId
-  )}&type=full`;
+  return imageUrlById(imageId, "full");
 }
 
 async function fetchThumbnailById(imageId: string): Promise<string> {
-  return `${IMAGE_API_BASE}/id?imageId=${encodeURIComponent(
-    imageId
-  )}&type=thumbnail`;
+  return imageUrlById(imageId, "thumbnail");
 }
 
 export {
@@ -90,4 +94,5 @@ export {
   fetchSpeciesThumbnail,
   fetchImgById,
   fetchThumbnailById,
+  imageUrlById,
 };
