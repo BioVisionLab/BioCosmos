@@ -9,12 +9,12 @@ import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
 import { formatNumberToLocaleString } from "@/lib/textUtils";
 import {
   fetchThumbnailById,
-  fetchImgById,
   fetchSpeciesImageIds,
 } from "@/lib/images";
 import ImageUmap from "./ImageUmap";
 import Tips from "@/components/Tips";
 import PaginationControls from "@/components/PaginationControls";
+import { SpecimenImageModal } from "@/components/SpecimenImageModal";
 
 interface SpecimensTabProps {
   // keep backward compatibility: callers may pass specimens array
@@ -77,46 +77,10 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   const showImageCount = propsShowImageCount ?? true;
   // track which thumbnails have finished loading (by id)
   const [loadedThumbIds, setLoadedThumbIds] = useState<Set<string>>(new Set());
-  // cache for fetched full-size images while modal is open
-  const fullCache = useRef<Map<string, string>>(new Map());
-
-  // cache for fetched metadata for modal images
-  const modalMetaCache = useRef<Map<string, any>>(new Map());
-  const modalMetaInFlight = useRef<Map<string, Promise<any | null>>>(new Map());
-
-  // Helper to fetch metadata and store in cache (for modal)
-  const fetchAndCacheModalMeta = async (id: string) => {
-    if (!id) return null;
-    if (modalMetaCache.current.has(id)) return modalMetaCache.current.get(id);
-    if (modalMetaInFlight.current.has(id)) {
-      return modalMetaInFlight.current.get(id) ?? null;
-    }
-
-    const request = (async () => {
-      try {
-        const res = await fetch(
-          `/api/images/id/metadata?imageId=${encodeURIComponent(id)}`,
-        );
-        if (!res.ok) return null;
-        const data = await res.json();
-        modalMetaCache.current.set(id, data ?? null);
-        return data ?? null;
-      } catch (err) {
-        console.error("Error fetching image metadata (modal):", err);
-        return null;
-      } finally {
-        modalMetaInFlight.current.delete(id);
-      }
-    })();
-
-    modalMetaInFlight.current.set(id, request);
-
-    try {
-      return await request;
-    } catch {
-      return null;
-    }
-  };
+  // index into `modalPageIds` (below) of the specimen open in the full-image
+  // modal; `null` means the modal is closed. The modal itself owns all
+  // full-image/metadata fetching, caching and neighbor preloading.
+  const [openIndexInPage, setOpenIndexInPage] = useState<number | null>(null);
 
   // moved logic into named helpers below and call them here
   useEffect(() => {
@@ -202,33 +166,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   // helper to normalize a name string
   const nameOr = (n?: string) => n ?? "";
 
-  const getSafeExternalHref = (
-    rawUrl: unknown,
-    fallback = "https://www.gbif.org",
-  ) => {
-    if (typeof rawUrl !== "string") return fallback;
-    const trimmed = rawUrl.trim();
-    if (!trimmed) return fallback;
-
-    const normalized = /^https?:\/\//i.test(trimmed)
-      ? trimmed
-      : /^www\./i.test(trimmed)
-        ? `https://${trimmed}`
-        : "";
-
-    if (!normalized) return fallback;
-
-    try {
-      const parsed = new URL(normalized);
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-        return parsed.toString();
-      }
-      return fallback;
-    } catch {
-      return fallback;
-    }
-  };
-
   // load specimen metadata (image count) separately and show in header
   async function loadMeta(name?: string, mountedFlag = true) {
     if (!name) {
@@ -258,14 +195,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       }
     });
     createdUrls.current = [];
-    fullCache.current.forEach((u) => {
-      try {
-        URL.revokeObjectURL(u);
-      } catch {
-        /* ignore */
-      }
-    });
-    fullCache.current.clear();
   }
 
   // fetch a list of thumbnails for given ids (defensive: returns url undefined on failure)
@@ -522,285 +451,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     }
   };
 
-  const openFull = async (id: string) => {
-    try {
-      setModalError(null);
-      // if full image already cached, use it
-      if (fullCache.current.has(id)) {
-        const cached = fullCache.current.get(id)!;
-        setModalImageUrl(cached);
-        setModalOpen(true);
-        // fetch metadata for cached image
-        void fetchAndSetModalMeta(id);
-        if (allIds) {
-          const idx = allIds.indexOf(id);
-          setModalIndex(idx >= 0 ? idx : null);
-          // limit modal navigation to the currently displayed page
-          const pageStart = (displayPage - 1) * PAGE_SIZE;
-          const pageEnd = Math.min(
-            allIds.length - 1,
-            pageStart + PAGE_SIZE - 1,
-          );
-          setModalPageRange({ start: pageStart, end: pageEnd });
-        } else {
-          setModalIndex(null);
-        }
-        // prefetch neighbors
-        prefetchNeighbors(id);
-        prefetchModalMetaNeighbors(id);
-        return;
-      }
-
-      setModalLoading(true);
-      // fetch full image blob URL and cache it
-      const url = await fetchImgById(id);
-      createdUrls.current.push(url);
-      fullCache.current.set(id, url);
-      setModalImageUrl(url);
-      // fetch metadata for this image
-      void fetchAndSetModalMeta(id);
-      if (allIds) {
-        const idx = allIds.indexOf(id);
-        setModalIndex(idx >= 0 ? idx : null);
-        const pageStart = (displayPage - 1) * PAGE_SIZE;
-        const pageEnd = Math.min(allIds.length - 1, pageStart + PAGE_SIZE - 1);
-        setModalPageRange({ start: pageStart, end: pageEnd });
-      } else {
-        setModalIndex(null);
-      }
-      setModalOpen(true);
-      // prefetch neighbors
-      prefetchNeighbors(id);
-      prefetchModalMetaNeighbors(id);
-    } catch (err) {
-      console.error("Failed to open full image:", err);
-      setModalError("Failed to load full image.");
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  // prefetch previous and next full images to reduce loading latency
-  const prefetchNeighbors = (id: string) => {
-    if (!allIds) return;
-    const idx = allIds.indexOf(id);
-    if (idx < 0) return;
-    const neighbors = [idx - 1, idx + 1];
-    neighbors.forEach((n) => {
-      if (n < 0 || n >= allIds.length) return;
-      const nid = allIds[n];
-      if (fullCache.current.has(nid)) return; // already cached
-      // fetch but don't block UI
-      fetchImgById(nid)
-        .then((url) => {
-          createdUrls.current.push(url);
-          fullCache.current.set(nid, url);
-        })
-        .catch(() => {
-          // ignore prefetch failures
-        });
-    });
-  };
-
-  const prefetchModalMetaNeighbors = (id: string) => {
-    if (!allIds) return;
-    const idx = allIds.indexOf(id);
-    if (idx < 0) return;
-
-    const pageStart = modalPageRange?.start ?? 0;
-    const pageEnd = modalPageRange?.end ?? allIds.length - 1;
-    const neighborOffsets = [-2, -1, 1, 2];
-
-    neighborOffsets.forEach((offset) => {
-      const targetIndex = idx + offset;
-      if (targetIndex < pageStart || targetIndex > pageEnd) return;
-      const neighborId = allIds[targetIndex];
-      if (!neighborId) return;
-      void fetchAndCacheModalMeta(neighborId);
-    });
-  };
-
-  // metadata for currently shown modal image
-  const [modalMeta, setModalMeta] = useState<any | null>(null);
-  const [modalMetaLoading, setModalMetaLoading] = useState(false);
-
-  const fetchAndSetModalMeta = async (id: string) => {
-    if (!id) return;
-
-    if (modalMetaCache.current.has(id)) {
-      setModalMeta(modalMetaCache.current.get(id) ?? null);
-      setModalMetaLoading(false);
-      return;
-    }
-
-    try {
-      setModalMeta(null);
-      setModalMetaLoading(true);
-      const data = await fetchAndCacheModalMeta(id);
-      setModalMeta(data ?? null);
-    } catch (err) {
-      console.error("Error fetching image metadata:", err);
-    } finally {
-      setModalMetaLoading(false);
-    }
-  };
-
-  // modal state for full-size image viewer
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [modalIndex, setModalIndex] = useState<number | null>(null); // index into allIds
-  // modal navigation limited to the currently displayed page's index range
-  const [modalPageRange, setModalPageRange] = useState<{
-    start: number;
-    end: number;
-  } | null>(null);
-
-  // prevent background scrolling when the modal is open; restore previous overflow on close
-  const originalBodyOverflow = useRef<string | null>(null);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (modalOpen) {
-      originalBodyOverflow.current = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-    } else if (originalBodyOverflow.current !== null) {
-      document.body.style.overflow = originalBodyOverflow.current;
-      originalBodyOverflow.current = null;
-    }
-
-    return () => {
-      if (originalBodyOverflow.current !== null) {
-        document.body.style.overflow = originalBodyOverflow.current;
-        originalBodyOverflow.current = null;
-      }
-    };
-  }, [modalOpen]);
-
-  // keep modal page range in sync when modal/displayPage/allIds change
-  useEffect(() => {
-    if (!modalOpen || !allIds) {
-      setModalPageRange(null);
-      return;
-    }
-    const pageStart = (displayPage - 1) * PAGE_SIZE;
-    const pageEnd = Math.min(allIds.length - 1, pageStart + PAGE_SIZE - 1);
-    setModalPageRange({ start: pageStart, end: pageEnd });
-  }, [modalOpen, displayPage, allIds]);
-
-  const revokeUrl = (url?: string | null) => {
-    if (!url) return;
-    try {
-      URL.revokeObjectURL(url);
-    } catch {
-      /* ignore */
-    }
-    // remove from createdUrls list if present
-    createdUrls.current = createdUrls.current.filter((u) => u !== url);
-    // also remove from fullCache if present
-    for (const [k, v] of Array.from(fullCache.current.entries())) {
-      if (v === url) fullCache.current.delete(k);
-    }
-  };
-
-  const closeModal = () => {
-    if (modalImageUrl) {
-      // revoke and remove
-      revokeUrl(modalImageUrl);
-    }
-    // revoke any prefetched full images too
-    fullCache.current.forEach((u) => {
-      try {
-        URL.revokeObjectURL(u);
-      } catch {
-        /* ignore */
-      }
-    });
-    fullCache.current.clear();
-    setModalImageUrl(null);
-    setModalOpen(false);
-    setModalMeta(null);
-    setModalMetaLoading(false);
-    setModalError(null);
-    setModalLoading(false);
-    setModalIndex(null);
-  };
-
-  // close on ESC
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && modalOpen) closeModal();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [modalOpen, modalImageUrl]);
-
-  // keyboard left/right navigation
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!modalOpen || modalIndex == null || !allIds) return;
-      if (e.key === "ArrowLeft") {
-        if (modalIndex > 0) navigateModalTo(modalIndex - 1);
-      } else if (e.key === "ArrowRight") {
-        if (modalIndex < (allIds || []).length - 1)
-          navigateModalTo(modalIndex + 1);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [modalOpen, modalIndex, allIds]);
-
-  // navigate modal to index
-  const navigateModalTo = async (newIndex: number) => {
-    if (!allIds) return;
-    const cappedTotal = allIds.length;
-    if (newIndex < 0 || newIndex >= cappedTotal) return;
-    // prevent navigating outside the currently displayed page range
-    if (modalPageRange) {
-      if (newIndex < modalPageRange.start || newIndex > modalPageRange.end)
-        return;
-    }
-    const id = allIds[newIndex];
-    // if cached, use it immediately
-    const cached = fullCache.current.get(id);
-    if (cached) {
-      // set image immediately from cache
-      setModalImageUrl(cached);
-      setModalIndex(newIndex);
-      // ensure modal is open
-      setModalOpen(true);
-      // fetch metadata for this image
-      void fetchAndSetModalMeta(id);
-      // prefetch neighbors
-      prefetchNeighbors(id);
-      prefetchModalMetaNeighbors(id);
-      return;
-    }
-
-    try {
-      setModalLoading(true);
-      setModalError(null);
-      const url = await fetchImgById(id);
-      // cache and keep previous image displayed until we swap
-      fullCache.current.set(id, url);
-      createdUrls.current.push(url);
-      // now swap to new image
-      if (modalImageUrl) revokeUrl(modalImageUrl);
-      setModalImageUrl(url);
-      // fetch metadata for this image
-      void fetchAndSetModalMeta(id);
-      setModalIndex(newIndex);
-      // prefetch neighbors
-      prefetchNeighbors(id);
-      prefetchModalMetaNeighbors(id);
-    } catch (err) {
-      console.error("Failed to navigate to image:", err);
-      setModalError("Failed to load image.");
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
   // compute pagination info
   const loadedPages = Math.max(
     1,
@@ -905,6 +555,20 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   // load. This makes navigation feel stable and less janky.
   if (error) return <div className="py-4 text-burnt-peach-600">{error}</div>;
 
+  // Ids for the currently displayed grid page (or preview), used to drive
+  // the shared full-image modal's prev/next navigation. Mirrors the id list
+  // each grid-rendering branch below computes for its own tiles.
+  const modalPageIds = showAll
+    ? allIds
+      ? allIds.slice(
+          (displayPage - 1) * PAGE_SIZE,
+          (displayPage - 1) * PAGE_SIZE + PAGE_SIZE,
+        )
+      : items.map((it) => it.id)
+    : allIds
+      ? allIds.slice(0, MAX_PREVIEW)
+      : items.map((it) => it.id).slice(0, MAX_PREVIEW);
+
   return (
     <div>
       {/* Specimen header (icon + image count) */}
@@ -934,7 +598,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       {showUmap && (
         <div
           id="specimen-umap"
-          className={`transition-opacity duration-200 ${modalOpen ? "opacity-30 pointer-events-none" : "opacity-100"}`}
+          className={`transition-opacity duration-200 ${openIndexInPage !== null ? "opacity-30 pointer-events-none" : "opacity-100"}`}
         >
           <ImageUmap species={speciesName ?? ""} />
         </div>
@@ -974,7 +638,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                 return (
                   <button
                     key={id ?? String(idOrPlaceholder)}
-                    onClick={() => (id ? openFull(id) : undefined)}
+                    onClick={() => {
+                      if (!id) return;
+                      const idx = pageIds.indexOf(id);
+                      if (idx >= 0) setOpenIndexInPage(idx);
+                    }}
                     title={id ? "Open full image" : undefined}
                     className="relative w-full aspect-square rounded-xl overflow-hidden border border-deep-mocha-200 dark:border-deep-mocha-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-pacific-blue-600"
                   >
@@ -1043,7 +711,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
               return (
                 <button
                   key={id ?? String(idOrPlaceholder)}
-                  onClick={() => (id ? openFull(id) : undefined)}
+                  onClick={() => {
+                    if (!id) return;
+                    const idx = pageIds.indexOf(id);
+                    if (idx >= 0) setOpenIndexInPage(idx);
+                  }}
                   title={id ? "Open full image" : undefined}
                   className="relative w-full aspect-square rounded-xl overflow-hidden border border-deep-mocha-200 dark:border-deep-mocha-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-pacific-blue-600"
                 >
@@ -1115,230 +787,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       )}
 
       {/* Modal/lightbox for full-size image */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60"
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => {
-            // close when clicking on backdrop
-            if (e.target === e.currentTarget) closeModal();
-          }}
-        >
-          <div className="relative w-[45vw] max-w-[95vw] max-h-[95vh] flex flex-col items-center justify-center gap-4">
-            <button
-              onClick={closeModal}
-              aria-label="Close full image"
-              className="absolute -top-3 -right-3 z-40 flex items-center justify-center 
-                rounded-full p-2 bg-hunter-green-500 hover:bg-hunter-green-400 
-                dark:bg-hunter-green-600 dark:hover:bg-hunter-green-500 
-                text-gray border border-white/50 shadow-md hover:shadow-lg 
-                transition-all duration-200"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-white"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 8.586l4.95-4.95a1 1 0 111.414 1.414L11.414 10l4.95 4.95a1 1 0 01-1.414 1.414L10 11.414l-4.95 4.95a1 1 0 01-1.414-1.414L8.586 10 3.636 5.05A1 1 0 015.05 3.636L10 8.586z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
+      <SpecimenImageModal
+        ids={modalPageIds}
+        openIndex={openIndexInPage}
+        onOpenIndexChange={setOpenIndexInPage}
+      />
 
-            {/* Formatting of pop-out image box (keep your colors/borders but reserve a fixed box to prevent resizing) */}
-            <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 w-full h-full flex-1 flex items-center justify-center relative">
-              {/* left nav (aligned to image) */}
-              <button
-                onClick={() =>
-                  modalIndex != null ? navigateModalTo(modalIndex - 1) : null
-                }
-                disabled={
-                  modalIndex == null ||
-                  (modalPageRange
-                    ? modalIndex <= modalPageRange.start
-                    : modalIndex <= 0)
-                }
-                aria-label="Previous image"
-                className={`absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
-                  modalIndex == null ||
-                  (modalPageRange
-                    ? modalIndex <= modalPageRange.start
-                    : modalIndex <= 0)
-                    ? "text-deep-mocha-400 cursor-not-allowed"
-                    : "text-white bg-black/30 hover:bg-white/10"
-                }`}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-              {modalLoading ? (
-                // Loading placeholder occupies the same space as the final image to avoid layout jumps
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-full h-full flex items-center justify-center max-w-full max-h-full">
-                    <ImageLoading size={250} />
-                  </div>
-                </div>
-              ) : modalImageUrl ? (
-                // use native img for blob URLs; constrain to the container so the box doesn't resize
-                <img
-                  src={modalImageUrl}
-                  alt="Full size specimen"
-                  className="max-h-full max-w-full object-contain rounded-xl"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-deep-mocha-700">
-                  {modalError ?? "Unable to load image"}
-                </div>
-              )}
-              {/* right nav (aligned to image) */}
-              <button
-                onClick={() =>
-                  modalIndex != null ? navigateModalTo(modalIndex + 1) : null
-                }
-                disabled={
-                  modalIndex == null ||
-                  (modalPageRange
-                    ? modalIndex >= modalPageRange.end
-                    : modalIndex >= (allIds || []).length - 1)
-                }
-                aria-label="Next image"
-                className={`absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
-                  modalIndex == null ||
-                  (modalPageRange
-                    ? modalIndex >= modalPageRange.end
-                    : modalIndex >= (allIds || []).length - 1)
-                    ? "text-deep-mocha-400 cursor-not-allowed"
-                    : "text-white bg-black/30 hover:bg-white/10"
-                }`}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-            </div>
-            {/* Metadata box below the image */}
-            {(modalMeta || modalMetaLoading) && (
-              <div className="mt-2 w-fit mx-auto">
-                <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 text-xs text-deep-mocha-800 dark:text-white">
-                  <div className="flex flex-col gap-2">
-                    {modalMetaLoading ? (
-                      <div className="text-center text-sm text-deep-mocha-500">
-                        Loading metadata…
-                      </div>
-                    ) : (
-                      <>
-                        {/* class_dv */}
-                        {modalMeta?.class_dv && (
-                          <div>
-                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                              View:{" "}
-                            </span>
-                            <span className="text-deep-mocha-700 dark:text-white">
-                              {typeof modalMeta.class_dv === "string"
-                                ? modalMeta.class_dv.charAt(0).toUpperCase() +
-                                  modalMeta.class_dv.slice(1)
-                                : modalMeta.class_dv}
-                            </span>
-                          </div>
-                        )}
-                        {/* lat/lon */}
-                        {(modalMeta?.lat || modalMeta?.lon) && (
-                          <div>
-                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                              Location:{" "}
-                            </span>
-                            <span className="text-deep-mocha-700 dark:text-white">
-                              {modalMeta?.lat ?? "—"}, {modalMeta?.lon ?? "—"}
-                            </span>
-                          </div>
-                        )}
-                        {/* source_db */}
-                        {modalMeta?.source_db && (
-                          <div>
-                            <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                              Source DB:{" "}
-                            </span>
-                            <span className="text-deep-mocha-700 dark:text-white uppercase">
-                              {typeof modalMeta.source_db === "string"
-                                ? modalMeta.source_db
-                                : modalMeta.source_db}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Action buttons (License, Source, Image) - pill-shaped */}
-                        <div className="mt-3 flex flex-wrap gap-2 justify-center">
-                          {typeof modalMeta?.license === "string" &&
-                            modalMeta.license.startsWith("http") && (
-                              <a
-                                href={modalMeta.license}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                                aria-label="Open license"
-                              >
-                                License
-                              </a>
-                            )}
-                          {(modalMeta?.uuid || modalMeta?.source_db) && (
-                            <a
-                              href={getSafeExternalHref(modalMeta?.uuid)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                              aria-label="Open source link"
-                            >
-                              Source Link
-                            </a>
-                          )}
-                          {modalMeta?.uri && (
-                            <a
-                              href={modalMeta.uri}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                              aria-label="Open image link"
-                            >
-                              Image Link
-                            </a>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

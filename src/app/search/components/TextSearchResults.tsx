@@ -7,7 +7,7 @@ import {
   SpecimenMetadata,
   searchDatabase,
 } from "@/lib/dbSearch";
-import { fetchSpeciesThumbnail } from "@/lib/images";
+import { fetchSpeciesThumbnail, imageUrlById } from "@/lib/images";
 import {
   cleanSpeciesName,
   formatSpeciesNameForUrl,
@@ -18,8 +18,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { SpecimenImageModal } from "@/components/SpecimenImageModal";
 
 const IMAGE_SIZE = 128;
+const SPECIMEN_THUMB_SIZE = 48;
 
 function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -152,6 +154,48 @@ function renderCoordinateCell(
   }
 
   return <span>{text}</span>;
+}
+
+function SpecimenThumbnail({
+  imgId,
+  species,
+  onClick,
+}: {
+  imgId: string | null | undefined;
+  species: string | null | undefined;
+  onClick?: () => void;
+}) {
+  const boxClasses =
+    "relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-deep-mocha-200 dark:border-deep-mocha-700 bg-deep-mocha-100 dark:bg-deep-mocha-800";
+
+  if (!imgId) {
+    return (
+      <div className={`${boxClasses} flex items-center justify-center`}>
+        <span className="text-deep-mocha-400 dark:text-deep-mocha-600">
+          —
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Open full image"
+      aria-label="Open full-size specimen image"
+      className={`${boxClasses} transition-all hover:shadow-lg hover:ring-1 hover:ring-pacific-blue-600 focus:outline-none focus:ring-2 focus:ring-hunter-green-500`}
+    >
+      <Image
+        src={imageUrlById(imgId, "thumbnail")}
+        alt={species ? `Specimen image of ${species.replace(/_/g, " ")}` : "Specimen image"}
+        fill
+        sizes={`${SPECIMEN_THUMB_SIZE}px`}
+        className="object-contain"
+        unoptimized
+      />
+    </button>
+  );
 }
 
 function DbSearch({
@@ -399,6 +443,13 @@ function DbSearchResults({
   onPageChange: (newPage: number) => void;
 }) {
   const [speciesPage, setSpeciesPage] = useState(1);
+  // index into `specimens` of the row whose thumbnail is open in the
+  // full-image modal; reset whenever a new page/query loads new specimens.
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  useEffect(() => {
+    setOpenIndex(null);
+  }, [specimens]);
+  const specimenImageIds = specimens.map((s) => s.img_id);
   const totalSpeciesPages = Math.ceil(results.length / SPECIES_PER_PAGE);
   const speciesStart = (speciesPage - 1) * SPECIES_PER_PAGE;
   const paginatedSpecies = results.slice(
@@ -486,6 +537,9 @@ function DbSearchResults({
                   <thead className="bg-hunter-green-500/10 dark:bg-hunter-green-500/20 text-hunter-green-800 dark:text-hunter-green-300 font-semibold tracking-wider text-xs uppercase border-b border-deep-mocha-200 dark:border-deep-mocha-700">
                     <tr>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Image
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Species
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
@@ -519,6 +573,13 @@ function DbSearchResults({
                           key={specimen.img_id || idx}
                           className="hover:bg-hunter-green-50/50 dark:hover:bg-hunter-green-950/20 transition-colors"
                         >
+                          <td className="px-4 py-2 align-middle">
+                            <SpecimenThumbnail
+                              imgId={specimen.img_id}
+                              species={specimen.species}
+                              onClick={() => setOpenIndex(idx)}
+                            />
+                          </td>
                           <td className="px-4 py-3 align-middle font-medium">
                             {renderSpeciesLink(
                               specimen.species,
@@ -594,6 +655,12 @@ function DbSearchResults({
           )}
         </div>
       )}
+
+      <SpecimenImageModal
+        ids={specimenImageIds}
+        openIndex={openIndex}
+        onOpenIndexChange={setOpenIndex}
+      />
     </div>
   );
 }
