@@ -10,6 +10,7 @@ import { ImageLoading } from "./Loadings";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
+import ColorSearch from "./ColorSearch";
 
 export default function HomePage() {
   return (
@@ -117,6 +118,7 @@ function HomeContent() {
           <SpeciesThumbnail key={index} species={species} index={index} />
         ))}
       </div>
+      <ColorSearch />
     </div>
   );
 }
