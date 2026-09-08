@@ -100,7 +100,6 @@ function HomeContent() {
   return (
     <div>
       <SearchSwitcher />
-      <ColorSearch />
       <div className="w-full max-w-5xl mt-12 mb-4 px-4 mx-auto">
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-gradient-to-r rounded-full from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50" />
@@ -119,6 +118,7 @@ function HomeContent() {
           <SpeciesThumbnail key={index} species={species} index={index} />
         ))}
       </div>
+      <ColorSearch />
     </div>
   );
 }
