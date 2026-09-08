@@ -248,175 +248,178 @@ function SpecimenImageModal({
           </svg>
         </button>
 
-        {/* Formatting of pop-out image box (keep colors/borders but reserve a fixed box to prevent resizing) */}
-        <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 w-full h-full flex-1 flex items-center justify-center relative">
-          {/* left nav (aligned to image) */}
-          <button
-            onClick={() => prevIdx != null && onOpenIndexChange(prevIdx)}
-            disabled={prevIdx == null}
-            aria-label="Previous image"
-            className={`absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
-              prevIdx == null
-                ? "text-deep-mocha-400 cursor-not-allowed"
-                : "text-white bg-black/30 hover:bg-white/10"
-            }`}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-
-          <div className="relative w-full h-full flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              key={currentId}
-              src={imageUrl}
-              alt="Full size specimen"
-              onLoad={() => markLoaded(currentId)}
-              onError={() => markLoaded(currentId)}
-              className="max-h-full max-w-full object-contain rounded-xl"
-            />
-            {/* Loading placeholder overlays the image until it (or a
-                preload for it) has finished loading, so already-preloaded
-                neighbors never show this at all. */}
-            <div
-              className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-900 rounded-xl transition-opacity ${
-                imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+        {/* Combined image and metadata box */}
+        <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 w-full h-full flex-1 flex flex-col items-center justify-start relative">
+          {/* Image container with nav buttons */}
+          <div className="w-full flex-1 flex items-center justify-center relative">
+            {/* left nav (aligned to image) */}
+            <button
+              onClick={() => prevIdx != null && onOpenIndexChange(prevIdx)}
+              disabled={prevIdx == null}
+              aria-label="Previous image"
+              className={`absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
+                prevIdx == null
+                  ? "text-deep-mocha-400 cursor-not-allowed"
+                  : "text-white bg-black/30 hover:bg-white/10"
               }`}
             >
-              <ImageLoading size={250} />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={currentId}
+                src={imageUrl}
+                alt="Full size specimen"
+                onLoad={() => markLoaded(currentId)}
+                onError={() => markLoaded(currentId)}
+                className="max-h-full max-w-full object-contain rounded-xl"
+              />
+              {/* Loading placeholder overlays the image until it (or a
+                  preload for it) has finished loading, so already-preloaded
+                  neighbors never show this at all. */}
+              <div
+                className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-900 rounded-xl transition-opacity ${
+                  imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                }`}
+              >
+                <ImageLoading size={250} />
+              </div>
             </div>
+
+            {/* right nav (aligned to image) */}
+            <button
+              onClick={() => nextIdx != null && onOpenIndexChange(nextIdx)}
+              disabled={nextIdx == null}
+              aria-label="Next image"
+              className={`absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
+                nextIdx == null
+                  ? "text-deep-mocha-400 cursor-not-allowed"
+                  : "text-white bg-black/30 hover:bg-white/10"
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
           </div>
 
-          {/* right nav (aligned to image) */}
-          <button
-            onClick={() => nextIdx != null && onOpenIndexChange(nextIdx)}
-            disabled={nextIdx == null}
-            aria-label="Next image"
-            className={`absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full p-2 transition-colors ${
-              nextIdx == null
-                ? "text-deep-mocha-400 cursor-not-allowed"
-                : "text-white bg-black/30 hover:bg-white/10"
-            }`}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
-        </div>
+          {/* Metadata section at the bottom of the box */}
+          {(meta || metaLoading) && (
+            <div className="mt-4 w-[30vw] border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-4">
+              <div className="text-xs text-deep-mocha-800 dark:text-white">
+                <div className="ml-2 flex flex-col gap-2">
+                  {metaLoading ? (
+                    <div className="text-center text-sm text-deep-mocha-500">
+                      Loading metadata…
+                    </div>
+                  ) : (
+                    <>
+                      {meta?.class_dv && (
+                        <div>
+                          <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                            View:{" "}
+                          </span>
+                          <span className="text-deep-mocha-700 dark:text-white">
+                            {typeof meta.class_dv === "string"
+                              ? meta.class_dv.charAt(0).toUpperCase() +
+                                meta.class_dv.slice(1)
+                              : meta.class_dv}
+                          </span>
+                        </div>
+                      )}
+                      {(meta?.lat || meta?.lon) && (
+                        <div>
+                          <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                            Location:{" "}
+                          </span>
+                          <span className="text-deep-mocha-700 dark:text-white">
+                            {meta?.lat ?? "—"}, {meta?.lon ?? "—"}
+                          </span>
+                        </div>
+                      )}
+                      {meta?.source_db && (
+                        <div>
+                          <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                            Source DB:{" "}
+                          </span>
+                          <span className="text-deep-mocha-700 dark:text-white uppercase">
+                            {typeof meta.source_db === "string"
+                              ? meta.source_db
+                              : String(meta.source_db)}
+                          </span>
+                        </div>
+                      )}
 
-        {/* Metadata box below the image */}
-        {(meta || metaLoading) && (
-          <div className="mt-2 w-fit mx-auto">
-            <div className="bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-500 dark:border-deep-mocha-600 rounded-xl p-4 text-xs text-deep-mocha-800 dark:text-white">
-              <div className="flex flex-col gap-2">
-                {metaLoading ? (
-                  <div className="text-center text-sm text-deep-mocha-500">
-                    Loading metadata…
-                  </div>
-                ) : (
-                  <>
-                    {meta?.class_dv && (
-                      <div>
-                        <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                          View:{" "}
-                        </span>
-                        <span className="text-deep-mocha-700 dark:text-white">
-                          {typeof meta.class_dv === "string"
-                            ? meta.class_dv.charAt(0).toUpperCase() +
-                              meta.class_dv.slice(1)
-                            : meta.class_dv}
-                        </span>
-                      </div>
-                    )}
-                    {(meta?.lat || meta?.lon) && (
-                      <div>
-                        <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                          Location:{" "}
-                        </span>
-                        <span className="text-deep-mocha-700 dark:text-white">
-                          {meta?.lat ?? "—"}, {meta?.lon ?? "—"}
-                        </span>
-                      </div>
-                    )}
-                    {meta?.source_db && (
-                      <div>
-                        <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                          Source DB:{" "}
-                        </span>
-                        <span className="text-deep-mocha-700 dark:text-white uppercase">
-                          {typeof meta.source_db === "string"
-                            ? meta.source_db
-                            : String(meta.source_db)}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Action buttons (License, Source, Image) - pill-shaped */}
-                    <div className="mt-3 flex flex-wrap gap-2 justify-center">
-                      {typeof meta?.license === "string" &&
-                        meta.license.startsWith("http") && (
+                      {/* Action buttons (License, Source, Image) - pill-shaped */}
+                      <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                        {typeof meta?.license === "string" &&
+                          meta.license.startsWith("http") && (
+                            <a
+                              href={meta.license}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
+                              aria-label="Open license"
+                            >
+                              License
+                            </a>
+                          )}
+                        {(meta?.uuid || meta?.source_db) && (
                           <a
-                            href={meta.license}
+                            href={getSafeExternalHref(meta?.uuid)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                            aria-label="Open license"
+                            aria-label="Open source link"
                           >
-                            License
+                            Source Link
                           </a>
                         )}
-                      {(meta?.uuid || meta?.source_db) && (
-                        <a
-                          href={getSafeExternalHref(meta?.uuid)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                          aria-label="Open source link"
-                        >
-                          Source Link
-                        </a>
-                      )}
-                      {typeof meta?.uri === "string" && meta.uri && (
-                        <a
-                          href={meta.uri}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                          aria-label="Open image link"
-                        >
-                          Image Link
-                        </a>
-                      )}
-                    </div>
-                  </>
-                )}
+                        {typeof meta?.uri === "string" && meta.uri && (
+                          <a
+                            href={meta.uri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
+                            aria-label="Open image link"
+                          >
+                            Image Link
+                          </a>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
