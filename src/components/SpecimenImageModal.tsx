@@ -331,7 +331,7 @@ function SpecimenImageModal({
 
           {/* Metadata section at the bottom of the box */}
           {(meta || metaLoading) && (
-            <div className="mt-4 w-[30vw] border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-4">
+            <div className="mt-4 w-[25vw] border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-4">
               <div className="text-xs text-deep-mocha-800 dark:text-white">
                 <div className="ml-2 flex flex-col gap-2">
                   {metaLoading ? (
