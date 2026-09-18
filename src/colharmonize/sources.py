@@ -14,7 +14,13 @@ import duckdb
 
 from colharmonize.errors import SourceValidationError
 from colharmonize.identifiers import parse_table_identifier, qualified_name, quote_identifier
-from colharmonize.models import ColSourceInfo, ColumnMappings, InspectionReport
+from colharmonize.models import (
+    CatalogColumn,
+    CatalogTable,
+    ColSourceInfo,
+    ColumnMappings,
+    InspectionReport,
+)
 
 STANDARD_COLUMNS: dict[str, tuple[str, ...]] = {
     "genus": ("genus",),
@@ -28,6 +34,55 @@ STANDARD_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 NAME_COLUMNS = ("scientificName", "species")
 UNSUPPORTED_TYPES = ("BLOB", "STRUCT", "MAP", "LIST", "UNION")
+
+
+class DuckDBCatalog:
+    """Read-only table and column discovery for a DuckDB database."""
+
+    def __init__(self, database: Path) -> None:
+        self.database = database
+
+    @contextmanager
+    def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
+        if not self.database.is_file():
+            raise SourceValidationError(f"DuckDB database does not exist: {self.database}")
+        connection = duckdb.connect(str(self.database), read_only=True)
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    def list_tables(self) -> list[CatalogTable]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT table_schema, table_name, table_type
+                FROM information_schema.tables
+                WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
+                ORDER BY table_schema, table_name
+                """
+            ).fetchall()
+        return [
+            CatalogTable(schema_name=row[0], table_name=row[1], table_type=row[2]) for row in rows
+        ]
+
+    def list_columns(self, table: str) -> list[CatalogColumn]:
+        identifier = parse_table_identifier(table)
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = ?
+                ORDER BY ordinal_position
+                """,
+                [identifier.schema_name, identifier.table_name],
+            ).fetchall()
+        if not rows:
+            raise SourceValidationError(f"Table does not exist: {identifier.display_name}")
+        return [
+            CatalogColumn(name=row[0], data_type=row[1], nullable=row[2] == "YES") for row in rows
+        ]
 
 
 class OccurrenceSource:

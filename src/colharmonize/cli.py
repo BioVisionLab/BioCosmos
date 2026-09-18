@@ -19,7 +19,7 @@ from colharmonize.index import ReferenceIndex
 from colharmonize.models import ColumnMappings, RunManifest
 from colharmonize.outputs import OutputRepository
 from colharmonize.pipeline import MatchPipeline
-from colharmonize.sources import ColSource, OccurrenceSource
+from colharmonize.sources import ColSource, DuckDBCatalog, OccurrenceSource
 from colharmonize.summary import SummaryService
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
@@ -48,16 +48,37 @@ def init_command(
 def inspect_command(
     db: Annotated[Path | None, typer.Option("--db")] = None,
     table: Annotated[str | None, typer.Option("--table")] = None,
+    list_tables: Annotated[bool, typer.Option("--list-tables")] = False,
+    list_columns: Annotated[str | None, typer.Option("--list-columns")] = None,
     config: Annotated[Path | None, typer.Option("--config")] = None,
     mappings: Annotated[list[str] | None, typer.Option("--map")] = None,
 ) -> None:
-    """Inspect an occurrence table without performing matching."""
+    """List or inspect DuckDB tables without performing matching."""
     try:
         project = load_project_config(config)
         database = db or project.run.db
+        if database is None:
+            raise ConfigurationError("inspect requires --db, directly or in TOML")
+        if list_tables or list_columns is not None:
+            catalog = DuckDBCatalog(database)
+            if list_tables:
+                tables = catalog.list_tables()
+                typer.echo("Schema\tTable\tType")
+                for item in tables:
+                    typer.echo(f"{item.schema_name}\t{item.table_name}\t{item.table_type}")
+            if list_columns is not None:
+                columns = catalog.list_columns(list_columns)
+                typer.echo(f"Columns in {list_columns}:")
+                typer.echo("Name\tType\tNullable")
+                for column in columns:
+                    nullable = "YES" if column.nullable else "NO"
+                    typer.echo(f"{column.name}\t{column.data_type}\t{nullable}")
+            return
         table_name = table or project.run.table
-        if database is None or table_name is None:
-            raise ConfigurationError("inspect requires --db and --table, directly or in TOML")
+        if table_name is None:
+            raise ConfigurationError(
+                "inspect requires --table, --list-tables, or --list-columns TABLE"
+            )
         mapping_data = project.columns.model_dump(by_alias=True)
         mapping_data.update(parse_mapping_options(mappings))
         report = OccurrenceSource(database, table_name).inspect(

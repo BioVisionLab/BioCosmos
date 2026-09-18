@@ -23,6 +23,25 @@ def test_init_writes_template(tmp_path: Path) -> None:
     assert "[matching]" in target.read_text()
 
 
+def test_inspect_catalog_options(occurrence_db: Path) -> None:
+    tables = runner.invoke(app, ["inspect", "--db", str(occurrence_db), "--list-tables"])
+    assert tables.exit_code == 0, tables.output
+    assert "main\toccurrence\tBASE TABLE" in tables.output
+
+    columns = runner.invoke(
+        app,
+        [
+            "inspect",
+            "--db",
+            str(occurrence_db),
+            "--list-columns",
+            "main.occurrence",
+        ],
+    )
+    assert columns.exit_code == 0, columns.output
+    assert "scientificName\tVARCHAR" in columns.output
+
+
 def test_run_outputs_and_preserves_source(
     occurrence_db: Path, col_tsv: Path, tmp_path: Path
 ) -> None:

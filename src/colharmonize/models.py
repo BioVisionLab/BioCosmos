@@ -104,6 +104,18 @@ class InspectionReport(FrozenModel):
     valid: bool = True
 
 
+class CatalogTable(FrozenModel):
+    schema_name: str
+    table_name: str
+    table_type: str
+
+
+class CatalogColumn(FrozenModel):
+    name: str
+    data_type: str
+    nullable: bool
+
+
 class ColSourceInfo(FrozenModel):
     source_path: Path
     data_path: Path
