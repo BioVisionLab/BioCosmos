@@ -49,7 +49,7 @@ const coreTeam = [
     role: "Machine Learning Researcher",
     affiliation: "BioCosmos / BioVision Lab",
     description:
-      "Contributes to machine-learning development and evaluation for fine-grained biological retrieval in BioCosmos.",
+      "Developed the VLM research framework with a focus on encoding biological priors into fine-tuning objectives for fine-grained retrieval.",
   },
   {
     name: "Kira Nichtawitz",
