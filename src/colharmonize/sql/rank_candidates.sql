@@ -60,4 +60,3 @@ SELECT *,
         ORDER BY effective_tier, match_score DESC, accepted_id
     ) AS runner_up_score
 FROM enriched;
-

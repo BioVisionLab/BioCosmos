@@ -30,4 +30,3 @@ LEFT JOIN harmonized.taxonomy_matches matches USING (input_taxon_key);
 ```
 
 Only species-level binomials are matched. Ambiguous and unmatched inputs remain explicit; no interactive review or overrides are performed.
-

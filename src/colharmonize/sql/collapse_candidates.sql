@@ -44,4 +44,3 @@ SELECT aggregated.*, strongest.strongest_method, strongest.method_tier,
     strongest.matched_usage_status
 FROM aggregated
 JOIN strongest USING (input_taxon_key, accepted_id);
-
