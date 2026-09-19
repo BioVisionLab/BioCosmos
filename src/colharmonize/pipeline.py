@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import duckdb
@@ -34,12 +36,22 @@ class MatchPipeline:
         self.reference_index = reference_index
         self.matching = matching
 
-    def run(self) -> None:
-        self._attach_sources()
-        self._extract_inputs()
-        self._generate_candidates()
-        self._collapse_and_rank()
-        self._create_matches()
+    def run(
+        self,
+        stage: Callable[[str], AbstractContextManager[None]] | None = None,
+    ) -> None:
+        """Run the pipeline, optionally reporting each potentially long stage."""
+        report = stage or (lambda _label: nullcontext())
+        operations = (
+            ("Attach input and reference data", self._attach_sources),
+            ("Extract and normalize distinct taxa", self._extract_inputs),
+            ("Generate candidate matches", self._generate_candidates),
+            ("Score and rank candidates", self._collapse_and_rank),
+            ("Finalize taxonomy matches", self._create_matches),
+        )
+        for label, operation in operations:
+            with report(label):
+                operation()
 
     def _attach_sources(self) -> None:
         self.connection.execute(

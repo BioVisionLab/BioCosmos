@@ -6,6 +6,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Annotated, Any
 
 import duckdb
@@ -19,8 +20,9 @@ from colharmonize.index import ReferenceIndex
 from colharmonize.models import ColumnMappings, RunManifest
 from colharmonize.outputs import OutputRepository
 from colharmonize.pipeline import MatchPipeline
+from colharmonize.progress import RunReporter, format_duration
 from colharmonize.sources import ColSource, DuckDBCatalog, OccurrenceSource
-from colharmonize.summary import SummaryService
+from colharmonize.summary import SummaryService, resolve_palette_name
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
@@ -143,41 +145,52 @@ def run_command(
     min_score_margin: Annotated[int | None, typer.Option()] = None,
     csv: Annotated[bool | None, typer.Option("--csv/--no-csv")] = None,
     plot: Annotated[bool | None, typer.Option("--plot/--no-plot")] = None,
+    plot_palette: Annotated[str | None, typer.Option("--plot-palette")] = None,
     force: Annotated[bool | None, typer.Option("--force/--no-force")] = None,
     write_back_table: Annotated[str | None, typer.Option("--write-back-table")] = None,
 ) -> None:
     """Match distinct occurrence taxa against a Catalogue of Life release."""
     started = datetime.now(UTC)
+    timer_started = perf_counter()
+    progress = RunReporter(total_steps=10)
     try:
-        project = load_project_config(config)
-        effective = merge_run_config(
-            project,
-            overrides=_run_overrides(
-                db=db,
-                table=table,
-                col=col,
-                output=output,
-                cache_dir=cache_dir,
-                top_k=top_k,
-                short_epithet_length=short_epithet_length,
-                short_epithet_distance=short_epithet_distance,
-                long_epithet_distance=long_epithet_distance,
-                genus_distance=genus_distance,
-                min_genus_similarity=min_genus_similarity,
-                min_score_margin=min_score_margin,
-                csv=csv,
-                plot=plot,
-                force=force,
-                write_back_table=write_back_table,
-            ),
-            mapping_values=mappings,
-        )
-        occurrence = OccurrenceSource(effective.db, effective.table)
-        with occurrence.connect() as source_connection:
-            available = occurrence.columns(source_connection)
-            resolved, _ = occurrence.resolve_columns(available, effective.columns, strict=True)
+        with progress.step("Validate configuration and input columns"):
+            project = load_project_config(config)
+            effective = merge_run_config(
+                project,
+                overrides=_run_overrides(
+                    db=db,
+                    table=table,
+                    col=col,
+                    output=output,
+                    cache_dir=cache_dir,
+                    top_k=top_k,
+                    short_epithet_length=short_epithet_length,
+                    short_epithet_distance=short_epithet_distance,
+                    long_epithet_distance=long_epithet_distance,
+                    genus_distance=genus_distance,
+                    min_genus_similarity=min_genus_similarity,
+                    min_score_margin=min_score_margin,
+                    csv=csv,
+                    plot=plot,
+                    plot_palette=plot_palette,
+                    force=force,
+                    write_back_table=write_back_table,
+                ),
+                mapping_values=mappings,
+            )
+            resolved_plot_palette = (
+                resolve_palette_name(effective.plot_palette)
+                if effective.plot
+                else effective.plot_palette
+            )
+            occurrence = OccurrenceSource(effective.db, effective.table)
+            with occurrence.connect() as source_connection:
+                available = occurrence.columns(source_connection)
+                resolved, _ = occurrence.resolve_columns(available, effective.columns, strict=True)
 
-        index_info = ReferenceIndex(effective.cache_dir).ensure(ColSource(effective.col))
+        with progress.step("Prepare the Catalogue of Life reference index"):
+            index_info = ReferenceIndex(effective.cache_dir).ensure(ColSource(effective.col))
         repository = OutputRepository(effective.output)
         run_id = str(uuid.uuid4())
         with repository.build_database(force=effective.force) as connection:
@@ -187,93 +200,119 @@ def run_command(
                 resolved,
                 index_info.path,
                 effective.matching,
-            ).run()
-            SummaryService().refresh_metrics(connection)
-            counts = dict(
+            ).run(stage=progress.step)
+            with progress.step("Calculate summary metrics"):
+                SummaryService().refresh_metrics(connection)
+                counts = dict(
+                    connection.execute(
+                        "SELECT update_status, count(*) "
+                        "FROM taxonomy_matches GROUP BY update_status"
+                    ).fetchall()
+                )
                 connection.execute(
-                    "SELECT update_status, count(*) FROM taxonomy_matches GROUP BY update_status"
-                ).fetchall()
-            )
-            completed = datetime.now(UTC)
-            connection.execute(
-                """
-                CREATE TABLE run_metadata AS SELECT
-                    ?::VARCHAR AS run_id,
-                    ?::VARCHAR AS package_version,
-                    ?::TIMESTAMPTZ AS started_at,
-                    ?::TIMESTAMPTZ AS completed_at,
-                    ?::VARCHAR AS occurrence_database,
-                    ?::VARCHAR AS occurrence_table,
-                    ?::VARCHAR AS col_source,
-                    ?::VARCHAR AS col_sha256,
-                    ?::VARCHAR AS reference_index,
-                    ?::JSON AS detected_columns,
-                    ?::JSON AS matching_config,
-                    ?::BIGINT AS input_taxon_count,
-                    ?::BIGINT AS matched_count,
-                    ?::BIGINT AS ambiguous_count,
-                    ?::BIGINT AS unmatched_count
-                """,
-                [
-                    run_id,
-                    __version__,
-                    started.isoformat(),
-                    completed.isoformat(),
-                    str(effective.db.resolve()),
-                    occurrence.identifier.display_name,
-                    str(effective.col.resolve()),
-                    index_info.fingerprint,
-                    str(index_info.path.resolve()),
-                    json.dumps(resolved, sort_keys=True),
-                    json.dumps(effective.matching.model_dump(), sort_keys=True),
-                    sum(counts.values()),
-                    counts.get("MATCHED", 0),
-                    counts.get("AMBIGUOUS", 0),
-                    counts.get("UNMATCHED", 0),
-                ],
-            )
+                    """
+                    CREATE TABLE run_metadata AS SELECT
+                        ?::VARCHAR AS run_id,
+                        ?::VARCHAR AS package_version,
+                        ?::TIMESTAMPTZ AS started_at,
+                        NULL::TIMESTAMPTZ AS completed_at,
+                        NULL::DOUBLE AS runtime_seconds,
+                        ?::VARCHAR AS occurrence_database,
+                        ?::VARCHAR AS occurrence_table,
+                        ?::VARCHAR AS col_source,
+                        ?::VARCHAR AS col_sha256,
+                        ?::VARCHAR AS reference_index,
+                        ?::JSON AS detected_columns,
+                        ?::JSON AS matching_config,
+                        ?::BIGINT AS input_taxon_count,
+                        ?::BIGINT AS matched_count,
+                        ?::BIGINT AS ambiguous_count,
+                        ?::BIGINT AS unmatched_count
+                    """,
+                    [
+                        run_id,
+                        __version__,
+                        started.isoformat(),
+                        str(effective.db.resolve()),
+                        occurrence.identifier.display_name,
+                        str(effective.col.resolve()),
+                        index_info.fingerprint,
+                        str(index_info.path.resolve()),
+                        json.dumps(resolved, sort_keys=True),
+                        json.dumps(effective.matching.model_dump(), sort_keys=True),
+                        sum(counts.values()),
+                        counts.get("MATCHED", 0),
+                        counts.get("AMBIGUOUS", 0),
+                        counts.get("UNMATCHED", 0),
+                    ],
+                )
 
-        summary = SummaryService()
-        outputs = {"database": str(repository.database_path.resolve())}
-        if effective.csv:
-            outputs["csv"] = str(
-                summary.export_csv(
-                    repository.database_path, effective.output, force=effective.force
-                ).resolve()
-            )
-        if effective.plot:
-            outputs["plot"] = str(
-                summary.export_plot(
-                    repository.database_path, effective.output, force=effective.force
-                ).resolve()
-            )
-        if effective.write_back_table:
-            repository.write_back(effective.db, effective.write_back_table)
-            outputs["write_back_table"] = effective.write_back_table
-        outputs["manifest"] = str((effective.output / "run.json").resolve())
+        with progress.step("Export requested artifacts"):
+            summary = SummaryService()
+            outputs = {"database": str(repository.database_path.resolve())}
+            if effective.csv:
+                outputs["csv"] = str(
+                    summary.export_csv(
+                        repository.database_path, effective.output, force=effective.force
+                    ).resolve()
+                )
+            if effective.plot:
+                outputs["plot"] = str(
+                    summary.export_plot(
+                        repository.database_path,
+                        effective.output,
+                        force=effective.force,
+                        palette=resolved_plot_palette,
+                    ).resolve()
+                )
+            if effective.write_back_table:
+                repository.write_back(effective.db, effective.write_back_table)
+                outputs["write_back_table"] = effective.write_back_table
+            outputs["manifest"] = str((effective.output / "run.json").resolve())
 
         total = sum(counts.values())
-        manifest = RunManifest(
-            run_id=run_id,
-            package_version=__version__,
-            started_at=started.isoformat(),
-            completed_at=completed.isoformat(),
-            occurrence_database=str(effective.db.resolve()),
-            occurrence_table=occurrence.identifier.display_name,
-            col_source=str(effective.col.resolve()),
-            col_sha256=index_info.fingerprint,
-            reference_index=str(index_info.path.resolve()),
-            detected_columns=resolved,
-            matching=effective.matching.model_dump(),
-            outputs=outputs,
-            counts={"total": total, **{key.lower(): value for key, value in counts.items()}},
-        )
-        repository.write_manifest(manifest, force=effective.force)
+        with progress.step("Finalize run metadata"):
+            completed = datetime.now(UTC)
+            runtime_seconds = perf_counter() - timer_started
+            taxa_per_second = total / runtime_seconds if runtime_seconds > 0 else None
+            metadata_connection = duckdb.connect(str(repository.database_path))
+            try:
+                metadata_connection.execute(
+                    "UPDATE run_metadata SET completed_at = ?, runtime_seconds = ?",
+                    [completed.isoformat(), runtime_seconds],
+                )
+            finally:
+                metadata_connection.close()
+            manifest = RunManifest(
+                run_id=run_id,
+                package_version=__version__,
+                started_at=started.isoformat(),
+                completed_at=completed.isoformat(),
+                runtime_seconds=round(runtime_seconds, 3),
+                taxa_per_second=(
+                    round(taxa_per_second, 3) if taxa_per_second is not None else None
+                ),
+                occurrence_database=str(effective.db.resolve()),
+                occurrence_table=occurrence.identifier.display_name,
+                col_source=str(effective.col.resolve()),
+                col_sha256=index_info.fingerprint,
+                reference_index=str(index_info.path.resolve()),
+                detected_columns=resolved,
+                matching=effective.matching.model_dump(),
+                outputs=outputs,
+                counts={"total": total, **{key.lower(): value for key, value in counts.items()}},
+            )
+            repository.write_manifest(manifest, force=effective.force)
         typer.echo(f"Created {repository.database_path}")
         typer.echo(
             f"Input taxa: {total:,}; matched: {counts.get('MATCHED', 0):,}; "
             f"ambiguous: {counts.get('AMBIGUOUS', 0):,}; "
             f"unmatched: {counts.get('UNMATCHED', 0):,}"
+        )
+        final_runtime = perf_counter() - timer_started
+        throughput = total / final_runtime if final_runtime > 0 else 0.0
+        typer.echo(
+            f"Runtime: {format_duration(final_runtime)} ({throughput:,.1f} distinct taxa/second)"
         )
     except (ColHarmonizeError, ValueError, duckdb.Error) as exc:
         _fail(exc)
@@ -284,12 +323,14 @@ def summarize_command(
     input_database: Annotated[Path, typer.Option("--input")],
     csv: Annotated[bool, typer.Option("--csv")] = False,
     plot: Annotated[bool, typer.Option("--plot")] = False,
+    plot_palette: Annotated[str, typer.Option("--plot-palette")] = "Dark2",
     force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Regenerate metrics and optional artifacts from a completed run."""
     try:
         if not input_database.is_file():
             raise ConfigurationError(f"Output database does not exist: {input_database}")
+        resolved_plot_palette = resolve_palette_name(plot_palette) if plot else plot_palette
         service = SummaryService()
         connection = duckdb.connect(str(input_database))
         try:
@@ -300,7 +341,9 @@ def summarize_command(
         if csv:
             service.export_csv(input_database, output_dir, force=force)
         if plot:
-            service.export_plot(input_database, output_dir, force=force)
+            service.export_plot(
+                input_database, output_dir, force=force, palette=resolved_plot_palette
+            )
         typer.echo(f"Summarized {input_database}")
     except (ColHarmonizeError, ValueError, duckdb.Error) as exc:
         _fail(exc)

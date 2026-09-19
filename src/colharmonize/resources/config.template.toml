@@ -7,6 +7,7 @@
 # cache_dir = "/path/to/cache"
 csv = false
 plot = false
+plot_palette = "Dark2"
 force = false
 # write_back_table = "main.taxonomy_lookup"
 

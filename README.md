@@ -2,6 +2,9 @@
 
 `colharmonize` pre-generates compact, auditable species-name matches against a Catalogue of Life ColDP release.
 
+See [Matching algorithms](ALGORITHMS.md) for the normalization rules, candidate methods,
+mathematical scoring model, ambiguity decisions, and pipeline diagrams.
+
 ```bash
 uv sync
 uv run colharmonize init
@@ -10,8 +13,15 @@ uv run colharmonize inspect --db occurrences.duckdb --list-columns main.occurren
 uv run colharmonize inspect --db occurrences.duckdb --table main.occurrence \
   --map scientific_name=species
 uv run colharmonize run --db occurrences.duckdb --table main.occurrence \
-  --map scientific_name=species --col NameUsage.tsv --output results --csv --plot
+  --map scientific_name=species --col NameUsage.tsv --output results --csv --plot \
+  --plot-palette Dark2
 ```
+
+During `run`, the CLI reports each processing phase with live elapsed time and an estimated
+remaining time. The final line reports total runtime and distinct-taxa throughput. With `--plot`,
+`taxonomy_match_summary.png` contains an update-status pie chart and a match-method breakdown,
+using the ColorBrewer `Dark2` palette by default. Pass any named Seaborn palette through
+`--plot-palette`, or set `plot_palette` in the `[run]` configuration table.
 
 Use `--config colharmonize.toml` with `inspect`, `index`, or `run`. CLI values override TOML. Run `colharmonize init --output -` to inspect the complete configuration template.
 

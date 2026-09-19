@@ -73,9 +73,24 @@ def test_run_outputs_and_preserves_source(
     assert (output / "taxonomy_summary.csv").is_file()
     assert (output / "taxonomy_match_summary.png").is_file()
     assert (output / "run.json").is_file()
+    assert "[1/10] Validate configuration and input columns" in result.output
+    assert "[10/10] Finalize run metadata" in result.output
+    assert "Runtime:" in result.output
+    assert "distinct taxa/second" in result.output
     manifest = json.loads((output / "run.json").read_text())
     assert manifest["counts"]["total"] == 10
+    assert manifest["runtime_seconds"] > 0
+    assert manifest["taxa_per_second"] > 0
     assert manifest["outputs"]["manifest"].endswith("run.json")
+
+    connection = duckdb.connect(str(output / "taxonomy_update.duckdb"), read_only=True)
+    try:
+        runtime_seconds = connection.execute("SELECT runtime_seconds FROM run_metadata").fetchone()[
+            0
+        ]
+    finally:
+        connection.close()
+    assert runtime_seconds > 0
 
     summary_result = runner.invoke(
         app,
@@ -85,10 +100,40 @@ def test_run_outputs_and_preserves_source(
             str(output / "taxonomy_update.duckdb"),
             "--csv",
             "--plot",
+            "--plot-palette",
+            "dark2",
             "--force",
         ],
     )
     assert summary_result.exit_code == 0, summary_result.output
+
+
+def test_invalid_plot_palette_fails_before_creating_output(
+    occurrence_db: Path, col_tsv: Path, tmp_path: Path
+) -> None:
+    output = tmp_path / "invalid-palette"
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--db",
+            str(occurrence_db),
+            "--table",
+            "main.occurrence",
+            "--map",
+            "scientific_name=species",
+            "--col",
+            str(col_tsv),
+            "--output",
+            str(output),
+            "--plot",
+            "--plot-palette",
+            "not-a-real-palette",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Unknown Seaborn palette" in result.output
+    assert not output.exists()
 
 
 def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_path: Path) -> None:

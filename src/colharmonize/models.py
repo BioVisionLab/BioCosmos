@@ -9,10 +9,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class FrozenModel(BaseModel):
+    """Immutable model base that rejects unknown fields."""
+
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
 
 class ColumnMappings(FrozenModel):
+    """Map logical taxonomic fields to source-table columns."""
+
     scientific_name: str | None = None
     genus: str | None = None
     specific_epithet: str | None = None
@@ -35,6 +39,8 @@ class ColumnMappings(FrozenModel):
 
 
 class MatchingConfig(FrozenModel):
+    """Control candidate generation, scoring, and ambiguity thresholds."""
+
     top_k: int = Field(default=5, ge=1, le=100)
     short_epithet_length: int = Field(default=5, ge=1, le=20)
     short_epithet_distance: int = Field(default=1, ge=0, le=5)
@@ -45,6 +51,8 @@ class MatchingConfig(FrozenModel):
 
 
 class RunConfig(FrozenModel):
+    """Hold optional run settings supplied through TOML or the CLI."""
+
     db: Path | None = None
     table: str | None = None
     col: Path | None = None
@@ -52,17 +60,23 @@ class RunConfig(FrozenModel):
     cache_dir: Path | None = None
     csv: bool = False
     plot: bool = False
+    # Seaborn palette used by optional summary plots.
+    plot_palette: str = "Dark2"
     force: bool = False
     write_back_table: str | None = None
 
 
 class ProjectConfig(FrozenModel):
+    """Represent the complete user-supplied project configuration."""
+
     run: RunConfig = Field(default_factory=RunConfig)
     columns: ColumnMappings = Field(default_factory=ColumnMappings)
     matching: MatchingConfig = Field(default_factory=MatchingConfig)
 
 
 class EffectiveRunConfig(FrozenModel):
+    """Represent fully resolved settings for one matching run."""
+
     db: Path
     table: str
     col: Path
@@ -72,6 +86,8 @@ class EffectiveRunConfig(FrozenModel):
     matching: MatchingConfig
     csv: bool = False
     plot: bool = False
+    # Seaborn palette used by optional summary plots.
+    plot_palette: str = "Dark2"
     force: bool = False
     write_back_table: str | None = None
 
@@ -85,6 +101,8 @@ class EffectiveRunConfig(FrozenModel):
 
 
 class TableIdentifier(FrozenModel):
+    """Identify a DuckDB table by schema and table name."""
+
     schema_name: str = "main"
     table_name: str
 
@@ -94,6 +112,8 @@ class TableIdentifier(FrozenModel):
 
 
 class InspectionReport(FrozenModel):
+    """Summarize source-table discovery and validation results."""
+
     database: Path
     table: str
     row_count: int
@@ -105,18 +125,24 @@ class InspectionReport(FrozenModel):
 
 
 class CatalogTable(FrozenModel):
+    """Describe a table exposed by the source DuckDB catalog."""
+
     schema_name: str
     table_name: str
     table_type: str
 
 
 class CatalogColumn(FrozenModel):
+    """Describe a column exposed by the source DuckDB catalog."""
+
     name: str
     data_type: str
     nullable: bool
 
 
 class ColSourceInfo(FrozenModel):
+    """Describe a materialized Catalogue of Life source file."""
+
     source_path: Path
     data_path: Path
     fingerprint: str
@@ -125,6 +151,8 @@ class ColSourceInfo(FrozenModel):
 
 
 class IndexInfo(FrozenModel):
+    """Describe a generated or reused reference index."""
+
     path: Path
     fingerprint: str
     reused: bool
@@ -133,12 +161,30 @@ class IndexInfo(FrozenModel):
 
 
 class UpdateStatus(StrEnum):
+    """Classify the final resolution state of an input taxon."""
+
     MATCHED = "MATCHED"
     AMBIGUOUS = "AMBIGUOUS"
     UNMATCHED = "UNMATCHED"
 
+    @property
+    def description(self) -> str:
+        """Explain what the final resolution state means."""
+        descriptions = {
+            UpdateStatus.MATCHED: "One accepted taxon was resolved with sufficient evidence.",
+            UpdateStatus.AMBIGUOUS: (
+                "Candidates were found, but the evidence did not identify one accepted taxon."
+            ),
+            UpdateStatus.UNMATCHED: (
+                "No eligible accepted taxon was found, or the input was invalid or unsupported."
+            ),
+        }
+        return descriptions[self]
+
 
 class MatchMethod(StrEnum):
+    """Identify the evidence method used to resolve an input taxon."""
+
     EXACT_ACCEPTED = "EXACT_ACCEPTED"
     EXACT_SYNONYM = "EXACT_SYNONYM"
     EXACT_CANONICAL = "EXACT_CANONICAL"
@@ -149,12 +195,50 @@ class MatchMethod(StrEnum):
     AMBIGUOUS = "AMBIGUOUS"
     UNMATCHED = "UNMATCHED"
 
+    @property
+    def description(self) -> str:
+        """Explain how the input taxon was resolved or why it was not."""
+        descriptions = {
+            MatchMethod.EXACT_ACCEPTED: (
+                "The normalized input name exactly matched an accepted name usage."
+            ),
+            MatchMethod.EXACT_SYNONYM: (
+                "The normalized input name exactly matched a synonym of the accepted taxon."
+            ),
+            MatchMethod.EXACT_CANONICAL: (
+                "The parsed genus and epithet exactly matched an accepted canonical binomial."
+            ),
+            MatchMethod.UNIQUE_FAMILY_EPITHET: (
+                "One accepted taxon matched the input family and specific epithet."
+            ),
+            MatchMethod.SPELLING_GENUS: (
+                "The family and epithet matched while genus spelling similarity resolved the taxon."
+            ),
+            MatchMethod.SPELLING_EPITHET: (
+                "The family and genus matched while epithet edit distance resolved the taxon."
+            ),
+            MatchMethod.FUZZY_TYPO: (
+                "Family-restricted spelling similarity resolved both genus and epithet."
+            ),
+            MatchMethod.AMBIGUOUS: (
+                "Candidate evidence did not clearly separate one accepted taxon."
+            ),
+            MatchMethod.UNMATCHED: (
+                "No candidate was found, or the input binomial or rank was unsupported."
+            ),
+        }
+        return descriptions[self]
+
 
 class RunManifest(FrozenModel):
+    """Record run provenance, outputs, timing, and result counts."""
+
     run_id: str
     package_version: str
     started_at: str
     completed_at: str
+    runtime_seconds: float
+    taxa_per_second: float | None = None
     occurrence_database: str
     occurrence_table: str
     col_source: str

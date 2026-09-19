@@ -11,7 +11,8 @@ from colharmonize.models import ProjectConfig
 
 
 def test_packaged_template_is_valid() -> None:
-    ProjectConfig.model_validate(tomllib.loads(template_text()))
+    project = ProjectConfig.model_validate(tomllib.loads(template_text()))
+    assert project.run.plot_palette == "Dark2"
 
 
 def test_unknown_toml_key_is_rejected() -> None:
@@ -35,14 +36,20 @@ def test_cli_values_override_toml(tmp_path: Path) -> None:
                 "table": "occurrence",
                 "col": str(col),
                 "output": str(tmp_path / "configured"),
+                "plot_palette": "Set2",
             },
             "matching": {"top_k": 3},
         }
     )
     effective = merge_run_config(
         project,
-        overrides={"output": tmp_path / "overridden", "top_k": 7},
+        overrides={
+            "output": tmp_path / "overridden",
+            "plot_palette": "Dark2",
+            "top_k": 7,
+        },
         mapping_values=None,
     )
     assert effective.output == tmp_path / "overridden"
+    assert effective.plot_palette == "Dark2"
     assert effective.matching.top_k == 7
