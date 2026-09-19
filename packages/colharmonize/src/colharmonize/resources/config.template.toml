@@ -1,0 +1,53 @@
+# Required values may be supplied here or on the `colharmonize run` command line.
+[run]
+# db = "/path/to/occurrences.duckdb"
+# table = "main.occurrence"
+# col = "/path/to/col-release.zip"
+# output = "/path/to/results"
+# cache_dir = "/path/to/cache"
+csv = false
+plot = false
+plot_palette = "Dark2"
+force = false
+# write_back_table = "main.taxonomy_lookup"
+
+# Set scientific_name explicitly when both scientificName and species exist.
+[columns]
+# scientific_name = "species"
+# genus = "genus"
+# specific_epithet = "specificEpithet"
+# infraspecific_epithet = "infraspecificEpithet"
+# family = "family"
+# order = "order"
+# class = "class"
+# kingdom = "kingdom"
+# taxon_rank = "taxonRank"
+# authorship = "scientificNameAuthorship"
+
+[matching]
+top_k = 5
+short_epithet_length = 5
+short_epithet_distance = 1
+long_epithet_distance = 2
+genus_distance = 2
+min_genus_similarity = 0.90
+min_score_margin = 25
+
+# Optional settings for `colharmonize validate-coordinates`.
+[coordinates]
+# db and table fall back to [run] when omitted.
+# db = "/path/to/occurrences.duckdb"
+# table = "main.occurrence"
+# gadm = "/path/to/gadm.gpkg"
+# output = "/path/to/coordinate-results"
+# gadm_layer = "ADM_ADM_1"
+tile_size = 5.0
+tile_buffer = 0.001
+force = false
+
+[coordinate_columns]
+# source_id = "occurrenceID"
+# latitude = "decimalLatitude"
+# longitude = "decimalLongitude"
+# country = "countryCode"
+# adm1 = "stateProvince"
