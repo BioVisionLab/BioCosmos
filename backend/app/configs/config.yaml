@@ -41,6 +41,9 @@ gbif:
   table: "gbif_meta"
   # Skip GBIF ingestion if set to true
   skip: true
+col:
+  file: "NameUsage.tsv"
+  skip: true
 leptrait:
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"

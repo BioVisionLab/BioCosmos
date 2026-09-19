@@ -8,9 +8,8 @@ from math import cos, radians, sin
 from pathlib import Path
 
 import duckdb
-
-from colharmonize.errors import OutputError
-from colharmonize.identifiers import quote_literal
+from harmonize_core.errors import OutputError
+from harmonize_core.identifiers import quote_literal
 
 
 def resolve_palette_name(palette: str) -> str:

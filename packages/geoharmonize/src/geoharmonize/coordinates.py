@@ -10,12 +10,12 @@ from contextlib import AbstractContextManager, nullcontext
 
 import duckdb
 import pycountry
+from harmonize_core.identifiers import qualified_name, quote_identifier, quote_literal
+from harmonize_core.sources import OccurrenceSource
 from shapely.geometry import Point
 
-from colharmonize.geography import GadmFeature, GadmSource
-from colharmonize.identifiers import qualified_name, quote_identifier, quote_literal
-from colharmonize.models import CoordinateValidationConfig, GadmSourceInfo
-from colharmonize.sources import OccurrenceSource
+from geoharmonize.geography import GadmFeature, GadmSource
+from geoharmonize.models import CoordinateValidationConfig, GadmSourceInfo
 
 _ADMIN_WORDS = re.compile(
     r"\b(?:state|province|region|department|district|county|territory|governorate|prefecture|"

@@ -1,7 +1,7 @@
 import pytest
 
-from colharmonize.errors import SourceValidationError
-from colharmonize.identifiers import parse_table_identifier, qualified_name
+from harmonize_core.errors import SourceValidationError
+from harmonize_core.identifiers import parse_table_identifier, qualified_name
 
 
 def test_quoted_table_identifier() -> None:

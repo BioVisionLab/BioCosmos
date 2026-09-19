@@ -5,23 +5,22 @@ build-backend = "hatchling.build"
 [project]
 name = "colharmonize"
 version = "0.1.0"
-description = "Batch taxonomic matching and coordinate validation for occurrence data"
+description = "Batch taxonomic matching for occurrence data against Catalogue of Life"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [{ name = "Haryo Handika" }]
 dependencies = [
-    "duckdb>=1.4,<2",
+    "harmonize-core",
     "matplotlib>=3.9,<4",
-    "pycountry>=24.6,<25",
-    "pydantic>=2.10,<3",
     "seaborn>=0.13,<1",
-    "shapely>=2.1,<3",
-    "typer>=0.15,<1",
 ]
 
 [project.scripts]
 colharmonize = "colharmonize.cli:app"
+
+[tool.uv.sources]
+harmonize-core = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -50,5 +49,3 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 include = ["src"]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
-venv = ".venv"
-venvPath = "."

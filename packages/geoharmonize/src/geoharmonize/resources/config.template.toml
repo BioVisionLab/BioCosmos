@@ -1,0 +1,30 @@
+# Configuration for `geoharmonize`. Required values may be supplied here or on
+# the command line; CLI values take precedence.
+#
+# `db`, `table`, `output`, and `reports_dir` fall back to the `[run]` table when
+# omitted here, so one file can drive both `colharmonize` and `geoharmonize`.
+
+[run]
+# db = "/path/to/occurrences.duckdb"
+# table = "main.occurrence"
+reports_dir = "reports"
+
+[coordinates]
+# db = "/path/to/occurrences.duckdb"
+# table = "main.occurrence"
+# gadm = "/path/to/gadm.gpkg"
+# Write artifacts to an explicit directory ...
+# output = "/path/to/coordinate-results"
+# ... or let them land in reports/geography/<run_id>/
+# reports_dir = "reports"
+# gadm_layer = "ADM_ADM_1"
+tile_size = 5.0
+tile_buffer = 0.001
+force = false
+
+[coordinate_columns]
+# source_id = "occurrenceID"
+# latitude = "decimalLatitude"
+# longitude = "decimalLongitude"
+# country = "countryCode"
+# adm1 = "stateProvince"

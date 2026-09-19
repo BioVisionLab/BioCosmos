@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import pytest
+from harmonize_core.errors import SourceValidationError
 
-from colharmonize.errors import SourceValidationError
-from colharmonize.geography import GadmSource
+from geoharmonize.geography import GadmSource
 
 
 def test_gadm_layer_and_rtree_are_discovered(gadm_gpkg: Path) -> None:

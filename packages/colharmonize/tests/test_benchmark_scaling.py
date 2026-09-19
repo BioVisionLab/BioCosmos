@@ -6,7 +6,7 @@ import pytest
 from colharmonize.index import ReferenceIndex
 from colharmonize.models import ColumnMappings, MatchingConfig
 from colharmonize.pipeline import MatchPipeline
-from colharmonize.sources import ColSource, OccurrenceSource
+from colharmonize.sources import ColSource, TaxonOccurrenceSource
 
 
 @pytest.mark.benchmark
@@ -28,7 +28,7 @@ def test_matching_cardinality_is_independent_of_duplicate_count(
             """
         )
         connection.close()
-        source = OccurrenceSource(path, "occurrence")
+        source = TaxonOccurrenceSource(path, "occurrence")
         mappings = ColumnMappings(scientific_name="species")
         with source.connect() as source_connection:
             columns, _ = source.resolve_columns(

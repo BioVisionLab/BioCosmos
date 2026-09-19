@@ -165,14 +165,20 @@ def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_pa
         lookup_count = connection.execute(
             "SELECT count(*) FROM harmonized.taxonomy_lookup"
         ).fetchone()[0]
-        assert connection.execute(
-            "SELECT accepted_species_name FROM harmonized.taxonomy_lookup "
-            "WHERE original_scientific_name = 'Panthera leo'"
-        ).fetchone()[0] == "Panthera leo"
-        assert connection.execute(
-            "SELECT accepted_species_name FROM harmonized.taxonomy_lookup "
-            "WHERE original_scientific_name = 'Panthera'"
-        ).fetchone()[0] is None
+        assert (
+            connection.execute(
+                "SELECT accepted_species_name FROM harmonized.taxonomy_lookup "
+                "WHERE original_scientific_name = 'Panthera leo'"
+            ).fetchone()[0]
+            == "Panthera leo"
+        )
+        assert (
+            connection.execute(
+                "SELECT accepted_species_name FROM harmonized.taxonomy_lookup "
+                "WHERE original_scientific_name = 'Panthera'"
+            ).fetchone()[0]
+            is None
+        )
     finally:
         connection.close()
     assert source_count == 11
@@ -207,63 +213,3 @@ def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_pa
         )
     finally:
         connection.close()
-
-
-def test_validate_coordinates_outputs_and_preserves_sources(
-    coordinate_db: Path, gadm_gpkg: Path, tmp_path: Path
-) -> None:
-    occurrence_before = _sha256(coordinate_db)
-    gadm_before = _sha256(gadm_gpkg)
-    output = tmp_path / "coordinate-result"
-    result = runner.invoke(
-        app,
-        [
-            "validate-coordinates",
-            "--db",
-            str(coordinate_db),
-            "--table",
-            "main.occurrence",
-            "--gadm",
-            str(gadm_gpkg),
-            "--output",
-            str(output),
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert occurrence_before == _sha256(coordinate_db)
-    assert gadm_before == _sha256(gadm_gpkg)
-    assert (output / "coordinate_validation.duckdb").is_file()
-    assert (output / "coordinate_run.json").is_file()
-    assert "[1/9] Validate configuration and coordinate columns" in result.output
-    assert "[9/9] Finalize coordinate run metadata" in result.output
-    assert "distinct valid points/second" in result.output
-
-    manifest = json.loads((output / "coordinate_run.json").read_text())
-    assert manifest["counts"]["total"] == 12
-    assert manifest["counts"]["distinct_valid_points"] == 3
-    assert manifest["gadm_layer"] == "ADM_ADM_1"
-
-    connection = duckdb.connect(str(output / "coordinate_validation.duckdb"), read_only=True)
-    try:
-        tables = {
-            row[0]
-            for row in connection.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
-            ).fetchall()
-        }
-        runtime = connection.execute(
-            "SELECT runtime_seconds FROM coordinate_run_metadata"
-        ).fetchone()[0]
-    finally:
-        connection.close()
-    assert {
-        "coordinate_input_rows",
-        "coordinate_points",
-        "coordinate_reference_subset",
-        "coordinate_reference_candidates",
-        "coordinate_point_matches",
-        "coordinate_validation",
-        "coordinate_summary_metrics",
-        "coordinate_run_metadata",
-    } <= tables
-    assert runtime > 0

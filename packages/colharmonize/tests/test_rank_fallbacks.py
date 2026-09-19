@@ -8,7 +8,7 @@ import pytest
 from colharmonize.index import INDEX_SCHEMA_VERSION, ReferenceIndex
 from colharmonize.models import ColumnMappings, MatchingConfig
 from colharmonize.pipeline import MatchPipeline
-from colharmonize.sources import ColSource, OccurrenceSource
+from colharmonize.sources import ColSource, TaxonOccurrenceSource
 from colharmonize.summary import SummaryService
 
 
@@ -35,7 +35,7 @@ def run_fixture(tmp_path, references, inputs, *, top_k=5):
             scientificName VARCHAR, taxonRank VARCHAR, family VARCHAR,
             infraspecificEpithet VARCHAR, scientificNameAuthorship VARCHAR)""")
         connection.executemany("INSERT INTO occurrence VALUES (?, ?, ?, ?, ?)", inputs)
-    source = OccurrenceSource(database, "occurrence")
+    source = TaxonOccurrenceSource(database, "occurrence")
     with source.connect() as connection:
         columns, _ = source.resolve_columns(
             source.columns(connection), ColumnMappings(), strict=True

@@ -7,12 +7,12 @@ import duckdb
 from colharmonize.index import ReferenceIndex
 from colharmonize.models import ColumnMappings, MatchingConfig
 from colharmonize.pipeline import MatchPipeline
-from colharmonize.sources import ColSource, OccurrenceSource
+from colharmonize.sources import ColSource, TaxonOccurrenceSource
 from colharmonize.summary import SummaryService
 
 
 def _run_pipeline(occurrence_db: Path, col_tsv: Path, tmp_path: Path) -> duckdb.DuckDBPyConnection:
-    occurrence = OccurrenceSource(occurrence_db, "main.occurrence")
+    occurrence = TaxonOccurrenceSource(occurrence_db, "main.occurrence")
     mappings = ColumnMappings(scientific_name="species")
     with occurrence.connect() as source_connection:
         columns, _ = occurrence.resolve_columns(

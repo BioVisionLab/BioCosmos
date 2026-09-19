@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from colharmonize.errors import SourceValidationError
-from colharmonize.models import TableIdentifier
+from harmonize_core.errors import SourceValidationError
+from harmonize_core.models import TableIdentifier
 
 
 def quote_identifier(value: str) -> str:

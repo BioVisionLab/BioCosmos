@@ -1,61 +1,27 @@
-"""Atomic output database and optional occurrence lookup writing."""
+"""Taxonomy output database and optional occurrence lookup writing."""
 
 from __future__ import annotations
 
-import json
-import os
-import uuid
-from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from contextlib import suppress
 from pathlib import Path
 
 import duckdb
-
-from colharmonize.errors import OutputError
-from colharmonize.identifiers import (
+from harmonize_core.errors import OutputError
+from harmonize_core.identifiers import (
     parse_table_identifier,
     qualified_name,
     quote_identifier,
     quote_literal,
 )
-from colharmonize.models import CoordinateRunManifest, RunManifest
+from harmonize_core.outputs import ArtifactRepository
 
 
-class OutputRepository:
+class OutputRepository(ArtifactRepository):
     """Own output creation and the narrowly scoped write-back transaction."""
 
-    def __init__(self, output_dir: Path) -> None:
-        self.output_dir = output_dir
-        self.database_path = output_dir / "taxonomy_update.duckdb"
-
-    @contextmanager
-    def build_database(self, *, force: bool) -> Iterator[duckdb.DuckDBPyConnection]:
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        if self.database_path.exists() and not force:
-            raise OutputError(f"Output database already exists: {self.database_path}")
-        temporary = self.output_dir / f".taxonomy_update.{uuid.uuid4().hex}.duckdb"
-        connection = duckdb.connect(str(temporary))
-        try:
-            yield connection
-            connection.execute("CHECKPOINT")
-            connection.close()
-            os.replace(temporary, self.database_path)
-        except Exception:
-            connection.close()
-            temporary.unlink(missing_ok=True)
-            raise
-
-    def write_manifest(self, manifest: RunManifest, *, force: bool) -> Path:
-        destination = self.output_dir / "run.json"
-        if destination.exists() and not force:
-            raise OutputError(f"Manifest already exists: {destination}")
-        temporary = self.output_dir / f".run.{uuid.uuid4().hex}.json"
-        temporary.write_text(
-            json.dumps(manifest.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, destination)
-        return destination
+    database_name = "taxonomy_update.duckdb"
+    manifest_name = "run.json"
+    attach_alias = "colharmonize_output"
 
     def write_back(self, occurrence_db: Path, destination_table: str) -> None:
         destination = parse_table_identifier(destination_table)
@@ -75,10 +41,10 @@ class OutputRepository:
                 raise OutputError(
                     f"Write-back destination already exists: {destination.display_name}"
                 )
+            alias = quote_identifier(self.attach_alias)
             connection.execute("BEGIN TRANSACTION")
             connection.execute(
-                f"ATTACH {quote_literal(str(self.database_path))} "
-                "AS colharmonize_output (READ_ONLY)"
+                f"ATTACH {quote_literal(str(self.database_path))} AS {alias} (READ_ONLY)"
             )
             connection.execute(
                 f"CREATE SCHEMA IF NOT EXISTS {quote_identifier(destination.schema_name)}"
@@ -112,9 +78,9 @@ class OutputRepository:
                     matches.candidate_count,
                     metadata.run_id,
                     metadata.col_sha256
-                FROM colharmonize_output.input_taxon_variants variants
-                JOIN colharmonize_output.taxonomy_matches matches USING (input_taxon_key)
-                CROSS JOIN colharmonize_output.run_metadata metadata
+                FROM {alias}.input_taxon_variants variants
+                JOIN {alias}.taxonomy_matches matches USING (input_taxon_key)
+                CROSS JOIN {alias}.run_metadata metadata
                 """
             )
             connection.execute("COMMIT")
@@ -124,40 +90,3 @@ class OutputRepository:
             raise
         finally:
             connection.close()
-
-
-class CoordinateOutputRepository:
-    """Create coordinate-validation artifacts atomically."""
-
-    def __init__(self, output_dir: Path) -> None:
-        self.output_dir = output_dir
-        self.database_path = output_dir / "coordinate_validation.duckdb"
-
-    @contextmanager
-    def build_database(self, *, force: bool) -> Iterator[duckdb.DuckDBPyConnection]:
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        if self.database_path.exists() and not force:
-            raise OutputError(f"Output database already exists: {self.database_path}")
-        temporary = self.output_dir / f".coordinate_validation.{uuid.uuid4().hex}.duckdb"
-        connection = duckdb.connect(str(temporary))
-        try:
-            yield connection
-            connection.execute("CHECKPOINT")
-            connection.close()
-            os.replace(temporary, self.database_path)
-        except Exception:
-            connection.close()
-            temporary.unlink(missing_ok=True)
-            raise
-
-    def write_manifest(self, manifest: CoordinateRunManifest, *, force: bool) -> Path:
-        destination = self.output_dir / "coordinate_run.json"
-        if destination.exists() and not force:
-            raise OutputError(f"Manifest already exists: {destination}")
-        temporary = self.output_dir / f".coordinate_run.{uuid.uuid4().hex}.json"
-        temporary.write_text(
-            json.dumps(manifest.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, destination)
-        return destination

@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from colharmonize.progress import RunReporter, format_duration
+from harmonize_core.progress import RunReporter, format_duration
 
 
 def test_format_duration_uses_readable_units() -> None:

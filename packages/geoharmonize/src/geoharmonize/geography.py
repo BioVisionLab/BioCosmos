@@ -10,11 +10,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from harmonize_core.errors import SourceValidationError
 from shapely import from_wkb, make_valid
 from shapely.geometry.base import BaseGeometry
 
-from colharmonize.errors import SourceValidationError
-from colharmonize.models import GadmSourceInfo
+from geoharmonize.models import GadmSourceInfo
 
 
 def _quote_sqlite_identifier(value: str) -> str:
@@ -198,7 +198,7 @@ class GadmSource:
                            r.minx, r.maxx, r.miny, r.maxy
                     FROM {table} AS f
                     JOIN {rtree} AS r ON r.id = f.{feature_id}
-                    WHERE {' OR '.join(predicates)}
+                    WHERE {" OR ".join(predicates)}
                     """,
                     parameters,
                 ).fetchall()

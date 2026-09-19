@@ -4,21 +4,19 @@ from pathlib import Path
 
 import duckdb
 
-from colharmonize.coordinates import (
+from geoharmonize.coordinates import (
     CoordinateValidationPipeline,
     normalize_adm1,
     normalize_geographic_name,
     resolve_country_code,
 )
-from colharmonize.geography import GadmSource
-from colharmonize.models import CoordinateColumnMappings, CoordinateValidationConfig
-from colharmonize.sources import OccurrenceSource
+from geoharmonize.geography import GadmSource
+from geoharmonize.models import CoordinateColumnMappings, CoordinateValidationConfig
+from geoharmonize.sources import CoordinateOccurrenceSource
 
 
-def _run_coordinate_pipeline(
-    coordinate_db: Path, gadm_gpkg: Path
-) -> duckdb.DuckDBPyConnection:
-    occurrence = OccurrenceSource(coordinate_db, "main.occurrence")
+def _run_coordinate_pipeline(coordinate_db: Path, gadm_gpkg: Path) -> duckdb.DuckDBPyConnection:
+    occurrence = CoordinateOccurrenceSource(coordinate_db, "main.occurrence")
     with occurrence.connect() as source_connection:
         columns, _ = occurrence.resolve_coordinate_columns(
             occurrence.columns(source_connection), CoordinateColumnMappings(), strict=True
@@ -47,9 +45,7 @@ def test_name_normalization_and_country_resolution() -> None:
     assert normalize_geographic_name("Côte d'Ivoire") == "cotedivoire"
 
 
-def test_coordinate_checks_and_locality_statuses(
-    coordinate_db: Path, gadm_gpkg: Path
-) -> None:
+def test_coordinate_checks_and_locality_statuses(coordinate_db: Path, gadm_gpkg: Path) -> None:
     connection = _run_coordinate_pipeline(coordinate_db, gadm_gpkg)
     try:
         statuses = dict(

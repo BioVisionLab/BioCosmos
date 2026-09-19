@@ -7,9 +7,9 @@ import uuid
 from pathlib import Path
 
 import duckdb
+from harmonize_core.errors import SourceValidationError
+from harmonize_core.identifiers import quote_identifier, quote_literal
 
-from colharmonize.errors import SourceValidationError
-from colharmonize.identifiers import quote_identifier, quote_literal
 from colharmonize.models import ColSourceInfo, IndexInfo
 from colharmonize.names import subspecies_epithet_sql
 from colharmonize.sources import ColSource

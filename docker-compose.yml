@@ -4,8 +4,9 @@ services:
   backend:
     container_name: biocosmos-backend-lite
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      # Repository root: the uv workspace lockfile and packages/ live there.
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     deploy:

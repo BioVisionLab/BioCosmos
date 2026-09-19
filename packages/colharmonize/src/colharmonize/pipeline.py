@@ -7,11 +7,11 @@ from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 
 import duckdb
+from harmonize_core.identifiers import qualified_name, quote_identifier, quote_literal
+from harmonize_core.sources import OccurrenceSource
 
-from colharmonize.identifiers import qualified_name, quote_identifier, quote_literal
 from colharmonize.models import MatchingConfig
 from colharmonize.names import subspecies_epithet_sql
-from colharmonize.sources import OccurrenceSource
 from colharmonize.sql import read_sql
 
 
