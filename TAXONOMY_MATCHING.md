@@ -342,3 +342,10 @@ names prefix subspecies and genus methods with `SUBSPECIES_` and `GENUS_`, respe
 Existing species method names remain unchanged. CSV and optional write-back include accepted rank
 and alternatives. CSV regeneration from older outputs converts their runner-up name to a single
 alternative and leaves accepted rank empty when unavailable.
+
+`accepted_species_name` is a binomial without authorship, verified against accepted species in the
+reference. Species results use their own binomial. Subspecies results require an accepted species
+with the same genus and specific epithet, constrained by the accepted subspecies' family when
+available. Genus results, unmatched inputs, and subspecies without that reference match leave it
+NULL (empty in CSV). Ambiguous rows describe the selected candidate rather than implying a
+confident resolution. CSV and write-back include the column; legacy CSV exports leave it empty.

@@ -116,6 +116,9 @@ class SummaryService:
                 "alternative_matches" if "alternative_matches" in columns else "runner_up_name"
             )
             rank = "accepted_rank" if "accepted_rank" in columns else "NULL::VARCHAR"
+            species_name = (
+                "accepted_species_name" if "accepted_species_name" in columns else "NULL::VARCHAR"
+            )
             connection.execute(
                 f"""
                 COPY (
@@ -124,6 +127,7 @@ class SummaryService:
                         original_scientific_name,
                         original_family,
                         accepted_name,
+                        {species_name} AS accepted_species_name,
                         accepted_id,
                         match_method,
                         match_score,

@@ -45,6 +45,18 @@ SELECT
     inputs.occurrence_count,
     selected.accepted_id,
     selected.accepted_name,
+    CASE WHEN selected.accepted_rank IN ('species', 'subspecies')
+        AND EXISTS (
+            SELECT 1 FROM reference_source.accepted_taxa species
+            WHERE species.taxon_rank = 'species'
+              AND species.accepted_genus = selected.accepted_genus
+              AND species.accepted_epithet = selected.accepted_epithet
+              AND (selected.accepted_family IS NULL
+                   OR species.family_norm = lower(selected.accepted_family))
+        )
+        THEN upper(left(selected.accepted_genus, 1))
+             || substr(selected.accepted_genus, 2) || ' ' || selected.accepted_epithet
+    END AS accepted_species_name,
     selected.accepted_authorship,
     selected.accepted_family,
     selected.accepted_status,

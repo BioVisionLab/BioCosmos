@@ -101,6 +101,7 @@ class OutputRepository:
                     variants.occurrence_count,
                     matches.accepted_id,
                     matches.accepted_name,
+                    matches.accepted_species_name,
                     matches.accepted_rank,
                     matches.alternative_matches,
                     matches.accepted_authorship,

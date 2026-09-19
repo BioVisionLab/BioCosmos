@@ -165,6 +165,14 @@ def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_pa
         lookup_count = connection.execute(
             "SELECT count(*) FROM harmonized.taxonomy_lookup"
         ).fetchone()[0]
+        assert connection.execute(
+            "SELECT accepted_species_name FROM harmonized.taxonomy_lookup "
+            "WHERE original_scientific_name = 'Panthera leo'"
+        ).fetchone()[0] == "Panthera leo"
+        assert connection.execute(
+            "SELECT accepted_species_name FROM harmonized.taxonomy_lookup "
+            "WHERE original_scientific_name = 'Panthera'"
+        ).fetchone()[0] is None
     finally:
         connection.close()
     assert source_count == 11

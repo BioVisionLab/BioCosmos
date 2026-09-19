@@ -267,3 +267,49 @@ def test_legacy_summary(tmp_path):
         row = next(csv.DictReader(stream))
     assert row["alternative_matches"] == "Other name"
     assert row["accepted_rank"] == ""
+    assert row["accepted_species_name"] == ""
+
+
+def test_accepted_species_binomial(tmp_path):
+    references = [
+        ref("S", "Panthera leo Linnaeus, 1758", "species"),
+        ref("Y", "Leo leo", "species", status="synonym", parent="S"),
+        ref("U", "Panthera leo persica"),
+        ref("V", "Panthera pardus fusca"),
+        ref("W", "Panthera leo aliena", family="Otheridae"),
+        ref("G", "Panthera", "genus"),
+    ]
+    inputs = [
+        ("Panthera leo", "species", "Felidae", None, None),
+        ("Leo leo", "species", "Felidae", None, None),
+        ("Panthera leo persica", "subspecies", "Felidae", None, None),
+        ("Panthera pardus fusca", "subspecies", "Felidae", None, None),
+        ("Panthera leo aliena", "subspecies", "Otheridae", None, None),
+        ("Panthera missing", "species", "Felidae", None, None),
+        ("Unknown missing", "species", None, None, None),
+    ]
+    connection, _ = run_fixture(tmp_path, references, inputs)
+    try:
+        results = dict(
+            connection.execute(
+                "SELECT original_scientific_name, accepted_species_name FROM taxonomy_matches"
+            ).fetchall()
+        )
+        assert results == {
+            "Panthera leo": "Panthera leo",
+            "Leo leo": "Panthera leo",
+            "Panthera leo persica": "Panthera leo",
+            "Panthera pardus fusca": None,
+            "Panthera leo aliena": None,
+            "Panthera missing": None,
+            "Unknown missing": None,
+        }
+    finally:
+        connection.close()
+    result = SummaryService().export_csv(tmp_path / "output.duckdb", tmp_path, force=False)
+    with result.open() as stream:
+        exported = {
+            row["original_scientific_name"]: row["accepted_species_name"]
+            for row in csv.DictReader(stream)
+        }
+    assert exported == {name: value or "" for name, value in results.items()}
