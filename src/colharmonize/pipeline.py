@@ -10,6 +10,7 @@ import duckdb
 
 from colharmonize.identifiers import qualified_name, quote_identifier, quote_literal
 from colharmonize.models import MatchingConfig
+from colharmonize.names import subspecies_epithet_sql
 from colharmonize.sources import OccurrenceSource
 from colharmonize.sql import read_sql
 
@@ -72,6 +73,7 @@ class MatchPipeline:
                 "scientific_name",
                 "genus",
                 "specific_epithet",
+                "infraspecific_epithet",
                 "family",
                 "order",
                 "class",
@@ -82,7 +84,11 @@ class MatchPipeline:
         }
         source_name = (
             f"coalesce({expressions['scientific_name']}, "
-            f"concat_ws(' ', {expressions['genus']}, {expressions['specific_epithet']}))"
+            f"concat_ws(' ', {expressions['genus']}, {expressions['specific_epithet']}, "
+            f"{expressions['infraspecific_epithet']}))"
+        )
+        infra_sql = subspecies_epithet_sql(
+            "replace(original_scientific_name, '_', ' ')", "original_authorship"
         )
         self.connection.execute(
             f"""
@@ -92,6 +98,7 @@ class MatchPipeline:
                     {source_name} AS original_scientific_name,
                     {expressions["genus"]} AS original_genus,
                     {expressions["specific_epithet"]} AS original_specific_epithet,
+                    {expressions["infraspecific_epithet"]} AS original_infraspecific_epithet,
                     {expressions["family"]} AS original_family,
                     {expressions["order"]} AS original_order,
                     {expressions["class"]} AS original_class,
@@ -125,7 +132,9 @@ class MatchPipeline:
                         nullif(regexp_extract(parse_name, '^\\s*([^ ]+)', 1), '')) AS genus_norm,
                     coalesce(structured_epithet_norm,
                         nullif(regexp_extract(parse_name, '^\\s*[^ ]+\\s+([^ ]+)', 1), ''))
-                        AS epithet_norm
+                        AS epithet_norm,
+                    lower(coalesce(nullif(trim(original_infraspecific_epithet), ''),
+                        {infra_sql})) AS infraspecific_epithet_norm
                 FROM cleaned
             ), keyed AS (
                 SELECT *,
@@ -134,6 +143,7 @@ class MatchPipeline:
                         normalized_name := normalized_name,
                         genus := genus_norm,
                         epithet := epithet_norm,
+                        infraspecific_epithet := infraspecific_epithet_norm,
                         family := family_norm,
                         taxon_rank := rank_norm,
                         authorship := authorship_norm,
@@ -142,10 +152,15 @@ class MatchPipeline:
                         kingdom := kingdom_norm
                     ))) AS input_taxon_key,
                     CASE
-                        WHEN rank_norm <> 'species' THEN 'UNSUPPORTED_RANK'
-                        WHEN genus_norm IS NULL OR epithet_norm IS NULL
+                        WHEN rank_norm NOT IN ('species', 'subspecies', 'genus')
+                        THEN 'UNSUPPORTED_RANK'
+                        WHEN genus_norm IS NULL
                           OR NOT regexp_matches(genus_norm, '^[[:alpha:]×-]+$')
-                          OR NOT regexp_matches(epithet_norm, '^[[:alpha:]×-]+$')
+                          OR (rank_norm <> 'genus' AND (epithet_norm IS NULL
+                              OR NOT regexp_matches(epithet_norm, '^[[:alpha:]×-]+$')))
+                          OR (infraspecific_epithet_norm IS NOT NULL AND NOT
+                              regexp_matches(infraspecific_epithet_norm, '^[[:alpha:]×-]+$'))
+                          OR (rank_norm = 'subspecies' AND infraspecific_epithet_norm IS NULL)
                         THEN 'INVALID_BINOMIAL'
                         ELSE NULL
                     END AS reason_code
@@ -156,6 +171,7 @@ class MatchPipeline:
                 original_scientific_name,
                 original_genus,
                 original_specific_epithet,
+                original_infraspecific_epithet,
                 original_family,
                 original_order,
                 original_class,
@@ -165,6 +181,7 @@ class MatchPipeline:
                 normalized_name,
                 genus_norm,
                 epithet_norm,
+                infraspecific_epithet_norm,
                 canonical_key,
                 family_norm,
                 rank_norm,
@@ -185,6 +202,7 @@ class MatchPipeline:
                 min(original_scientific_name) AS original_scientific_name,
                 min(original_genus) AS original_genus,
                 min(original_specific_epithet) AS original_specific_epithet,
+                min(original_infraspecific_epithet) AS original_infraspecific_epithet,
                 min(original_family) AS original_family,
                 min(original_order) AS original_order,
                 min(original_class) AS original_class,
@@ -194,6 +212,7 @@ class MatchPipeline:
                 min(normalized_name) AS normalized_name,
                 min(genus_norm) AS normalized_genus,
                 min(epithet_norm) AS normalized_epithet,
+                min(infraspecific_epithet_norm) AS normalized_infraspecific_epithet,
                 min(canonical_key) AS canonical_key,
                 min(family_norm) AS normalized_family,
                 min(rank_norm) AS normalized_rank,
@@ -210,6 +229,49 @@ class MatchPipeline:
         )
 
     def _generate_candidates(self) -> None:
+        # Each stage receives only inputs with no evidence from earlier stages.
+        for rank in ("species", "subspecies", "genus"):
+            self._generate_rank_candidates(rank)
+
+    def _generate_rank_candidates(self, rank: str) -> None:
+        unresolved = (
+            ""
+            if rank == "species"
+            else """
+            AND NOT EXISTS (
+                SELECT 1 FROM raw_candidates c WHERE c.input_taxon_key = i.input_taxon_key
+            )"""
+        )
+        eligible_ranks = {
+            "species": "('species')",
+            "subspecies": "('species', 'subspecies')",
+            "genus": "('species', 'subspecies', 'genus')",
+        }[rank]
+        epithet = (
+            "coalesce(normalized_infraspecific_epithet, normalized_epithet)"
+            if rank == "subspecies"
+            else "normalized_epithet"
+        )
+        canonical = "canonical_key"
+        if rank == "subspecies":
+            canonical = """CASE WHEN normalized_infraspecific_epithet IS NOT NULL
+                THEN concat_ws(' ', normalized_genus, normalized_epithet,
+                               normalized_infraspecific_epithet)
+                ELSE concat_ws(' ', normalized_genus, normalized_epithet) END"""
+        self.connection.execute(f"""
+            CREATE OR REPLACE TEMP TABLE stage_inputs AS
+            SELECT * REPLACE ({epithet} AS normalized_epithet, {canonical} AS canonical_key)
+            FROM input_taxa i
+            WHERE reason_code IS NULL AND normalized_rank IN {eligible_ranks} {unresolved}
+        """)
+        reference_epithet = (
+            "accepted_infraspecific_epithet" if rank == "subspecies" else "accepted_epithet"
+        )
+        self.connection.execute(f"""
+            CREATE OR REPLACE TEMP VIEW stage_reference AS
+            SELECT *, {reference_epithet} AS comparison_epithet
+            FROM reference_source.accepted_taxa WHERE taxon_rank = '{rank}'
+        """)
         config = self.matching
         common = """
             i.input_taxon_key,
@@ -220,6 +282,8 @@ class MatchPipeline:
             a.accepted_epithet,
             a.accepted_family,
             a.accepted_status,
+            a.taxon_rank AS accepted_rank,
+            '{rank}' AS match_stage,
             {usage_id} AS matched_usage_id,
             {usage_name} AS matched_usage_name,
             {usage_status} AS matched_usage_status,
@@ -232,13 +296,14 @@ class MatchPipeline:
                 AND i.normalized_authorship = a.authorship_norm)::INTEGER AS authorship_exact,
             damerau_levenshtein(i.normalized_genus, a.accepted_genus)::INTEGER
                 AS genus_distance,
-            damerau_levenshtein(i.normalized_epithet, a.accepted_epithet)::INTEGER
+            coalesce(damerau_levenshtein(i.normalized_epithet, a.comparison_epithet), 0)::INTEGER
                 AS epithet_distance,
             jaro_winkler_similarity(i.normalized_genus, a.accepted_genus)
                 AS genus_similarity,
-            jaro_winkler_similarity(i.normalized_epithet, a.accepted_epithet)
+            coalesce(jaro_winkler_similarity(i.normalized_epithet, a.comparison_epithet), 0)
                 AS epithet_similarity
         """
+        common = common.replace("{rank}", rank)
         accepted_common = common.format(
             usage_id="a.accepted_id",
             usage_name="a.accepted_name",
@@ -259,38 +324,71 @@ class MatchPipeline:
                 "THEN 1 ELSE 2 END"
             ),
         )
+        destination = (
+            "CREATE TABLE raw_candidates AS" if rank == "species" else "INSERT INTO raw_candidates"
+        )
+        if rank == "genus":
+            self.connection.execute(f"""
+                {destination}
+                SELECT {exact_usage}
+                FROM stage_inputs i
+                JOIN reference_source.usage_lookup u
+                  ON i.normalized_genus = u.usage_genus AND u.usage_rank = 'genus'
+                JOIN stage_reference a ON a.accepted_id = u.accepted_id
+                WHERE i.normalized_family IS NULL OR i.normalized_family = a.family_norm
+            """)
+            return
         self.connection.execute(
             f"""
-            CREATE TABLE raw_candidates AS
+            {destination}
             SELECT {exact_usage}
-            FROM input_taxa i
+            FROM stage_inputs i
             JOIN reference_source.usage_lookup u
-              ON i.normalized_name = u.usage_name_norm
-            JOIN reference_source.accepted_taxa a ON a.accepted_id = u.accepted_id
+              ON ((i.normalized_name = u.usage_name_norm
+                     AND ('{rank}' <> 'subspecies'
+                          OR i.normalized_infraspecific_epithet IS NULL
+                          OR i.canonical_key = u.usage_canonical_key))
+                OR ('{rank}' = 'subspecies' AND u.usage_rank = 'subspecies'
+                    AND lower(u.usage_status) NOT IN ('accepted', 'provisionally accepted')
+                    AND (i.canonical_key = u.usage_canonical_key
+                         OR (i.normalized_infraspecific_epithet IS NULL
+                             AND i.normalized_genus = u.usage_genus
+                             AND i.normalized_epithet = u.usage_infraspecific_epithet))))
+            JOIN stage_reference a ON a.accepted_id = u.accepted_id
             WHERE i.reason_code IS NULL
 
             UNION ALL
             SELECT {accepted_common.format(method="'EXACT_CANONICAL'", tier="3")}
-            FROM input_taxa i
-            JOIN reference_source.accepted_taxa a ON i.canonical_key = a.canonical_key
+            FROM stage_inputs i
+            JOIN stage_reference a ON (i.canonical_key = a.canonical_key
+                OR ('{rank}' = 'subspecies' AND i.normalized_infraspecific_epithet IS NULL
+                    AND i.normalized_genus = a.accepted_genus
+                    AND i.normalized_epithet = a.comparison_epithet))
             WHERE i.reason_code IS NULL
+              AND ('{rank}' <> 'subspecies' OR i.normalized_infraspecific_epithet IS NULL
+                   OR a.accepted_epithet = split_part(i.canonical_key, ' ', 2))
 
             UNION ALL
             SELECT {accepted_common.format(method="'FAMILY_EPITHET'", tier="8")}
-            FROM input_taxa i
-            JOIN reference_source.accepted_taxa a
+            FROM stage_inputs i
+            JOIN stage_reference a
               ON i.normalized_family = a.family_norm
-             AND i.normalized_epithet = a.accepted_epithet
-            WHERE i.reason_code IS NULL AND i.normalized_family IS NOT NULL
+             AND i.normalized_epithet = a.comparison_epithet
+            WHERE i.reason_code IS NULL
+              AND ('{rank}' <> 'subspecies' OR i.normalized_infraspecific_epithet IS NULL
+                   OR a.accepted_epithet = split_part(i.canonical_key, ' ', 2))
+              AND i.normalized_family IS NOT NULL
 
             UNION ALL
             SELECT {accepted_common.format(method="'SPELLING_GENUS'", tier="5")}
-            FROM input_taxa i
-            JOIN reference_source.accepted_taxa a
+            FROM stage_inputs i
+            JOIN stage_reference a
               ON i.normalized_family = a.family_norm
-             AND i.normalized_epithet = a.accepted_epithet
+             AND i.normalized_epithet = a.comparison_epithet
              AND abs(length(i.normalized_genus) - length(a.accepted_genus)) <= 2
             WHERE i.reason_code IS NULL
+              AND ('{rank}' <> 'subspecies' OR i.normalized_infraspecific_epithet IS NULL
+                   OR a.accepted_epithet = split_part(i.canonical_key, ' ', 2))
               AND i.normalized_genus <> a.accepted_genus
               AND (damerau_levenshtein(i.normalized_genus, a.accepted_genus)
                         <= {config.genus_distance}
@@ -299,33 +397,37 @@ class MatchPipeline:
 
             UNION ALL
             SELECT {accepted_common.format(method="'SPELLING_EPITHET'", tier="6")}
-            FROM input_taxa i
-            JOIN reference_source.accepted_taxa a
+            FROM stage_inputs i
+            JOIN stage_reference a
               ON i.normalized_family = a.family_norm
              AND i.normalized_genus = a.accepted_genus
-             AND abs(length(i.normalized_epithet) - length(a.accepted_epithet)) <= 2
+             AND abs(length(i.normalized_epithet) - length(a.comparison_epithet)) <= 2
             WHERE i.reason_code IS NULL
-              AND i.normalized_epithet <> a.accepted_epithet
-              AND damerau_levenshtein(i.normalized_epithet, a.accepted_epithet) <= CASE
+              AND ('{rank}' <> 'subspecies' OR i.normalized_infraspecific_epithet IS NULL
+                   OR a.accepted_epithet = split_part(i.canonical_key, ' ', 2))
+              AND i.normalized_epithet <> a.comparison_epithet
+              AND damerau_levenshtein(i.normalized_epithet, a.comparison_epithet) <= CASE
                     WHEN length(i.normalized_epithet) <= {config.short_epithet_length}
                     THEN {config.short_epithet_distance}
                     ELSE {config.long_epithet_distance} END
 
             UNION ALL
             SELECT {accepted_common.format(method="'FUZZY_TYPO'", tier="7")}
-            FROM input_taxa i
-            JOIN reference_source.accepted_taxa a
+            FROM stage_inputs i
+            JOIN stage_reference a
               ON i.normalized_family = a.family_norm
              AND abs(length(i.normalized_genus) - length(a.accepted_genus)) <= 2
-             AND abs(length(i.normalized_epithet) - length(a.accepted_epithet)) <= 2
+             AND abs(length(i.normalized_epithet) - length(a.comparison_epithet)) <= 2
             WHERE i.reason_code IS NULL
+              AND ('{rank}' <> 'subspecies' OR i.normalized_infraspecific_epithet IS NULL
+                   OR a.accepted_epithet = split_part(i.canonical_key, ' ', 2))
               AND i.normalized_genus <> a.accepted_genus
-              AND i.normalized_epithet <> a.accepted_epithet
+              AND i.normalized_epithet <> a.comparison_epithet
               AND (damerau_levenshtein(i.normalized_genus, a.accepted_genus)
                         <= {config.genus_distance}
                    OR jaro_winkler_similarity(i.normalized_genus, a.accepted_genus)
                         >= {config.min_genus_similarity})
-              AND damerau_levenshtein(i.normalized_epithet, a.accepted_epithet) <= CASE
+              AND damerau_levenshtein(i.normalized_epithet, a.comparison_epithet) <= CASE
                     WHEN length(i.normalized_epithet) <= {config.short_epithet_length}
                     THEN {config.short_epithet_distance}
                     ELSE {config.long_epithet_distance} END
@@ -349,10 +451,12 @@ class MatchPipeline:
                 accepted_epithet,
                 accepted_family,
                 accepted_status,
+                accepted_rank,
                 matched_usage_id,
                 matched_usage_name,
                 matched_usage_status,
-                candidate_method,
+                CASE WHEN match_stage = 'species' THEN candidate_method
+                     ELSE upper(match_stage) || '_' || candidate_method END AS candidate_method,
                 generation_methods,
                 match_score,
                 family_exact::BOOLEAN AS family_exact,

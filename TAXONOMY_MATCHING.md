@@ -50,13 +50,14 @@ flowchart LR
 The CoL source is fingerprinted with SHA-256. An index with the same source fingerprint and
 schema version is reused; otherwise it is rebuilt atomically.
 
-Only species-level name usages with identifiers, names, genera, and specific epithets enter the
-index. Records whose status is `accepted` or `provisionally accepted` populate `accepted_taxa`.
+Species, subspecies, and genus name usages with identifiers and names enter reference schema
+version 2. Genus records need a genus; species also need a specific epithet; subspecies additionally
+need an infraspecific epithet. Canonical keys contain one, two, or three name parts by rank. Records whose status is `accepted` or `provisionally accepted` populate `accepted_taxa`.
 Accepted names and synonyms populate `usage_lookup`, with every synonym linked to its accepted
 taxon through `parentID` or `acceptedNameUsageID`.
 
 The index provides lookups for normalized full names, canonical binomials, and family-epithet
-pairs.
+pairs, subspecies epithets, and genus usages.
 
 ## 2. Input normalization
 
@@ -99,15 +100,21 @@ $$
 
 For example, `Panthera leo Linnaeus, 1758` has the canonical binomial `panthera leo`.
 
-Missing rank defaults to `species`. An input is eligible only when its rank is `species` and both
-name parts contain alphabetic characters, the hybrid sign, or hyphens. Invalid inputs receive
-`UNSUPPORTED_RANK` or `INVALID_BINOMIAL` and generate no candidates.
+Missing rank defaults to `species`. Supported input ranks are `species`, `subspecies`, and `genus`.
+Required name parts contain alphabetic characters, the hybrid sign, or hyphens. Genus inputs
+require only a genus; explicit subspecies inputs require an infraspecific epithet as well.
+Invalid inputs receive `UNSUPPORTED_RANK` or `INVALID_BINOMIAL` and generate no candidates.
+
+The optional `infraspecific_epithet` mapping takes precedence over parsing. Parsing preserves
+source case to recognize lowercase third epithets and `subsp.`/`ssp.` markers without mistaking
+capitalized author surnames for epithets. Supplied trailing authorship is stripped first.
+Structured epithets should be supplied for ambiguous or nonstandard name casing.
 
 The stable input key is
 
 $$
 K=\operatorname{SHA256}\left(
-  \operatorname{JSON}(N(n),g,e,f,r,a,o,c,k)
+  \operatorname{JSON}(N(n),g,e,e_{infra},f,r,a,o,c,k)
 \right).
 $$
 
@@ -117,8 +124,35 @@ the source.
 
 ## 3. Candidate generation
 
-Every eligible input is evaluated by all applicable methods. The methods form a union rather
-than a first-match-wins cascade.
+Within a rank, every eligible input is evaluated by all applicable methods and evidence forms a
+union. Ranks form a cascade: species, then subspecies, then exact genus. A later stage receives
+only inputs with **zero candidates** in earlier stages. Ambiguous results stop the cascade.
+Explicit subspecies and genus inputs start at their own stage.
+
+Subspecies matching uses the same method tiers, family blocking, spelling thresholds, and scoring.
+Exact usage and canonical matching support full trinomials. When no infraspecific epithet is
+supplied, the input species epithet is compared with reference subspecies epithets; an exact
+genus/epithet pair is canonical evidence, and synonym pairs retain synonym evidence. Complete
+trinomials require the parent species epithet to agree for non-exact comparisons. Exact synonyms
+may resolve to a recombined accepted name. Accepted output retains the complete taxon name and ID.
+
+Genus fallback compares exact accepted genus names and genus synonyms. A supplied family filters
+candidates; without family all exact homonyms are retained. Only one distinct accepted genus is
+matched, otherwise the result is ambiguous. There is no fuzzy genus-only search and no genus taxon
+is fabricated from species records. Missing reference genera leave the input unmatched.
+
+```mermaid
+flowchart LR
+    SPECIES[Species methods] --> SC{Any candidates?}
+    SC -->|Yes| RESOLVE[Score and resolve; ambiguity stops fallback]
+    SC -->|No| SUB[Subspecies methods]
+    SUB --> UC{Any candidates?}
+    UC -->|Yes| RESOLVE
+    UC -->|No| GEN[Exact genus names and synonyms]
+    GEN --> GC{Any candidates?}
+    GC -->|Yes| RESOLVE
+    GC -->|No| NONE[Unmatched]
+```
 
 Let $D(x,y)$ be Damerau-Levenshtein distance, $J(x,y)$ be Jaro-Winkler similarity, and $L(x)$
 be string length.
@@ -226,7 +260,10 @@ $$
 
 Tier has precedence over score: a weaker method cannot outrank a stronger tier because of bonus
 points. Accepted ID is the final deterministic tie-breaker. The output retains at most `top_k`
-candidates per input, but runner-up information is calculated before that limit is applied.
+candidates per input. `alternative_matches` joins candidate ranks 2–4 with `; ` before that limit
+is applied; it is NULL when there are none. Alternatives exclude the selected accepted ID and
+come only from the stage that generated candidates. The second score is retained internally for
+ambiguity decisions and `score_margin`, even when `top_k=1`. Public runner-up columns are removed.
 
 ## 5. Final resolution
 
@@ -253,7 +290,7 @@ flowchart TD
     CLEAR -->|No| AMBIGUOUS
 ```
 
-An eligible input is `MATCHED` when
+For species and subspecies, an eligible input is `MATCHED` when
 
 $$
 \begin{aligned}
@@ -298,5 +335,10 @@ flowchart LR
     R -. provenance .-> M
 ```
 
-The output preserves normalized inputs, candidate evidence, winning and runner-up scores, reason
-codes, occurrence counts, the reference fingerprint, matching configuration, and timing.
+The output preserves normalized inputs, candidate evidence, the winning score, score margin,
+up to three alternative accepted names, reason codes, occurrence counts, the reference fingerprint,
+matching configuration, and timing. Matches and candidates expose `accepted_rank`; public method
+names prefix subspecies and genus methods with `SUBSPECIES_` and `GENUS_`, respectively.
+Existing species method names remain unchanged. CSV and optional write-back include accepted rank
+and alternatives. CSV regeneration from older outputs converts their runner-up name to a single
+alternative and leaves accepted rank empty when unavailable.

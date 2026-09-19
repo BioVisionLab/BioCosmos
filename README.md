@@ -71,7 +71,7 @@ flowchart LR
     OUTPUT -. opt-in write-back .-> LOOKUP[(Compact lookup in occurrence DuckDB)]
 ```
 
-Candidate methods run as a union rather than as a first-match-wins sequence:
+Within each rank, candidate methods run as a union. Ranks form a cascade: species → subspecies → genus. A later rank is tried only when the earlier stage has no candidates; ambiguous results stop the cascade. Explicit subspecies and genus inputs begin at their own rank.
 
 ```mermaid
 flowchart TB
@@ -95,9 +95,15 @@ flowchart TB
 
     UNION --> COLLAPSE[Collapse usages by accepted taxon ID]
     COLLAPSE --> SCORE[Apply deterministic evidence score]
-    SCORE --> RANK[Retain top-k plus runner-up and score margin]
+    SCORE --> RANK[Retain top-k plus up to three alternatives and score margin]
     RANK --> FOUND{Any candidate?}
-    FOUND -->|No| UNMATCHED
+    FOUND -->|No| SUB[Try subspecies using trinomial or subspecies epithet]
+    SUB --> SUBFOUND{Subspecies candidates?}
+    SUBFOUND -->|Yes| CLEAR
+    SUBFOUND -->|No| GEN[Try exact genus names and synonyms]
+    GEN --> GENFOUND{Genus candidates?}
+    GENFOUND -->|Yes| CLEAR
+    GENFOUND -->|No| UNMATCHED
     FOUND -->|Yes| CLEAR{Unique or clearly separated evidence?}
     CLEAR -->|Yes| MATCHED[MATCHED]
     CLEAR -->|No| AMBIGUOUS[AMBIGUOUS with best candidate retained]
@@ -119,4 +125,10 @@ LEFT JOIN harmonized.input_taxon_variants variants
 LEFT JOIN harmonized.taxonomy_matches matches USING (input_taxon_key);
 ```
 
-Only species-level binomials are matched. Ambiguous and unmatched inputs remain explicit; no interactive review or overrides are performed.
+Species, subspecies, and genus inputs are supported. Subspecies fallback compares the species epithet against subspecies epithets when no complete trinomial is supplied. Complete trinomials retain their parent species constraint for non-exact comparisons. Genus fallback requires an exact accepted name or synonym and filters by supplied family; multiple accepted genus candidates remain ambiguous. Genus taxa must exist in the reference.
+
+`accepted_rank` records the actual matched rank. Subspecies and genus methods use `SUBSPECIES_` and `GENUS_` prefixes. `alternative_matches` replaces the runner-up columns with up to three other accepted names, separated by `; ` and ordered by candidate rank. It excludes the selected taxon, collapses duplicate evidence by accepted ID, and is independent of `top_k`; no alternatives is NULL (empty in CSV). `score_margin` still uses the second candidate internally. Summary export also supports older databases, converting their runner-up name to a single alternative.
+
+Map an optional subspecies column with `infraspecific_epithet=infraspecificEpithet` or configure it under `[columns]`. Structured epithets take precedence; parsing supports lowercase trinomials and `subsp.`/`ssp.` markers. Supplied authorship is stripped before parsing; capitalized author surnames are not interpreted as epithets. Supply the structured field when name casing or authorship is ambiguous. Missing rank still defaults to species; genus-only input needs rank `genus`.
+
+Reference schema version 2 rebuilds old species-only caches automatically. Ambiguous and unmatched inputs remain explicit; no interactive review or overrides are performed.

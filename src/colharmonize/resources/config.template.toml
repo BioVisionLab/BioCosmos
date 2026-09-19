@@ -16,6 +16,7 @@ force = false
 # scientific_name = "species"
 # genus = "genus"
 # specific_epithet = "specificEpithet"
+# infraspecific_epithet = "infraspecificEpithet"
 # family = "family"
 # order = "order"
 # class = "class"

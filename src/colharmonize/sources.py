@@ -26,6 +26,7 @@ from colharmonize.models import (
 STANDARD_COLUMNS: dict[str, tuple[str, ...]] = {
     "genus": ("genus",),
     "specific_epithet": ("specificEpithet", "specific_epithet"),
+    "infraspecific_epithet": ("infraspecificEpithet", "infraspecific_epithet"),
     "family": ("family",),
     "order": ("order",),
     "class": ("class",),

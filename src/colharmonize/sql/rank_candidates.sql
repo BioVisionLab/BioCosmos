@@ -51,10 +51,6 @@ SELECT *,
         PARTITION BY input_taxon_key
         ORDER BY effective_tier, match_score DESC, accepted_id
     )::INTEGER AS candidate_rank,
-    lead(accepted_name) OVER (
-        PARTITION BY input_taxon_key
-        ORDER BY effective_tier, match_score DESC, accepted_id
-    ) AS runner_up_name,
     lead(match_score) OVER (
         PARTITION BY input_taxon_key
         ORDER BY effective_tier, match_score DESC, accepted_id

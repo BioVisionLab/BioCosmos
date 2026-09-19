@@ -9,6 +9,8 @@ WITH aggregated AS (
         min(accepted_epithet) AS accepted_epithet,
         min(accepted_family) AS accepted_family,
         min(accepted_status) AS accepted_status,
+        min(accepted_rank) AS accepted_rank,
+        min(match_stage) AS match_stage,
         string_agg(DISTINCT generation_method, ',' ORDER BY generation_method)
             AS generation_methods,
         max(family_exact) AS family_exact,

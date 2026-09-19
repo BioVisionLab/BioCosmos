@@ -29,4 +29,4 @@ def test_coldp_zip_is_supported(col_tsv: Path, tmp_path: Path) -> None:
     with ZipFile(archive, "w", ZIP_DEFLATED) as output:
         output.write(col_tsv, "dataset/name-usage.tsv")
     info = ReferenceIndex(tmp_path / "cache").ensure(ColSource(archive))
-    assert info.accepted_count == 6
+    assert info.accepted_count == 7

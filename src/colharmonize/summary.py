@@ -108,6 +108,14 @@ class SummaryService:
         temporary = output_dir / f".taxonomy_summary.{uuid.uuid4().hex}.csv"
         connection = duckdb.connect(str(database), read_only=True)
         try:
+            columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info('taxonomy_matches')").fetchall()
+            }
+            alternatives = (
+                "alternative_matches" if "alternative_matches" in columns else "runner_up_name"
+            )
+            rank = "accepted_rank" if "accepted_rank" in columns else "NULL::VARCHAR"
             connection.execute(
                 f"""
                 COPY (
@@ -121,7 +129,8 @@ class SummaryService:
                         match_score,
                         update_status,
                         candidate_count,
-                        runner_up_name,
+                        {rank} AS accepted_rank,
+                        {alternatives} AS alternative_matches,
                         score_margin
                     FROM taxonomy_matches
                     ORDER BY input_taxon_key

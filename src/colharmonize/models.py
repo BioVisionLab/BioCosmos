@@ -20,6 +20,7 @@ class ColumnMappings(FrozenModel):
     scientific_name: str | None = None
     genus: str | None = None
     specific_epithet: str | None = None
+    infraspecific_epithet: str | None = None
     family: str | None = None
     order_name: str | None = Field(default=None, alias="order")
     class_name: str | None = Field(default=None, alias="class")

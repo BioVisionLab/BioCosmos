@@ -46,7 +46,8 @@ def test_matching_methods_and_statuses(occurrence_db: Path, col_tsv: Path, tmp_p
         assert results["Panthra tigrus"] == "FUZZY_TYPO"
         assert statuses["Xenus beta"] == "AMBIGUOUS"
         assert statuses["Nothing nowhere"] == "UNMATCHED"
-        assert statuses["Panthera"] == "UNMATCHED"
+        assert statuses["Panthera"] == "MATCHED"
+        assert results["Panthera"] == "GENUS_EXACT_ACCEPTED"
     finally:
         connection.close()
 
