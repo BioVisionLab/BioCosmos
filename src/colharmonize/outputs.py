@@ -18,7 +18,7 @@ from colharmonize.identifiers import (
     quote_identifier,
     quote_literal,
 )
-from colharmonize.models import RunManifest
+from colharmonize.models import CoordinateRunManifest, RunManifest
 
 
 class OutputRepository:
@@ -120,3 +120,40 @@ class OutputRepository:
             raise
         finally:
             connection.close()
+
+
+class CoordinateOutputRepository:
+    """Create coordinate-validation artifacts atomically."""
+
+    def __init__(self, output_dir: Path) -> None:
+        self.output_dir = output_dir
+        self.database_path = output_dir / "coordinate_validation.duckdb"
+
+    @contextmanager
+    def build_database(self, *, force: bool) -> Iterator[duckdb.DuckDBPyConnection]:
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        if self.database_path.exists() and not force:
+            raise OutputError(f"Output database already exists: {self.database_path}")
+        temporary = self.output_dir / f".coordinate_validation.{uuid.uuid4().hex}.duckdb"
+        connection = duckdb.connect(str(temporary))
+        try:
+            yield connection
+            connection.execute("CHECKPOINT")
+            connection.close()
+            os.replace(temporary, self.database_path)
+        except Exception:
+            connection.close()
+            temporary.unlink(missing_ok=True)
+            raise
+
+    def write_manifest(self, manifest: CoordinateRunManifest, *, force: bool) -> Path:
+        destination = self.output_dir / "coordinate_run.json"
+        if destination.exists() and not force:
+            raise OutputError(f"Manifest already exists: {destination}")
+        temporary = self.output_dir / f".coordinate_run.{uuid.uuid4().hex}.json"
+        temporary.write_text(
+            json.dumps(manifest.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, destination)
+        return destination

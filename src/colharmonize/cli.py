@@ -13,12 +13,24 @@ import duckdb
 import typer
 
 from colharmonize import __version__
-from colharmonize.config import load_project_config, merge_run_config, parse_mapping_options
+from colharmonize.config import (
+    load_project_config,
+    merge_coordinate_config,
+    merge_run_config,
+    parse_mapping_options,
+)
 from colharmonize.config import write_template as create_template
+from colharmonize.coordinates import CoordinateValidationPipeline
 from colharmonize.errors import ColHarmonizeError, ConfigurationError
+from colharmonize.geography import GadmSource
 from colharmonize.index import ReferenceIndex
-from colharmonize.models import ColumnMappings, RunManifest
-from colharmonize.outputs import OutputRepository
+from colharmonize.models import (
+    ColumnMappings,
+    CoordinateRunManifest,
+    CoordinateValidationConfig,
+    RunManifest,
+)
+from colharmonize.outputs import CoordinateOutputRepository, OutputRepository
 from colharmonize.pipeline import MatchPipeline
 from colharmonize.progress import RunReporter, format_duration
 from colharmonize.sources import ColSource, DuckDBCatalog, OccurrenceSource
@@ -313,6 +325,177 @@ def run_command(
         throughput = total / final_runtime if final_runtime > 0 else 0.0
         typer.echo(
             f"Runtime: {format_duration(final_runtime)} ({throughput:,.1f} distinct taxa/second)"
+        )
+    except (ColHarmonizeError, ValueError, duckdb.Error) as exc:
+        _fail(exc)
+
+
+@app.command("validate-coordinates")
+def validate_coordinates_command(
+    db: Annotated[Path | None, typer.Option("--db")] = None,
+    table: Annotated[str | None, typer.Option("--table")] = None,
+    gadm: Annotated[Path | None, typer.Option("--gadm")] = None,
+    output: Annotated[Path | None, typer.Option("--output")] = None,
+    config: Annotated[Path | None, typer.Option("--config")] = None,
+    mappings: Annotated[list[str] | None, typer.Option("--map")] = None,
+    gadm_layer: Annotated[str | None, typer.Option("--gadm-layer")] = None,
+    tile_size: Annotated[float | None, typer.Option("--tile-size")] = None,
+    tile_buffer: Annotated[float | None, typer.Option("--tile-buffer")] = None,
+    force: Annotated[bool | None, typer.Option("--force/--no-force")] = None,
+) -> None:
+    """Validate occurrence coordinates against a GADM ADM1 GeoPackage layer."""
+    started = datetime.now(UTC)
+    timer_started = perf_counter()
+    progress = RunReporter(total_steps=9)
+    try:
+        with progress.step("Validate configuration and coordinate columns"):
+            project = load_project_config(config)
+            effective = merge_coordinate_config(
+                project,
+                overrides=_run_overrides(
+                    db=db,
+                    table=table,
+                    gadm=gadm,
+                    output=output,
+                    gadm_layer=gadm_layer,
+                    tile_size=tile_size,
+                    tile_buffer=tile_buffer,
+                    force=force,
+                ),
+                mapping_values=mappings,
+            )
+            occurrence = OccurrenceSource(effective.db, effective.table)
+            with occurrence.connect() as source_connection:
+                available = occurrence.columns(source_connection)
+                resolved, _ = occurrence.resolve_coordinate_columns(
+                    available, effective.columns, strict=True
+                )
+            validation_config = CoordinateValidationConfig(
+                tile_size=effective.tile_size,
+                tile_buffer=effective.tile_buffer,
+            )
+
+        with progress.step("Validate the GADM reference layer"):
+            gadm_source = GadmSource(effective.gadm)
+            gadm_info = gadm_source.inspect(effective.gadm_layer)
+
+        repository = CoordinateOutputRepository(effective.output)
+        run_id = str(uuid.uuid4())
+        with repository.build_database(force=effective.force) as connection:
+            pipeline = CoordinateValidationPipeline(
+                connection,
+                occurrence,
+                resolved,
+                gadm_source,
+                gadm_info,
+                validation_config,
+            )
+            pipeline.run(stage=progress.step)
+            with progress.step("Calculate coordinate summary and provenance"):
+                pipeline.refresh_metrics()
+                counts = dict(
+                    connection.execute(
+                        "SELECT validation_status, count(*) "
+                        "FROM coordinate_validation GROUP BY validation_status"
+                    ).fetchall()
+                )
+                total_rows = sum(counts.values())
+                point_count_row = connection.execute(
+                    "SELECT count(*) FROM coordinate_points"
+                ).fetchone()
+                assert point_count_row is not None
+                distinct_points = point_count_row[0]
+                connection.execute(
+                    """
+                    CREATE TABLE coordinate_run_metadata AS SELECT
+                        ?::VARCHAR AS run_id,
+                        ?::VARCHAR AS package_version,
+                        ?::TIMESTAMPTZ AS started_at,
+                        NULL::TIMESTAMPTZ AS completed_at,
+                        NULL::DOUBLE AS runtime_seconds,
+                        ?::VARCHAR AS occurrence_database,
+                        ?::VARCHAR AS occurrence_table,
+                        ?::VARCHAR AS gadm_source,
+                        ?::VARCHAR AS gadm_sha256,
+                        ?::VARCHAR AS gadm_layer,
+                        ?::INTEGER AS gadm_srs_id,
+                        ?::JSON AS detected_columns,
+                        ?::JSON AS validation_config,
+                        ?::BIGINT AS occurrence_count,
+                        ?::BIGINT AS distinct_valid_point_count
+                    """,
+                    [
+                        run_id,
+                        __version__,
+                        started.isoformat(),
+                        str(effective.db.resolve()),
+                        occurrence.identifier.display_name,
+                        str(effective.gadm.resolve()),
+                        gadm_info.fingerprint,
+                        gadm_info.layer,
+                        gadm_info.srs_id,
+                        json.dumps(resolved, sort_keys=True),
+                        json.dumps(validation_config.model_dump(), sort_keys=True),
+                        total_rows,
+                        distinct_points,
+                    ],
+                )
+
+        with progress.step("Finalize coordinate run metadata"):
+            completed = datetime.now(UTC)
+            runtime_seconds = perf_counter() - timer_started
+            points_per_second = (
+                distinct_points / runtime_seconds if runtime_seconds > 0 else None
+            )
+            metadata_connection = duckdb.connect(str(repository.database_path))
+            try:
+                metadata_connection.execute(
+                    "UPDATE coordinate_run_metadata SET completed_at = ?, runtime_seconds = ?",
+                    [completed.isoformat(), runtime_seconds],
+                )
+            finally:
+                metadata_connection.close()
+            outputs = {
+                "database": str(repository.database_path.resolve()),
+                "manifest": str((effective.output / "coordinate_run.json").resolve()),
+            }
+            manifest = CoordinateRunManifest(
+                run_id=run_id,
+                package_version=__version__,
+                started_at=started.isoformat(),
+                completed_at=completed.isoformat(),
+                runtime_seconds=round(runtime_seconds, 3),
+                points_per_second=(
+                    round(points_per_second, 3) if points_per_second is not None else None
+                ),
+                occurrence_database=str(effective.db.resolve()),
+                occurrence_table=occurrence.identifier.display_name,
+                gadm_source=str(effective.gadm.resolve()),
+                gadm_sha256=gadm_info.fingerprint,
+                gadm_layer=gadm_info.layer,
+                detected_columns=resolved,
+                validation=validation_config.model_dump(),
+                outputs=outputs,
+                counts={
+                    "total": total_rows,
+                    "distinct_valid_points": distinct_points,
+                    **{key.lower(): value for key, value in counts.items()},
+                },
+            )
+            repository.write_manifest(manifest, force=effective.force)
+
+        typer.echo(f"Created {repository.database_path}")
+        mismatch_count = counts.get("COUNTRY_MISMATCH", 0) + counts.get("ADM1_MISMATCH", 0)
+        unresolved_count = total_rows - counts.get("VALID", 0) - mismatch_count
+        typer.echo(
+            f"Occurrences: {total_rows:,}; valid: {counts.get('VALID', 0):,}; "
+            f"mismatched: {mismatch_count:,}; invalid or unresolved: {unresolved_count:,}"
+        )
+        final_runtime = perf_counter() - timer_started
+        throughput = distinct_points / final_runtime if final_runtime > 0 else 0.0
+        typer.echo(
+            f"Runtime: {format_duration(final_runtime)} "
+            f"({throughput:,.1f} distinct valid points/second)"
         )
     except (ColHarmonizeError, ValueError, duckdb.Error) as exc:
         _fail(exc)

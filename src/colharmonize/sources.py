@@ -19,6 +19,7 @@ from colharmonize.models import (
     CatalogTable,
     ColSourceInfo,
     ColumnMappings,
+    CoordinateColumnMappings,
     InspectionReport,
 )
 
@@ -34,6 +35,13 @@ STANDARD_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 NAME_COLUMNS = ("scientificName", "species")
 UNSUPPORTED_TYPES = ("BLOB", "STRUCT", "MAP", "LIST", "UNION")
+COORDINATE_COLUMNS: dict[str, tuple[str, ...]] = {
+    "source_id": ("occurrenceID", "occurrence_id", "id"),
+    "latitude": ("decimalLatitude", "decimal_latitude", "latitude", "lat"),
+    "longitude": ("decimalLongitude", "decimal_longitude", "longitude", "lon", "lng"),
+    "country": ("countryCode", "country_code", "country"),
+    "adm1": ("stateProvince", "state_province", "adm1", "state", "province"),
+}
 
 
 class DuckDBCatalog:
@@ -177,6 +185,54 @@ class OccurrenceSource:
                 "A scientific-name column or both genus and specific epithet are required."
             )
 
+        if strict and warnings:
+            raise SourceValidationError(" ".join(warnings))
+        return resolved, warnings
+
+    def resolve_coordinate_columns(
+        self,
+        available: dict[str, str],
+        mappings: CoordinateColumnMappings,
+        *,
+        strict: bool = True,
+    ) -> tuple[dict[str, str], list[str]]:
+        """Resolve required coordinates and optional locality columns."""
+        lower_names: dict[str, list[str]] = {}
+        for name in available:
+            lower_names.setdefault(name.casefold(), []).append(name)
+
+        def resolve(name: str) -> str:
+            if name in available:
+                return name
+            matches = lower_names.get(name.casefold(), [])
+            if len(matches) == 1:
+                return matches[0]
+            raise SourceValidationError(f"Mapped column does not exist or is ambiguous: {name}")
+
+        resolved = {
+            logical: resolve(physical)
+            for logical, physical in mappings.as_logical_dict().items()
+        }
+        for logical, candidates in COORDINATE_COLUMNS.items():
+            if logical in resolved:
+                continue
+            for candidate in candidates:
+                matches = lower_names.get(candidate.casefold(), [])
+                if len(matches) == 1:
+                    resolved[logical] = matches[0]
+                    break
+
+        warnings: list[str] = []
+        missing = [field for field in ("latitude", "longitude") if field not in resolved]
+        if missing:
+            warnings.append("Required coordinate columns were not found: " + ", ".join(missing))
+        incompatible = [
+            f"{logical}={physical} ({available[physical]})"
+            for logical, physical in resolved.items()
+            if available[physical].upper().startswith(UNSUPPORTED_TYPES)
+        ]
+        if incompatible:
+            warnings.append("Incompatible coordinate columns: " + ", ".join(incompatible))
         if strict and warnings:
             raise SourceValidationError(" ".join(warnings))
         return resolved, warnings

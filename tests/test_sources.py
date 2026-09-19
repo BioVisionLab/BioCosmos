@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from colharmonize.models import ColumnMappings
+from colharmonize.models import ColumnMappings, CoordinateColumnMappings
 from colharmonize.sources import DuckDBCatalog, OccurrenceSource
 
 
@@ -26,3 +26,19 @@ def test_inspect_with_explicit_species_mapping(occurrence_db: Path) -> None:
     assert report.valid
     assert report.row_count == 11
     assert report.detected_columns["scientific_name"] == "species"
+
+
+def test_coordinate_columns_are_detected(coordinate_db: Path) -> None:
+    source = OccurrenceSource(coordinate_db, "main.occurrence")
+    with source.connect() as connection:
+        resolved, warnings = source.resolve_coordinate_columns(
+            source.columns(connection), CoordinateColumnMappings(), strict=True
+        )
+    assert not warnings
+    assert resolved == {
+        "source_id": "occurrenceID",
+        "latitude": "decimalLatitude",
+        "longitude": "decimalLongitude",
+        "country": "country",
+        "adm1": "stateProvince",
+    }

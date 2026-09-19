@@ -1,9 +1,14 @@
 # colharmonize
 
-`colharmonize` pre-generates compact, auditable species-name matches against a Catalogue of Life ColDP release.
+`colharmonize` creates compact, auditable species-name matches against Catalogue of Life releases
+and validates occurrence coordinates against GADM administrative geography.
 
-See [Matching algorithms](ALGORITHMS.md) for the normalization rules, candidate methods,
-mathematical scoring model, ambiguity decisions, and pipeline diagrams.
+Algorithm references:
+
+- [Taxonomy matching](TAXONOMY_MATCHING.md) explains normalization, candidate methods,
+  mathematical scoring, ranking, and ambiguity decisions.
+- [Coordinate validation](COORDINATE_VALIDATION.md) specifies coordinate checks,
+  administrative spatial matching, and locality validation.
 
 ```bash
 uv sync
@@ -15,6 +20,8 @@ uv run colharmonize inspect --db occurrences.duckdb --table main.occurrence \
 uv run colharmonize run --db occurrences.duckdb --table main.occurrence \
   --map scientific_name=species --col NameUsage.tsv --output results --csv --plot \
   --plot-palette Dark2
+uv run colharmonize validate-coordinates --db occurrences.duckdb \
+  --table main.occurrence --gadm gadm.gpkg --output coordinate-results
 ```
 
 During `run`, the CLI reports each processing phase with live elapsed time and an estimated
@@ -23,7 +30,22 @@ remaining time. The final line reports total runtime and distinct-taxa throughpu
 using the ColorBrewer `Dark2` palette by default. Pass any named Seaborn palette through
 `--plot-palette`, or set `plot_palette` in the `[run]` configuration table.
 
-Use `--config colharmonize.toml` with `inspect`, `index`, or `run`. CLI values override TOML. Run `colharmonize init --output -` to inspect the complete configuration template.
+Use `--config colharmonize.toml` with `inspect`, `index`, `run`, or `validate-coordinates`. CLI
+values override TOML. Run `colharmonize init --output -` to inspect the complete configuration
+template.
+
+`validate-coordinates` detects standard Darwin Core fields (`occurrenceID`, `decimalLatitude`,
+`decimalLongitude`, `countryCode` or `country`, and `stateProvince`). Override a field with
+`--map FIELD=COLUMN`; the supported logical fields are `source_id`, `latitude`, `longitude`,
+`country`, and `adm1`. The GADM input must be an EPSG:4326 GeoPackage with an indexed ADM1 layer
+containing `GID_0`, `COUNTRY`, `GID_1`, and `NAME_1`. Use `--gadm-layer` when it cannot be selected
+automatically.
+
+Coordinate validation writes `coordinate_validation.duckdb` and `coordinate_run.json` without
+modifying either source. The database retains parsed input rows, distinct valid points, the GADM
+subset and all intersecting candidates, resolved point matches, final validation results, summary
+counts, and run provenance. See [Coordinate validation](COORDINATE_VALIDATION.md) for the status
+precedence and mathematical definition.
 
 ## Matching workflow
 
