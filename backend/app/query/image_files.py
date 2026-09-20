@@ -5,6 +5,7 @@ from fastapi import Request
 
 from ..configs.config import ImageConfig
 from ..services.images import ImagePersistData
+from ..services.locality import OccurrenceCoordinates, OccurrenceLocality
 from ..services.metadata import ImageMetaService
 from ..services.taxonomy_update import OccurrenceTaxonomy
 
@@ -65,13 +66,25 @@ class ImageMetaRetrieval:
                 "species",
             ]
             filtered = {k: row.get(k) for k in allowed if k in row}
+            clean_id = image_id.replace(".png", "")
             # Absent until a colharmonize run has been loaded; the panel omits
             # the taxonomy block entirely rather than rendering empty rows.
-            taxonomy = OccurrenceTaxonomy(duckdb_client=self.duckdb).get_for_image(
-                image_id.replace(".png", "")
-            )
+            taxonomy = OccurrenceTaxonomy(duckdb_client=self.duckdb).get_for_image(clean_id)
             if taxonomy:
                 filtered["taxonomy"] = taxonomy
+            # The written locality, and the coordinate validation beside it.
+            # Both follow the same contract as `taxonomy` above: omitted rather
+            # than rendered as empty rows. The locality block carries a
+            # precomputed one-line form, so the species panel, the modal and
+            # the search table cannot disagree about how the ranks are joined.
+            locality = OccurrenceLocality(duckdb_client=self.duckdb).get_for_image(clean_id)
+            if locality:
+                filtered["locality"] = locality
+            coordinates = OccurrenceCoordinates(duckdb_client=self.duckdb).get_for_image(
+                clean_id
+            )
+            if coordinates:
+                filtered["coordinates"] = coordinates
             return filtered
         except Exception as e:
             logger.error(f"Error fetching metadata for image id {image_id}: {e}")

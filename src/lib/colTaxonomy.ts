@@ -8,6 +8,14 @@
  * fallback map below only covers the case where that request fails.
  */
 
+// The palette moved to ./codeTone so the geography status can share it;
+// re-exported here because every existing importer reaches for it via this
+// module.
+import type { CodeTone } from "./codeTone";
+
+export { toneClasses } from "./codeTone";
+export type { CodeTone } from "./codeTone";
+
 export type UpdateStatusCode = "MATCHED" | "AMBIGUOUS" | "UNMATCHED";
 
 export interface TaxonCandidate {
@@ -253,23 +261,6 @@ export function statusShortLabel(status: string | null | undefined): string {
   }
 }
 
-export type CodeTone = "matched" | "ambiguous" | "unmatched" | "neutral";
-
-/**
- * Deliberately not the green/red of a conservation status: burnt peach reads
- * as "needs a look" and mocha as "absent", rather than as good or bad.
- */
-const TONE_CLASSES: Record<CodeTone, string> = {
-  matched:
-    "bg-hunter-green-100 text-hunter-green-800 dark:bg-hunter-green-900/60 dark:text-hunter-green-200 hover:bg-hunter-green-200 dark:hover:bg-hunter-green-900",
-  ambiguous:
-    "bg-burnt-peach-100 text-burnt-peach-800 dark:bg-burnt-peach-900/60 dark:text-burnt-peach-200 hover:bg-burnt-peach-200 dark:hover:bg-burnt-peach-900",
-  unmatched:
-    "bg-deep-mocha-200 text-deep-mocha-800 dark:bg-deep-mocha-800 dark:text-deep-mocha-200 hover:bg-deep-mocha-300 dark:hover:bg-deep-mocha-700",
-  neutral:
-    "bg-pacific-blue-100/70 text-pacific-blue-800 dark:bg-pacific-blue-900/50 dark:text-pacific-blue-200 hover:bg-pacific-blue-200/70 dark:hover:bg-pacific-blue-900",
-};
-
 export function toneForStatus(status: string | null | undefined): CodeTone {
   switch (status) {
     case "MATCHED":
@@ -281,10 +272,6 @@ export function toneForStatus(status: string | null | undefined): CodeTone {
     default:
       return "neutral";
   }
-}
-
-export function toneClasses(tone: CodeTone): string {
-  return TONE_CLASSES[tone];
 }
 
 // ---------------------------------------------------------------------------

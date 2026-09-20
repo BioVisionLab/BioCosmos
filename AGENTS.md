@@ -14,7 +14,7 @@ BioCosmos is a full-stack biodiversity image platform. The Next.js App Router fr
 - `./scripts/run_backend.sh`: start FastAPI in development mode using `backend/.env`.
 - `cd backend && uv run pytest -q`: run the backend suite exactly as CI does. It must run from `backend/`, which resolves `static/` relatively.
 - `uv run --package <name> pytest packages/<name>/tests -q`: run one harmonization package's suite.
-- `uv run colharmonize --help` / `uv run geoharmonize --help`: the harmonization CLIs, for tuning and for the CSV/plot exports. The backend harmonizes taxonomy itself at startup, so neither is needed for the site to work. Stop the backend before running either against the live DuckDB: DuckDB allows a single writer, so the CLI cannot attach — even read-only — while the API holds the file open. See [`reports/README.md`](reports/README.md).
+- `uv run colharmonize --help` / `uv run geoharmonize --help`: the harmonization CLIs, for tuning and for the CSV/plot exports. The backend harmonizes taxonomy itself at startup, so `colharmonize` is not needed for the site to work. `geoharmonize integrate` is: it writes the coordinate-validation table the backend only reads. Stop the backend before running either against the live DuckDB: DuckDB allows a single writer, so the CLI cannot attach — even read-only — while the API holds the file open. See [`reports/README.md`](reports/README.md).
 - `docker-compose up --build`: build and run both services together.
 
 ## Coding Style & Naming Conventions

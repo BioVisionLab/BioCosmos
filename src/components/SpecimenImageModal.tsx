@@ -6,10 +6,17 @@ import { imageUrlById } from "@/lib/images";
 import {
   SpecimenImageMeta,
   acceptedDisplayName,
+  coordinatesOf,
+  localityOf,
   nameWasUpdated,
   taxonomyOf,
 } from "@/lib/imageMetadata";
-import { TaxonStatusBadge } from "@/components/CodeHint";
+import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
+import {
+  METADATA_LABEL,
+  METADATA_VALUE,
+  MetadataLinks,
+} from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
 
 /**
@@ -53,33 +60,6 @@ async function fetchSpecimenMeta(
 
   metaInFlight.set(id, request);
   return (await request) ?? null;
-}
-
-function getSafeExternalHref(
-  rawUrl: unknown,
-  fallback = "https://www.gbif.org",
-): string {
-  if (typeof rawUrl !== "string") return fallback;
-  const trimmed = rawUrl.trim();
-  if (!trimmed) return fallback;
-
-  const normalized = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : /^www\./i.test(trimmed)
-      ? `https://${trimmed}`
-      : "";
-
-  if (!normalized) return fallback;
-
-  try {
-    const parsed = new URL(normalized);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-      return parsed.toString();
-    }
-    return fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 // Preload an image's bytes into the browser's HTTP cache without displaying
@@ -330,11 +310,15 @@ function SpecimenImageModal({
             </button>
           </div>
 
-          {/* Metadata section at the bottom of the box */}
+          {/* No card of its own: the gallery box around it already provides
+              the border, so a second one only added dead space. The rule
+              above separates the image from the metadata, and the rules
+              inside separate the metadata's own groups. Type scale and field
+              order still match the panel under the species gallery. */}
           {(meta || metaLoading) && (
-            <div className="mt-4 w-[30vw] border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-4">
-              <div className="text-xs text-deep-mocha-800 dark:text-white">
-                <div className="ml-2 flex flex-col gap-2">
+            <div className="mt-4 w-[30vw] border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-300">
+              <div>
+                <div className="flex flex-col gap-1">
                   {metaLoading ? (
                     <div className="text-center text-sm text-deep-mocha-500">
                       Loading metadata…
@@ -343,10 +327,10 @@ function SpecimenImageModal({
                     <>
                       {meta?.class_dv && (
                         <div>
-                          <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                          <span className={METADATA_LABEL}>
                             View:{" "}
                           </span>
-                          <span className="text-deep-mocha-700 dark:text-white">
+                          <span className={METADATA_VALUE}>
                             {typeof meta.class_dv === "string"
                               ? meta.class_dv.charAt(0).toUpperCase() +
                                 meta.class_dv.slice(1)
@@ -354,28 +338,44 @@ function SpecimenImageModal({
                           </span>
                         </div>
                       )}
-                      {(meta?.lat || meta?.lon) && (
-                        <div>
-                          <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                            Location:{" "}
+                      <div>
+                        <span className={METADATA_LABEL}>Source DB: </span>
+                        <span className={`uppercase ${METADATA_VALUE}`}>
+                          {typeof meta?.source_db === "string" && meta.source_db
+                            ? meta.source_db
+                            : "GBIF"}
+                        </span>
+                      </div>
+                      {/* The written locality, then the coordinate and the
+                          verdict on it. Both rows are rendered even when
+                          empty, and in this order, so this panel and the one
+                          under the species gallery read the same way. */}
+                      <div>
+                        <span className={METADATA_LABEL}>
+                          Locality:{" "}
+                        </span>
+                        <span className={METADATA_VALUE}>
+                          {localityOf(meta)?.display ?? "—"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>
+                          <span className={METADATA_LABEL}>
+                            Coordinates:{" "}
                           </span>
-                          <span className="text-deep-mocha-700 dark:text-white">
-                            {meta?.lat ?? "—"}, {meta?.lon ?? "—"}
+                          <span className={METADATA_VALUE}>
+                            {meta?.lat || meta?.lon
+                              ? `${meta?.lat ?? "—"}, ${meta?.lon ?? "—"}`
+                              : "—"}
                           </span>
-                        </div>
-                      )}
-                      {meta?.source_db && (
-                        <div>
-                          <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
-                            Source DB:{" "}
-                          </span>
-                          <span className="text-deep-mocha-700 dark:text-white uppercase">
-                            {typeof meta.source_db === "string"
-                              ? meta.source_db
-                              : String(meta.source_db)}
-                          </span>
-                        </div>
-                      )}
+                        </span>
+                        {coordinatesOf(meta) ? (
+                          <CoordinateStatusBadge
+                            validation={coordinatesOf(meta)}
+                          />
+                        ) : null}
+                      </div>
+
 
                       {/* The same taxonomic update the species-page panel
                           shows, so the two views never disagree. */}
@@ -385,19 +385,21 @@ function SpecimenImageModal({
                         const accepted = acceptedDisplayName(taxonomy);
                         const showRecorded = nameWasUpdated(taxonomy);
                         return (
-                          <div className="flex flex-col gap-1">
+                          // Ruled off from the fields above, the same way the
+                          // species-page panel separates its taxonomy block.
+                          <div className="mt-1 pt-2 border-t border-deep-mocha-200 dark:border-deep-mocha-700 flex flex-col gap-1">
                             <div className="flex flex-wrap items-start gap-2">
-                              <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                              <span className={METADATA_LABEL}>
                                 Taxonomy:
                               </span>
                               <TaxonStatusBadge update={taxonomy} showMethod />
                             </div>
                             {accepted && (
                               <div>
-                                <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                                <span className={METADATA_LABEL}>
                                   Accepted name:{" "}
                                 </span>
-                                <i className="italic text-deep-mocha-700 dark:text-white">
+                                <i className={`italic ${METADATA_VALUE}`}>
                                   {accepted}
                                 </i>
                               </div>
@@ -407,7 +409,7 @@ function SpecimenImageModal({
                                 does in the species-page panel. */}
                             {showRecorded && taxonomy.inputName && (
                               <div>
-                                <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                                <span className={METADATA_LABEL}>
                                   Recorded as:{" "}
                                 </span>
                                 <i className="italic text-deep-mocha-500 dark:text-deep-mocha-400">
@@ -427,43 +429,7 @@ function SpecimenImageModal({
                         );
                       })()}
 
-                      {/* Action buttons (License, Source, Image) - pill-shaped */}
-                      <div className="mt-3 flex flex-wrap gap-2 justify-center">
-                        {typeof meta?.license === "string" &&
-                          meta.license.startsWith("http") && (
-                            <a
-                              href={meta.license}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                              aria-label="Open license"
-                            >
-                              License
-                            </a>
-                          )}
-                        {(meta?.uuid || meta?.source_db) && (
-                          <a
-                            href={getSafeExternalHref(meta?.uuid)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                            aria-label="Open source link"
-                          >
-                            Source Link
-                          </a>
-                        )}
-                        {typeof meta?.uri === "string" && meta.uri && (
-                          <a
-                            href={meta.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-deep-mocha-800 border border-deep-mocha-300 dark:border-deep-mocha-700 text-hunter-green-700 dark:text-hunter-green-300 hover:bg-hunter-green-50 dark:hover:bg-hunter-green-900"
-                            aria-label="Open image link"
-                          >
-                            Image Link
-                          </a>
-                        )}
-                      </div>
+                      {meta ? <MetadataLinks meta={meta} /> : null}
                     </>
                   )}
                 </div>

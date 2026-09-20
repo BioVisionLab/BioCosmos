@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import duckdb
+
 from geoharmonize.models import CoordinateColumnMappings
 from geoharmonize.sources import CoordinateOccurrenceSource
 
@@ -24,5 +26,26 @@ def test_inspect_counts_distinct_points(coordinate_db: Path) -> None:
     source = CoordinateOccurrenceSource(coordinate_db, "main.occurrence")
     report = source.inspect(CoordinateColumnMappings())
     assert report.valid
-    assert report.row_count == 12
+    assert report.row_count == 13
     assert report.detected_columns["latitude"] == "decimalLatitude"
+
+
+def test_img_id_is_detected_as_a_source_id(tmp_path: Path) -> None:
+    """BioCosmos keys occurrences on img_id rather than a Darwin Core id."""
+    path = tmp_path / "images.duckdb"
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute("CREATE TABLE images(img_id VARCHAR, lat DOUBLE, lon DOUBLE)")
+    finally:
+        connection.close()
+
+    source = CoordinateOccurrenceSource(path, "main.images")
+    with source.connect() as connection:
+        available = source.columns(connection)
+    resolved, warnings = source.resolve_coordinate_columns(
+        available, CoordinateColumnMappings(), strict=True
+    )
+    assert resolved["source_id"] == "img_id"
+    assert resolved["latitude"] == "lat"
+    assert resolved["longitude"] == "lon"
+    assert warnings == []

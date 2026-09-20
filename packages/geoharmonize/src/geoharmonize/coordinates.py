@@ -7,6 +7,7 @@ import re
 import unicodedata
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
+from functools import cache
 
 import duckdb
 import pycountry
@@ -43,6 +44,11 @@ _COUNTRY_ALIASES = {
 }
 
 
+# These three run as DuckDB scalar functions, once per occurrence row. Their
+# domain is the set of distinct recorded place names -- a few thousand values
+# against hundreds of thousands of rows -- and all three are pure, so caching
+# turns most of those calls into a dict lookup. `pycountry.countries.lookup`
+# in particular is not cheap enough to call per row.
 def _strip_accents(value: str) -> str:
     return "".join(
         character
@@ -51,6 +57,7 @@ def _strip_accents(value: str) -> str:
     )
 
 
+@cache
 def normalize_geographic_name(value: str | None) -> str | None:
     """Normalize a geographic name for punctuation-insensitive comparison."""
     if value is None or not value.strip():
@@ -58,6 +65,7 @@ def normalize_geographic_name(value: str | None) -> str | None:
     return re.sub(r"[^a-z0-9]+", "", _strip_accents(value).casefold()) or None
 
 
+@cache
 def normalize_adm1(value: str | None) -> str | None:
     """Normalize ADM1 names while removing generic administrative words."""
     if value is None or not value.strip():
@@ -66,6 +74,7 @@ def normalize_adm1(value: str | None) -> str | None:
     return re.sub(r"[^a-z0-9]+", "", without_admin_words) or None
 
 
+@cache
 def resolve_country_code(value: str | None) -> str | None:
     """Resolve country names and alpha-2/alpha-3 codes to ISO alpha-3."""
     if value is None or not value.strip():
@@ -140,24 +149,23 @@ class CoordinateValidationPipeline:
         )
 
     def _register_functions(self) -> None:
-        self.connection.create_function(
-            "normalize_geographic_name",
-            normalize_geographic_name,
-            ["VARCHAR"],
-            "VARCHAR",
-        )
-        self.connection.create_function(
-            "normalize_adm1",
-            normalize_adm1,
-            ["VARCHAR"],
-            "VARCHAR",
-        )
-        self.connection.create_function(
-            "resolve_country_code",
-            resolve_country_code,
-            ["VARCHAR"],
-            "VARCHAR",
-        )
+        # `null_handling="special"` because all three return NULL for an input
+        # they cannot resolve -- an unrecognized country, a name that
+        # normalizes to nothing -- and DuckDB's default handling forbids a UDF
+        # from returning NULL at all. Each guards None itself, so taking the
+        # NULL rows back from DuckDB costs nothing.
+        for name, function in (
+            ("normalize_geographic_name", normalize_geographic_name),
+            ("normalize_adm1", normalize_adm1),
+            ("resolve_country_code", resolve_country_code),
+        ):
+            self.connection.create_function(
+                name,
+                function,
+                ["VARCHAR"],
+                "VARCHAR",
+                null_handling="special",
+            )
 
     def _attach_source(self) -> None:
         self.connection.execute(

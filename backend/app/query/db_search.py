@@ -11,6 +11,24 @@ from ..services.gbif import GbifPersistData, SearchGbifData
 logger = logging.getLogger(__name__)
 
 
+# Searchable by name, but kept out of the free-text sweep.
+#
+# `coordinate` is numeric and parsed specially. `update_status` and
+# `validation_status` are controlled vocabularies -- a query for "valid" would
+# otherwise sweep in every VALID coordinate. `county` and `locality` are free
+# text over 140,716 and 463,375 values, and each one adds an ILIKE '%q%' scan
+# to three queries per request for matches a reader rarely wants when they
+# typed a species name. `country` and `state_province` do join the sweep:
+# "Brazil" is a search people actually make.
+TARGETED_ONLY_FIELDS = (
+    "coordinate",
+    "update_status",
+    "validation_status",
+    "county",
+    "locality",
+)
+
+
 class DbSearchPayload(BaseModel):
     """ """
 
@@ -81,6 +99,12 @@ class TextToDbSearch:
             "common_name",
             "coordinate",
             "update_status",
+            # Geography. Free-text until `locality`, then controlled codes.
+            "country",
+            "state_province",
+            "county",
+            "locality",
+            "validation_status",
         ]
 
         field = self.field.replace(" ", "_")
@@ -112,10 +136,8 @@ class TextToDbSearch:
                     field, q_param, self.limit, self.offset
                 )
             else:
-                # Coordinates are numeric and update_status is a controlled
-                # vocabulary; neither belongs in a free-text sweep.
                 search_fields = [
-                    f for f in valid_fields if f not in ("coordinate", "update_status")
+                    f for f in valid_fields if f not in TARGETED_ONLY_FIELDS
                 ]
                 results_df, specimens_df, total_specimens = meta_service.search_all_fields(
                     search_fields, q_param, self.limit, self.offset
@@ -177,9 +199,7 @@ class TextToDbSearch:
         if specimens_df.is_empty():
             return db_specimens
             
-        search_fields = [
-            f for f in valid_fields if f not in ("coordinate", "update_status")
-        ]
+        search_fields = [f for f in valid_fields if f not in TARGETED_ONLY_FIELDS]
         for row in specimens_df.iter_rows(named=True):
             matched_cols = []
             if field == "coordinate":
@@ -221,6 +241,26 @@ class TextToDbSearch:
                 "accepted_authorship": row.get("accepted_authorship"),
                 "accepted_family": row.get("accepted_family"),
                 "candidate_count": row.get("candidate_count"),
+                # The written locality, joined from gbif_meta. None for the
+                # ~7% of occurrences with no GBIF record, and for every row
+                # until the locality table has been built.
+                "country": row.get("country"),
+                "country_code": row.get("country_code"),
+                "state_province": row.get("state_province"),
+                "county": row.get("county"),
+                "municipality": row.get("municipality"),
+                "locality": row.get("locality"),
+                "verbatim_locality": row.get("verbatim_locality"),
+                # Coordinate validation against GADM. None until
+                # `geoharmonize integrate` has been run. Only the codes travel
+                # per row; their descriptions are served once by
+                # GET /geography/codes.
+                "validation_status": row.get("validation_status"),
+                "coordinate_check": row.get("coordinate_check"),
+                "country_check": row.get("country_check"),
+                "adm1_check": row.get("adm1_check"),
+                "reference_country": row.get("reference_country"),
+                "reference_adm1": row.get("reference_adm1"),
                 "matched_fields": matched_cols
             })
         return db_specimens

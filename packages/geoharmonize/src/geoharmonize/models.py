@@ -46,6 +46,7 @@ class CoordinateRunConfig(FrozenModel):
     tile_size: float = Field(default=5.0, gt=0, le=180)
     tile_buffer: float = Field(default=0.001, ge=0, le=5)
     force: bool = False
+    write_back_table: str | None = None
 
 
 class EffectiveCoordinateRunConfig(FrozenModel):
@@ -60,6 +61,7 @@ class EffectiveCoordinateRunConfig(FrozenModel):
     tile_size: float = Field(default=5.0, gt=0, le=180)
     tile_buffer: float = Field(default=0.001, ge=0, le=5)
     force: bool = False
+    write_back_table: str | None = None
 
     @model_validator(mode="after")
     def sources_must_exist(self) -> EffectiveCoordinateRunConfig:
@@ -178,27 +180,27 @@ class CoordinateValidationStatus(StrEnum):
     @property
     def description(self) -> str:
         """Explain the final validation outcome."""
+        # One short sentence each: these are read in a tooltip beside the
+        # status, where a reader wants to know what happened, not how.
         descriptions = {
-            CoordinateValidationStatus.MISSING_COORDINATE: (
-                "Latitude or longitude was missing or invalid."
-            ),
+            CoordinateValidationStatus.MISSING_COORDINATE: "No coordinate was recorded.",
             CoordinateValidationStatus.COORDINATE_OUT_OF_RANGE: (
-                "Latitude or longitude was outside its valid geographic range."
+                "The coordinate is outside the range of valid latitudes or longitudes."
             ),
-            CoordinateValidationStatus.ZERO_COORDINATE: "The coordinate pair was 0,0.",
+            CoordinateValidationStatus.ZERO_COORDINATE: "The coordinate is 0, 0.",
             CoordinateValidationStatus.NO_REFERENCE_MATCH: (
-                "The coordinate intersected no GADM region."
+                "The coordinate falls outside every known boundary."
             ),
             CoordinateValidationStatus.AMBIGUOUS_REFERENCE: (
-                "The coordinate intersected multiple distinct GADM regions."
+                "The coordinate falls where several regions meet."
             ),
             CoordinateValidationStatus.COUNTRY_MISMATCH: (
-                "The recorded country disagreed with the coordinate-derived country."
+                "The coordinate falls in a different country than the one recorded."
             ),
             CoordinateValidationStatus.ADM1_MISMATCH: (
-                "The recorded ADM1 disagreed with the coordinate-derived ADM1."
+                "The coordinate falls in a different state or province than the one recorded."
             ),
-            CoordinateValidationStatus.VALID: ("The coordinate passed all applicable checks."),
+            CoordinateValidationStatus.VALID: "The coordinate matches the recorded locality.",
         }
         return descriptions[self]
 
@@ -236,6 +238,15 @@ class CoordinateInspectionReport(FrozenModel):
     available_columns: list[str]
     warnings: list[str] = Field(default_factory=list)
     valid: bool = True
+
+
+class WriteBackReport(FrozenModel):
+    """Summarize one write-back of validated coordinates into an occurrence database."""
+
+    table: str
+    row_count: int
+    distinct_source_ids: int
+    skipped_null_source_ids: int
 
 
 class SharedRunConfig(ProjectConfigBase):

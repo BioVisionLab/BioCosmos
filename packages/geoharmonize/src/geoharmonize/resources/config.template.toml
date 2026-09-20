@@ -21,6 +21,9 @@ reports_dir = "reports"
 tile_size = 5.0
 tile_buffer = 0.001
 force = false
+# Destination table for `geoharmonize integrate`. Only `integrate` writes it;
+# `validate` never touches the occurrence database.
+# write_back_table = "main.image_meta_coordinates"
 
 [coordinate_columns]
 # source_id = "occurrenceID"

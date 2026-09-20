@@ -245,6 +245,42 @@ class ColConfig:
         return self._col_config.get("occurrence_status_table", "image_meta_taxonomy")
 
 
+class LocalityConfig:
+    """
+    Configuration for the per-occurrence locality table.
+
+    The source is `gbif_meta`, joined to `image_meta` on uuid = occurrenceID,
+    because `image_meta` carries no locality columns of its own.
+    `coordinates_table` is produced offline by `geoharmonize integrate`; the
+    backend only ever reads it.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._locality_config = config.get("locality", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._locality_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Locality skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def table(self) -> str:
+        return self._locality_config.get("table", "image_meta_locality")
+
+    @property
+    def coordinates_table(self) -> str:
+        """Table written by `geoharmonize integrate`, absent until it has run."""
+        return self._locality_config.get("coordinates_table", "image_meta_coordinates")
+
+
 class LepTraitConfig:
     def __init__(self):
         config = load_config()

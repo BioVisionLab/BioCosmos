@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { GbifAttribution } from "../../../../components/Attribution";
 import { GbifLookupStatus, Occurrence } from "@/lib/map";
 import SpeciesMap from "@/components/SpeciesMap";
 import { fetchGbifOccurrences } from "@/lib/map";
@@ -61,28 +60,48 @@ function SpeciesDistribution({
   }, [recordedName, acceptedName]);
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-1">Distribution Map</h2>
-      {loading ? (
-        <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl flex items-center justify-center">
-          <TextLoading msg="Fetching GBIF occurrence data" />
-        </div>
-      ) : (
-        <>
-          {occurrences.length > 0 ? (
-            <p className="text-xs mb-3 text-deep-mocha-700 dark:text-deep-mocha-300">
-              Showing {occurrences.length} GBIF occurrences. Use the zoom and
-              pan controls to explore the map.
-            </p>
-          ) : (
-            <p className="text-xs mb-2 text-deep-mocha-700 dark:text-deep-mocha-300">
-              {emptyMessage(status)}
-            </p>
-          )}
-          <SpeciesMap occurrences={occurrences} />
-          <GbifAttribution leadingText="Occurrence data provided by" />
-        </>
-      )}
+    // The same card as the classification above it: gradient header band over
+    // a translucent body. The two sit stacked in the one narrow column, so
+    // giving the map its own chrome made the column read as two unrelated
+    // things.
+    <div className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg">
+      <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl">
+        <h2 className="text-2xl font-semibold">Distribution Map</h2>
+      </div>
+      {/* Padding lives on the text, not on the body: the map runs edge to
+          edge and its own bottom corners finish the card. */}
+      <div>
+        {loading ? (
+          <div className="m-4 aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl flex items-center justify-center">
+            <TextLoading msg="Fetching GBIF occurrence data" />
+          </div>
+        ) : (
+          <>
+            {occurrences.length > 0 ? (
+              // The count and the source belong in one line: both describe
+              // what is plotted, and two stacked footnotes around a map read
+              // as clutter.
+              <p className="text-xs px-4 py-3 text-deep-mocha-700 dark:text-deep-mocha-300">
+                Showing {occurrences.length} occurrences from{" "}
+                <a
+                  href="https://www.gbif.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-blue-700"
+                >
+                  GBIF
+                </a>
+                . Use the zoom and pan controls to explore the map.
+              </p>
+            ) : (
+              <p className="text-xs px-4 py-3 text-deep-mocha-700 dark:text-deep-mocha-300">
+                {emptyMessage(status)}
+              </p>
+            )}
+            <SpeciesMap occurrences={occurrences} />
+          </>
+        )}
+      </div>
     </div>
   );
 }

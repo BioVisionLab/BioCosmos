@@ -35,6 +35,28 @@ export interface SpecimenMetadata {
   /** May carry a SUBSPECIES_ or GENUS_ rank-cascade prefix. */
   match_method: string | null;
   candidate_count: number | null;
+
+  // The written locality, joined from the GBIF occurrence record. All null
+  // for the occurrences with no GBIF record, and until the locality table has
+  // been built.
+  country: string | null;
+  country_code: string | null;
+  state_province: string | null;
+  county: string | null;
+  municipality: string | null;
+  locality: string | null;
+  verbatim_locality: string | null;
+
+  // Coordinate validation against GADM. All null until `geoharmonize
+  // integrate` has been run.
+  /** One of the eight CoordinateValidationStatus codes. */
+  validation_status: string | null;
+  coordinate_check: string | null;
+  country_check: string | null;
+  adm1_check: string | null;
+  /** Null unless exactly one GADM region matched the coordinate. */
+  reference_country: string | null;
+  reference_adm1: string | null;
 }
 
 export interface DbSearchResponse {
@@ -96,6 +118,19 @@ async function searchDatabase(
     update_status: item.update_status ?? null,
     match_method: item.match_method ?? null,
     candidate_count: item.candidate_count ?? null,
+    country: item.country ?? null,
+    country_code: item.country_code ?? null,
+    state_province: item.state_province ?? null,
+    county: item.county ?? null,
+    municipality: item.municipality ?? null,
+    locality: item.locality ?? null,
+    verbatim_locality: item.verbatim_locality ?? null,
+    validation_status: item.validation_status ?? null,
+    coordinate_check: item.coordinate_check ?? null,
+    country_check: item.country_check ?? null,
+    adm1_check: item.adm1_check ?? null,
+    reference_country: item.reference_country ?? null,
+    reference_adm1: item.reference_adm1 ?? null,
   }));
 
   return {

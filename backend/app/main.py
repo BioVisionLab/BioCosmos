@@ -16,8 +16,9 @@ from .services.embedder import ImageEmbedder
 from .services.umap import SpeciesImageUmap
 from .services.metadata import ImageMetaService
 from .services.gbif import GbifPersistData
-from .configs.config import ColConfig
+from .configs.config import ColConfig, GbifConfig, LocalityConfig
 from .services.col import ColBackboneService
+from .services.locality import LocalityService
 from .services.taxonomy_update import TaxonomyUpdateService
 from .services.leptraits import LepTraits
 from .routers import (
@@ -29,6 +30,7 @@ from .routers import (
     db_search,
     agent_search,
     taxonomy,
+    geography,
 )
 
 
@@ -181,6 +183,40 @@ def report_taxonomy_readiness(duck_db) -> None:
         logger.info("Taxonomic update ready.")
 
 
+def report_locality_readiness(duck_db) -> None:
+    """Say at startup whether locality and coordinate validation are available.
+
+    Both are optional joins, so the only other signal is a silently empty
+    column. The coordinate table is never built here -- it comes from a CLI run
+    -- so the message names the command rather than a configuration key.
+    """
+    config = LocalityConfig()
+    if not duck_db.table_exists(config.table):
+        if config.skip:
+            reason = "locality.skip is true in backend/app/configs/config.yaml"
+        elif not duck_db.table_exists(GbifConfig().table):
+            reason = "there is no gbif_meta table, which is where the locality fields live"
+        else:
+            # The inputs are there, so the build itself failed; its own error
+            # was logged when it did.
+            reason = "the build did not complete, see the errors above"
+        logger.warning(
+            f"No occurrence locality: {reason}. Specimens will render without "
+            "a country or locality."
+        )
+    else:
+        logger.info("Occurrence locality ready.")
+
+    if not duck_db.table_exists(config.coordinates_table):
+        logger.warning(
+            "No coordinate validation, so specimens carry no coordinate status. "
+            "It is written by `geoharmonize integrate`, which has to be run once "
+            "with this process stopped; see packages/geoharmonize/README.md."
+        )
+    else:
+        logger.info("Coordinate validation ready.")
+
+
 def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
@@ -197,6 +233,11 @@ def run_data_ingestion(app: FastAPI):
     ColBackboneService(app.state.duck_db).ingest()
     TaxonomyUpdateService(app.state.duck_db).ensure()
     report_taxonomy_readiness(app.state.duck_db)
+
+    # Locality is derived from gbif_meta rather than from image_meta, which
+    # carries no locality columns of its own, so it runs after both.
+    LocalityService(app.state.duck_db).ensure()
+    report_locality_readiness(app.state.duck_db)
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -301,6 +342,7 @@ app.include_router(image_retrieval.router)
 app.include_router(db_search.router)
 app.include_router(agent_search.router)
 app.include_router(taxonomy.router)
+app.include_router(geography.router)
 
 
 @app.get("/")

@@ -1,12 +1,13 @@
 # geoharmonize
 
-Validates occurrence coordinates against GADM administrative geography. Reads
-the occurrence DuckDB table read-only and never modifies it.
+Validates occurrence coordinates against GADM administrative geography.
+`validate` reads the occurrence DuckDB read-only and never modifies it;
+`integrate` additionally writes the result back as a new table.
 
 ```bash
 uv run geoharmonize init
 uv run geoharmonize inspect --db occurrences.duckdb --list-tables
-uv run geoharmonize validate-coordinates --db occurrences.duckdb \
+uv run geoharmonize validate --db occurrences.duckdb \
   --table main.occurrence --gadm gadm.gpkg --reports-dir reports
 ```
 
@@ -28,3 +29,43 @@ omits them, so one file can drive both tools.
 
 The coordinate-validation algorithm and its status precedence are specified in
 the upstream project, <https://github.com/hhandika/col-taxonomy>.
+
+## integrate
+
+`integrate` runs the same validation and then writes it into the **occurrence**
+database, rather than only under `reports/`:
+
+```bash
+uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality --gadm "$GADM_DIR/gadm_410-levels.gpkg" \
+  --map source_id=img_id --map country=country_code --map adm1=state_province \
+  --into main.image_meta_coordinates --reports-dir reports
+```
+
+**Stop anything else using the database first.** DuckDB allows a single writer,
+and `integrate` needs the file read-write.
+
+The destination holds one row per occurrence, keyed on the mapped `source_id`,
+so it joins straight back to the table it was read from:
+
+| Column | Meaning |
+| --- | --- |
+| `source_id` | The mapped key; rows without one are skipped |
+| `validation_status` | The final outcome, one of eight values |
+| `coordinate_check`, `country_check`, `adm1_check` | The component checks behind it |
+| `latitude`, `longitude` | The parsed coordinate, null where it could not be read |
+| `recorded_country`, `recorded_country_code`, `recorded_adm1` | What the occurrence recorded |
+| `reference_country`, `reference_adm1`, `reference_gid_0`, `reference_gid_1` | What GADM says is there |
+| `run_id`, `gadm_sha256` | Which run produced the row, and from which GADM file |
+
+The `reference_*` columns are **null unless exactly one GADM region matched**, so
+a reader must consult `validation_status` to tell `NO_REFERENCE_MATCH` from
+`AMBIGUOUS_REFERENCE` rather than reading a null as "outside every country".
+
+`integrate` refuses an existing destination; pass `--replace` to rebuild one. It
+also refuses to write into the table it is reading, and refuses to run at all
+when no `source_id` column resolves — a table keyed on nothing is useless to
+every consumer, and both failures are cheaper to hit before the run than after.
+
+`validate` never writes back, even when `write_back_table` is set in the TOML.
+The command name is the contract.

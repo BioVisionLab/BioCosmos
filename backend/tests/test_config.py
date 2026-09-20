@@ -375,3 +375,35 @@ class TestAppSettings:
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValidationError):
                 AppSettings(_env_file=None)
+
+
+class TestLocalityConfig:
+    """The locality block is optional in the YAML, so the defaults matter."""
+
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_defaults_when_the_block_is_absent(self, _mock):
+        from app.configs.config import LocalityConfig
+
+        cfg = LocalityConfig()
+        assert cfg.skip is False
+        assert cfg.table == "image_meta_locality"
+        assert cfg.coordinates_table == "image_meta_coordinates"
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            **MOCK_CONFIG,
+            "locality": {
+                "skip": "yes",
+                "table": "custom_locality",
+                "coordinates_table": "custom_coordinates",
+            },
+        },
+    )
+    def test_reads_the_block(self, _mock):
+        from app.configs.config import LocalityConfig
+
+        cfg = LocalityConfig()
+        assert cfg.skip is True
+        assert cfg.table == "custom_locality"
+        assert cfg.coordinates_table == "custom_coordinates"

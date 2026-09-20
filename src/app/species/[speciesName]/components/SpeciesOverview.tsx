@@ -38,12 +38,19 @@ interface SpeciesOverviewProps {
    * exactly those species.
    */
   speciesSlug?: string;
+  /**
+   * Switch the page to the Specimens tab. The overview gallery shows only a
+   * first page of images, so the note under it needs a way to send a reader
+   * to the full set rather than just naming the tab.
+   */
+  onViewSpecimens?: () => void;
 }
 
 export function SpeciesOverview({
   taxonomy,
   traits,
   speciesSlug,
+  onViewSpecimens,
 }: SpeciesOverviewProps) {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [prevImageIds, setPrevImageIds] = useState<string[]>([]);
@@ -98,6 +105,24 @@ export function SpeciesOverview({
             speciesName={lookupName}
             onSelectionChange={handleSelectionChange}
           />
+
+          {/* The gallery above holds one page of images; the Specimens tab
+              holds all of them. Saying so here is the only cue a reader
+              gets. */}
+          <p className="mt-2 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
+            {onViewSpecimens ? (
+              <button
+                type="button"
+                onClick={onViewSpecimens}
+                className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
+              >
+                Open the Specimens tab
+              </button>
+            ) : (
+              <span>Open the Specimens tab</span>
+            )}{" "}
+            to browse every image of this species.
+          </p>
 
           <div className="mt-4">
             <ImageMetadata

@@ -89,7 +89,7 @@ def test_spatial_work_uses_distinct_points_and_retains_candidates(
             WHERE latitude = 5 AND longitude = 5
             """
         ).fetchone()
-        assert duplicate_point == (5,)
+        assert duplicate_point == (6,)
         ambiguous_count = connection.execute(
             """
             SELECT reference_match_count FROM coordinate_validation
@@ -111,7 +111,7 @@ def test_coordinate_summary_metrics(coordinate_db: Path, gadm_gpkg: Path) -> Non
         pipeline_count = connection.execute(
             "SELECT count(*) FROM coordinate_validation"
         ).fetchone()[0]
-        assert pipeline_count == 12
+        assert pipeline_count == 13
         assert (
             connection.execute(
                 """
@@ -119,7 +119,7 @@ def test_coordinate_summary_metrics(coordinate_db: Path, gadm_gpkg: Path) -> Non
                 WHERE metric_group = 'validation_status'
                 """
             ).fetchone()[0]
-            == 12
+            == 13
         )
     finally:
         connection.close()

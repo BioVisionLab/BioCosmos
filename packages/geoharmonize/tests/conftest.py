@@ -40,6 +40,10 @@ def coordinate_db(tmp_path: Path) -> Path:
             ("zero", "0", "0", "USA", "Florida"),
             ("no-reference", "50", "50", "USA", "Florida"),
             ("ambiguous", "5", "8.5", "USA", "Florida"),
+            # A country no lookup can resolve. The normalizers return NULL for
+            # it, which DuckDB rejects outright unless the functions are
+            # registered with special null handling.
+            ("unresolvable-country", "5", "5", "Atlantis", "Florida"),
         ],
     )
     connection.close()

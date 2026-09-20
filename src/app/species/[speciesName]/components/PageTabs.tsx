@@ -99,6 +99,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
             taxonomy={speciesData?.taxonomy ?? null}
             traits={speciesData?.traits ?? null}
             speciesSlug={speciesSlug ?? speciesName}
+            onViewSpecimens={() => selectTab("specimens")}
           />
         );
       case "biology":

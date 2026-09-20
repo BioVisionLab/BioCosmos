@@ -147,7 +147,8 @@ def build_service(client) -> ImageMetaService:
     service = ImageMetaService.__new__(ImageMetaService)
     service.table = "image_meta"
     service.taxonomy_table = "image_meta_taxonomy"
-    service._taxonomy_table_present = None
+    service.locality_table = "image_meta_locality"
+    service.coordinates_table = "image_meta_coordinates"
     service.db_client = client
     return service
 

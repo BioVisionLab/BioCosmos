@@ -261,3 +261,29 @@ export function ColDataSourceInfo({ release }: { release?: string }) {
     </div>
   );
 }
+
+const gadmURL = "https://gadm.org/";
+
+export function GadmAttribution({
+  leadingText = "Source: ",
+  isLarge = false,
+}: {
+  leadingText?: string;
+  isLarge?: boolean;
+}) {
+  return (
+    <p
+      className={`text-xs text-deep-mocha-500 mt-2 ${isLarge ? "text-lg" : ""}`}
+    >
+      {leadingText}{" "}
+      <a
+        href={gadmURL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-blue-700"
+      >
+        GADM
+      </a>
+    </p>
+  );
+}

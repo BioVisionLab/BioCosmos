@@ -13,6 +13,15 @@ import {
   toneClasses,
   toneForStatus,
 } from "@/lib/colTaxonomy";
+import {
+  CoordinateValidation,
+  GeoCodeDescriptions,
+  coordinateStatusLabel,
+  coordinateStatusShortLabel,
+  describeGeoCode,
+  fetchGeoCodeDescriptions,
+  toneForCoordinateStatus,
+} from "@/lib/geoValidation";
 import { Lightbulb } from "lucide-react";
 import React, {
   useEffect,
@@ -30,14 +39,37 @@ import { createPortal } from "react-dom";
  * request would be wasteful; `fetchCodeDescriptions` dedupes them into a
  * single module-level promise.
  */
-function useCodeDescriptions(): CodeDescriptions | null {
+function useCodeDescriptions(enabled = true): CodeDescriptions | null {
   const [descriptions, setDescriptions] = useState<CodeDescriptions | null>(
     null,
   );
 
   useEffect(() => {
+    // A caller that supplies its own prose needs none of this. The geography
+    // badge does exactly that, so gating here keeps it from pulling the
+    // taxonomy vocabulary it will never read.
+    if (!enabled) return;
     let active = true;
     void fetchCodeDescriptions().then((loaded) => {
+      if (active) setDescriptions(loaded);
+    });
+    return () => {
+      active = false;
+    };
+  }, [enabled]);
+
+  return descriptions;
+}
+
+/** The geography vocabulary, fetched and shared the same way. */
+function useGeoCodeDescriptions(): GeoCodeDescriptions | null {
+  const [descriptions, setDescriptions] = useState<GeoCodeDescriptions | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let active = true;
+    void fetchGeoCodeDescriptions().then((loaded) => {
       if (active) setDescriptions(loaded);
     });
     return () => {
@@ -119,7 +151,9 @@ function useTooltipPosition(
 export interface CodeHintProps {
   /** A raw code, e.g. "AMBIGUOUS" or "GENUS_SPELLING_EPITHET". */
   code: string | null | undefined;
-  kind: CodeKind;
+  /** Which taxonomy vocabulary to look `code` up in. Omit when passing
+   *  `description` directly, as the geography badge does. */
+  kind?: CodeKind;
   /** Visible text; defaults to a humanized form of the code. */
   label?: string;
   /** Prose to show instead of the fetched description. */
@@ -155,7 +189,7 @@ export function CodeHint({
   const panelRef = useRef<HTMLSpanElement>(null);
   const [hovering, setHovering] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const descriptions = useCodeDescriptions();
+  const descriptions = useCodeDescriptions(!description);
 
   // Never true on the server, or on the first client render: it takes a
   // pointer or focus event to open. So the portal below, which needs
@@ -166,7 +200,8 @@ export function CodeHint({
   if (!code) return null;
 
   const visibleLabel = label ?? humanizeCode(code);
-  const text = description ?? describeCode(code, kind, descriptions);
+  const text =
+    description ?? (kind ? describeCode(code, kind, descriptions) : null);
 
   const labelClasses =
     variant === "badge"
@@ -310,3 +345,55 @@ export function TaxonStatusBadge({
 }
 
 export default CodeHint;
+
+export interface CoordinateStatusBadgeProps {
+  validation: Pick<CoordinateValidation, "validationStatus"> | null;
+  /** Use the shorter status wording, for narrow table columns. */
+  compact?: boolean;
+  className?: string;
+}
+
+/**
+ * How a coordinate compares to the locality recorded beside it.
+ *
+ * The counterpart of `TaxonStatusBadge`, and deliberately the same shape: one
+ * pill, one hint, the same palette. A reader scanning the search table should
+ * not have to learn two conventions for "this needs a look".
+ */
+export function CoordinateStatusBadge({
+  validation,
+  compact = false,
+  className = "",
+}: CoordinateStatusBadgeProps) {
+  const descriptions = useGeoCodeDescriptions();
+
+  if (!validation?.validationStatus) {
+    return (
+      <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+    );
+  }
+
+  const { validationStatus } = validation;
+
+  // A missing coordinate has nothing to explain: the label already says the
+  // whole of it, and a hint that only restates its own label is noise.
+  // CodeHint renders a plain span when there is no prose to reveal.
+  const description =
+    validationStatus === "MISSING_COORDINATE"
+      ? null
+      : describeGeoCode(validationStatus, "validationStatus", descriptions);
+
+  return (
+    <CodeHint
+      code={validationStatus}
+      label={
+        compact
+          ? coordinateStatusShortLabel(validationStatus)
+          : coordinateStatusLabel(validationStatus)
+      }
+      description={description}
+      tone={toneForCoordinateStatus(validationStatus)}
+      className={className}
+    />
+  );
+}

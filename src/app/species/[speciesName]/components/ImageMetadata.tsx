@@ -1,14 +1,27 @@
 "use client";
 import React, { useEffect, useId, useRef, useState } from "react";
 import { NoData } from "@/components/NoData";
-import { CodeHint, TaxonStatusBadge } from "@/components/CodeHint";
+import {
+  CodeHint,
+  CoordinateStatusBadge,
+  TaxonStatusBadge,
+} from "@/components/CodeHint";
 import { TaxonCandidate, TaxonUpdate } from "@/lib/colTaxonomy";
 import {
   SpecimenImageMeta,
   acceptedDisplayName,
+  coordinatesOf,
+  localityOf,
   nameWasUpdated,
   taxonomyOf,
 } from "@/lib/imageMetadata";
+import { SpecimenLocality } from "@/lib/geoValidation";
+import {
+  METADATA_EMPTY,
+  METADATA_LABEL,
+  METADATA_VALUE,
+  MetadataLinks,
+} from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
 
 interface ImageMetadataProps {
@@ -94,6 +107,32 @@ function AlternativeCandidates({
   );
 }
 
+function LocalityBlock({ locality }: { locality: SpecimenLocality | null }) {
+  // Unlike the taxonomy block, this row is rendered even when empty: a
+  // locality is expected on most specimens, so a missing row would read as a
+  // bug rather than as an absence.
+  return (
+    <div className="col-span-2 flex flex-wrap items-baseline gap-1 min-w-0 leading-normal">
+      <span className="whitespace-nowrap">Locality:</span>
+      {locality?.display ? (
+        <span className={`min-w-0 ${METADATA_VALUE}`}>
+          {locality.display}
+        </span>
+      ) : (
+        <span className={METADATA_EMPTY}>—</span>
+      )}
+      {/* The unparsed original, and only when it says something the parsed
+          ranks do not already. */}
+      {locality?.verbatimLocality &&
+      locality.verbatimLocality !== locality.locality ? (
+        <span className="text-deep-mocha-500">
+          (as recorded: {locality.verbatimLocality})
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function TaxonomyBlock({ update }: { update: TaxonUpdate }) {
   const accepted = acceptedDisplayName(update);
   const showRecorded = nameWasUpdated(update);
@@ -162,15 +201,6 @@ export default function ImageMetadata({
     new Map(),
   );
 
-  const getSourceDbHref = (sourceUrl: unknown): string => {
-    if (typeof sourceUrl !== "string") return "https://www.gbif.org";
-    const trimmed = sourceUrl.trim();
-    if (!trimmed) return "https://www.gbif.org";
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
-    return "https://www.gbif.org";
-  };
-
   // Helper to fetch metadata and store in cache
   const fetchAndCache = async (id: string) => {
     try {
@@ -233,6 +263,8 @@ export default function ImageMetadata({
   }, [prevImageIds, nextImageIds]);
 
   const taxonomy = taxonomyOf(meta);
+  const locality = localityOf(meta);
+  const coordinates = coordinatesOf(meta);
 
   return (
     <div className="p-5 bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl text-sm text-deep-mocha-700 dark:text-deep-mocha-400 leading-3.5">
@@ -251,79 +283,54 @@ export default function ImageMetadata({
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
               {/* Left column: View, Source DB, Coordinates */}
               <div className="flex items-center min-w-0">
-                <span className="font-sm text-deep-mocha-700 dark:text-deep-mocha-400 whitespace-nowrap">
+                <span className={METADATA_LABEL}>
                   View:
                 </span>
-                <span className="ml-1 truncate text-deep-mocha-700 dark:text-deep-mocha-400 capitalize">
+                <span className={`ml-1 truncate capitalize ${METADATA_VALUE}`}>
                   {typeof meta.class_dv === "string"
                     ? meta.class_dv.toLowerCase()
                     : "—"}
                 </span>
               </div>
               <div className="flex items-center min-w-0">
-                {typeof meta.uri === "string" && meta.uri ? (
-                  <a
-                    href={meta.uri}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate"
-                    aria-label="Open image link"
-                  >
-                    Image Link
-                  </a>
-                ) : null}
-              </div>
-
-              <div className="flex items-center min-w-0">
-                <span className="font-sm text-deep-mocha-700 dark:text-deep-mocha-400 whitespace-nowrap">
+                <span className={METADATA_LABEL}>
                   Source DB:
                 </span>
-                <a
-                  href={getSourceDbHref(meta.uuid)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate uppercase"
-                  aria-label="Open source database link"
-                >
+                {/* The name of the database, not a link: the link to this
+                    record lives with the other two at the bottom. */}
+                <span className={`ml-1 truncate uppercase ${METADATA_VALUE}`}>
                   {typeof meta.source_db === "string" && meta.source_db
                     ? meta.source_db
                     : "GBIF"}
-                </a>
-              </div>
-              <div className="flex items-center min-w-0">
-                {typeof meta.license === "string" &&
-                meta.license.startsWith("http") ? (
-                  <a
-                    href={meta.license}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate"
-                    aria-label="Open license"
-                  >
-                    License
-                  </a>
-                ) : (
-                  <span className="text-deep-mocha-400 dark:text-deep-mocha-600">
-                    —
-                  </span>
-                )}
+                </span>
               </div>
 
+              {/* Locality first, then the coordinate and the verdict on it:
+                  the written record, then the check against it. The specimen
+                  modal shows the same two in the same order. */}
+              <LocalityBlock locality={locality} />
+
               <div className="flex items-center min-w-0">
-                <span className="font-sm text-deep-mocha-700 dark:text-deep-mocha-400 whitespace-nowrap">
+                <span className={METADATA_LABEL}>
                   Coordinates:
                 </span>
-                <span className="ml-1 truncate text-deep-mocha-700 dark:text-deep-mocha-400">
+                <span className={`ml-1 truncate ${METADATA_VALUE}`}>
                   {meta.lat || meta.lon
                     ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}`
                     : "—"}
                 </span>
               </div>
-              <div className="flex items-center min-w-0" />
+              <div className="flex items-center min-w-0">
+                {coordinates ? (
+                  <CoordinateStatusBadge validation={coordinates} />
+                ) : null}
+              </div>
 
               {/* Omitted entirely when no harmonization run has been loaded,
                   rather than shown as a row of placeholders. */}
               {taxonomy ? <TaxonomyBlock update={taxonomy} /> : null}
+
+              <MetadataLinks meta={meta} className="col-span-2" />
             </div>
           </>
         )}

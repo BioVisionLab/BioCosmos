@@ -12,7 +12,7 @@ reports/
     taxonomy_update.duckdb
     taxonomy_summary.csv          with --csv
     taxonomy_match_summary.png    with --plot
-  geography/<run_id>/             written by `geoharmonize validate-coordinates`
+  geography/<run_id>/             written by `geoharmonize validate`
     coordinate_run.json
     coordinate_validation.duckdb
 ```
@@ -99,6 +99,28 @@ species → subspecies → genus cascade decide instead:
 | --- | --- | --- | --- | --- |
 | with `taxon_rank=tax_rank` | 11,252 | 8,871 | 105 | 2,276 |
 | without | 9,346 | 9,233 | 108 | **5** |
+
+### Geography is different
+
+Taxonomy is harmonized in-process at startup. **Geography is not.** The backend
+builds `main.image_meta_locality` — the written locality, joined out of
+`gbif_meta` and keyed on `img_id` — and then reads `main.image_meta_coordinates`
+if it is there. Nothing in the backend ever writes that second table.
+
+It is produced once per data refresh, by hand, with the backend stopped:
+
+```bash
+uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality --gadm "$GADM_DIR/gadm_410-levels.gpkg" \
+  --map source_id=img_id --map country=country_code --map adm1=state_province \
+  --into main.image_meta_coordinates --reports-dir reports
+```
+
+The ordering matters: `image_meta_locality` is what supplies the recorded
+country and state the validation compares against, so the backend has to have
+run at least once before this does. Until it has, every coordinate status is
+null and the site shows an em-dash in its place — the join is optional in
+exactly the way the taxonomy one is.
 
 ### The CLI
 

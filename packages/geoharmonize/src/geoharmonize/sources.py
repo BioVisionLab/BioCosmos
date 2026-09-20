@@ -8,7 +8,7 @@ from harmonize_core.sources import OccurrenceSource
 from geoharmonize.models import CoordinateColumnMappings, CoordinateInspectionReport
 
 COORDINATE_COLUMNS: dict[str, tuple[str, ...]] = {
-    "source_id": ("occurrenceID", "occurrence_id", "id"),
+    "source_id": ("occurrenceID", "occurrence_id", "img_id", "id"),
     "latitude": ("decimalLatitude", "decimal_latitude", "latitude", "lat"),
     "longitude": ("decimalLongitude", "decimal_longitude", "longitude", "lon", "lng"),
     "country": ("countryCode", "country_code", "country"),

@@ -41,6 +41,19 @@ gbif:
   table: "gbif_meta"
   # Skip GBIF ingestion if set to true
   skip: true
+# Per-occurrence locality, joined out of gbif_meta at startup and keyed on
+# img_id, the same shape as image_meta_taxonomy. image_meta carries no locality
+# columns of its own: they live on gbif_meta, joined on uuid = occurrenceID.
+#
+# The build is guarded by a fingerprint in ingestion_state and never raises. A
+# missing gbif_meta or a failed join leaves search and the metadata panel
+# serving nulls rather than blocking startup.
+locality:
+  skip: false
+  table: "image_meta_locality"
+  # Written by `geoharmonize integrate`, never by the backend. Absent until
+  # that has been run once with the backend stopped; readers degrade to null.
+  coordinates_table: "image_meta_coordinates"
 # Catalogue of Life taxonomy backbone, ingested from a ColDP release directory
 # pointed at by COL_DIR. Replaces GBIF as the source of classification data.
 col:

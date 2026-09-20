@@ -2,8 +2,9 @@ import { ImageLoading } from "@/components/Loadings";
 import SearchForm from "@/components/SearchForm";
 import PaginationControls from "@/components/PaginationControls";
 import Tips from "@/components/Tips";
-import { TaxonStatusBadge } from "@/components/CodeHint";
-import { ColAttribution } from "@/components/Attribution";
+import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
+import { ColAttribution, GadmAttribution } from "@/components/Attribution";
+import type { CoordinateValidationStatusCode } from "@/lib/geoValidation";
 import {
   DbResultItems,
   SpecimenMetadata,
@@ -416,10 +417,40 @@ function DbSearch({
                 className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
               >
                 <option
+                  value="country"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Country
+                </option>
+                <option
+                  value="state_province"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  State / Province
+                </option>
+                <option
+                  value="county"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  County
+                </option>
+                <option
+                  value="locality"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Locality
+                </option>
+                <option
                   value="coordinate"
                   className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
                 >
                   Coordinate (100m radius)
+                </option>
+                <option
+                  value="validation_status"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Coordinate Status
                 </option>
               </optgroup>
             </select>
@@ -565,7 +596,7 @@ function DbSearchResults({
                 >
                   Specimens matching query ({totalSpecimens})
                 </h2>
-                <Tips message="Species show the Catalogue of Life accepted name, with the name as recorded beneath it. Click a status badge to see how the name was matched." />
+                <Tips message="Species show the Catalogue of Life accepted name, with the name as recorded beneath it. Locality comes from the GBIF occurrence record, and the coordinate status is checked against GADM administrative boundaries. Click any status badge to see how it was decided." />
               </div>
 
               <div className="overflow-x-auto w-full rounded-2xl border border-deep-mocha-200 dark:border-deep-mocha-700/80 shadow-xs bg-white/40 dark:bg-deep-mocha-800/40 backdrop-blur-md">
@@ -597,7 +628,29 @@ function DbSearchResults({
                         View
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Country
+                      </th>
+                      <th className="hidden lg:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        State / Province
+                      </th>
+                      <th className="hidden 2xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        County
+                      </th>
+                      <th className="hidden 2xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        Municipality
+                      </th>
+                      <th className="hidden xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
                         Locality
+                      </th>
+                      <th className="hidden 2xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        Verbatim Locality
+                      </th>
+                      {/* Was headed "Locality", which it never showed. */}
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Coordinates
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Coord. Status
                       </th>
                       <th className="hidden xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
                         Source DB
@@ -671,11 +724,71 @@ function DbSearchResults({
                             />
                           </td>
                           <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.country ?? specimen.country_code}
+                              highlight={query}
+                              isMatched={matched.includes("country")}
+                            />
+                          </td>
+                          <td className="hidden lg:table-cell px-4 py-3 align-top">
+                            <HighlightText
+                              text={specimen.state_province}
+                              highlight={query}
+                              isMatched={matched.includes("state_province")}
+                            />
+                          </td>
+                          <td className="hidden 2xl:table-cell px-4 py-3 align-top">
+                            <HighlightText
+                              text={specimen.county}
+                              highlight={query}
+                              isMatched={matched.includes("county")}
+                            />
+                          </td>
+                          <td className="hidden 2xl:table-cell px-4 py-3 align-top">
+                            <HighlightText
+                              text={specimen.municipality}
+                              highlight={query}
+                              isMatched={matched.includes("municipality")}
+                            />
+                          </td>
+                          {/* Free text, and long: truncated with the whole
+                              string on the title, or one verbose record
+                              stretches every column. */}
+                          <td
+                            className="hidden xl:table-cell px-4 py-3 align-top max-w-48 truncate"
+                            title={specimen.locality ?? undefined}
+                          >
+                            <HighlightText
+                              text={specimen.locality}
+                              highlight={query}
+                              isMatched={matched.includes("locality")}
+                            />
+                          </td>
+                          <td
+                            className="hidden 2xl:table-cell px-4 py-3 align-top max-w-48 truncate"
+                            title={specimen.verbatim_locality ?? undefined}
+                          >
+                            <HighlightText
+                              text={specimen.verbatim_locality}
+                              highlight={query}
+                              isMatched={matched.includes("verbatim_locality")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
                             {renderCoordinateCell(
                               specimen.lat,
                               specimen.lon,
                               matched,
                             )}
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <CoordinateStatusBadge
+                              validation={{
+                                validationStatus:
+                                  specimen.validation_status as CoordinateValidationStatusCode | null,
+                              }}
+                              compact
+                            />
                           </td>
                           <td className="hidden xl:table-cell px-4 py-3 align-top uppercase">
                             <HighlightText
@@ -701,6 +814,7 @@ function DbSearchResults({
               />
 
               <ColAttribution leadingText="Taxonomy source:" />
+              <GadmAttribution leadingText="Boundary source:" />
             </div>
           )}
         </div>

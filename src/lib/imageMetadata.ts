@@ -8,6 +8,12 @@
  */
 
 import { TaxonUpdate, normalizeTaxonUpdate } from "./colTaxonomy";
+import {
+  CoordinateValidation,
+  SpecimenLocality,
+  normalizeCoordinateValidation,
+  normalizeSpecimenLocality,
+} from "./geoValidation";
 
 export interface SpecimenImageMeta {
   class_dv?: string | null;
@@ -21,6 +27,10 @@ export interface SpecimenImageMeta {
   species?: string | null;
   /** Absent until a colharmonize run has been loaded. */
   taxonomy?: unknown;
+  /** Absent until the locality table has been built. */
+  locality?: unknown;
+  /** Absent until `geoharmonize integrate` has been run. */
+  coordinates?: unknown;
   [key: string]: unknown;
 }
 
@@ -56,4 +66,60 @@ export function nameWasUpdated(update: TaxonUpdate | null): boolean {
   const normalize = (value: string) =>
     value.replace(/_/g, " ").trim().toLowerCase();
   return normalize(update.inputName) !== normalize(accepted);
+}
+
+/**
+ * Read the written locality off a metadata payload.
+ *
+ * Returns null when nothing was recorded, so callers can omit the block
+ * rather than render empty rows.
+ */
+export function localityOf(
+  meta: SpecimenImageMeta | null | undefined,
+): SpecimenLocality | null {
+  if (!meta) return null;
+  return normalizeSpecimenLocality(meta.locality);
+}
+
+/** Read the coordinate validation off a metadata payload. */
+export function coordinatesOf(
+  meta: SpecimenImageMeta | null | undefined,
+): CoordinateValidation | null {
+  if (!meta) return null;
+  return normalizeCoordinateValidation(meta.coordinates);
+}
+
+/**
+ * Where "Source Link" points: the occurrence record in its own database.
+ *
+ * `uuid` holds a full URL for most sources and a bare identifier for others,
+ * so anything that does not parse as an http(s) URL falls back to GBIF rather
+ * than producing a dead — or hostile — link. The protocol is checked after
+ * parsing, not just matched at the front, so a crafted value cannot smuggle
+ * another scheme through.
+ */
+export function sourceDbHref(
+  rawUrl: unknown,
+  fallback = "https://www.gbif.org",
+): string {
+  if (typeof rawUrl !== "string") return fallback;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return fallback;
+
+  const normalized = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : /^www\./i.test(trimmed)
+      ? `https://${trimmed}`
+      : "";
+  if (!normalized) return fallback;
+
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
 }
