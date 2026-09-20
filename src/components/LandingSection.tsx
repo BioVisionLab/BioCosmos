@@ -15,9 +15,24 @@ const RULE =
 const HEADING =
   "text-xs sm:text-sm font-semibold tracking-wider uppercase text-hunter-green-600 dark:text-hunter-green-300 flex items-center gap-2";
 
-/** Both landing grids are the same grid; this is where they say so. */
+/**
+ * The width every landing-page section shares: readable on a phone, and
+ * allowed to keep growing on a large monitor rather than stopping at the
+ * 1024px the page used to cap itself at, which left a desktop screen mostly
+ * empty on either side.
+ */
+export const LANDING_CONTAINER =
+  "w-full mx-auto max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[88rem]";
+
+/**
+ * Both landing grids are the same grid; this is where they say so.
+ *
+ * Every step divides the six tiles each grid holds — 2, 3, then 6 across —
+ * so a row is never left half-full the way the old four-column step left
+ * the last two tiles stranded on a tablet.
+ */
 export const LANDING_GRID =
-  "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mx-auto";
+  "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-5 lg:gap-6";
 
 export interface LandingSectionHeadingProps {
   title: string;
@@ -46,7 +61,7 @@ export default function LandingSectionHeading({
   className = "",
 }: LandingSectionHeadingProps) {
   return (
-    <div className={`w-full max-w-5xl mb-4 px-4 mx-auto ${className}`}>
+    <div className={`${LANDING_CONTAINER} mb-4 ${className}`}>
       <div className="flex items-center gap-3">
         <span className={RULE} aria-hidden="true" />
         <h2 id={id} className={HEADING}>

@@ -53,7 +53,7 @@ export default function CollectionSummary({
         description="What the collection holds right now."
       />
 
-      <dl className="mx-auto grid max-w-3xl grid-cols-3 divide-x divide-deep-mocha-300 dark:divide-deep-mocha-700 px-4">
+      <dl className="mx-auto grid max-w-3xl lg:max-w-4xl grid-cols-3 divide-x divide-deep-mocha-300 dark:divide-deep-mocha-700">
         {cells.map((cell) => (
           // flex-col-reverse: <dt> before <dd> in the DOM, as a description
           // list requires, with the number on top on screen.

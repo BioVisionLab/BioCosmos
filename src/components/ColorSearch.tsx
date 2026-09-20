@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import SpeciesTile from "@/components/SpeciesTile";
-import LandingSectionHeading, { LANDING_GRID } from "@/components/LandingSection";
+import LandingSectionHeading, {
+  LANDING_CONTAINER,
+  LANDING_GRID,
+} from "@/components/LandingSection";
 import { imageUrlById } from "@/lib/images";
 import { ColorSearchResult, searchByColor } from "@/lib/ml_search";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
@@ -15,12 +18,15 @@ const SEARCH_CANDIDATE_LIMIT = 12;
 // Plain labels. The buttons used to paint themselves — colour gradients, an
 // owl's eyes in radial gradients, diagonal stripes — which competed with the
 // butterflies they were meant to introduce.
+//
+// Patterns lead, then colours: the pattern searches are the ones worth
+// discovering, and a colour name reads as an ordinary filter beside them.
 const SEARCH_OPTIONS = [
+  { value: "striped", label: "Striped" },
+  { value: "owl-like", label: "Owl-like" },
   { value: "red", label: "Red" },
   { value: "blue", label: "Blue" },
   { value: "green", label: "Green" },
-  { value: "owl-like", label: "Owl-like" },
-  { value: "striped", label: "Striped" },
 ] as const;
 
 // Borrowed from the search-mode tabs above, so the two rows of pills on this
@@ -38,75 +44,80 @@ const PILL_SELECTED =
 
 type SearchOptionValue = (typeof SEARCH_OPTIONS)[number]["value"];
 
+// The section opens on a search rather than on six empty slots: a grid of
+// butterflies shows what the control does, where "pick an option" only
+// described it. Stripes are the clearest demonstration of the pattern
+// search, so they are the ones that run.
+const DEFAULT_OPTION: SearchOptionValue = "striped";
+
 export default function ColorSearch() {
   const [selectedOption, setSelectedOption] =
-    useState<SearchOptionValue | null>(null);
+    useState<SearchOptionValue>(DEFAULT_OPTION);
   const [results, setResults] = useState<ColorSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const activeRequest = useRef<AbortController | null>(null);
-  const requestNumber = useRef(0);
 
-  useEffect(() => {
-    return () => activeRequest.current?.abort();
-  }, []);
-
-  const handleOptionSearch = async (option: SearchOptionValue) => {
-    activeRequest.current?.abort();
-
-    const controller = new AbortController();
-    const currentRequest = ++requestNumber.current;
-    activeRequest.current = controller;
-
+  // Picking an option is the only way to start a search, so the pending
+  // state belongs to the click — and to the initial `loading` value, which
+  // covers the default search that runs on mount.
+  const handleSelect = (option: SearchOptionValue) => {
+    if (option === selectedOption) return;
     setSelectedOption(option);
     setError(null);
     setLoading(true);
+  };
 
-    try {
-      const searchResults = await searchByColor(
-        option,
-        SEARCH_CANDIDATE_LIMIT,
-        controller.signal,
-      );
+  // The selection drives the request, rather than the click handler doing
+  // so: the default option then searches on mount through the same path as
+  // every later click, and React's cleanup — not a request counter — is
+  // what discards a superseded response.
+  useEffect(() => {
+    const controller = new AbortController();
+    let current = true;
 
-      if (currentRequest === requestNumber.current) {
-        setResults(searchResults.slice(0, RESULT_LIMIT));
-      }
-    } catch (searchError) {
-      if (controller.signal.aborted) return;
-
-      if (currentRequest === requestNumber.current) {
+    const run = async () => {
+      try {
+        const searchResults = await searchByColor(
+          selectedOption,
+          SEARCH_CANDIDATE_LIMIT,
+          controller.signal,
+        );
+        if (current) setResults(searchResults.slice(0, RESULT_LIMIT));
+      } catch (searchError) {
+        if (!current || controller.signal.aborted) return;
         setResults([]);
         setError(
           searchError instanceof Error
             ? searchError.message
             : "An unexpected error occurred during visual search.",
         );
+      } finally {
+        if (current) setLoading(false);
       }
-    } finally {
-      if (currentRequest === requestNumber.current) {
-        setLoading(false);
-        activeRequest.current = null;
-      }
-    }
-  };
+    };
+
+    run();
+
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [selectedOption]);
 
   const selectedLabel = SEARCH_OPTIONS.find(
     (option) => option.value === selectedOption,
   )?.label;
 
-  // Every outcome — searching, failed, found nothing, idle — is one line in
-  // one place. They used to be three differently sized blocks that replaced
-  // each other, so the grid below moved every time the state changed.
+  // Every outcome — searching, failed, found nothing — is one line in one
+  // place. They used to be three differently sized blocks that replaced each
+  // other, so the grid below moved every time the state changed.
   const statusMessage = error
     ? error
-    : loading && selectedOption
+    : loading
       ? `Finding ${selectedLabel ?? selectedOption} butterflies…`
-      : selectedOption && results.length === 0
+      : results.length === 0
         ? `No ${selectedLabel ?? selectedOption} butterfly matches were found. Try another option.`
-        : selectedOption
-          ? " "
-          : "Select an option to preview matching butterflies.";
+        : " ";
 
   return (
     <section className="w-full mt-16" aria-labelledby="visual-search-heading">
@@ -117,7 +128,7 @@ export default function ColorSearch() {
         description="Pick a colour or pattern to preview matching butterflies."
       />
 
-      <div className="mb-4 flex flex-wrap justify-center gap-3 px-4">
+      <div className="mb-4 flex flex-wrap justify-center gap-2 sm:gap-3">
         {SEARCH_OPTIONS.map((option) => {
           const isSelected = selectedOption === option.value;
 
@@ -127,7 +138,7 @@ export default function ColorSearch() {
               type="button"
               aria-pressed={isSelected}
               aria-busy={loading && isSelected}
-              onClick={() => handleOptionSearch(option.value)}
+              onClick={() => handleSelect(option.value)}
               className={`${PILL_BASE} ${isSelected ? PILL_SELECTED : PILL_IDLE}`}
             >
               {option.label}
@@ -148,7 +159,7 @@ export default function ColorSearch() {
       <p
         role={error ? "alert" : "status"}
         aria-live="polite"
-        className={`mx-auto mb-6 h-5 max-w-3xl truncate px-4 text-center text-sm ${
+        className={`mx-auto mb-6 h-5 max-w-3xl truncate text-center text-sm ${
           error
             ? "text-burnt-peach-600 dark:text-burnt-peach-400"
             : "text-deep-mocha-500 dark:text-deep-mocha-400"
@@ -163,7 +174,7 @@ export default function ColorSearch() {
           being torn down and rebuilt. */}
       <div
         aria-busy={loading}
-        className={`${LANDING_GRID} max-w-5xl px-4 transition-opacity duration-200 ${
+        className={`${LANDING_GRID} ${LANDING_CONTAINER} transition-opacity duration-200 ${
           loading ? "opacity-60" : "opacity-100"
         }`}
       >

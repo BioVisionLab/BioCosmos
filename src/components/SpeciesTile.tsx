@@ -73,7 +73,7 @@ export function SpeciesTile({
             src={imageUrl}
             alt={alt}
             fill
-            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 17vw"
             className={`object-contain transition-opacity duration-200 ${
               ready ? "opacity-100" : "opacity-0"
             }`}

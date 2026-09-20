@@ -41,15 +41,15 @@ export default async function CollectionsPage() {
   ];
 
   return (
-    <main className="max-w-7xl mx-auto p-8">
-      <div className="flex items-start justify-between mb-6">
+    <main className="w-full max-w-7xl 2xl:max-w-[88rem] mx-auto py-8">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <h1 className="text-3xl font-bold">Collections</h1>
         <Link href="/" className="text-pacific-blue-600 hover:underline">
           ← Back to Home
         </Link>
       </div>
 
-      <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
+      <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
         Statistics on our current dataset, including the number of images,
         species, LepTrait entries, and entries aggregated by source databases
         (GBIF, Ecdysis, SCANBUGS, and others).
@@ -63,7 +63,7 @@ export default async function CollectionsPage() {
       )}
 
       <section aria-label="Dataset statistics">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {summaryStats.map((s) => (
             <CollectionCard key={s.label} {...s} />
           ))}
@@ -75,12 +75,12 @@ export default async function CollectionsPage() {
         className="mt-12"
       >
         <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
-        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
+        <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
           Image and metadata are provided by museum providers and aggregated by
           data aggregators. Below are counts of image entries sourced from
           different data aggregators.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {sourceStats.map((s) => (
             <CollectionCard key={s.label} {...s} />
           ))}
@@ -89,7 +89,7 @@ export default async function CollectionsPage() {
 
       <section aria-label="Collection visualizations" className="mt-12">
         <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
-        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
+        <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
           Proportion of image entries across butterfly families, the top ten
           most-represented species in the collection, and how the CLIP and
           UNICOM embedding spaces behind image search are distributed.
@@ -115,9 +115,9 @@ function CollectionCard({
   return (
     <article
       key={label}
-      className="rounded-lg p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
+      className="rounded-lg p-4 sm:p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
     >
-      <div className="text-4xl font-extrabold text-deep-mocha-900 dark:text-white">
+      <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-deep-mocha-900 dark:text-white">
         {value.toLocaleString()}
       </div>
       <div className="mt-2 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">

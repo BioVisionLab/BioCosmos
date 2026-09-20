@@ -6,7 +6,10 @@ import { speciesThumbnailUrl } from "@/lib/images";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import SpeciesTile from "./SpeciesTile";
-import LandingSectionHeading, { LANDING_GRID } from "./LandingSection";
+import LandingSectionHeading, {
+  LANDING_CONTAINER,
+  LANDING_GRID,
+} from "./LandingSection";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
@@ -23,7 +26,7 @@ export default function HomePage({
 }) {
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <div className="mt-12 mb-6 text-center">
+      <div className="mt-10 sm:mt-12 mb-6 text-center">
         <div className="flex justify-center mb-2">
           <h1 className="sr-only">Lepiverse</h1>
           <Logo className="w-64 sm:w-80 md:w-96" />
@@ -31,7 +34,7 @@ export default function HomePage({
         <p className="text-base sm:text-md text-deep-mocha-600 dark:text-deep-mocha-300">
           A BioCosmos portal for Lepidoptera, featuring all butterfly families.
         </p>
-        <p className="mt-8 text-base sm:text-lg text-deep-mocha-600 dark:text-deep-mocha-300 max-w-3xl mx-auto">
+        <p className="mt-8 text-base sm:text-lg text-deep-mocha-600 dark:text-deep-mocha-300 max-w-3xl mx-auto text-balance">
           BioCosmos is an image-based web platform that combines conventional biodiversity database with computer vision and natural language processing to reveal hidden patterns in organism coloration and simplify querying large-scale biological data.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
@@ -118,7 +121,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
         title="Featured Butterflies"
         description="Get started with a curated list of butterflies."
       />
-      <div className={`${LANDING_GRID} max-w-5xl px-4`}>
+      <div className={`${LANDING_GRID} ${LANDING_CONTAINER}`}>
         {speciesList.map((species, index) => (
           <SpeciesThumbnail key={species} species={species} index={index} />
         ))}
