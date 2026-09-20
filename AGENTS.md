@@ -9,12 +9,12 @@ BioCosmos is a full-stack biodiversity image platform. The Next.js App Router fr
 - `bun install`: install the pinned frontend dependencies.
 - `bun run dev`: start Next.js with Turbopack on port 3000.
 - `bun run build`: create a production frontend build and catch type/build errors.
-- `bun run lint`: run the configured Next.js/TypeScript ESLint checks.
+- `bun run lint`: run ESLint over the repository (`bun run lint:fix` applies the fixable subset). `next lint` was removed in Next 16, so this calls the ESLint CLI against the flat config in `eslint.config.mjs`.
 - `uv sync --all-packages`: install every member of the root uv workspace (`backend` and `packages/*`) against the single root `uv.lock`. Python 3.12+.
 - `./scripts/run_backend.sh`: start FastAPI in development mode using `backend/.env`.
 - `cd backend && uv run pytest -q`: run the backend suite exactly as CI does. It must run from `backend/`, which resolves `static/` relatively.
 - `uv run --package <name> pytest packages/<name>/tests -q`: run one harmonization package's suite.
-- `uv run colharmonize --help` / `uv run geoharmonize --help`: the harmonization CLIs.
+- `uv run colharmonize --help` / `uv run geoharmonize --help`: the harmonization CLIs, for tuning and for the CSV/plot exports. The backend harmonizes taxonomy itself at startup, so neither is needed for the site to work. Stop the backend before running either against the live DuckDB: DuckDB allows a single writer, so the CLI cannot attach — even read-only — while the API holds the file open. See [`reports/README.md`](reports/README.md).
 - `docker-compose up --build`: build and run both services together.
 
 ## Coding Style & Naming Conventions

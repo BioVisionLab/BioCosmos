@@ -1,6 +1,15 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { NoData } from "@/components/NoData";
+import { CodeHint, TaxonStatusBadge } from "@/components/CodeHint";
+import { TaxonCandidate, TaxonUpdate } from "@/lib/colTaxonomy";
+import {
+  SpecimenImageMeta,
+  acceptedDisplayName,
+  nameWasUpdated,
+  taxonomyOf,
+} from "@/lib/imageMetadata";
+import { cleanSpeciesName } from "@/lib/names";
 
 interface ImageMetadataProps {
   speciesName?: string;
@@ -9,15 +18,138 @@ interface ImageMetadataProps {
   nextImageIds?: string[];
 }
 
+/**
+ * The runner-up matches Catalogue of Life could have resolved the name to.
+ *
+ * Collapsed by default: for a decisive match these are noise, and for an
+ * ambiguous one they are the whole point.
+ */
+function AlternativeCandidates({
+  candidates,
+}: {
+  candidates: TaxonCandidate[];
+}) {
+  const panelId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+
+  if (!candidates.length) return null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((previous) => !previous)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && open) {
+            // Keep Escape from also closing a surrounding modal.
+            event.stopPropagation();
+            setOpen(false);
+            triggerRef.current?.focus();
+          }
+        }}
+        className="w-fit text-left text-xs underline decoration-dotted underline-offset-2 text-deep-mocha-600 dark:text-deep-mocha-400 hover:text-deep-mocha-800 dark:hover:text-deep-mocha-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-hunter-green-500 rounded-xs"
+      >
+        {open ? "Hide" : "Show"} alternative candidates ({candidates.length})
+      </button>
+      <ol
+        id={panelId}
+        className={
+          open
+            ? "list-decimal pl-5 space-y-1.5 text-xs text-deep-mocha-600 dark:text-deep-mocha-400"
+            : "hidden"
+        }
+        aria-hidden={!open}
+      >
+        {candidates.map((candidate) => (
+          <li key={`${candidate.candidateRank}-${candidate.acceptedName}`}>
+            <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+              <i className="italic">{candidate.acceptedName ?? "—"}</i>
+              {candidate.acceptedAuthorship ? (
+                <span className="text-deep-mocha-500">
+                  {candidate.acceptedAuthorship}
+                </span>
+              ) : null}
+              {candidate.acceptedRank ? (
+                <span className="text-deep-mocha-500">
+                  {candidate.acceptedRank}
+                </span>
+              ) : null}
+              {candidate.candidateMethod ? (
+                <CodeHint code={candidate.candidateMethod} kind="method" />
+              ) : null}
+              {candidate.matchScore !== null ? (
+                <span className="text-deep-mocha-500">
+                  score {candidate.matchScore}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function TaxonomyBlock({ update }: { update: TaxonUpdate }) {
+  const accepted = acceptedDisplayName(update);
+  const showRecorded = nameWasUpdated(update);
+
+  return (
+    // The card sets a very tight leading for its one-line rows; this block is
+    // multi-line, so it sets its own.
+    <div className="col-span-2 mt-1 pt-2 border-t border-deep-mocha-200 dark:border-deep-mocha-700 flex flex-col gap-1.5 leading-normal">
+      <div className="flex flex-wrap items-start gap-2">
+        <span className="whitespace-nowrap">Taxonomy:</span>
+        <TaxonStatusBadge update={update} showMethod />
+      </div>
+
+      {accepted ? (
+        <div className="flex flex-wrap items-baseline gap-1 min-w-0">
+          <span className="whitespace-nowrap">Accepted name:</span>
+          <i className="italic">{accepted}</i>
+          {update.acceptedAuthorship ? (
+            <span className="text-deep-mocha-500">
+              {update.acceptedAuthorship}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showRecorded && update.inputName ? (
+        <div className="flex flex-wrap items-baseline gap-1 min-w-0">
+          <span className="whitespace-nowrap">Recorded as:</span>
+          <i className="italic text-deep-mocha-500">
+            {cleanSpeciesName(update.inputName)}
+          </i>
+        </div>
+      ) : null}
+
+      {update.reasonCode ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="whitespace-nowrap">Reason:</span>
+          <CodeHint code={update.reasonCode} kind="reason" />
+        </div>
+      ) : null}
+
+      <AlternativeCandidates candidates={update.candidates} />
+    </div>
+  );
+}
+
 export default function ImageMetadata({
-  speciesName,
   imageId,
   prevImageIds,
   nextImageIds,
 }: ImageMetadataProps) {
-  const [meta, setMeta] = useState<any | null>(null);
+  const [meta, setMeta] = useState<SpecimenImageMeta | null>(null);
   const [loading, setLoading] = useState(false);
-  const cacheRef = React.useRef<Map<string, any>>(new Map());
+  const cacheRef = React.useRef<Map<string, SpecimenImageMeta | null>>(
+    new Map(),
+  );
 
   const getSourceDbHref = (sourceUrl: unknown): string => {
     if (typeof sourceUrl !== "string") return "https://www.gbif.org";
@@ -89,6 +221,8 @@ export default function ImageMetadata({
     });
   }, [prevImageIds, nextImageIds]);
 
+  const taxonomy = taxonomyOf(meta);
+
   return (
     <div className="p-5 bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl text-sm text-deep-mocha-700 dark:text-deep-mocha-400 leading-3.5">
       <h3 className="text-base font-semibold mb-2">Image Metadata</h3>
@@ -110,15 +244,13 @@ export default function ImageMetadata({
                   View:
                 </span>
                 <span className="ml-1 truncate text-deep-mocha-700 dark:text-deep-mocha-400 capitalize">
-                  {meta.class_dv
-                    ? typeof meta.class_dv === "string"
-                      ? meta.class_dv.toLowerCase()
-                      : meta.class_dv
+                  {typeof meta.class_dv === "string"
+                    ? meta.class_dv.toLowerCase()
                     : "—"}
                 </span>
               </div>
               <div className="flex items-center min-w-0">
-                {meta.uri && (
+                {typeof meta.uri === "string" && meta.uri ? (
                   <a
                     href={meta.uri}
                     target="_blank"
@@ -128,7 +260,7 @@ export default function ImageMetadata({
                   >
                     Image Link
                   </a>
-                )}
+                ) : null}
               </div>
 
               <div className="flex items-center min-w-0">
@@ -142,10 +274,8 @@ export default function ImageMetadata({
                   className="ml-1 font-sm text-deep-mocha-700 dark:text-deep-mocha-400 underline truncate uppercase"
                   aria-label="Open source database link"
                 >
-                  {meta.source_db
-                    ? typeof meta.source_db === "string"
-                      ? meta.source_db
-                      : meta.source_db
+                  {typeof meta.source_db === "string" && meta.source_db
+                    ? meta.source_db
                     : "GBIF"}
                 </a>
               </div>
@@ -179,6 +309,10 @@ export default function ImageMetadata({
                 </span>
               </div>
               <div className="flex items-center min-w-0" />
+
+              {/* Omitted entirely when no harmonization run has been loaded,
+                  rather than shown as a row of placeholders. */}
+              {taxonomy ? <TaxonomyBlock update={taxonomy} /> : null}
             </div>
           </>
         )}

@@ -3,22 +3,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { imageUrlById } from "@/lib/images";
+import { SpecimenImageMeta, acceptedDisplayName, taxonomyOf } from "@/lib/imageMetadata";
+import { TaxonStatusBadge } from "@/components/CodeHint";
 
 /**
  * Metadata returned by `/api/images/id/metadata?imageId=...` for a single
  * specimen image. The backend may return additional fields; only the ones
  * the modal displays are typed here.
  */
-export interface SpecimenImageMeta {
-  class_dv?: string | null;
-  lat?: number | null;
-  lon?: number | null;
-  source_db?: string | null;
-  license?: string | null;
-  uuid?: string | null;
-  uri?: string | null;
-  [key: string]: unknown;
-}
+// Defined in @/lib/imageMetadata and re-exported here, where it used to
+// live, so existing importers keep working.
+export type { SpecimenImageMeta };
 
 // Module-level cache so metadata already fetched for an image (e.g. while
 // browsing a species page) stays warm if the same image is opened again
@@ -375,6 +370,34 @@ function SpecimenImageModal({
                           </span>
                         </div>
                       )}
+
+                      {/* The same taxonomic update the species-page panel
+                          shows, so the two views never disagree. */}
+                      {(() => {
+                        const taxonomy = taxonomyOf(meta);
+                        if (!taxonomy) return null;
+                        const accepted = acceptedDisplayName(taxonomy);
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex flex-wrap items-start gap-2">
+                              <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                                Taxonomy:
+                              </span>
+                              <TaxonStatusBadge update={taxonomy} showMethod />
+                            </div>
+                            {accepted && (
+                              <div>
+                                <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                                  Accepted name:{" "}
+                                </span>
+                                <i className="italic text-deep-mocha-700 dark:text-white">
+                                  {accepted}
+                                </i>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Action buttons (License, Source, Image) - pill-shaped */}
                       <div className="mt-3 flex flex-wrap gap-2 justify-center">

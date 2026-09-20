@@ -144,6 +144,107 @@ class GbifConfig:
         return self._gbif_config.get("table", "gbif_meta")
 
 
+class ColConfig:
+    """
+    Configuration for the Catalogue of Life (CoL) taxonomy backbone.
+
+    The source is a ColDP release directory pointed at by the COL_DIR
+    environment variable. CoL replaces GBIF as the classification source; the
+    per-occurrence taxonomic update comes from `colharmonize` run artifacts
+    under `reports_dir`.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._col_config = config.get("col", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._col_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"CoL skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def dir(self) -> str:
+        """Directory holding the extracted ColDP release."""
+        return os.getenv("COL_DIR", ".")
+
+    def _resolve(self, file_name: str) -> str:
+        full_path = os.path.join(self.dir, file_name)
+        if not os.path.exists(full_path):
+            logger.info(f"Failed to find CoL data file at: {full_path}")
+        return full_path
+
+    @property
+    def path(self) -> str:
+        """Path to NameUsage.tsv, the CoL name usage table."""
+        return self._resolve(self._col_config.get("file", "NameUsage.tsv"))
+
+    @property
+    def vernacular_path(self) -> str:
+        """Path to VernacularName.tsv, the CoL common-name table."""
+        return self._resolve(
+            self._col_config.get("vernacular_file", "VernacularName.tsv")
+        )
+
+    @property
+    def table(self) -> str:
+        return self._col_config.get("table", "col_taxonomy")
+
+    @property
+    def vernacular_table(self) -> str:
+        return self._col_config.get("vernacular_table", "col_vernacular")
+
+    @property
+    def clade_rank(self) -> str | None:
+        """Rank column used to restrict the backbone, e.g. 'order'."""
+        return self._col_config.get("clade_rank") or None
+
+    @property
+    def clade_value(self) -> str | None:
+        """Value of `clade_rank` to keep. None ingests all of CoL."""
+        return self._col_config.get("clade_value") or None
+
+    @property
+    def cache_dir(self) -> str:
+        """Directory holding the reusable CoL reference index.
+
+        Relative paths resolve under DUCK_DIR, next to the database, so a
+        container keeps the index on the same volume as its data instead of
+        rebuilding it from the release on every restart.
+        """
+        configured = self._col_config.get("cache_dir")
+        if not configured:
+            # colharmonize's own default, so a developer who has run the CLI
+            # does not end up with a second 3.6 GB copy of the same index.
+            return os.path.join(os.path.expanduser("~"), ".cache", "colharmonize")
+        if os.path.isabs(configured):
+            return configured
+        return os.path.join(os.getenv("DUCK_DIR", "."), configured)
+
+    @property
+    def matches_table(self) -> str:
+        return self._col_config.get("matches_table", "col_taxonomy_matches")
+
+    @property
+    def variants_table(self) -> str:
+        return self._col_config.get("variants_table", "col_taxon_variants")
+
+    @property
+    def candidates_table(self) -> str:
+        return self._col_config.get("candidates_table", "col_taxonomy_candidates")
+
+    @property
+    def occurrence_status_table(self) -> str:
+        return self._col_config.get("occurrence_status_table", "image_meta_taxonomy")
+
+
 class LepTraitConfig:
     def __init__(self):
         config = load_config()

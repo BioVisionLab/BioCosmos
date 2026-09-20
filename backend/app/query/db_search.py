@@ -80,6 +80,7 @@ class TextToDbSearch:
             "order",
             "common_name",
             "coordinate",
+            "update_status",
         ]
 
         field = self.field.replace(" ", "_")
@@ -111,7 +112,11 @@ class TextToDbSearch:
                     field, q_param, self.limit, self.offset
                 )
             else:
-                search_fields = [f for f in valid_fields if f != "coordinate"]
+                # Coordinates are numeric and update_status is a controlled
+                # vocabulary; neither belongs in a free-text sweep.
+                search_fields = [
+                    f for f in valid_fields if f not in ("coordinate", "update_status")
+                ]
                 results_df, specimens_df, total_specimens = meta_service.search_all_fields(
                     search_fields, q_param, self.limit, self.offset
                 )
@@ -172,7 +177,9 @@ class TextToDbSearch:
         if specimens_df.is_empty():
             return db_specimens
             
-        search_fields = [f for f in valid_fields if f != "coordinate"]
+        search_fields = [
+            f for f in valid_fields if f not in ("coordinate", "update_status")
+        ]
         for row in specimens_df.iter_rows(named=True):
             matched_cols = []
             if field == "coordinate":
@@ -187,6 +194,10 @@ class TextToDbSearch:
                         matched_cols.append(col)
             # We return kingdom, phylum, class, order just in case we need it in the future.
             # The frontend drop this column for viewing.
+            #
+            # The taxonomy fields come from the colharmonize run and are None
+            # until one has been loaded. Only the codes travel per row; their
+            # descriptions are served once by GET /taxonomy/codes.
             db_specimens.append({
                 "img_id": row["img_id"],
                 "species": row["species"],
@@ -202,6 +213,14 @@ class TextToDbSearch:
                 "phylum": row["phylum"],
                 "class": row["class"],
                 "order": row["order"],
+                "update_status": row.get("update_status"),
+                "match_method": row.get("match_method"),
+                "display_accepted_name": row.get("display_accepted_name"),
+                "accepted_name": row.get("accepted_name"),
+                "accepted_rank": row.get("accepted_rank"),
+                "accepted_authorship": row.get("accepted_authorship"),
+                "accepted_family": row.get("accepted_family"),
+                "candidate_count": row.get("candidate_count"),
                 "matched_fields": matched_cols
             })
         return db_specimens

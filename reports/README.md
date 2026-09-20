@@ -56,23 +56,64 @@ own key, so the two can run independently:
 }
 ```
 
-## Planned backend consumption (not yet implemented)
+## Backend consumption
 
-The backend does not read this directory yet. The intended design, for the
-follow-up task:
+**The backend does not read this directory.** It harmonizes the occurrence
+names itself, in-process, through the same `colharmonize` pipeline — see
+`backend/app/services/taxonomy_update.py`. That happens at startup unless
+`col.skip` is set, the same as every other source, and once the result is
+current it costs nothing. Nothing here has to be run by hand for the site to
+work.
 
-1. Add a `ColConfig` to `backend/app/configs/config.py` following the existing
-   `GbifConfig` / `LepTraitConfig` template (`path` from the `COL_DIR`
-   environment variable plus the YAML `file`, plus `table` and `skip`).
-   `COL_DIR` already exists in `backend/.env`, but must be declared on
-   `AppSettings` in `backend/app/main.py` and set in `docker-compose.yml`.
-2. Extend the `col:` stanza in `backend/app/configs/config.yaml` with `table:`
-   and `reports_dir:`.
-3. When `skip` is false, read `latest.json`, then the manifest it names, then
-   the `database` artifact's `sha256`. Compare it against the value recorded in
-   an `ingestion_state` table in the backend DuckDB, and skip the load when
-   they match.
+What the service does, on each start:
 
-Step 3 is the freshness check current ingestion lacks: `gbif_meta` and
-`lep_traits_consensus` are created with `CREATE TABLE IF NOT EXISTS`, so a
-changed source file with an unchanged name is silently ignored today.
+1. Fingerprints the Catalogue of Life release and the distinct occurrence taxa.
+   An unchanged fingerprint means there is nothing to do; a new image of a
+   known species does not trigger a rematch.
+2. Exports the taxonomy columns to a scratch database. DuckDB will not let a
+   second handle open the file this process already holds, and the pipeline
+   reads its input from a file, so the taxa travel rather than the connection.
+3. Builds or reuses the CoL reference index. It is roughly 3.6 GB and takes
+   about a minute, so it is cached — in `~/.cache/colharmonize` by default,
+   shared with the CLI, or under `col.cache_dir` where `HOME` is not
+   persistent.
+4. Runs the matcher, then copies `taxonomy_matches`, `taxonomy_candidates` and
+   `input_taxon_variants` into the application database and builds
+   `image_meta_taxonomy` — one row per occurrence image.
+
+`input_taxon_variants` is kept because the `original_*` columns on
+`taxonomy_matches` are `min()` aggregates over a taxon's variants and so cannot
+be joined back to individual occurrence rows.
+
+Nothing in that sequence raises. A missing release, an unreadable one, or a
+failed match leaves the API serving occurrence data without a taxonomic update,
+and says so once at startup.
+
+`taxon_rank` is deliberately not mapped. `image_meta` labels 163,895
+occurrences `subspecies` while carrying a two-word binomial, plus 259 spelled
+`subspec`; mapping the rank makes the matcher reject those as invalid
+trinomials and 26% of the collection comes back `UNMATCHED`. Letting its own
+species → subspecies → genus cascade decide instead:
+
+| Mapping | Input taxa | Matched | Ambiguous | Unmatched |
+| --- | --- | --- | --- | --- |
+| with `taxon_rank=tax_rank` | 11,252 | 8,871 | 105 | 2,276 |
+| without | 9,346 | 9,233 | 108 | **5** |
+
+### The CLI
+
+`colharmonize run` remains useful for work the backend does not do: tuning the
+matching thresholds, and exporting `taxonomy_summary.csv` and
+`taxonomy_match_summary.png` for inspection. Its artifacts land here.
+
+```bash
+uv run colharmonize run --db "$DUCK_DIR/biocosmos.duckdb" --table main.image_meta \
+  --map scientific_name=species --map family=family --map order=order \
+  --map class=class --map kingdom=kingdom \
+  --col "$COL_DIR/NameUsage.tsv" --reports-dir reports --csv --plot
+```
+
+**Stop the backend first.** DuckDB allows a single writer: the API holds
+`biocosmos.duckdb` open read-write, and `colharmonize` cannot attach to it —
+even read-only — while that process is alive. This is why the backend runs the
+pipeline in-process rather than shelling out to the CLI.

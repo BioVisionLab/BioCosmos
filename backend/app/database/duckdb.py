@@ -320,6 +320,36 @@ class DuckDBClient:
         )
         logger.info(f"Table '{table_name}' created or already exists.")
 
+    def missing_tables(self, table_names: list[str]) -> list[str]:
+        """Return the names among ``table_names`` that do not exist.
+
+        Ingestion is guarded by `skip` flags and by the presence of source
+        files, so several services have to ask whether a table was actually
+        built before querying it. Asking is cheaper, and gives a far better
+        error, than letting DuckDB raise a catalog error per query.
+        """
+        if not table_names:
+            return []
+        placeholders = ", ".join("?" for _ in table_names)
+        try:
+            with self.lock:
+                rows = self.conn.execute(
+                    f"""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name IN ({placeholders})
+                    """,
+                    list(table_names),
+                ).fetchall()
+        except duckdb.Error as error:
+            logger.warning(f"Could not check for tables {table_names}: {error}")
+            return list(table_names)
+        present = {row[0] for row in rows}
+        return [name for name in table_names if name not in present]
+
+    def table_exists(self, table_name: str) -> bool:
+        """Whether a table has been created in this database."""
+        return not self.missing_tables([table_name])
+
     def fetchdf(self):
         """Fetch the result of the last query as a Polars DataFrame.
         Returns:

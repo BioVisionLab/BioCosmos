@@ -135,47 +135,146 @@ class ImageData(BaseModel):
         return f"ImageData(unique_id={self.metadata.unique_id}, embedding={self.embedding}, metadata={self.metadata})"
 
 
-class SpeciesTaxonomy(BaseModel):
-    key: int | None = Field(None, alias="key")
-    kingdom: str = Field("", alias="kingdom")
-    phylum: str = Field("", alias="phylum")
-    taxonClass: str = Field("", alias="taxonClass")
-    order: str = Field("", alias="order")
-    family: str = Field("", alias="family")
-    genus: str = Field("", alias="genus")
-    species: str = Field("", alias="species")
-    authorship: str = Field("", alias="authorship")
-    vernacularName: str = Field("", alias="vernacularName")
-    redlistCategory: str = Field("Unknown", alias="redlistCategory")
-    taxonomicStatus: str = Field("Accepted", alias="taxonomicStatus")
+# Ranks rendered by the classification panel, coarsest first.
+COL_RANK_ORDER = (
+    "kingdom",
+    "phylum",
+    "subphylum",
+    "class",
+    "subclass",
+    "order",
+    "suborder",
+    "superfamily",
+    "family",
+    "subfamily",
+    "tribe",
+    "subtribe",
+    "genus",
+    "subgenus",
+    "species",
+)
+
+
+class ColTaxonomy(BaseModel):
+    """A Catalogue of Life classification for one taxon.
+
+    Replaces the GBIF-shaped SpeciesTaxonomy. Two differences matter:
+
+    * CoL supplies the intermediate ranks GBIF never did (subphylum, subclass,
+      suborder, superfamily, subfamily, tribe, subtribe, subgenus). They are
+      optional because CoL populates them unevenly across groups.
+    * There is no conservation status. CoL does not publish IUCN categories.
+
+    When the queried name is a synonym, ``inputName`` keeps what was asked for
+    and the remaining fields describe the accepted taxon it resolves to.
+    """
+
+    colId: str | None = None
+    scientificName: str = ""
+    inputName: str | None = None
+    acceptedName: str | None = None
+    acceptedRank: str | None = None
+    authorship: str = ""
+    taxonomicStatus: str = ""
+    vernacularName: str = ""
+
+    kingdom: str = ""
+    phylum: str = ""
+    subphylum: str | None = None
+    # `class` is a Python keyword, so the field is declared under an alias and
+    # must be dumped `by_alias=True` to reach the frontend as `class`.
+    taxonClass: str = Field("", alias="class")
+    subclass: str | None = None
+    order: str = ""
+    suborder: str | None = None
+    superfamily: str | None = None
+    family: str = ""
+    subfamily: str | None = None
+    tribe: str | None = None
+    subtribe: str | None = None
+    genus: str = ""
+    subgenus: str | None = None
+    species: str = ""
+
+    extinct: bool | None = None
+    environment: str | None = None
+    colLink: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
-    def from_json(cls, data: dict, redlistCategory: str = "Unknown"):
-        taxonomic_status: str = data.get(
-            "taxonomicStatus", ""
-        ).capitalize()
+    def from_row(cls, row: dict, *, input_name: str | None = None) -> "ColTaxonomy":
+        """Build a payload from a col_taxonomy row joined to col_vernacular."""
+
+        # Empty strings read better than nulls for the always-shown ranks;
+        # the optional intermediate ranks stay None so the UI can omit the row.
+        def text(key: str) -> str:
+            value = row.get(key)
+            return "" if value is None else str(value).strip()
+
+        def optional(key: str) -> str | None:
+            value = text(key)
+            return value or None
+
+        rank = text("taxon_rank")
+        scientific_name = text("scientific_name")
+        # CoL genus usages have no epithet, so `species` is only meaningful at
+        # species rank or below.
+        species = scientific_name if rank in ("species", "subspecies") else ""
+
+        # CoL's denormalized lineage excludes the usage's own rank: a genus row
+        # carries family and above but leaves `genus` empty. Backfill it so a
+        # genus or family lookup names itself.
+        self_ranks = {rank: scientific_name} if rank in COL_RANK_ORDER else {}
+
+        def ranked(key: str) -> str:
+            return text(key) or self_ranks.get(key, "")
+
+        def ranked_optional(key: str) -> str | None:
+            return ranked(key) or None
 
         return cls(
-            key=data.get("key", None),
-            kingdom=data.get("kingdom", ""),
-            phylum=data.get("phylum", ""),
-            taxonClass=data.get("taxonClass", ""),
-            order=data.get("order", ""),
-            family=data.get("family", ""),
-            genus=data.get("genus", ""),
-            species=data.get("species", ""),
-            authorship=data.get("authorship", ""),
-            vernacularName=data.get("vernacularName", ""),
-            redlistCategory=redlistCategory,
-            taxonomicStatus=taxonomic_status,
+            colId=optional("usage_id"),
+            scientificName=scientific_name,
+            inputName=input_name,
+            acceptedName=scientific_name,
+            acceptedRank=optional("taxon_rank"),
+            authorship=text("authorship"),
+            taxonomicStatus=text("status"),
+            vernacularName=text("vernacular_name"),
+            kingdom=ranked("kingdom"),
+            phylum=ranked("phylum"),
+            subphylum=ranked_optional("subphylum"),
+            taxonClass=ranked("class"),
+            subclass=ranked_optional("subclass"),
+            order=ranked("order"),
+            suborder=ranked_optional("suborder"),
+            superfamily=ranked_optional("superfamily"),
+            family=ranked("family"),
+            subfamily=ranked_optional("subfamily"),
+            tribe=ranked_optional("tribe"),
+            subtribe=ranked_optional("subtribe"),
+            genus=ranked("genus"),
+            subgenus=ranked_optional("subgenus"),
+            species=species,
+            extinct=cls._to_bool(row.get("extinct")),
+            environment=optional("environment"),
+            colLink=optional("col_link"),
         )
+
+    @staticmethod
+    def _to_bool(value: object) -> bool | None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in ("true", "1", "yes")
 
     def __repr__(self):
         return (
-            f"SpeciesTaxonomy(kingdom={self.kingdom}, phylum={self.phylum}, "
-            f"class_={self.class_}, order={self.order}, family={self.family}, "
-            f"genus={self.genus}, species={self.species}, scientificName={self.scientificName}, "
-            f"vernacularName={self.vernacularName}, redlistCategory={self.redlistCategory})"
+            f"ColTaxonomy(colId={self.colId}, scientificName={self.scientificName}, "
+            f"rank={self.acceptedRank}, family={self.family}, "
+            f"status={self.taxonomicStatus})"
         )
 
 

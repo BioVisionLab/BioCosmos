@@ -22,3 +22,4 @@ members = ["backend", "packages/*"]
 
 [tool.uv.sources]
 harmonize-core = { workspace = true }
+colharmonize = { workspace = true }

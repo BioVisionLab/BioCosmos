@@ -81,7 +81,7 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
     return <NoData text="No species data available." />;
   }
 
-  const family = speciesData?.taxonomy.family;
+  const family = speciesData?.taxonomy?.family;
 
   return (
     <section>
@@ -101,14 +101,14 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
         </Link>
         <span>&gt;</span>
         <span className="italic text-deep-mocha-800 dark:text-deep-mocha-200">
-          {speciesData?.taxonomy.species ?? formattedName}
+          {speciesData?.taxonomy?.species ?? formattedName}
         </span>
       </nav>
 
       <div>
         <SpeciesHeader
           taxonomy={speciesData?.taxonomy ?? null}
-          name={speciesData?.taxonomy.species ?? formattedName}
+          name={speciesData?.taxonomy?.species ?? formattedName}
         />
 
         <div className="mt-8">

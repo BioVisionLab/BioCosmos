@@ -4,10 +4,46 @@ import uuid
 
 from typing import List
 
-from ..configs.config import ImageMetaConfig
+from ..configs.config import ColConfig, ImageMetaConfig
 from ..database.duckdb import DuckDBClient
 
 logger = logging.getLogger(__name__)
+
+
+# The occurrence columns every specimen listing returns. Kingdom, phylum,
+# class and order are included for callers that need them; the search table
+# does not render them.
+SPECIMEN_COLUMNS = (
+    "img_id",
+    "species",
+    "family",
+    "common_name",
+    "sex",
+    "life_stage",
+    "class_dv",
+    "lat",
+    "lon",
+    "source_db",
+    "kingdom",
+    "phylum",
+    "class",
+    "order",
+)
+
+# Per-occurrence taxonomic update, joined from the colharmonize run.
+SPECIMEN_TAXONOMY_COLUMNS = (
+    "update_status",
+    "match_method",
+    "display_accepted_name",
+    "accepted_name",
+    "accepted_rank",
+    "accepted_authorship",
+    "accepted_family",
+    "candidate_count",
+)
+
+_OCCURRENCE_ALIAS = "occurrence"
+_TAXONOMY_ALIAS = "taxonomy"
 
 
 class ImageMetaStats:
@@ -93,6 +129,9 @@ class ImageMetaService:
         self.path = config.path
         self.format = config.format
         self.skip_ingestion = config.skip
+        self.taxonomy_table = ColConfig().occurrence_status_table
+        # Resolved lazily and cached; the table appears at ingestion time.
+        self._taxonomy_table_present: bool | None = None
         self.db_client = duckdb
 
     def ingest(self):
@@ -488,6 +527,48 @@ class ImageMetaService:
         return species.strip().lower().replace(" ", "_")
 
 
+    def _taxonomy_available(self) -> bool:
+        """Whether the per-occurrence taxonomy table has been built.
+
+        It only exists once a colharmonize run has been loaded, so search has
+        to work without it: joining a table that is not there would take the
+        whole search endpoint down.
+        """
+        if self._taxonomy_table_present is None:
+            self._taxonomy_table_present = self.db_client.table_exists(
+                self.taxonomy_table
+            )
+        return self._taxonomy_table_present
+
+    def specimen_source(self) -> str:
+        """The FROM clause for a specimen listing, with taxonomy when present."""
+        source = f"{self.table} AS {_OCCURRENCE_ALIAS}"
+        if not self._taxonomy_available():
+            return source
+        return (
+            f"{source}\n            LEFT JOIN {self.taxonomy_table} AS {_TAXONOMY_ALIAS}"
+            f"\n                   ON {_TAXONOMY_ALIAS}.img_id = {_OCCURRENCE_ALIAS}.img_id"
+        )
+
+    def specimen_projection(self) -> str:
+        """The SELECT list for a specimen listing.
+
+        Taxonomy columns are selected as NULL when no run has been loaded, so
+        the payload keeps one shape either way.
+        """
+        columns = [
+            f'{_OCCURRENCE_ALIAS}."{name}"' for name in SPECIMEN_COLUMNS
+        ]
+        if self._taxonomy_available():
+            columns += [
+                f"{_TAXONOMY_ALIAS}.{name}" for name in SPECIMEN_TAXONOMY_COLUMNS
+            ]
+        else:
+            columns += [
+                f"NULL AS {name}" for name in SPECIMEN_TAXONOMY_COLUMNS
+            ]
+        return ", ".join(columns)
+
     def search_by_coordinate(self, lat_min: float, lat_max: float, lon_min: float, lon_max: float, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
         """Search metadata by geographic coordinate bounding box."""
         query = f"""
@@ -495,7 +576,7 @@ class ImageMetaService:
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 bool_or(TRUE) AS match_field
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
             GROUP BY species_key
@@ -505,8 +586,8 @@ class ImageMetaService:
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
-            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-            FROM {self.table}
+            SELECT {self.specimen_projection()}
+            FROM {self.specimen_source()}
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
             LIMIT ? OFFSET ?
@@ -516,7 +597,7 @@ class ImageMetaService:
 
         count_query = f"""
             SELECT COUNT(*)
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
         """
@@ -535,7 +616,7 @@ class ImageMetaService:
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 bool_or(REPLACE({col_name}, '_', ' ') ILIKE ?) AS match_field
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
             GROUP BY species_key
             LIMIT ?
@@ -544,8 +625,8 @@ class ImageMetaService:
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
-            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-            FROM {self.table}
+            SELECT {self.specimen_projection()}
+            FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
             LIMIT ? OFFSET ?
         """
@@ -554,7 +635,7 @@ class ImageMetaService:
 
         count_query = f"""
             SELECT COUNT(*)
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
         """
         count_params = [q_param]
@@ -586,7 +667,7 @@ class ImageMetaService:
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 {selects_str}
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE {conditions_str}
             GROUP BY species_key
             LIMIT ?
@@ -594,8 +675,8 @@ class ImageMetaService:
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
-            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-            FROM {self.table}
+            SELECT {self.specimen_projection()}
+            FROM {self.specimen_source()}
             WHERE {conditions_str}
             LIMIT ? OFFSET ?
         """
@@ -604,7 +685,7 @@ class ImageMetaService:
 
         count_query = f"""
             SELECT COUNT(*)
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE {conditions_str}
         """
         count_params = [q_param] * len(search_fields)

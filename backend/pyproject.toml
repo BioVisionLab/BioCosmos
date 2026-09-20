@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "chromadb>=0.6.3",
+    # Drives the taxonomy matching in-process, so the backend can harmonize
+    # occurrence names against Catalogue of Life without a separate CLI run.
+    "colharmonize",
     "duckdb>=1.3.1",
     "fastapi[standard]>=0.115.12",
     "lancedb>=0.24.1",

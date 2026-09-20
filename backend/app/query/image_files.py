@@ -6,6 +6,7 @@ from fastapi import Request
 from ..configs.config import ImageConfig
 from ..services.images import ImagePersistData
 from ..services.metadata import ImageMetaService
+from ..services.taxonomy_update import OccurrenceTaxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +53,25 @@ class ImageMetaRetrieval:
                 return None
             row = rows[0]
             # Only return a minimal set of fields to avoid exposing internal data
-            allowed = ["license", "uuid", "uri", "class_dv", "lat", "lon", "source_db"]
+            allowed = [
+                "license",
+                "uuid",
+                "uri",
+                "class_dv",
+                "lat",
+                "lon",
+                "source_db",
+                # The name as recorded, shown against the accepted name below.
+                "species",
+            ]
             filtered = {k: row.get(k) for k in allowed if k in row}
+            # Absent until a colharmonize run has been loaded; the panel omits
+            # the taxonomy block entirely rather than rendering empty rows.
+            taxonomy = OccurrenceTaxonomy(duckdb_client=self.duckdb).get_for_image(
+                image_id.replace(".png", "")
+            )
+            if taxonomy:
+                filtered["taxonomy"] = taxonomy
             return filtered
         except Exception as e:
             logger.error(f"Error fetching metadata for image id {image_id}: {e}")

@@ -1,22 +1,23 @@
 // import fs from "fs";
+import { ColTaxonomy, normalizeColTaxonomy } from "./colTaxonomy";
 import { LepTraits } from "./leptraits";
 
-export interface TaxonomyData {
-  kingdom: string;
-  phylum: string;
-  class: string;
-  order: string;
-  family: string;
-  genus: string;
-  species: string;
-  authorship: string;
-  vernacularName: string;
-  redlistCategory: string;
-  taxonomicStatus: string;
-}
+/**
+ * A species classification, as returned by the biology endpoint.
+ *
+ * This is the Catalogue of Life shape. It has no `redlistCategory`: CoL
+ * publishes no conservation status, and the IUCN badge it fed was removed
+ * along with the live GBIF lookup.
+ */
+export type TaxonomyData = ColTaxonomy;
 
 export interface SpeciesData {
-  taxonomy: TaxonomyData;
+  /**
+   * Null when the name could not be resolved against Catalogue of Life. The
+   * rest of the page — gallery, traits, specimens, literature — does not come
+   * from CoL, so an unresolved name still renders.
+   */
+  taxonomy: TaxonomyData | null;
   traits: LepTraits;
 }
 
@@ -28,11 +29,6 @@ export interface SpeciesImageUmap {
   lon: number;
   classDv: string;
   clusterLabel?: number;
-}
-
-export interface ClassificationSearchResult {
-  matchCategory: string;
-  classification: TaxonomyData;
 }
 
 /**
@@ -72,11 +68,11 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
     const dataRaw = await response.json();
     const traits: LepTraits = dataRaw["traits"] || {};
     // Use taxonomy data directly if available, otherwise fallback to the root
-    const taxonomy = dataRaw["taxonomy"] || dataRaw; // Handle different response structures
-    console.log(`Fetched taxonomy data for ${formattedName}:`, taxonomy);
+    const taxonomy = normalizeColTaxonomy(dataRaw["taxonomy"] ?? dataRaw);
     if (!taxonomy) {
+      // Not an error: the classification panel shows its own empty state
+      // while the rest of the page carries on.
       console.warn(`No taxonomy data found for ${formattedName}`);
-      return null; // Return null if no data is found
     }
     // Map the response to our SpeciesData format
     return {
@@ -86,27 +82,6 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
   } catch (error) {
     console.error(`Error fetching taxonomy data for ${formattedName}:`, error);
     return null; // Return null if there was an error
-  }
-}
-
-async function fetchTaxonClassification(
-  species: string
-): Promise<ClassificationSearchResult[] | null> {
-  try {
-    const response = await fetch(
-      `/api/db-search?q=${encodeURIComponent(species)}`
-    );
-    if (!response.ok) {
-      console.error(
-        `Failed to fetch classification for ${species}: ${response.statusText}`
-      );
-      return null;
-    }
-    const data = await response.json();
-    return data["results"] || null;
-  } catch (error) {
-    console.error(`Error fetching classification for ${species}:`, error);
-    return null;
   }
 }
 
@@ -131,9 +106,4 @@ async function fetchSpeciesImageUmap(
   }
 }
 
-export {
-  getSpeciesData,
-  parseSpeciesSlug,
-  fetchTaxonClassification,
-  fetchSpeciesImageUmap,
-};
+export { getSpeciesData, parseSpeciesSlug, fetchSpeciesImageUmap };

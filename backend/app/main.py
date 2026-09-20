@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +16,9 @@ from .services.embedder import ImageEmbedder
 from .services.umap import SpeciesImageUmap
 from .services.metadata import ImageMetaService
 from .services.gbif import GbifPersistData
+from .configs.config import ColConfig
+from .services.col import ColBackboneService
+from .services.taxonomy_update import TaxonomyUpdateService
 from .services.leptraits import LepTraits
 from .routers import (
     data_stats,
@@ -24,6 +28,7 @@ from .routers import (
     text_summarization,
     db_search,
     agent_search,
+    taxonomy,
 )
 
 
@@ -76,12 +81,16 @@ class AppSettings(BaseSettings):
     DUCK_DIR: str
     LANCE_DIR: str
     IMAGE_DIR: str
-    GBIF_DIR: str
-    LLM_API_URL: Optional[str] = None
-    LLM_API_KEY: Optional[str] = None
     IMAGE_META_DIR: str
     GBIF_DIR: str
     UMAP_DIR: str
+    # Optional on purpose. A deployment without the Catalogue of Life release
+    # still serves everything but the classification panel, so a missing
+    # COL_DIR must not stop the service booting. run_data_ingestion logs what
+    # is missing instead.
+    COL_DIR: Optional[str] = None
+    LLM_API_URL: Optional[str] = None
+    LLM_API_KEY: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -137,6 +146,41 @@ def initialize_duckdb(app: FastAPI):
     logger.info("DuckDB initialized successfully.")
 
 
+def report_taxonomy_readiness(duck_db) -> None:
+    """Say at startup whether taxonomy is available, and why it is not.
+
+    Without this the only signal is a catalog error per search, which says
+    nothing about the cause. Both tables are optional: the site still serves
+    images, traits and specimens without either.
+    """
+    col_config = ColConfig()
+    if not duck_db.table_exists(col_config.table):
+        if col_config.skip:
+            reason = "col.skip is true in backend/app/configs/config.yaml"
+        elif not os.path.isfile(col_config.path):
+            reason = f"no Catalogue of Life release at {col_config.path}"
+        else:
+            # The release is there, so the ingest itself failed; its own error
+            # was logged when it did.
+            reason = "the ingest did not complete, see the errors above"
+        logger.warning(
+            f"No taxonomy backbone: {reason}. Species pages will render "
+            "without a classification. Set COL_DIR to an extracted ColDP "
+            "release and restart to build it."
+        )
+    else:
+        logger.info("CoL taxonomy backbone ready.")
+
+    if not duck_db.table_exists(col_config.occurrence_status_table):
+        logger.warning(
+            "No taxonomic update, so specimens carry no match status. It is "
+            "built from the same release as the backbone, so the cause is the "
+            "one reported above."
+        )
+    else:
+        logger.info("Taxonomic update ready.")
+
+
 def run_data_ingestion(app: FastAPI):
     """Runs all necessary data ingestion processes."""
     logger.info("Starting data ingestion processes...")
@@ -146,6 +190,13 @@ def run_data_ingestion(app: FastAPI):
     logger.info("GBIF data ingested.")
     SpeciesImageUmap(app.state.duck_db).ingest()
     ImageMetaService(app.state.duck_db).ingest()
+
+    # CoL supplies the taxonomy backbone, and the colharmonize run resolves
+    # each occurrence against it. Both run after image_meta, which the
+    # per-occurrence status table is built from.
+    ColBackboneService(app.state.duck_db).ingest()
+    TaxonomyUpdateService(app.state.duck_db).ensure()
+    report_taxonomy_readiness(app.state.duck_db)
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
@@ -249,6 +300,7 @@ app.include_router(text_summarization.router)
 app.include_router(image_retrieval.router)
 app.include_router(db_search.router)
 app.include_router(agent_search.router)
+app.include_router(taxonomy.router)
 
 
 @app.get("/")

@@ -1,4 +1,5 @@
 const gbifURL = "https://www.gbif.org/";
+const colURL = "https://www.catalogueoflife.org/";
 const lepTraitURL = "https://github.com/RiesLabGU/LepTraits";
 const lepTraitPublication = "https://doi.org/10.1038/s41597-022-01473-5";
 
@@ -211,5 +212,52 @@ export function NcbiLink() {
     >
       NCBI
     </a>
+  );
+}
+
+
+export function ColAttribution({
+  leadingText = "Source: ",
+  isLarge = false,
+}: {
+  leadingText?: string;
+  isLarge?: boolean;
+}) {
+  return (
+    <p
+      className={`text-xs text-deep-mocha-500 mt-2 ${isLarge ? "text-lg" : ""}`}
+    >
+      {leadingText}{" "}
+      <a
+        href={colURL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-blue-700"
+      >
+        Catalogue of Life
+      </a>
+    </p>
+  );
+}
+
+export function ColDataSourceInfo({ release }: { release?: string }) {
+  return (
+    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+      <p>
+        Taxonomy is reconciled against{" "}
+        <a
+          href={colURL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          the Catalogue of Life
+        </a>
+        {release ? ` (${release})` : ""}. Each recorded name is matched to an
+        accepted Catalogue of Life usage, and the evidence behind that match is
+        shown alongside every specimen, so a name that has since been synonymized
+        or corrected can be seen for what it is.
+      </p>
+    </div>
   );
 }
