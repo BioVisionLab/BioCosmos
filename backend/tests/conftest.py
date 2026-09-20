@@ -41,6 +41,16 @@ class FakeDuckDBClient:
     def unregister(self, name: str):
         self._tables.pop(name, None)
 
+    def missing_tables(self, table_names: list[str]) -> list[str]:
+        return [name for name in table_names if name not in self._tables]
+
+    def table_exists(self, table_name: str) -> bool:
+        return table_name in self._tables
+
+    def column_exists(self, table_name: str, column_name: str) -> bool:
+        table = self._tables.get(table_name)
+        return table is not None and column_name in table.columns
+
 
 # ---------------------------------------------------------------------------
 # Fake LanceDB table
@@ -142,3 +152,88 @@ def fake_lance_table():
 @pytest.fixture
 def fake_lance_db():
     return FakeLanceDB()
+
+
+# ---------------------------------------------------------------------------
+# Real in-memory DuckDB client
+# ---------------------------------------------------------------------------
+
+class MemoryDuckDBClient:
+    """A DuckDBClient-shaped wrapper around an in-memory database.
+
+    FakeDuckDBClient returns empty frames, which is right for services whose
+    SQL is incidental. The CoL ingest and the taxonomy update *are* their SQL,
+    so they are tested against a real engine.
+    """
+
+    def __init__(self):
+        import threading
+
+        import duckdb
+
+        self.conn = duckdb.connect()
+        self.lock = threading.RLock()
+
+    def execute(self, query: str):
+        with self.lock:
+            return self.conn.execute(query)
+
+    def execute_query(self, query: str, params):
+        with self.lock:
+            return self.conn.execute(query, [params])
+
+    def execute_prepared(self, query: str, params: list):
+        with self.lock:
+            return self.conn.execute(query, params)
+
+    def execute_prepared_to_pl(self, query: str, params: list) -> pl.DataFrame:
+        with self.lock:
+            return self.conn.execute(query, params).pl()
+
+    def register(self, name: str, df: pl.DataFrame):
+        with self.lock:
+            self.conn.register(name, df)
+
+    def unregister(self, name: str):
+        with self.lock:
+            self.conn.unregister(name)
+
+    def missing_tables(self, table_names: list[str]) -> list[str]:
+        present = set(self.table_names())
+        return [name for name in table_names if name not in present]
+
+    def table_exists(self, table_name: str) -> bool:
+        return not self.missing_tables([table_name])
+
+    def column_exists(self, table_name: str, column_name: str) -> bool:
+        with self.lock:
+            rows = self.conn.execute(
+                """
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = ? AND column_name = ?
+                LIMIT 1
+                """,
+                [table_name, column_name],
+            ).fetchall()
+        return bool(rows)
+
+    def table_names(self) -> list[str]:
+        rows = self.conn.execute(
+            "SELECT table_name FROM information_schema.tables ORDER BY table_name"
+        ).fetchall()
+        return [row[0] for row in rows]
+
+
+@pytest.fixture
+def memory_duckdb():
+    client = MemoryDuckDBClient()
+    yield client
+    client.conn.close()
+
+
+@pytest.fixture
+def col_fixture_dir() -> str:
+    """Directory holding the miniature ColDP release used by the CoL tests."""
+    import os
+
+    return os.path.join(os.path.dirname(__file__), "data", "col")

@@ -61,7 +61,7 @@ A personalized, museum-quality biodiversity image platform that combines machine
 ### Backend Stack
 
 - **FastAPI**: Modern, high-performance web framework for APIs.
-- **Python 3.10+**: Core backend language.
+- **Python 3.12+**: Core backend language.
 - **LanceDB**: Vector database for embedding storage and similarity search.
 - **DuckDB**: In-process SQL OLAP database for structured metadata and taxonomy.
 - **CLIP**: OpenAI's vision-language model for semantic search.
@@ -69,6 +69,18 @@ A personalized, museum-quality biodiversity image platform that combines machine
 - **Polars**: High-performance DataFrame library for data processing.
 - **Transformers**: Hugging Face library for ML model integration.
 - **PyTorch**: Deep learning framework for model inference.
+
+### Data Harmonization
+
+Offline tools under `packages/`, members of the same uv workspace as the backend:
+
+- **colharmonize**: Matches occurrence species names against a Catalogue of Life release.
+- **geoharmonize**: Validates occurrence coordinates against GADM administrative geography.
+- **harmonize-core**: Shared DuckDB, configuration, and reporting primitives for both.
+
+Each run writes a DuckDB database and a JSON manifest to `reports/`, recording a
+SHA-256 digest of every artifact it produced. See [packages/](packages/README.md)
+and [reports/](reports/README.md).
 
 ## Project Structure
 
@@ -116,7 +128,14 @@ biocosmos/
 │   │       └── unicom.py       # UNICOM model integration
 │   ├── tests/                  # Backend tests
 │   ├── Dockerfile              # Backend Dockerfile
-│   └── pyproject.toml          # Python dependencies (managed by uv)
+│   └── pyproject.toml          # Backend dependencies (uv workspace member)
+├── packages/                 # Offline data-harmonization tools (uv workspace members)
+│   ├── harmonize-core/         # Shared DuckDB, config, output, reporting primitives
+│   ├── colharmonize/           # Catalogue of Life taxonomy matching CLI
+│   └── geoharmonize/           # GADM coordinate validation CLI
+├── reports/                  # Generated run artifacts and manifests (git-ignored)
+├── pyproject.toml            # uv workspace root
+├── uv.lock                   # Single lockfile for backend and packages
 ├── src/                      # Next.js frontend
 │   ├── app/                    # App Router pages and layouts
 │   │   ├── page.tsx            # Home page
@@ -169,7 +188,7 @@ biocosmos/
 ### Prerequisites
 
 - **Yarn** (recommended), **Bun**, or **Node.js** (v18+)
-- **Python** (v3.10 or higher)
+- **Python** (v3.12 or higher)
 - **uv** - Modern Python package manager (recommended)
 - **Git**
 - **Docker** and **Docker Compose** (optional, for containerized deployment)

@@ -86,6 +86,50 @@ class TestFetchVisuallySimilarSpecies:
         finally:
             app.dependency_overrides.clear()
 
+    def test_a_row_without_an_accepted_name_is_still_served(self):
+        """The response model must not reject a degraded row.
+
+        A precomputed table built before the accepted-taxon columns returns
+        nulls for them; a required field there would turn that into a 500.
+        """
+        precomputed = MagicMock()
+        precomputed.find_similar_species.return_value = {
+            "dorsal": [
+                {
+                    "species": "vanessa_cardui",
+                    "imgId": "img-001",
+                    "distance": 0.1,
+                    "acceptedName": None,
+                    "acceptedRank": None,
+                    "updateStatus": None,
+                },
+                {
+                    "species": "vanessa_atalanta",
+                    "imgId": "img-002",
+                    "distance": 0.2,
+                    "acceptedName": "Vanessa atalanta",
+                    "acceptedRank": "species",
+                    "updateStatus": "MATCHED",
+                },
+            ],
+            "ventral": [],
+        }
+        runtime = MagicMock()
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            response = client.get("/species/danaus_plexippus/similar")
+            assert response.status_code == 200
+            dorsal = response.json()["dorsal"]
+            assert dorsal[0]["acceptedName"] is None
+            assert dorsal[1]["acceptedName"] == "Vanessa atalanta"
+            # The recorded name stays the link target.
+            assert dorsal[0]["species"] == "vanessa_cardui"
+        finally:
+            app.dependency_overrides.clear()
+
     def test_falls_back_to_runtime(self):
         precomputed = MagicMock()
         precomputed.find_similar_species.return_value = None

@@ -1,0 +1,19 @@
+from pathlib import Path
+
+from colharmonize.models import ColumnMappings
+from colharmonize.sources import TaxonOccurrenceSource
+
+
+def test_inspect_requires_choice_when_both_name_columns_exist(occurrence_db: Path) -> None:
+    source = TaxonOccurrenceSource(occurrence_db, "main.occurrence")
+    report = source.inspect(ColumnMappings())
+    assert not report.valid
+    assert any("Both scientificName and species" in warning for warning in report.warnings)
+
+
+def test_inspect_with_explicit_species_mapping(occurrence_db: Path) -> None:
+    source = TaxonOccurrenceSource(occurrence_db, "main.occurrence")
+    report = source.inspect(ColumnMappings(scientific_name="species"))
+    assert report.valid
+    assert report.row_count == 11
+    assert report.detected_columns["scientific_name"] == "species"

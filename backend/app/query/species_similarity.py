@@ -7,8 +7,100 @@ from pydantic.alias_generators import to_camel
 
 from ..services.images import ImagePersistData
 from ..services.metadata import ImageMetaService
+from ..services.taxonomy_update import OccurrenceTaxonomy
 
 logger = logging.getLogger(__name__)
+
+# How many neighbours to pull from the vector index per side.
+#
+# The index is asked for images, but the panel wants distinct taxa. A
+# centroid's nearest neighbours are dominated by the query species' own
+# images, and occurrences that never resolved are dropped on top of that, so
+# the candidate pool has to be far larger than the row count it feeds.
+CANDIDATE_MULTIPLIER = 20
+MIN_CANDIDATES = 200
+
+
+class SimilarSpeciesRow(BaseModel):
+    """One card in the visually-similar panel."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True
+    )
+
+    img_id: str
+    # The name as recorded. It stays the link target: every image endpoint
+    # keys on `image_meta.species`, so a link built from the accepted name
+    # would open a species page with an empty gallery for exactly the renamed
+    # taxa this panel surfaces.
+    species: str
+    distance: float
+    # Absent until a colharmonize run has been loaded, and on a precomputed
+    # table built before the taxonomy columns existed.
+    accepted_name: str | None = None
+    accepted_rank: str | None = None
+    update_status: str | None = None
+
+
+def similar_species_row(candidate: dict, record: dict | None) -> dict:
+    """Shape one card the way the payload declares it."""
+    return {
+        "imgId": candidate["imgId"],
+        "species": candidate["species"],
+        "distance": candidate["distance"],
+        "acceptedName": record["display_accepted_name"] if record else None,
+        "acceptedRank": record["accepted_rank"] if record else None,
+        "updateStatus": record["update_status"] if record else None,
+    }
+
+
+def resolve_similar_species(
+    candidates: list[dict],
+    taxonomy: OccurrenceTaxonomy,
+    exclude_keys: set[str],
+    limit: int,
+) -> list[dict]:
+    """Map candidate images onto accepted taxa, nearest first.
+
+    Shared by both paths, so a card means the same thing whether it came from
+    the precomputed table or from a live vector search. The stored table is
+    keyed on the name each record was filed under, so resolving here is what
+    turns three spellings of one taxon into one card — and what keeps a
+    subspecies of the query species out of its own panel.
+
+    Order matters: candidates that never resolved are dropped and the taxa are
+    de-duplicated before the cut, so a short list means the source was short,
+    not that filtering ate the results.
+    """
+    if not candidates:
+        return []
+
+    resolved = taxonomy.get_for_images([row["imgId"] for row in candidates])
+    if not resolved:
+        # No harmonization run has been loaded. Fall back to the recorded
+        # names so the panel still renders, rather than showing nothing.
+        logger.info(
+            "No taxonomic update available; "
+            "falling back to recorded names for similar species."
+        )
+        return [similar_species_row(row, None) for row in candidates[:limit]]
+
+    rows: list[dict] = []
+    seen: set[str] = set()
+    for candidate in sorted(candidates, key=lambda row: row["distance"]):
+        record = resolved.get(candidate["imgId"])
+        if record is None:
+            continue
+        key = record["accepted_key"]
+        # Skip whatever did not resolve to a taxon: an unidentifiable name is
+        # not a species a reader can compare against.
+        if not key or key in exclude_keys or key in seen:
+            continue
+        seen.add(key)
+        rows.append(similar_species_row(candidate, record))
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 class VisuallySimilarSpeciesPayload(BaseModel):
@@ -20,8 +112,8 @@ class VisuallySimilarSpeciesPayload(BaseModel):
         alias_generator=to_camel, populate_by_name=True
     )
 
-    dorsal: list[dict]
-    ventral: list[dict]
+    dorsal: list[SimilarSpeciesRow]
+    ventral: list[SimilarSpeciesRow]
 
 
 class SpeciesSimilarity:
@@ -38,6 +130,11 @@ class SpeciesSimilarity:
         self.lance_db = request.app.state.lance_db
         self.duck_db = request.app.state.duck_db
         self.limit = limit
+        self.candidate_limit = max(
+            limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES
+        )
+        # One lookup for both sides; it caches its own table probe.
+        self.taxonomy = OccurrenceTaxonomy(duckdb_client=self.duck_db)
 
     def find_similar_species(self, species_name: str) -> dict | None:
         """
@@ -58,21 +155,21 @@ class SpeciesSimilarity:
                     f"No image IDs found for species: {species_name}"
                 )
                 return None
-            # any_sides: list[dict] = (
-            #     self._get_similar_images_all_morphotypes(
-            #         species_images=image_ids,
-            #         species_name=species_name,
-            #     )
-            # )
+            # The taxa this species' own records resolve to, so a neighbour
+            # that is this same species under another spelling — a subspecies
+            # of it, or a synonym — is kept out of its own panel.
+            exclude_keys = self.taxonomy.accepted_keys_for_species(species_name)
             dorsal: list[dict] = self._get_similar_images_by_side(
                 species_images=image_ids,
                 species_name=species_name,
                 side="dorsal",
+                exclude_keys=exclude_keys,
             )
             ventral: list[dict] = self._get_similar_images_by_side(
                 species_images=image_ids,
                 species_name=species_name,
                 side="ventral",
+                exclude_keys=exclude_keys,
             )
             payload = VisuallySimilarSpeciesPayload(
                 dorsal=dorsal,
@@ -87,7 +184,10 @@ class SpeciesSimilarity:
             return None
 
     def _get_similar_images(
-        self, species_name: str, image_ids: list[str]
+        self,
+        species_name: str,
+        image_ids: list[str],
+        exclude_keys: set[str],
     ) -> list[dict]:
         try:
             similar_images: pl.DataFrame = ImagePersistData(
@@ -95,13 +195,13 @@ class SpeciesSimilarity:
                 duckdb=self.duck_db,
             ).find_similar_images(
                 image_ids=image_ids,
-                limit=self.limit,
+                limit=self.candidate_limit,
             )
             if similar_images is None or similar_images.is_empty():
                 logger.info("No similar images found.")
                 return []
-            return self._filter_similar_images(
-                similar_images, species_name
+            return self._resolve_accepted(
+                similar_images, species_name, exclude_keys
             )
         except Exception as e:
             logger.error(
@@ -134,6 +234,7 @@ class SpeciesSimilarity:
         species_images: pl.DataFrame,
         species_name: str,
         side: str,
+        exclude_keys: set[str] | None = None,
     ) -> list[dict]:
         try:
             side_images: list[str] | None = self._filter_by_side(
@@ -145,6 +246,7 @@ class SpeciesSimilarity:
             similar_images = self._get_similar_images(
                 species_name=species_name,
                 image_ids=side_images,
+                exclude_keys=exclude_keys or set(),
             )
             return similar_images
         except Exception as e:
@@ -153,6 +255,23 @@ class SpeciesSimilarity:
                 exc_info=True,
             )
             return []
+
+    def _resolve_accepted(
+        self,
+        similar_images: pl.DataFrame,
+        species_name: str,
+        exclude_keys: set[str],
+    ) -> list[dict]:
+        """Resolve the vector-search candidates through the taxon lookup.
+
+        The recorded-name self filter runs first and is belt and braces: it
+        matters only when the query species did not resolve, so `exclude_keys`
+        is empty and cannot speak for it.
+        """
+        candidates = self._filter_similar_images(similar_images, species_name)
+        return resolve_similar_species(
+            candidates, self.taxonomy, exclude_keys, self.limit
+        )
 
     def _filter_similar_images(
         self,

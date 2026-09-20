@@ -63,7 +63,10 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
         style={{
           height: "400px",
           width: "100%",
-          borderRadius: "12px",
+          // Bottom corners only: the map is flush to the edges of the card
+          // that holds it, so its top meets the info line squarely and its
+          // bottom follows the card's own `rounded-xl`.
+          borderRadius: "0 0 12px 12px",
           overflow: "hidden",
         }}
       />

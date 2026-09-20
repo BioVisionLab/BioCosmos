@@ -41,6 +41,45 @@ gbif:
   table: "gbif_meta"
   # Skip GBIF ingestion if set to true
   skip: true
+# Per-occurrence locality, joined out of gbif_meta at startup and keyed on
+# img_id, the same shape as image_meta_taxonomy. image_meta carries no locality
+# columns of its own: they live on gbif_meta, joined on uuid = occurrenceID.
+#
+# The build is guarded by a fingerprint in ingestion_state and never raises. A
+# missing gbif_meta or a failed join leaves search and the metadata panel
+# serving nulls rather than blocking startup.
+locality:
+  skip: false
+  table: "image_meta_locality"
+  # Written by `geoharmonize integrate`, never by the backend. Absent until
+  # that has been run once with the backend stopped; readers degrade to null.
+  coordinates_table: "image_meta_coordinates"
+# Catalogue of Life taxonomy backbone, ingested from a ColDP release directory
+# pointed at by COL_DIR. Replaces GBIF as the source of classification data.
+col:
+  file: "NameUsage.tsv"
+  vernacular_file: "VernacularName.tsv"
+  table: "col_taxonomy"
+  vernacular_table: "col_vernacular"
+  # Restrict the ingested backbone to one clade. Leave clade_value empty for all of CoL.
+  clade_rank: "order"
+  clade_value: "Lepidoptera"
+  # Where the reusable CoL reference index is cached. It is roughly 3.6 GB and
+  # takes about a minute to build, so it is worth keeping. Unset, it lands in
+  # ~/.cache/colharmonize, shared with the CLI. Set it — relative paths resolve
+  # under DUCK_DIR — where HOME is not persistent, such as in a container.
+  # cache_dir: "col_cache"
+  matches_table: "col_taxonomy_matches"
+  variants_table: "col_taxon_variants"
+  candidates_table: "col_taxonomy_candidates"
+  occurrence_status_table: "image_meta_taxonomy"
+  # Unlike the other sources, this one stays on. Those are skipped because
+  # their tables are already inside biocosmos.duckdb; col_taxonomy is not, so
+  # skipping it leaves the site with no taxonomy at all. The ingest is guarded
+  # by a fingerprint in ingestion_state: one stat call (~0ms) when the release
+  # is unchanged, ~4s when it changes, and a logged warning when COL_DIR is
+  # unset or the release is missing.
+  skip: false
 leptrait:
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"

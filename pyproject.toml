@@ -1,0 +1,25 @@
+# Workspace root for the Python side of BioCosmos.
+#
+# Members:
+#   backend/            the FastAPI service
+#   packages/*          offline data-harmonization tools and their shared core
+#
+# This project is not itself installable; it exists to give the members one
+# resolved dependency set and a single uv.lock.
+
+[project]
+name = "biocosmos-workspace"
+version = "0.0.0"
+description = "Workspace root for the BioCosmos backend and harmonization packages"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["backend", "packages/*"]
+
+[tool.uv.sources]
+harmonize-core = { workspace = true }
+colharmonize = { workspace = true }

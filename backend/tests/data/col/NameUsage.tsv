@@ -1,0 +1,12 @@
+col:ID	col:parentID	col:status	col:scientificName	col:authorship	col:rank	col:genericName	col:specificEpithet	col:infraspecificEpithet	col:kingdom	col:phylum	col:subphylum	col:class	col:subclass	col:order	col:suborder	col:superfamily	col:family	col:subfamily	col:tribe	col:subtribe	col:genus	col:subgenus	col:extinct	col:environment	col:link
+AAA1	GEN1	accepted	Coenonympha pamphilus	(Linnaeus, 1758)	species	Coenonympha	pamphilus		Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera		Papilionoidea	Nymphalidae	Satyrinae	Coenonymphini		Coenonympha				https://col/AAA1
+SYN1	AAA1	synonym	Papilio pamphilus	Linnaeus, 1758	species	Papilio	pamphilus																		
+GEN1	FAM1	accepted	Coenonympha		genus				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera			Nymphalidae				Coenonympha				
+AAA2	GEN1	provisionally accepted	Coenonympha dubia		species	Coenonympha	dubia		Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera			Nymphalidae				Coenonympha				
+UNR1	GEN1	accepted	Coenonympha incertae		unranked				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera											
+BEE1	BGEN	accepted	Carabus auratus		species	Carabus	auratus		Animalia			Insecta		Coleoptera			Carabidae				Carabus				
+BSYN	BEE1	synonym	Carabus auronitens		species																				
+AAA3	GEN1	accepted	Coenonympha  tullia		species	Coenonympha	tullia		Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera			Nymphalidae				Coenonympha				
+BBB1	GEN2	accepted	Zzzonympha pamphilus	Author, 1900	species	Zzzonympha	pamphilus		Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera			Nymphalidae				Zzzonympha				
+GEN2	FAM1	accepted	Zzzonympha		genus				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera			Nymphalidae								
+SUBG1	GEN2	accepted	Zzzonympha (Sub) tricolor		species	Zzzonympha	tricolor		Animalia	Arthropoda		Insecta		Lepidoptera			Nymphalidae				Zzzonympha				

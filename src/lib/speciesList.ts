@@ -16,8 +16,9 @@ const INITIAL_SPECIES = [
 // Request image thumbnails from API/taxon/${speciesName}/thumbnail
 
 export function getSpeciesList(): string[] {
-  // We shuffle the initial species array to get a random selection each time
-  // return six random species from the list
-  const sorted_list = INITIAL_SPECIES.sort(() => 0.5 - Math.random());
-  return sorted_list.slice(0, 6).sort();
+  // Shuffle a copy, not INITIAL_SPECIES itself: `.sort()` sorts in place, so
+  // shuffling the module-level array made every later call depend on every
+  // earlier one.
+  const shuffled = [...INITIAL_SPECIES].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 6).sort();
 }

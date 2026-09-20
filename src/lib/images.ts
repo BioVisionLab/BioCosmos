@@ -57,11 +57,23 @@ async function fetchSpeciesImageIds(
   return ids;
 }
 
-async function fetchSpeciesThumbnail(speciesName: string): Promise<string> {
+/**
+ * The thumbnail endpoint for a species.
+ *
+ * Building this URL needs no I/O, so callers that only want the string
+ * should use this rather than awaiting `fetchSpeciesThumbnail`: a promise
+ * forces a render pass with no image, which is a visible flash on a grid
+ * of thumbnails.
+ */
+function speciesThumbnailUrl(speciesName: string): string {
   const cleanName = cleanSpeciesName(speciesName);
   return `${IMAGE_API_BASE}/species?scientificName=${encodeURIComponent(
     cleanName
   )}&type=thumbnail`;
+}
+
+async function fetchSpeciesThumbnail(speciesName: string): Promise<string> {
+  return speciesThumbnailUrl(speciesName);
 }
 
 async function fetchSpeciesImage(speciesName: string): Promise<string> {
@@ -90,6 +102,7 @@ async function fetchThumbnailById(imageId: string): Promise<string> {
 
 export {
   fetchSpeciesImageIds,
+  speciesThumbnailUrl,
   fetchSpeciesImage,
   fetchSpeciesThumbnail,
   fetchImgById,

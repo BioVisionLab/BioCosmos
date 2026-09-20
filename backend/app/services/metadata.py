@@ -4,10 +4,84 @@ import uuid
 
 from typing import List
 
-from ..configs.config import ImageMetaConfig
+from ..configs.config import ColConfig, ImageMetaConfig, LocalityConfig
 from ..database.duckdb import DuckDBClient
 
 logger = logging.getLogger(__name__)
+
+
+# The occurrence columns every specimen listing returns. Kingdom, phylum,
+# class and order are included for callers that need them; the search table
+# does not render them.
+SPECIMEN_COLUMNS = (
+    "img_id",
+    "species",
+    "family",
+    "common_name",
+    "sex",
+    "life_stage",
+    "class_dv",
+    "lat",
+    "lon",
+    "source_db",
+    "kingdom",
+    "phylum",
+    "class",
+    "order",
+)
+
+# Per-occurrence taxonomic update, joined from the colharmonize run.
+SPECIMEN_TAXONOMY_COLUMNS = (
+    "update_status",
+    "match_method",
+    "display_accepted_name",
+    "accepted_name",
+    "accepted_rank",
+    "accepted_authorship",
+    "accepted_family",
+    "candidate_count",
+)
+
+# The written locality, joined out of gbif_meta by LocalityService. lat and
+# lon are deliberately absent: image_meta already supplies them, and selecting
+# both copies would make an unqualified reference ambiguous.
+SPECIMEN_LOCALITY_COLUMNS = (
+    "country",
+    "country_code",
+    "state_province",
+    "county",
+    "municipality",
+    "locality",
+    "verbatim_locality",
+)
+
+# Coordinate validation, written offline by `geoharmonize integrate`.
+SPECIMEN_COORDINATE_COLUMNS = (
+    "validation_status",
+    "coordinate_check",
+    "country_check",
+    "adm1_check",
+    "reference_country",
+    "reference_adm1",
+)
+
+# `geoharmonize integrate` keys its output on the logical field it was told
+# to read, which is `source_id` whatever column fed it. The backend maps that
+# to img_id at the join rather than asking the tool to know our column names.
+COORDINATE_KEY_COLUMN = "source_id"
+
+_OCCURRENCE_ALIAS = "occurrence"
+_TAXONOMY_ALIAS = "taxonomy"
+_LOCALITY_ALIAS = "locality_meta"
+_COORDINATE_ALIAS = "coordinates_meta"
+
+# Which joined table owns each searchable column. Anything not listed here
+# belongs to image_meta itself.
+_FIELD_OWNER = {
+    **{name: _TAXONOMY_ALIAS for name in SPECIMEN_TAXONOMY_COLUMNS},
+    **{name: _LOCALITY_ALIAS for name in SPECIMEN_LOCALITY_COLUMNS},
+    **{name: _COORDINATE_ALIAS for name in SPECIMEN_COORDINATE_COLUMNS},
+}
 
 
 class ImageMetaStats:
@@ -20,7 +94,9 @@ class ImageMetaStats:
 
     def get_entries_count(self) -> int | None:
         """Count the number of entries in the image collection."""
-        result = self.db_client.execute(f"SELECT COUNT(*) AS entries FROM {self.table}").pl()
+        result = self.db_client.execute(
+            f"SELECT COUNT(*) AS entries FROM {self.table}"
+        ).pl()
         if result.is_empty():
             logger.warning("No entries found in the image collection.")
             return None
@@ -28,7 +104,9 @@ class ImageMetaStats:
 
     def get_family_count(self) -> int | None:
         """Get the number of families in the image collection."""
-        result = self.db_client.execute(f"SELECT COUNT(DISTINCT family) AS families FROM {self.table}").pl()
+        result = self.db_client.execute(
+            f"SELECT COUNT(DISTINCT family) AS families FROM {self.table}"
+        ).pl()
         if result.is_empty():
             logger.warning("No families found in the image collection.")
             return None
@@ -36,7 +114,9 @@ class ImageMetaStats:
 
     def get_species_count(self) -> int | None:
         """Get the number of species in the image collection."""
-        result = self.db_client.execute(f"SELECT COUNT(DISTINCT species) AS species FROM {self.table}").pl()
+        result = self.db_client.execute(
+            f"SELECT COUNT(DISTINCT species) AS species FROM {self.table}"
+        ).pl()
         if result.is_empty():
             logger.warning("No species found in the image collection.")
             return None
@@ -57,22 +137,28 @@ class ImageMetaStats:
 
         CANONICAL = {"gbif", "ecdysis", "scanbugs"}
         counts: dict[str, int] = {}
-        for source_db, count in zip(result["source_db"].to_list(), result["count"].to_list()):
+        for source_db, count in zip(
+            result["source_db"].to_list(), result["count"].to_list()
+        ):
             key = source_db if source_db in CANONICAL else "other"
             counts[key] = counts.get(key, 0) + count
         return counts
 
     def count_images_per_family(self) -> dict | None:
         """Get the count of images for each family in the image collection."""
-        result = self.db_client.execute(f"SELECT family, COUNT(*) AS count FROM {self.table} GROUP BY family").pl()
+        result = self.db_client.execute(
+            f"SELECT family, COUNT(*) AS count FROM {self.table} GROUP BY family"
+        ).pl()
         if result.is_empty():
             logger.warning("No families found in the image collection.")
             return None
         return dict(zip(result["family"].to_list(), result["count"].to_list()))
-    
+
     def get_top_ten_species(self) -> dict | None:
         """Get the top 10 species with the most images in the image collection."""
-        result = self.db_client.execute(f"SELECT species, COUNT(*) AS count FROM {self.table} GROUP BY species ORDER BY count DESC LIMIT 10").pl()
+        result = self.db_client.execute(
+            f"SELECT species, COUNT(*) AS count FROM {self.table} GROUP BY species ORDER BY count DESC LIMIT 10"
+        ).pl()
         if result.is_empty():
             logger.warning("No species found in the image collection.")
             return None
@@ -87,12 +173,26 @@ class ImageMetaService:
 
     """
 
+    # Class-level defaults so these are always readable, including on an
+    # instance built without __init__. Only ever rebound, never mutated.
+    _taxonomy_table_present: bool | None = None
+    _locality_table_present: bool | None = None
+    _coordinates_table_present: bool | None = None
+
     def __init__(self, duckdb: DuckDBClient):
         config = ImageMetaConfig()
         self.table = config.table
         self.path = config.path
         self.format = config.format
         self.skip_ingestion = config.skip
+        self.taxonomy_table = ColConfig().occurrence_status_table
+        locality_config = LocalityConfig()
+        self.locality_table = locality_config.table
+        self.coordinates_table = locality_config.coordinates_table
+        # Resolved lazily and cached; the tables appear at ingestion time.
+        self._taxonomy_table_present: bool | None = None
+        self._locality_table_present: bool | None = None
+        self._coordinates_table_present: bool | None = None
         self.db_client = duckdb
 
     def ingest(self):
@@ -113,7 +213,7 @@ class ImageMetaService:
                 )
             else:
                 raise ValueError(f"Unsupported format: {self.format}")
-            
+
             # Create a full-text search index on relevant metadata columns
             self._index_columns()
         except Exception as e:
@@ -150,7 +250,9 @@ class ImageMetaService:
             )
             logger.info("Full-text search index created on image metadata table.")
         except Exception as e:
-            logger.error(f"Failed to create full-text search index on image metadata table: {e}")
+            logger.error(
+                f"Failed to create full-text search index on image metadata table: {e}"
+            )
             raise
 
     def get_image_count_by_species(self, scientific_name: str) -> int | None:
@@ -200,7 +302,7 @@ class ImageMetaService:
             # Register species list as a temp table with unique name ? avoids SQL injection and concurrency deadlocks
             temp_name = f"temp_species_ids_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": species_list})
-            
+
             with self.db_client.lock:
                 self.db_client.register(temp_name, names_df)
                 query = f"""
@@ -245,7 +347,7 @@ class ImageMetaService:
             # Create a temporary table with the species names using unique identifier
             temp_name = f"temp_species_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": scientific_names})
-            
+
             with self.db_client.lock:
                 self.db_client.register(temp_name, names_df)
                 query = f"""
@@ -365,7 +467,7 @@ class ImageMetaService:
             # Create a temporary table with the IDs using unique identifier
             temp_name = f"temp_ids_{uuid.uuid4().hex}"
             ids_df = pl.DataFrame({"img_id": img_ids})
-            
+
             with self.db_client.lock:
                 self.db_client.register(temp_name, ids_df)
                 query = f"""
@@ -421,7 +523,7 @@ class ImageMetaService:
 
             # Register the full image_data DataFrame as a temporary table using unique identifier
             temp_name = f"temp_image_data_{uuid.uuid4().hex}"
-            
+
             with self.db_client.lock:
                 self.db_client.register(temp_name, image_data)
                 query = f"""
@@ -487,15 +589,140 @@ class ImageMetaService:
         """
         return species.strip().lower().replace(" ", "_")
 
+    def _taxonomy_available(self) -> bool:
+        """Whether the per-occurrence taxonomy table has been built.
 
-    def search_by_coordinate(self, lat_min: float, lat_max: float, lon_min: float, lon_max: float, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
+        It only exists once a colharmonize run has been loaded, so search has
+        to work without it: joining a table that is not there would take the
+        whole search endpoint down.
+        """
+        if self._taxonomy_table_present is None:
+            self._taxonomy_table_present = self.db_client.table_exists(
+                self.taxonomy_table
+            )
+        return self._taxonomy_table_present
+
+    def _locality_available(self) -> bool:
+        """Whether the locality table has been built.
+
+        Built at startup by LocalityService, and absent on a database whose
+        gbif_meta was never ingested.
+        """
+        if self._locality_table_present is None:
+            self._locality_table_present = self.db_client.table_exists(
+                self.locality_table
+            )
+        return self._locality_table_present
+
+    def _coordinates_available(self) -> bool:
+        """Whether the coordinate validation table has been written.
+
+        Produced offline by `geoharmonize integrate`; the backend never builds
+        it, so it is absent until an operator has run that once.
+        """
+        if self._coordinates_table_present is None:
+            self._coordinates_table_present = self.db_client.table_exists(
+                self.coordinates_table
+            )
+        return self._coordinates_table_present
+
+    def _optional_joins(
+        self,
+    ) -> tuple[tuple[bool, str, str, str, tuple[str, ...]], ...]:
+        """Each optional per-image table: availability, name, alias, key, columns."""
+        return (
+            (
+                self._taxonomy_available(),
+                self.taxonomy_table,
+                _TAXONOMY_ALIAS,
+                "img_id",
+                SPECIMEN_TAXONOMY_COLUMNS,
+            ),
+            (
+                self._locality_available(),
+                self.locality_table,
+                _LOCALITY_ALIAS,
+                "img_id",
+                SPECIMEN_LOCALITY_COLUMNS,
+            ),
+            (
+                self._coordinates_available(),
+                self.coordinates_table,
+                _COORDINATE_ALIAS,
+                COORDINATE_KEY_COLUMN,
+                SPECIMEN_COORDINATE_COLUMNS,
+            ),
+        )
+
+    def specimen_source(self) -> str:
+        """The FROM clause for a specimen listing.
+
+        Each of the three per-image tables is optional and joined only when it
+        exists: joining one that is not there would take the whole search
+        endpoint down with a catalog error.
+        """
+        source = f"{self.table} AS {_OCCURRENCE_ALIAS}"
+        for available, table, alias, key, _columns in self._optional_joins():
+            if not available:
+                continue
+            source += (
+                f"\n            LEFT JOIN {table} AS {alias}"
+                f"\n                   ON {alias}.{key} = {_OCCURRENCE_ALIAS}.img_id"
+            )
+        return source
+
+    def specimen_projection(self) -> str:
+        """The SELECT list for a specimen listing.
+
+        Columns from a table that has not been built are selected as NULL, so
+        the payload keeps one shape however much has been loaded.
+        """
+        columns = [f'{_OCCURRENCE_ALIAS}."{name}"' for name in SPECIMEN_COLUMNS]
+        for available, _table, alias, _key, names in self._optional_joins():
+            if available:
+                columns += [f'{alias}."{name}"' for name in names]
+            else:
+                columns += [f"NULL AS {name}" for name in names]
+        return ", ".join(columns)
+
+    def _column_ref(self, field: str) -> str:
+        """How to refer to a searchable field in a WHERE clause.
+
+        Qualified by the table that owns it, because three of the four tables
+        are optional. When the owner is absent the reference becomes a typed
+        NULL, so a targeted search on, say, `country` before the locality table
+        exists returns nothing rather than failing the request: an unqualified
+        name for a column that is not in the catalog is a binder error, and it
+        takes the whole endpoint down with it.
+        """
+        alias = _FIELD_OWNER.get(field)
+        if alias is None:
+            return f'{_OCCURRENCE_ALIAS}."{field}"'
+        available = {
+            _TAXONOMY_ALIAS: self._taxonomy_available,
+            _LOCALITY_ALIAS: self._locality_available,
+            _COORDINATE_ALIAS: self._coordinates_available,
+        }[alias]
+        if not available():
+            return "CAST(NULL AS VARCHAR)"
+        return f'{alias}."{field}"'
+
+    def search_by_coordinate(
+        self,
+        lat_min: float,
+        lat_max: float,
+        lon_min: float,
+        lon_max: float,
+        limit: int,
+        offset: int,
+    ) -> tuple[pl.DataFrame, pl.DataFrame, int]:
         """Search metadata by geographic coordinate bounding box."""
         query = f"""
             SELECT
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 bool_or(TRUE) AS match_field
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
             GROUP BY species_key
@@ -505,18 +732,20 @@ class ImageMetaService:
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
-            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-            FROM {self.table}
+            SELECT {self.specimen_projection()}
+            FROM {self.specimen_source()}
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
             LIMIT ? OFFSET ?
         """
         specimen_params = [lat_min, lat_max, lon_min, lon_max, limit, offset]
-        specimens_df = self.db_client.execute_prepared_to_pl(specimen_query, specimen_params)
+        specimens_df = self.db_client.execute_prepared_to_pl(
+            specimen_query, specimen_params
+        )
 
         count_query = f"""
             SELECT COUNT(*)
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
         """
@@ -526,16 +755,18 @@ class ImageMetaService:
 
         return results_df, specimens_df, total_specimens
 
-    def search_by_field(self, field: str, q_param: str, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
+    def search_by_field(
+        self, field: str, q_param: str, limit: int, offset: int
+    ) -> tuple[pl.DataFrame, pl.DataFrame, int]:
         """Search metadata by a specific field."""
-        col_name = f'"{field}"'
-        
+        col_name = self._column_ref(field)
+
         query = f"""
             SELECT
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 bool_or(REPLACE({col_name}, '_', ' ') ILIKE ?) AS match_field
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
             GROUP BY species_key
             LIMIT ?
@@ -544,17 +775,19 @@ class ImageMetaService:
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
-            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-            FROM {self.table}
+            SELECT {self.specimen_projection()}
+            FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
             LIMIT ? OFFSET ?
         """
         specimen_params = [q_param, limit, offset]
-        specimens_df = self.db_client.execute_prepared_to_pl(specimen_query, specimen_params)
+        specimens_df = self.db_client.execute_prepared_to_pl(
+            specimen_query, specimen_params
+        )
 
         count_query = f"""
             SELECT COUNT(*)
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
         """
         count_params = [q_param]
@@ -563,30 +796,34 @@ class ImageMetaService:
 
         return results_df, specimens_df, total_specimens
 
-    def search_all_fields(self, search_fields: list[str], q_param: str, limit: int, offset: int) -> tuple[pl.DataFrame, pl.DataFrame, int]:
+    def search_all_fields(
+        self, search_fields: list[str], q_param: str, limit: int, offset: int
+    ) -> tuple[pl.DataFrame, pl.DataFrame, int]:
         """Search metadata across all valid fields."""
         conditions = []
         selects = []
         params = []
-        
+
         for col in search_fields:
-            col_esc = f'"{col}"'
+            col_esc = self._column_ref(col)
             conditions.append(f"REPLACE({col_esc}, '_', ' ') ILIKE ?")
-            selects.append(f"bool_or(REPLACE({col_esc}, '_', ' ') ILIKE ?) AS match_{col}")
+            selects.append(
+                f"bool_or(REPLACE({col_esc}, '_', ' ') ILIKE ?) AS match_{col}"
+            )
             params.append(q_param)
-        
+
         params.extend([q_param] * len(search_fields))
         params.append(limit)
-        
+
         selects_str = ", ".join(selects)
         conditions_str = " OR ".join(conditions)
-        
+
         query = f"""
             SELECT
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 {selects_str}
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE {conditions_str}
             GROUP BY species_key
             LIMIT ?
@@ -594,17 +831,19 @@ class ImageMetaService:
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
-            SELECT img_id, species, family, common_name, sex, life_stage, class_dv, lat, lon, source_db, kingdom, phylum, class, "order"
-            FROM {self.table}
+            SELECT {self.specimen_projection()}
+            FROM {self.specimen_source()}
             WHERE {conditions_str}
             LIMIT ? OFFSET ?
         """
         specimen_params = [q_param] * len(search_fields) + [limit, offset]
-        specimens_df = self.db_client.execute_prepared_to_pl(specimen_query, specimen_params)
+        specimens_df = self.db_client.execute_prepared_to_pl(
+            specimen_query, specimen_params
+        )
 
         count_query = f"""
             SELECT COUNT(*)
-            FROM {self.table}
+            FROM {self.specimen_source()}
             WHERE {conditions_str}
         """
         count_params = [q_param] * len(search_fields)

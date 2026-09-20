@@ -131,3 +131,133 @@ class TestSpeciesSimilarity:
         sim = self._make_instance(fake_request)
         result = sim.find_similar_species("nonexistent_species")
         assert result is None
+
+
+class TestResolvingToAcceptedTaxa:
+    """The panel shows accepted taxa, one card each, always a full row."""
+
+    def _make_instance(self, fake_request, resolved, limit=10):
+        sim = SpeciesSimilarity(request=fake_request, limit=limit)
+        sim.taxonomy = MagicMock()
+        sim.taxonomy.get_for_images.return_value = resolved
+        return sim
+
+    def _record(self, img_id, key, name="Vanessa cardui", rank="species"):
+        return {
+            "img_id": img_id,
+            "accepted_key": key,
+            "display_accepted_name": name,
+            "accepted_rank": rank,
+            "update_status": "MATCHED" if key else "UNMATCHED",
+        }
+
+    def test_asks_the_index_for_far_more_than_it_shows(self, fake_request):
+        """The index returns images; the panel wants distinct taxa."""
+        sim = SpeciesSimilarity(request=fake_request, limit=10)
+        assert sim.candidate_limit >= 200
+
+        with patch(
+            "app.query.species_similarity.ImagePersistData"
+        ) as persist:
+            persist.return_value.find_similar_images.return_value = pl.DataFrame()
+            sim._get_similar_images("danaus plexippus", ["img-001"], set())
+
+        _, kwargs = persist.return_value.find_similar_images.call_args
+        assert kwargs["limit"] == sim.candidate_limit
+
+    def test_two_spellings_of_one_taxon_make_one_card(self, fake_request):
+        """And the nearest image is the one shown."""
+        df = pl.DataFrame({
+            "imgId": ["far", "near"],
+            "species": ["vanessa_carduii", "vanessa_cardui"],
+            "distance": [0.5, 0.2],
+        })
+        sim = self._make_instance(fake_request, {
+            "far": self._record("far", "COL:2"),
+            "near": self._record("near", "COL:2"),
+        })
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert len(rows) == 1
+        assert rows[0]["imgId"] == "near"
+        assert rows[0]["acceptedName"] == "Vanessa cardui"
+
+    def test_skips_what_never_resolved(self, fake_request):
+        """Both a missing row and a row with no accepted taxon."""
+        df = pl.DataFrame({
+            "imgId": ["absent", "unmatched", "good"],
+            "species": ["a_species", "b_species", "vanessa_cardui"],
+            "distance": [0.1, 0.2, 0.3],
+        })
+        sim = self._make_instance(fake_request, {
+            "unmatched": self._record("unmatched", None, None, None),
+            "good": self._record("good", "COL:2"),
+        })
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert [row["imgId"] for row in rows] == ["good"]
+
+    def test_excludes_the_query_taxon_under_another_name(self, fake_request):
+        """A senior synonym of the query species is the query species."""
+        df = pl.DataFrame({
+            "imgId": ["synonym", "other"],
+            "species": ["danaus_archippus", "vanessa_cardui"],
+            "distance": [0.1, 0.4],
+        })
+        sim = self._make_instance(fake_request, {
+            "synonym": self._record("synonym", "COL:1", "Danaus plexippus"),
+            "other": self._record("other", "COL:2"),
+        })
+        rows = sim._resolve_accepted(df, "danaus plexippus", {"COL:1"})
+        assert [row["imgId"] for row in rows] == ["other"]
+
+    def test_the_cut_happens_after_filtering(self, fake_request):
+        """Unresolved and duplicate candidates must not consume a slot."""
+        img_ids = [f"img-{i}" for i in range(30)]
+        df = pl.DataFrame({
+            "imgId": img_ids,
+            "species": [f"species_{i}" for i in range(30)],
+            "distance": [i / 100 for i in range(30)],
+        })
+        resolved = {}
+        for i, img_id in enumerate(img_ids):
+            # Only every third candidate resolves, and each to one of four taxa.
+            key = f"COL:{i % 4}" if i % 3 == 0 else None
+            resolved[img_id] = self._record(img_id, key, f"Taxon {i % 4}")
+        sim = self._make_instance(fake_request, resolved, limit=3)
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert len(rows) == 3
+        assert len({row["acceptedName"] for row in rows}) == 3
+
+    def test_falls_back_to_recorded_names_without_a_run(self, fake_request):
+        """A database with no harmonization still shows a panel."""
+        df = pl.DataFrame({
+            "imgId": ["a", "b", "c"],
+            "species": ["danaus_plexippus", "vanessa_cardui", "vanessa_atalanta"],
+            "distance": [0.0, 0.3, 0.5],
+        })
+        sim = self._make_instance(fake_request, {}, limit=1)
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert len(rows) == 1
+        assert rows[0]["acceptedName"] is None
+        assert rows[0]["species"] == "vanessa_cardui"
+
+    def test_row_shape_is_what_the_payload_declares(self, fake_request):
+        df = pl.DataFrame({
+            "imgId": ["good"],
+            "species": ["vanessa_cardui"],
+            "distance": [0.3],
+        })
+        sim = self._make_instance(fake_request, {
+            "good": self._record("good", "COL:2"),
+        })
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert set(rows[0]) == {
+            "imgId",
+            "species",
+            "distance",
+            "acceptedName",
+            "acceptedRank",
+            "updateStatus",
+        }
+        # It must survive the route's response model.
+        VisuallySimilarSpeciesPayload(dorsal=rows, ventral=[])
+

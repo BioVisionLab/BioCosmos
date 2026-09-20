@@ -5,12 +5,10 @@ import { SpeciesImageGallery } from "./ImageGallery";
 import { SpeciesDescription } from "./TaxonSummary";
 import { SpeciesClassification } from "./TaxonClassification";
 import ImageMetadata from "./ImageMetadata";
-import { RedListStatus } from "./IucnRedlist";
 import { TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 import { LepTraits } from "@/lib/leptraits";
 import { NoData } from "@/components/NoData";
-import { ImageLoading } from "@/components/Loadings";
 import { useInView } from "@/lib/useInView";
 
 const SpeciesDistribution = dynamic(
@@ -28,9 +26,32 @@ const SpeciesDistribution = dynamic(
 interface SpeciesOverviewProps {
   taxonomy: TaxonomyData | null;
   traits: LepTraits | null;
+  /**
+   * The name this page was opened under, as it appears in the occurrence
+   * data.
+   *
+   * Every image, specimen and similarity endpoint keys on
+   * `image_meta.species`, so lookups have to use this rather than
+   * `taxonomy.species`: Catalogue of Life resolves a recorded name to its
+   * accepted one, and for a taxon that has since been synonymized the two
+   * differ. Querying by the accepted name would return an empty gallery for
+   * exactly those species.
+   */
+  speciesSlug?: string;
+  /**
+   * Switch the page to the Specimens tab. The overview gallery shows only a
+   * first page of images, so the note under it needs a way to send a reader
+   * to the full set rather than just naming the tab.
+   */
+  onViewSpecimens?: () => void;
 }
 
-export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
+export function SpeciesOverview({
+  taxonomy,
+  traits,
+  speciesSlug,
+  onViewSpecimens,
+}: SpeciesOverviewProps) {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [prevImageIds, setPrevImageIds] = useState<string[]>([]);
   const [nextImageIds, setNextImageIds] = useState<string[]>([]);
@@ -65,29 +86,47 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
     [],
   );
 
-  // The page shell renders before taxonomy resolves, so a null taxonomy here
-  // means "still loading" — the genuine not-found case is handled upstream in
-  // the species page itself.
-  if (!taxonomy) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <ImageLoading size={220} msg="Fetching species details" />
-      </div>
-    );
-  }
+  // A null taxonomy means the name did not resolve against Catalogue of Life,
+  // not that the page is still loading — page.tsx owns the loading and
+  // not-found states. Everything here except the classification panel comes
+  // from the occurrence data, so the page renders either way and
+  // SpeciesClassification shows its own empty state.
+  //
+  // Data lookups go through the recorded name; only prose and headings use
+  // the accepted one.
+  const lookupName = speciesSlug ?? taxonomy?.species ?? "";
+  const displayName = taxonomy?.species || lookupName.replace(/_/g, " ");
 
   return (
     <div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <SpeciesImageGallery
-            speciesName={taxonomy?.species ?? ""}
+            speciesName={lookupName}
             onSelectionChange={handleSelectionChange}
           />
 
+          {/* The gallery above holds one page of images; the Specimens tab
+              holds all of them. Saying so here is the only cue a reader
+              gets. */}
+          <p className="mt-2 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
+            {onViewSpecimens ? (
+              <button
+                type="button"
+                onClick={onViewSpecimens}
+                className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
+              >
+                Open the Specimens tab
+              </button>
+            ) : (
+              <span>Open the Specimens tab</span>
+            )}{" "}
+            to browse every image of this species.
+          </p>
+
           <div className="mt-4">
             <ImageMetadata
-              speciesName={taxonomy?.species ?? ""}
+              speciesName={lookupName}
               imageId={selectedImageId}
               prevImageIds={prevImageIds}
               nextImageIds={nextImageIds}
@@ -96,7 +135,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
 
           <SpeciesDescription
             traits={traits}
-            species={taxonomy?.species ?? ""} // Use species from taxonomy or fallback to name
+            species={displayName}
           />
         </div>
 
@@ -104,16 +143,18 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         <div className="lg:col-span-1 space-y-5">
           <SpeciesClassification taxonomyData={taxonomy} />
 
-          <RedListStatus
-            statusCode={taxonomy?.redlistCategory ?? "Unknown"}
-            horizontal
-          />
-
           {/* The map pulls 200 GBIF occurrences plus the MapLibre bundle, so it
-              only mounts once the reader scrolls near it. */}
+              only mounts once the reader scrolls near it.
+
+              GBIF is the exception to the recorded-name rule above: it is an
+              external backbone rather than our gallery, so it gets both names
+              and matches whichever it knows. */}
           <div ref={mapRef}>
             {mapInView ? (
-              <SpeciesDistribution speciesName={taxonomy?.species ?? ""} />
+              <SpeciesDistribution
+                recordedName={lookupName}
+                acceptedName={taxonomy?.acceptedName ?? taxonomy?.species ?? null}
+              />
             ) : (
               <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl" />
             )}
@@ -121,7 +162,7 @@ export function SpeciesOverview({ taxonomy, traits }: SpeciesOverviewProps) {
         </div>
       </div>
       <div className="mt-6">
-        <VisuallySimilarSpecies species={taxonomy?.species ?? ""} />
+        <VisuallySimilarSpecies species={lookupName} />
       </div>
     </div>
   );

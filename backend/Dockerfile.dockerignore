@@ -1,0 +1,49 @@
+# Build context for backend/Dockerfile is the repository root (the uv workspace
+# root holds pyproject.toml, uv.lock, and packages/). BuildKit prefers this file
+# over the root .dockerignore, which is written for the frontend build and
+# excludes backend/ entirely.
+
+# Frontend
+node_modules
+.next
+out
+public
+src
+*.config.*
+package.json
+package-lock.json
+bun.lock
+yarn.lock
+tsconfig.json
+Dockerfile.frontend
+
+# Repository metadata
+.git
+.github
+.gitignore
+.env
+.env.*
+# Root-level only: packages/*/README.md is required by their hatchling builds.
+/*.md
+docker-compose.yml
+
+# Offline tooling and generated artifacts
+tools
+reports
+scripts
+
+# Backend data and local state that must not enter the image
+backend/.venv
+backend/data
+backend/duck_db
+backend/lance_db
+backend/lance_db_lite
+backend/static
+backend/tests
+backend/tsne_outputs
+backend/.env
+backend/.env.*
+.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache

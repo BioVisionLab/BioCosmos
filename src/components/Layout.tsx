@@ -1,6 +1,5 @@
 import React from "react";
 import Navigation from "./Navigation";
-import { ThemeToggle } from "./ThemeToggle";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,19 +12,17 @@ const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
       {/* <HeaderClient /> */}
 
       <Navigation />
-      <ThemeToggle />
 
-      {/* Main Content - Putting container back on main */}
-      <main className="flex-grow container mx-auto px-4 py-4">
-        {" "}
-        {/* Restored container mx-auto, kept px-4 (container adds padding, but explicit px-4 is fine too) */}
-        <div className="flex flex-col">
-          <div className="flex-1 min-w-0">
-            {" "}
-            {/* flex-1 allows it to grow, min-w-0 prevents overflow */}
-            {children}
-          </div>
-        </div>
+      {/*
+        One shell width for every page. Tailwind's `container` capped at the
+        current breakpoint, so anything past 1536px was letterboxed; this
+        keeps growing to 1600px and pages that want to stay narrow (about,
+        collections) still cap themselves.
+      */}
+      <main className="flex-grow w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* min-w-0 so a wide child (a chart, a table) scrolls itself rather
+            than stretching the page. */}
+        <div className="flex flex-col min-w-0">{children}</div>
       </main>
 
       {/* Footer */}

@@ -61,8 +61,11 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
       <div className="border-b border-deep-mocha-300 dark:border-deep-mocha-600 p-4">
         <h2 className="text-2xl font-semibold">Visually Similar Species</h2>
         <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
-          Other species that look similar to <i>{species}</i> based on image
-          embedding similarity.
+          Other species that look similar to{" "}
+          {/* `species` is the URL slug, so it needs un-slugging before it is
+              shown as prose. */}
+          <i>{cleanSpeciesName(species)}</i> based on image embedding
+          similarity.
         </p>
       </div>
       {isLoading ? (
@@ -139,7 +142,15 @@ function SimilarSpeciesImage({
     fetchImage();
   }, [meta.imgId]);
 
-  const speciesName = cleanSpeciesName(meta.species);
+  // The accepted name leads, with the record's own wording beneath it when
+  // the two differ — the same treatment the search results table gives a
+  // renamed taxon. The link still targets the recorded slug, because that is
+  // what the gallery endpoints key on.
+  const recordedName = cleanSpeciesName(meta.species);
+  const acceptedName = meta.acceptedName;
+  const differs =
+    !!acceptedName &&
+    acceptedName.toLowerCase() !== recordedName.toLowerCase();
 
   return (
     <Link key={index} href={`/species/${speciesUrlFromName(meta.species)}`}>
@@ -156,9 +167,19 @@ function SimilarSpeciesImage({
                 unoptimized
               />
             </div>
-            <p className="text-sm text-center w-[120px] text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
-              {speciesName}
-            </p>
+            <div className="w-[120px] text-center">
+              <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
+                {acceptedName ?? recordedName}
+                {meta.acceptedRank === "genus" ? (
+                  <span className="not-italic text-xs"> genus only</span>
+                ) : null}
+              </p>
+              {differs ? (
+                <p className="text-xs text-deep-mocha-400 dark:text-deep-mocha-500 italic break-words whitespace-normal">
+                  as {recordedName}
+                </p>
+              ) : null}
+            </div>
           </>
         ) : (
           <ImageLoading size={IMAGE_SIZE} />

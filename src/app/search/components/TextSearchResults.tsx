@@ -2,6 +2,9 @@ import { ImageLoading } from "@/components/Loadings";
 import SearchForm from "@/components/SearchForm";
 import PaginationControls from "@/components/PaginationControls";
 import Tips from "@/components/Tips";
+import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
+import { ColAttribution, GadmAttribution } from "@/components/Attribution";
+import type { CoordinateValidationStatusCode } from "@/lib/geoValidation";
 import {
   DbResultItems,
   SpecimenMetadata,
@@ -64,65 +67,93 @@ function HighlightText({
   );
 }
 
-function renderSpeciesLink(
-  speciesName: string | null | undefined,
-  query: string,
-  isMatched: boolean,
-) {
-  if (!speciesName)
+/**
+ * The Species cell: the Catalogue of Life accepted name, with the name as
+ * recorded beneath it when the two differ.
+ *
+ * The link deliberately targets the *recorded* slug. Every image endpoint
+ * keys on `image_meta.species`, so linking the accepted slug would open a
+ * species page with an empty gallery for exactly the renamed taxa this
+ * feature exists to surface.
+ */
+function renderTaxonCell(specimen: SpecimenMetadata, query: string) {
+  const matched = specimen.matched_fields || [];
+  const isMatched = matched.includes("species");
+  const accepted = specimen.display_accepted_name;
+  const recorded = specimen.species;
+
+  const recordedLabel = recorded ? cleanSpeciesName(recorded) : "";
+  const differs =
+    !!accepted &&
+    !!recordedLabel &&
+    accepted.toLowerCase() !== recordedLabel.toLowerCase();
+
+  // No accepted name at all: the status column carries the explanation.
+  if (!accepted) {
     return (
-      <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
-    );
-
-  const normalized = speciesName.replace(/_/g, " ").trim();
-  const parts = normalized.split(/\s+/);
-
-  if (parts.length >= 2) {
-    const binomial = `${parts[0]} ${parts[1]}`;
-    const rest = parts.slice(2).join(" ");
-    const binomialUrl = binomial.toLowerCase().replace(/ /g, "_");
-
-    // Capitalize genus
-    const capitalizedBinomial =
-      binomial.charAt(0).toUpperCase() + binomial.slice(1);
-
-    return (
-      <span className="italic whitespace-nowrap">
-        <Link
-          href={`/species/${binomialUrl}`}
-          className="text-hunter-green-600 dark:text-hunter-green-400 hover:underline font-semibold"
-        >
-          <HighlightText
-            text={capitalizedBinomial}
-            highlight={query}
-            isMatched={isMatched}
-          />
-        </Link>
-        {rest ? (
-          <>
-            {" "}
+      <div className="flex flex-col gap-0.5">
+        <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+        {recordedLabel ? (
+          <span className="block text-xs italic text-deep-mocha-500 truncate">
+            as{" "}
             <HighlightText
-              text={rest}
+              text={recordedLabel}
               highlight={query}
               isMatched={isMatched}
             />
-          </>
+          </span>
         ) : null}
-      </span>
-    );
-  } else {
-    const capitalized =
-      speciesName.charAt(0).toUpperCase() + speciesName.slice(1);
-    return (
-      <span className="italic whitespace-nowrap">
-        <HighlightText
-          text={capitalized}
-          highlight={query}
-          isMatched={isMatched}
-        />
-      </span>
+      </div>
     );
   }
+
+  const href = recorded
+    ? `/species/${speciesUrlFromName(recorded)}`
+    : undefined;
+  const isGenusOnly = specimen.accepted_rank === "genus";
+
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span className="italic whitespace-nowrap truncate">
+        {href ? (
+          <Link
+            href={href}
+            className="text-hunter-green-600 dark:text-hunter-green-400 hover:underline font-semibold"
+          >
+            <HighlightText
+              text={accepted}
+              highlight={query}
+              isMatched={isMatched}
+            />
+          </Link>
+        ) : (
+          <HighlightText
+            text={accepted}
+            highlight={query}
+            isMatched={isMatched}
+          />
+        )}
+        {isGenusOnly ? (
+          <span className="not-italic text-xs text-deep-mocha-500">
+            {" "}
+            genus only
+          </span>
+        ) : null}
+      </span>
+      {differs ? (
+        // The query may have matched the recorded name rather than the
+        // accepted one, which is why the highlight belongs on both lines.
+        <span className="block text-xs italic text-deep-mocha-500 truncate">
+          as{" "}
+          <HighlightText
+            text={recordedLabel}
+            highlight={query}
+            isMatched={isMatched}
+          />
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function renderCoordinateCell(
@@ -374,16 +405,52 @@ function DbSearch({
                 >
                   Source Database
                 </option>
+                <option
+                  value="update_status"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Taxon Status
+                </option>
               </optgroup>
               <optgroup
                 label="Geography"
                 className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
               >
                 <option
+                  value="country"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Country
+                </option>
+                <option
+                  value="state_province"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  State / Province
+                </option>
+                <option
+                  value="county"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  County
+                </option>
+                <option
+                  value="locality"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Locality
+                </option>
+                <option
                   value="coordinate"
                   className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
                 >
                   Coordinate (100m radius)
+                </option>
+                <option
+                  value="validation_status"
+                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
+                >
+                  Coordinate Status
                 </option>
               </optgroup>
             </select>
@@ -529,7 +596,7 @@ function DbSearchResults({
                 >
                   Specimens matching query ({totalSpecimens})
                 </h2>
-                <Tips message="Species names are linked to their respective species pages. Text matching the query is highlighted." />
+                <Tips message="Species show the Catalogue of Life accepted name, with the name as recorded beneath it. Locality comes from the GBIF occurrence record, and the coordinate status is checked against GADM administrative boundaries. Click any status badge to see how it was decided." />
               </div>
 
               <div className="overflow-x-auto w-full rounded-2xl border border-deep-mocha-200 dark:border-deep-mocha-700/80 shadow-xs bg-white/40 dark:bg-deep-mocha-800/40 backdrop-blur-md">
@@ -543,12 +610,15 @@ function DbSearchResults({
                         Species
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Taxon Status
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Family
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Sex
                       </th>
-                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                      <th className="hidden xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
                         Life Stage
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
@@ -558,9 +628,31 @@ function DbSearchResults({
                         View
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Country
+                      </th>
+                      <th className="hidden lg:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        State / Province
+                      </th>
+                      <th className="hidden 2xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        County
+                      </th>
+                      <th className="hidden 2xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        Municipality
+                      </th>
+                      <th className="hidden xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
                         Locality
                       </th>
+                      <th className="hidden 2xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
+                        Verbatim Locality
+                      </th>
+                      {/* Was headed "Locality", which it never showed. */}
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Coordinates
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Coord. Status
+                      </th>
+                      <th className="hidden xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
                         Source DB
                       </th>
                     </tr>
@@ -580,14 +672,23 @@ function DbSearchResults({
                               onClick={() => setOpenIndex(idx)}
                             />
                           </td>
-                          <td className="px-4 py-3 align-middle font-medium">
-                            {renderSpeciesLink(
-                              specimen.species,
-                              query,
-                              matched.includes("species"),
-                            )}
+                          <td className="px-4 py-3 align-top font-medium max-w-56">
+                            {renderTaxonCell(specimen, query)}
                           </td>
-                          <td className="px-4 py-3 align-middle capitalize">
+                          <td className="px-4 py-3 align-top">
+                            <TaxonStatusBadge
+                              update={{
+                                updateStatus: specimen.update_status as
+                                  | "MATCHED"
+                                  | "AMBIGUOUS"
+                                  | "UNMATCHED"
+                                  | null,
+                                matchMethod: specimen.match_method,
+                              }}
+                              compact
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-top capitalize">
                             <HighlightText
                               text={specimen.family}
                               highlight={query}
@@ -601,7 +702,7 @@ function DbSearchResults({
                               isMatched={matched.includes("sex")}
                             />
                           </td>
-                          <td className="px-4 py-3 align-middle capitalize">
+                          <td className="hidden xl:table-cell px-4 py-3 align-top capitalize">
                             <HighlightText
                               text={specimen.life_stage}
                               highlight={query}
@@ -623,13 +724,73 @@ function DbSearchResults({
                             />
                           </td>
                           <td className="px-4 py-3 align-middle">
+                            <HighlightText
+                              text={specimen.country ?? specimen.country_code}
+                              highlight={query}
+                              isMatched={matched.includes("country")}
+                            />
+                          </td>
+                          <td className="hidden lg:table-cell px-4 py-3 align-top">
+                            <HighlightText
+                              text={specimen.state_province}
+                              highlight={query}
+                              isMatched={matched.includes("state_province")}
+                            />
+                          </td>
+                          <td className="hidden 2xl:table-cell px-4 py-3 align-top">
+                            <HighlightText
+                              text={specimen.county}
+                              highlight={query}
+                              isMatched={matched.includes("county")}
+                            />
+                          </td>
+                          <td className="hidden 2xl:table-cell px-4 py-3 align-top">
+                            <HighlightText
+                              text={specimen.municipality}
+                              highlight={query}
+                              isMatched={matched.includes("municipality")}
+                            />
+                          </td>
+                          {/* Free text, and long: truncated with the whole
+                              string on the title, or one verbose record
+                              stretches every column. */}
+                          <td
+                            className="hidden xl:table-cell px-4 py-3 align-top max-w-48 truncate"
+                            title={specimen.locality ?? undefined}
+                          >
+                            <HighlightText
+                              text={specimen.locality}
+                              highlight={query}
+                              isMatched={matched.includes("locality")}
+                            />
+                          </td>
+                          <td
+                            className="hidden 2xl:table-cell px-4 py-3 align-top max-w-48 truncate"
+                            title={specimen.verbatim_locality ?? undefined}
+                          >
+                            <HighlightText
+                              text={specimen.verbatim_locality}
+                              highlight={query}
+                              isMatched={matched.includes("verbatim_locality")}
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-middle">
                             {renderCoordinateCell(
                               specimen.lat,
                               specimen.lon,
                               matched,
                             )}
                           </td>
-                          <td className="px-4 py-3 align-middle uppercase">
+                          <td className="px-4 py-3 align-top">
+                            <CoordinateStatusBadge
+                              validation={{
+                                validationStatus:
+                                  specimen.validation_status as CoordinateValidationStatusCode | null,
+                              }}
+                              compact
+                            />
+                          </td>
+                          <td className="hidden xl:table-cell px-4 py-3 align-top uppercase">
                             <HighlightText
                               text={specimen.source_db}
                               highlight={query}
@@ -651,6 +812,20 @@ function DbSearchResults({
                 label="specimens"
                 onPageChange={onPageChange}
               />
+
+              <ColAttribution leadingText="Taxonomy source:" />
+              <GadmAttribution leadingText="Boundary source:" />
+              {/* One link for the whole table: the status columns above
+                  carry a hover hint per row, and this is the page that
+                  explains what those verdicts are. */}
+              <p className="text-xs text-deep-mocha-500 mt-2">
+                <Link
+                  href="/resources#taxonomy-matching"
+                  className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
+                >
+                  How taxonomy and coordinate matching work
+                </Link>
+              </p>
             </div>
           )}
         </div>
