@@ -14,10 +14,16 @@ function Row({
   label: string;
   children: React.ReactNode;
 }) {
+  // The colon sits in a column of its own so every value starts at the same
+  // x: with it glued to the label, each row's colon landed wherever that
+  // label happened to end.
   return (
     <tr>
-      <td className="font-medium pr-1 align-top whitespace-nowrap">{label}:</td>
-      <td className="wrap-break-words whitespace-normal pl-2">{children}</td>
+      <td className="font-medium align-top whitespace-nowrap">{label}</td>
+      <td className="font-medium align-top px-1">:</td>
+      <td className="wrap-break-words whitespace-normal align-top">
+        {children}
+      </td>
     </tr>
   );
 }

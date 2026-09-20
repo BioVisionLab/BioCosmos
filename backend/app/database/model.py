@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 from typing import Optional, Annotated, List
 from pydantic import BaseModel, ConfigDict, Field
@@ -155,6 +156,21 @@ COL_RANK_ORDER = (
 )
 
 
+_SUBGENUS_PARENTHETICAL = re.compile(r"\(([^)]*)\)")
+
+
+def _subgenus_name(value: str) -> str:
+    """Reduce ``Genus (Subgenus)`` to the subgenus alone.
+
+    CoL writes zoological subgenus usages with the genus in front and the
+    subgenus in parentheses. Only the parenthesised part names the subgenus,
+    and the genus already has its own row in the classification panel.
+    """
+
+    match = _SUBGENUS_PARENTHETICAL.search(value)
+    return match.group(1).strip() if match else value
+
+
 class ColTaxonomy(BaseModel):
     """A Catalogue of Life classification for one taxon.
 
@@ -255,7 +271,7 @@ class ColTaxonomy(BaseModel):
             tribe=ranked_optional("tribe"),
             subtribe=ranked_optional("subtribe"),
             genus=ranked("genus"),
-            subgenus=ranked_optional("subgenus"),
+            subgenus=_subgenus_name(ranked("subgenus")) or None,
             species=species,
             extinct=cls._to_bool(row.get("extinct")),
             environment=optional("environment"),

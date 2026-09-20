@@ -10,6 +10,7 @@ import os
 
 import pytest
 
+from app.database.model import ColTaxonomy
 from app.services.col import ColBackboneService, ColTaxonSearch
 
 
@@ -155,6 +156,29 @@ class TestSubgenusNotation:
         result = resolve(backbone, "Zzzonympha (Sub) tricolor")
         assert result is not None
         assert result["colId"] == "SUBG1"
+
+    def test_the_subgenus_row_drops_the_leading_genus(self):
+        # CoL stores the subgenus lineage column as 'Genus (Subgenus)'. The
+        # genus already has its own row, so only the parenthesised name
+        # belongs here.
+        taxonomy = ColTaxonomy.from_row(
+            {"scientific_name": "Zzzonympha tricolor", "subgenus": "Zzzonympha (Sub)"}
+        )
+        assert taxonomy.subgenus == "Sub"
+
+    def test_a_bare_subgenus_is_left_alone(self):
+        taxonomy = ColTaxonomy.from_row(
+            {"scientific_name": "Zzzonympha tricolor", "subgenus": "Sub"}
+        )
+        assert taxonomy.subgenus == "Sub"
+
+    def test_a_subgenus_usage_names_itself_without_its_genus(self):
+        # A lookup of the subgenus usage backfills its own rank from the
+        # scientific name, which carries the same parenthesised form.
+        taxonomy = ColTaxonomy.from_row(
+            {"scientific_name": "Zzzonympha (Sub)", "taxon_rank": "subgenus"}
+        )
+        assert taxonomy.subgenus == "Sub"
 
 
 class TestHarmonizationFallback:
