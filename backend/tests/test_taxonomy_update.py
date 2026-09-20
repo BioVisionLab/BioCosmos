@@ -315,6 +315,16 @@ class TestOccurrenceTaxonomy:
         assert payload["acceptedName"] == "Coenonympha pamphilus"
         assert payload["acceptedRank"] == "species"
 
+    def test_reads_without_the_occurrence_table(self, harmonized, reader):
+        """The recorded name comes off the status table now.
+
+        Pinned because the panel would otherwise lose its "Recorded as" line
+        silently if the column stopped being written.
+        """
+        client, _ = harmonized
+        client.execute("DROP TABLE image_meta")
+        assert reader.get_for_image("img3")["inputName"] == "papilio_pamphilus"
+
     def test_keeps_the_recorded_name(self, reader):
         # Shown as "Recorded as" so a reader can see why the displayed name
         # differs from the one they searched for.
@@ -411,3 +421,179 @@ class TestOccurrenceTaxonomy:
         for img_id in ("img1", "img2", "img3"):
             assert service.get_for_image(img_id) is None
         assert probes == ["image_meta_taxonomy"]
+
+
+class TestRecordedColumns:
+    """The status table carries what the occurrence itself said."""
+
+    def test_stores_the_recorded_name(self, harmonized):
+        client, _ = harmonized
+        assert status_for(client, "img3")["recorded_name"] == "papilio_pamphilus"
+
+    def test_recorded_rank_is_not_the_accepted_rank(self, harmonized):
+        """img4 cascades to a genus, but the occurrence still said species.
+
+        The two ranks answer different questions — what was written down, and
+        what it resolved to — so they must not be conflated.
+        """
+        client, _ = harmonized
+        row = status_for(client, "img4")
+        assert row["recorded_rank"] == "species"
+        assert row["accepted_rank"] == "genus"
+
+    def test_degrades_when_the_occurrence_has_no_rank_column(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        """Ingestion can be skipped, so tax_rank is not guaranteed."""
+        memory_duckdb.execute(
+            """
+            CREATE TABLE image_meta (
+                img_id VARCHAR, species VARCHAR, family VARCHAR, kingdom VARCHAR,
+                phylum VARCHAR, class VARCHAR, "order" VARCHAR
+            )
+            """
+        )
+        for occurrence in OCCURRENCES:
+            memory_duckdb.execute_prepared(
+                "INSERT INTO image_meta VALUES (?, ?, ?, ?, ?, ?, ?)",
+                list(occurrence[:7]),
+            )
+        service = build_service(memory_duckdb, col_fixture_dir, tmp_path)
+        assert service.ensure() is True
+        ranks = memory_duckdb.execute(
+            "SELECT DISTINCT recorded_rank FROM image_meta_taxonomy"
+        ).pl()
+        assert ranks["recorded_rank"].to_list() == [None]
+
+    def test_a_stale_shaped_table_is_rebuilt(self, harmonized):
+        """The marker can outlive the table it describes.
+
+        Seen for real: a reload picked up the version bump before the column
+        change, so the run recorded the new fingerprint against a table built
+        the old way. Everything else then said "current" and the panel served
+        nulls. The shape of the table has to be checked, not just its name.
+        """
+        client, service = harmonized
+        # Reproduce the old shape: the index is rebuilt by the run itself.
+        client.execute("DROP INDEX image_meta_taxonomy_img_idx")
+        client.execute("ALTER TABLE image_meta_taxonomy DROP COLUMN recorded_name")
+        assert service.ensure() is True
+        assert status_for(client, "img3")["recorded_name"] == "papilio_pamphilus"
+
+    def test_a_new_schema_version_forces_a_rebuild(self, harmonized, monkeypatch):
+        """An upgrade must not be mistaken for an up-to-date database."""
+        import app.services.taxonomy_update as module
+
+        _, service = harmonized
+        # Unchanged inputs: without the version this would be skipped.
+        assert service.ensure() is False
+        monkeypatch.setattr(module, "STATUS_SCHEMA_VERSION", 99)
+        assert service.ensure() is True
+
+
+class TestBatchLookup:
+    """The one place a set of occurrences is mapped to its updated taxonomy."""
+
+    @pytest.fixture
+    def reader(self, harmonized):
+        from app.services.taxonomy_update import OccurrenceTaxonomy
+
+        client, _ = harmonized
+        service = OccurrenceTaxonomy.__new__(OccurrenceTaxonomy)
+        service.status_table = "image_meta_taxonomy"
+        service.candidates_table = "col_taxonomy_candidates"
+        service.db_client = client
+        return service
+
+    def test_returns_rows_keyed_by_image(self, reader):
+        resolved = reader.get_for_images(["img1", "img3"])
+        assert set(resolved) == {"img1", "img3"}
+        assert resolved["img1"]["recorded_name"] == "coenonympha_pamphilus"
+
+    def test_one_taxon_under_two_names_shares_an_identity(self, reader):
+        """img3 is a synonym of img1's taxon; both must key the same."""
+        resolved = reader.get_for_images(["img1", "img3"])
+        assert resolved["img1"]["accepted_key"] == resolved["img3"]["accepted_key"]
+        assert resolved["img1"]["accepted_key"]
+
+    def test_unresolved_rows_are_returned_without_an_identity(self, reader):
+        """Present, so a caller can tell 'no match' from 'not in the run'."""
+        resolved = reader.get_for_images(["img5"])
+        assert resolved["img5"]["update_status"] == "UNMATCHED"
+        assert resolved["img5"]["accepted_key"] is None
+
+    def test_unknown_images_are_absent(self, reader):
+        assert reader.get_for_images(["img1", "nosuchimage"]).keys() == {"img1"}
+
+    def test_no_images_is_not_a_query(self, reader):
+        assert reader.get_for_images([]) == {}
+
+    def test_accepted_keys_for_a_name_skips_the_unresolved(self, reader):
+        """img5 is recorded but unmatched, so it contributes no identity."""
+        assert reader.accepted_keys_for_species("nonexistent_taxon") == set()
+
+    def test_accepted_keys_find_the_taxon_a_name_resolves_to(self, reader):
+        """img1 and img3 are one taxon under two names, so both agree."""
+        accepted = reader.accepted_keys_for_species("coenonympha_pamphilus")
+        synonym = reader.accepted_keys_for_species("papilio_pamphilus")
+        assert len(accepted) == 1
+        assert accepted == synonym
+
+    def test_accepted_keys_normalize_the_name(self, reader):
+        """Callers pass a URL slug or a spaced name interchangeably."""
+        assert reader.accepted_keys_for_species(
+            "Coenonympha Pamphilus"
+        ) == reader.accepted_keys_for_species("coenonympha_pamphilus")
+
+    def test_accepted_keys_for_an_unknown_name_is_empty(self, reader):
+        assert reader.accepted_keys_for_species("no_such_species") == set()
+
+
+class TestAcceptedKey:
+    """What counts as one taxon, for de-duplicating and for self-exclusion."""
+
+    def test_identity_follows_the_displayed_name_not_the_usage_id(self):
+        """Seen for real on the Junonia coenia page.
+
+        `Junonia grisea` resolves to a CoL *subspecies* usage and
+        `Junonia coenia` to the *species* usage — different ids whose binomial
+        is identical. Keying on the id put a card labelled "Junonia coenia"
+        into Junonia coenia's own list of similar species.
+        """
+        from app.services.taxonomy_update import accepted_key
+
+        species = {"accepted_id": "6NHMZ", "display_accepted_name": "Junonia coenia"}
+        subspecies = {"accepted_id": "Q6JT5", "display_accepted_name": "Junonia coenia"}
+        assert accepted_key(species) == accepted_key(subspecies)
+
+    def test_distinct_names_keep_distinct_identities(self):
+        from app.services.taxonomy_update import accepted_key
+
+        assert accepted_key({"display_accepted_name": "Junonia coenia"}) != accepted_key(
+            {"display_accepted_name": "Junonia grisea"}
+        )
+
+    def test_falls_back_to_the_usage_id_without_a_name(self):
+        from app.services.taxonomy_update import accepted_key
+
+        assert accepted_key({"accepted_id": "6NHMZ", "display_accepted_name": None}) == "6NHMZ"
+
+    def test_nothing_resolved_has_no_identity(self):
+        from app.services.taxonomy_update import accepted_key
+
+        assert accepted_key({"accepted_id": None, "display_accepted_name": ""}) is None
+
+    def test_a_missing_run_is_probed_not_queried(self, memory_duckdb, monkeypatch):
+        from app.services.taxonomy_update import OccurrenceTaxonomy
+
+        service = OccurrenceTaxonomy.__new__(OccurrenceTaxonomy)
+        service.status_table = "image_meta_taxonomy"
+        service.candidates_table = "col_taxonomy_candidates"
+        service.db_client = memory_duckdb
+        service._status_present = None
+
+        def fail(*args, **kwargs):
+            raise AssertionError("queried a table that is not there")
+
+        monkeypatch.setattr(memory_duckdb, "execute_prepared_to_pl", fail)
+        assert service.get_for_images(["img1", "img2"]) == {}

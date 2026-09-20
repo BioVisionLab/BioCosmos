@@ -1,12 +1,11 @@
 "use client"; // Mark this component as a Client Component
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { getSpeciesList } from "@/lib/speciesList";
 import { fetchSpeciesThumbnail } from "@/lib/images";
-import Link from "next/link";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
+import SpeciesTile from "./SpeciesTile";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
@@ -24,9 +23,7 @@ export default function HomePage() {
           A BioCosmos portal for Lepidoptera, featuring all butterfly families.
         </p>
         <p className="mt-8 text-base sm:text-lg text-deep-mocha-600 dark:text-deep-mocha-300 max-w-3xl mx-auto">
-          BioCosmos uses computer vision and natural language processing to
-          analyze wing patterns, synthesize scientific records, and unlock
-          insights into species evolution.
+          BioCosmos is an image-based web platform that combines conventional biodiversity database with computer vision and natural language processing to reveal hidden patterns in organism coloration and simplify querying large-scale biological data.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
           <span className="px-3 py-1 rounded-full bg-hunter-green-100 dark:bg-hunter-green-900/40 text-hunter-green-700 dark:text-hunter-green-300">
@@ -145,40 +142,12 @@ function SpeciesThumbnail({
     fetchThumbnail();
   }, [species]);
 
-  const linkUrl = thumbnailUrl
-    ? `/species/${speciesUrlFromName(species)}`
-    : "#";
-  const speciesName = cleanSpeciesName(species);
   return (
-    <Link
-      key={index}
-      href={linkUrl}
-      className="w-full flex flex-col justify-center items-center text-center group"
-    >
-      {thumbnailUrl ? (
-        <>
-          <div className="relative w-full aspect-square bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
-            <Image
-              src={thumbnailUrl}
-              alt={`Species Thumbnail ${index + 1}`}
-              fill
-              className="object-contain p-4"
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
-              unoptimized
-            />
-          </div>
-          <h2
-            className="w-full text-sm truncate italic text-center text-deep-mocha-400 mt-2 px-1"
-            title={speciesName}
-          >
-            {speciesName}
-          </h2>
-        </>
-      ) : (
-        <div className="w-full aspect-square flex flex-col items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-800 rounded-2xl">
-          <ImageLoading size={60} />
-        </div>
-      )}
-    </Link>
+    <SpeciesTile
+      href={thumbnailUrl ? `/species/${speciesUrlFromName(species)}` : "#"}
+      imageUrl={thumbnailUrl}
+      label={cleanSpeciesName(species)}
+      alt={`Species Thumbnail ${index + 1}`}
+    />
   );
 }

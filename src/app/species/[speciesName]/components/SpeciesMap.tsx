@@ -2,24 +2,63 @@
 
 import React, { useEffect, useState } from "react";
 import { GbifAttribution } from "../../../../components/Attribution";
-import { Occurrence } from "@/lib/map";
+import { GbifLookupStatus, Occurrence } from "@/lib/map";
 import SpeciesMap from "@/components/SpeciesMap";
 import { fetchGbifOccurrences } from "@/lib/map";
 import { TextLoading } from "@/components/Loadings";
 
-function SpeciesDistribution({ speciesName }: { speciesName: string }) {
+interface SpeciesDistributionProps {
+  /** The name the collection records, which is also the page slug. */
+  recordedName: string;
+  /** What Catalogue of Life resolved it to, tried against GBIF first. */
+  acceptedName?: string | null;
+}
+
+/**
+ * What to say when the map has no points.
+ *
+ * "No occurrences" and "GBIF has never heard of this name" are different
+ * facts, and only one of them is about the species.
+ */
+function emptyMessage(status: GbifLookupStatus): string {
+  switch (status) {
+    case "unmatched":
+      return "This name was not found in the GBIF taxonomic backbone, so no occurrences could be retrieved.";
+    case "error":
+      return "GBIF could not be reached. Showing map without points.";
+    default:
+      return "No georeferenced GBIF occurrences found. Showing map without points.";
+  }
+}
+
+function SpeciesDistribution({
+  recordedName,
+  acceptedName,
+}: SpeciesDistributionProps) {
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  const [status, setStatus] = useState<GbifLookupStatus>("ok");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let ignore = false;
+
     const fetchOccurrences = async () => {
       setLoading(true);
-      const data = await fetchGbifOccurrences(speciesName.trim());
-      setOccurrences(data);
+      const result = await fetchGbifOccurrences(
+        recordedName.trim(),
+        acceptedName,
+      );
+      if (ignore) return;
+      setOccurrences(result.occurrences);
+      setStatus(result.status);
       setLoading(false);
     };
-    fetchOccurrences();
-  }, [speciesName]);
+
+    void fetchOccurrences();
+    return () => {
+      ignore = true;
+    };
+  }, [recordedName, acceptedName]);
 
   return (
     <div>
@@ -37,7 +76,7 @@ function SpeciesDistribution({ speciesName }: { speciesName: string }) {
             </p>
           ) : (
             <p className="text-xs mb-2 text-deep-mocha-700 dark:text-deep-mocha-300">
-              No GBIF occurrences found. Showing map without points.
+              {emptyMessage(status)}
             </p>
           )}
           <SpeciesMap occurrences={occurrences} />

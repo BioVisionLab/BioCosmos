@@ -350,6 +350,33 @@ class DuckDBClient:
         """Whether a table has been created in this database."""
         return not self.missing_tables([table_name])
 
+    def column_exists(self, table_name: str, column_name: str) -> bool:
+        """Whether a table carries a given column.
+
+        Ingestion can be skipped and an existing database is not re-ingested,
+        so a column the current code expects may simply not be there. Asking
+        lets a projection fall back to NULL rather than failing the whole
+        statement. Unlike `missing_tables`, the conservative answer here is
+        False: treating an unknown column as absent degrades, treating it as
+        present would raise.
+        """
+        try:
+            with self.lock:
+                rows = self.conn.execute(
+                    """
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = ? AND column_name = ?
+                    LIMIT 1
+                    """,
+                    [table_name, column_name],
+                ).fetchall()
+        except duckdb.Error as error:
+            logger.warning(
+                f"Could not check for column '{table_name}.{column_name}': {error}"
+            )
+            return False
+        return bool(rows)
+
     def fetchdf(self):
         """Fetch the result of the last query as a Polars DataFrame.
         Returns:

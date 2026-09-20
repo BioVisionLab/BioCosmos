@@ -119,10 +119,17 @@ export function SpeciesOverview({
           <SpeciesClassification taxonomyData={taxonomy} />
 
           {/* The map pulls 200 GBIF occurrences plus the MapLibre bundle, so it
-              only mounts once the reader scrolls near it. */}
+              only mounts once the reader scrolls near it.
+
+              GBIF is the exception to the recorded-name rule above: it is an
+              external backbone rather than our gallery, so it gets both names
+              and matches whichever it knows. */}
           <div ref={mapRef}>
             {mapInView ? (
-              <SpeciesDistribution speciesName={lookupName} />
+              <SpeciesDistribution
+                recordedName={lookupName}
+                acceptedName={taxonomy?.acceptedName ?? taxonomy?.species ?? null}
+              />
             ) : (
               <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl" />
             )}

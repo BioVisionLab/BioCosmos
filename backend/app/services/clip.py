@@ -47,6 +47,21 @@ class ClipModel:
             return None, None
 
 
+def projected_features(output) -> "torch.Tensor":
+    """The projected embedding, however transformers chose to wrap it.
+
+    transformers 5 changed `get_text_features` and `get_image_features` to
+    return a `BaseModelOutputWithPooling` whose `pooler_output` carries the
+    projection; 4.x returned that tensor directly. Accepting both keeps the
+    pinned version free to move without search silently returning nothing —
+    which is how this surfaced: the normalization below raised
+    `'BaseModelOutputWithPooling' object has no attribute 'norm'`, the caller
+    logged it, and every query came back empty.
+    """
+    pooled = getattr(output, "pooler_output", None)
+    return output if pooled is None else pooled
+
+
 def get_clip_ndims() -> int:
     """Get the dimensions of the CLIP model's text embeddings."""
     # Hardcoded to 512 for openai/clip-vit-base-patch32 to avoid loading the model during import
@@ -109,8 +124,8 @@ class ClipEmbedder:
                 images=images, return_tensors="pt", padding=True
             ).to(self.device)
             with torch.no_grad():
-                image_features = self.model.get_image_features(
-                    **inputs
+                image_features = projected_features(
+                    self.model.get_image_features(**inputs)
                 )
             image_features = image_features / image_features.norm(
                 dim=-1, keepdim=True
@@ -139,8 +154,12 @@ class ClipEmbedder:
         ).to(self.device)
         logger.info(f"Computing text embedding for: {text}")
         with torch.no_grad():
-            text_features = self.model.get_text_features(**inputs)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
+            text_features = projected_features(
+                self.model.get_text_features(**inputs)
+            )
+        text_features = text_features / text_features.norm(
+            dim=-1, keepdim=True
+        )
         logger.info(
             f"Text embedding computed successfully for: {text}"
         )

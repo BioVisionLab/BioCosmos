@@ -22,9 +22,13 @@ OCCURRENCE_DDL = """
     )
 """
 
+# Mirrors what TaxonomyUpdateService builds, recorded_name/recorded_rank
+# included: search projects this table by name, so it can grow without the
+# specimen payload changing.
 TAXONOMY_DDL = """
     CREATE TABLE image_meta_taxonomy (
-        img_id VARCHAR, input_taxon_key VARCHAR, update_status VARCHAR,
+        img_id VARCHAR, recorded_name VARCHAR, recorded_rank VARCHAR,
+        input_taxon_key VARCHAR, update_status VARCHAR,
         match_method VARCHAR, accepted_id VARCHAR, accepted_name VARCHAR,
         accepted_species_name VARCHAR, accepted_rank VARCHAR,
         accepted_authorship VARCHAR, accepted_family VARCHAR,
@@ -48,6 +52,17 @@ def seed_occurrences(client) -> None:
             " 'Lepidoptera')",
             [img_id, species],
         )
+
+
+# The columns the fixture rows supply, named so that a column added to the
+# table above does not have to be threaded through every row below.
+SEEDED_COLUMNS = (
+    "img_id", "input_taxon_key", "update_status", "match_method",
+    "accepted_id", "accepted_name", "accepted_species_name", "accepted_rank",
+    "accepted_authorship", "accepted_family", "accepted_status",
+    "match_score", "score_margin", "candidate_count", "genus_changed",
+    "epithet_changed", "reason_code", "display_accepted_name",
+)
 
 
 def seed_taxonomy(client) -> None:
@@ -117,10 +132,14 @@ def seed_taxonomy(client) -> None:
             None,
         ),
     ]
+    columns = ", ".join(SEEDED_COLUMNS)
     for row in rows:
+        assert len(row) == len(SEEDED_COLUMNS)
         placeholders = ", ".join("?" for _ in row)
         client.execute_prepared(
-            f"INSERT INTO image_meta_taxonomy VALUES ({placeholders})", list(row)
+            f"INSERT INTO image_meta_taxonomy ({columns}) "
+            f"VALUES ({placeholders})",
+            list(row),
         )
 
 

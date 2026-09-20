@@ -120,11 +120,22 @@ function TaxonomyBlock({ update }: { update: TaxonUpdate }) {
       ) : null}
 
       {showRecorded && update.inputName ? (
+        // Per image, not per species: the gallery on one species page can hold
+        // a trinomial, a binomial and an outright different name, and only the
+        // selected image's own wording belongs here.
         <div className="flex flex-wrap items-baseline gap-1 min-w-0">
           <span className="whitespace-nowrap">Recorded as:</span>
           <i className="italic text-deep-mocha-500">
             {cleanSpeciesName(update.inputName)}
           </i>
+          {/* Only when it says something the name does not already: almost
+              every occurrence is recorded at species rank. */}
+          {update.recordedRank &&
+          update.recordedRank.toLowerCase() !== "species" ? (
+            <span className="text-deep-mocha-500">
+              ({update.recordedRank.toLowerCase()})
+            </span>
+          ) : null}
         </div>
       ) : null}
 

@@ -43,6 +43,22 @@ export interface Occurrence {
   // Add other fields you might fetch from GBIF later, e.g., eventDate, basisOfRecord
 }
 
+/**
+ * Why a map has no points.
+ *
+ * Three outcomes that used to be one empty array: GBIF has no georeferenced
+ * records, GBIF does not know the name at all, or the request failed. A
+ * reader can act on the difference, so the UI is told which it is.
+ */
+export type GbifLookupStatus = "ok" | "unmatched" | "error";
+
+export interface GbifOccurrenceResult {
+  status: GbifLookupStatus;
+  occurrences: Occurrence[];
+  /** The name GBIF matched, when it matched one. */
+  matchedName?: string;
+}
+
 export interface UmapOccurrence {
   key: string | number;
   decimalLatitude: number;
@@ -63,19 +79,31 @@ function getClusterColor(): string[] {
   return CLUSTER_COLORS;
 }
 
+/**
+ * Fetch the GBIF occurrences for a species.
+ *
+ * `recordedName` is what the collection calls the taxon and may be a URL slug
+ * (`danaus_plexippus`); `acceptedName` is what Catalogue of Life resolved it
+ * to. The route tries the accepted name first and un-slugs either, so no
+ * cleaning is needed here — and no name is rejected before it is asked about,
+ * which is what previously kept the map empty for every species.
+ */
 async function fetchGbifOccurrences(
-  scientificName: string
-): Promise<Occurrence[]> {
-  // Basic check for valid name format
-  if (!scientificName || !scientificName.includes(" ")) {
-    console.warn(`Invalid scientific name for GBIF lookup: ${scientificName}`);
-    return [];
+  recordedName: string,
+  acceptedName?: string | null
+): Promise<GbifOccurrenceResult> {
+  if (!recordedName || !recordedName.trim()) {
+    return { status: "unmatched", occurrences: [] };
+  }
+
+  const params = new URLSearchParams({ species: recordedName.trim() });
+  if (acceptedName && acceptedName.trim()) {
+    params.set("accepted", acceptedName.trim());
   }
 
   try {
-    const response = await fetch(
-      `/api/gbif-occurrences?species=${encodeURIComponent(scientificName.trim())}`
-    );
+    const response = await fetch(`/api/gbif-occurrences?${params.toString()}`);
+    const data = await response.json();
 
     if (!response.ok) {
       throw new Error(
@@ -83,7 +111,9 @@ async function fetchGbifOccurrences(
       );
     }
 
-    const data = await response.json();
+    if (data.status !== "ok") {
+      return { status: data.status === "error" ? "error" : "unmatched", occurrences: [] };
+    }
 
     // Process results: Filter out occurrences without valid lat/lon
     interface GbifRawOccurrence {
@@ -92,7 +122,7 @@ async function fetchGbifOccurrences(
       decimalLongitude: number;
     }
 
-    const occurrences = data.results
+    const occurrences: Occurrence[] = (data.results ?? [])
       .map((occ: GbifRawOccurrence) => ({
         key: occ.key,
         decimalLatitude: occ.decimalLatitude,
@@ -106,16 +136,13 @@ async function fetchGbifOccurrences(
           !isNaN(occ.decimalLongitude)
       );
 
-    console.log(
-      `Fetched ${occurrences.length} valid GBIF occurrences for ${scientificName}`
-    );
-    return occurrences;
+    return { status: "ok", occurrences, matchedName: data.matchedName };
   } catch (error) {
     console.error(
-      `Error fetching GBIF occurrences for ${scientificName}:`,
+      `Error fetching GBIF occurrences for ${recordedName}:`,
       error
     );
-    return [];
+    return { status: "error", occurrences: [] };
   }
 }
 

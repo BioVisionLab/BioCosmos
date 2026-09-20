@@ -35,6 +35,12 @@ export interface TaxonUpdate {
   acceptedStatus: string | null;
   /** The name as recorded in the occurrence data. */
   inputName: string | null;
+  /**
+   * The rank the occurrence recorded, which is not the rank it resolved to.
+   * One image of a species may be recorded as a trinomial and another as a
+   * binomial, so this belongs to the image rather than to the taxon.
+   */
+  recordedRank: string | null;
   matchScore: number | null;
   scoreMargin: number | null;
   candidateCount: number | null;
@@ -339,6 +345,7 @@ export function normalizeTaxonUpdate(raw: unknown): TaxonUpdate | null {
     acceptedFamily: optionalText(source.acceptedFamily),
     acceptedStatus: optionalText(source.acceptedStatus),
     inputName: optionalText(source.inputName),
+    recordedRank: optionalText(source.recordedRank),
     matchScore: optionalNumber(source.matchScore),
     scoreMargin: optionalNumber(source.scoreMargin),
     candidateCount: optionalNumber(source.candidateCount),

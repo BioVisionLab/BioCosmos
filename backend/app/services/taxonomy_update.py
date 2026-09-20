@@ -13,6 +13,7 @@ import logging
 import shutil
 import tempfile
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import duckdb
@@ -32,6 +33,24 @@ logger = logging.getLogger(__name__)
 UPDATE_SOURCE_KEY = "col_taxonomy_update"
 ATTACH_ALIAS = "taxonomy_update_source"
 SCRATCH_TABLE = "occurrence_taxa"
+
+# Bumped whenever the shape of the per-occurrence status table changes.
+#
+# It is part of the fingerprint because `ensure` skips the run when the
+# fingerprint still matches and the tables are all present. Both hold after an
+# upgrade, so without this a database built by an older version would keep a
+# status table missing the columns the current readers project.
+STATUS_SCHEMA_VERSION = 2
+
+# Columns this version writes that an older one did not.
+#
+# Checked in addition to the fingerprint, because a fingerprint describes the
+# *inputs* and cannot speak for the shape of the output. The two disagree
+# whenever a run is interrupted after its marker is written, or when a reload
+# picks up half an upgrade: the marker then claims a table that was never
+# built that way, and the readers below would quietly serve nulls. Checking
+# the table itself makes the next startup repair it.
+REQUIRED_STATUS_COLUMNS = ("recorded_name", "recorded_rank")
 
 # Tables copied out of the run. input_taxon_variants is not optional: the
 # original_* columns on taxonomy_matches are min() aggregates over a taxon's
@@ -116,7 +135,9 @@ class TaxonomyUpdateService:
             )
             return False
 
-        fingerprint = f"{release}|{self._occurrence_fingerprint()}"
+        fingerprint = (
+            f"{release}|{self._occurrence_fingerprint()}|v{STATUS_SCHEMA_VERSION}"
+        )
         state = IngestionState(self.db_client)
         if state.is_current(UPDATE_SOURCE_KEY, fingerprint) and self._tables_exist():
             logger.info("Taxonomy update is already current; skipping.")
@@ -243,14 +264,48 @@ class TaxonomyUpdateService:
         )
 
     def _tables_exist(self) -> bool:
-        return not self.db_client.missing_tables(
+        """Whether a usable result is already loaded.
+
+        Not just present, but the right shape: a status table left over from
+        an older version satisfies every other check and would go unrepaired.
+        """
+        if self.db_client.missing_tables(
             [
                 self.matches_table,
                 self.candidates_table,
                 self.variants_table,
                 self.status_table,
             ]
+        ):
+            return False
+        stale = [
+            column
+            for column in REQUIRED_STATUS_COLUMNS
+            if not self.db_client.column_exists(self.status_table, column)
+        ]
+        if stale:
+            logger.info(
+                f"'{self.status_table}' is missing {', '.join(stale)}; "
+                "rebuilding the taxonomy update."
+            )
+            return False
+        return True
+
+    def _recorded_rank_projection(self) -> str:
+        """How to select the rank the occurrence recorded, if it has one.
+
+        `tax_rank` is not among the columns the matcher keys on, so it is not
+        in the resolved mapping and has to be read from the occurrence table
+        directly. The cast matters: a bare NULL would give DuckDB an INTEGER
+        column, and readers project this table by name and expect text.
+        """
+        if self.db_client.column_exists(self.image_meta_table, "tax_rank"):
+            return f"occurrence.{_ident('tax_rank')}"
+        logger.warning(
+            f"'{self.image_meta_table}' has no 'tax_rank' column; "
+            "occurrences will carry no recorded rank."
         )
+        return "CAST(NULL AS VARCHAR)"
 
     def _build_occurrence_status(self, resolved_columns: dict[str, str]) -> None:
         """Resolve the per-taxon match down to one row per image.
@@ -277,11 +332,20 @@ class TaxonomyUpdateService:
             f"IS NOT DISTINCT FROM variants.{_ident(variant_column)}"
             for occurrence_column, variant_column in pairs
         )
+        recorded_rank = self._recorded_rank_projection()
         self.db_client.execute(
             f"""
             CREATE OR REPLACE TABLE {self.status_table} AS
             SELECT
                 occurrence.img_id,
+                -- The occurrence's own name and rank, kept here so that every
+                -- reader has the recorded and the accepted name side by side
+                -- without joining back to the occurrence table. They belong to
+                -- the image, not to the taxon: two images of one species can
+                -- be recorded as a binomial and a trinomial respectively.
+                occurrence.{_ident(resolved_columns["scientific_name"])}
+                    AS recorded_name,
+                {recorded_rank} AS recorded_rank,
                 variants.input_taxon_key,
                 matches.update_status,
                 matches.match_method,
@@ -374,6 +438,8 @@ def _ident(name: str) -> str:
 # Read back per occurrence. Codes only: their descriptions are served once by
 # GET /taxonomy/codes rather than repeated on every record.
 _STATUS_FIELDS = (
+    ("recorded_name", "inputName"),
+    ("recorded_rank", "recordedRank"),
     ("update_status", "updateStatus"),
     ("match_method", "matchMethod"),
     ("accepted_name", "acceptedName"),
@@ -390,6 +456,49 @@ _STATUS_FIELDS = (
     ("epithet_changed", "epithetChanged"),
     ("reason_code", "reasonCode"),
 )
+
+# What the batch lookup reads back. Snake_case, unlike _STATUS_FIELDS: these
+# rows feed joins and grouping, not the metadata panel's JSON.
+_LOOKUP_COLUMNS = (
+    "img_id",
+    "recorded_name",
+    "recorded_rank",
+    "update_status",
+    "accepted_id",
+    "accepted_name",
+    "accepted_rank",
+    "accepted_family",
+    "display_accepted_name",
+)
+
+# DuckDB binds every parameter of a prepared statement, so an id list has to be
+# split rather than sent whole.
+_LOOKUP_CHUNK = 1000
+
+
+def _normalize_recorded(name: str) -> str:
+    """The form recorded names are compared in: lowercase, underscored."""
+    return (name or "").strip().lower().replace(" ", "_")
+
+
+def accepted_key(row: dict) -> str | None:
+    """The identity two occurrences share when they resolve to one taxon.
+
+    The displayed name rather than the Catalogue of Life id, because the id is
+    finer-grained than what a reader sees. `Junonia grisea` resolves to a CoL
+    subspecies usage and `Junonia coenia` to the species usage — two different
+    ids whose binomial is the same — so keying on the id would put a card
+    labelled "Junonia coenia" on the Junonia coenia page. Whatever is shown
+    under one name has to count as one taxon.
+
+    The id is the fallback for a row resolved without a name. None when
+    nothing was resolved, which is what callers filter on.
+    """
+    name = (row.get("display_accepted_name") or "").strip()
+    if name:
+        return name.lower().replace(" ", "_")
+    return (row.get("accepted_id") or "").strip() or None
+
 
 _CANDIDATE_FIELDS = (
     ("candidate_rank", "candidateRank"),
@@ -415,7 +524,6 @@ class OccurrenceTaxonomy:
         config = ColConfig()
         self.status_table = config.occurrence_status_table
         self.candidates_table = config.candidates_table
-        self.image_meta_table = ImageMetaConfig().table
         self.db_client = duckdb_client
         # Resolved on first use and cached for this instance, which lives for
         # one request.
@@ -443,13 +551,7 @@ class OccurrenceTaxonomy:
             return None
         try:
             result = self.db_client.execute_prepared_to_pl(
-                f"""
-                SELECT status.*, occurrence.species AS input_name
-                FROM {self.status_table} AS status
-                JOIN {self.image_meta_table} AS occurrence USING (img_id)
-                WHERE status.img_id = ?
-                LIMIT 1
-                """,
+                f"SELECT * FROM {self.status_table} WHERE img_id = ? LIMIT 1",
                 [img_id],
             )
         except duckdb.Error as error:
@@ -464,9 +566,79 @@ class OccurrenceTaxonomy:
             return None
 
         payload = {name: row.get(column) for column, name in _STATUS_FIELDS}
-        payload["inputName"] = row.get("input_name")
         payload["candidates"] = self._candidates(row.get("input_taxon_key"))
         return payload
+
+    def get_for_images(self, img_ids: Sequence[str]) -> dict[str, dict]:
+        """Resolve many occurrences at once, keyed by image id.
+
+        The one place a recorded record is mapped to its updated taxonomy in
+        bulk. A grid of similar species would otherwise run a query per card.
+
+        Unresolved occurrences are returned, with a null `accepted_key`, rather
+        than dropped: whether to skip them is the caller's decision. Images
+        with no row at all are simply absent.
+        """
+        unique_ids = list(dict.fromkeys(i for i in img_ids if i))
+        if not unique_ids or not self._status_available():
+            return {}
+
+        projection = ", ".join(_LOOKUP_COLUMNS)
+        resolved: dict[str, dict] = {}
+        for start in range(0, len(unique_ids), _LOOKUP_CHUNK):
+            chunk = unique_ids[start : start + _LOOKUP_CHUNK]
+            placeholders = ", ".join("?" for _ in chunk)
+            try:
+                result = self.db_client.execute_prepared_to_pl(
+                    f"""
+                    SELECT {projection}
+                    FROM {self.status_table}
+                    WHERE img_id IN ({placeholders})
+                    """,
+                    chunk,
+                )
+            except duckdb.Error as error:
+                logger.info(f"Batch taxonomy lookup failed: {error}")
+                return {}
+            if result is None or result.is_empty():
+                continue
+            for row in result.to_dicts():
+                # A variant join that fanned out would repeat an id; the row
+                # count check at build time warns about that, and keeping
+                # either row here is equivalent.
+                resolved[row["img_id"]] = {**row, "accepted_key": accepted_key(row)}
+        return resolved
+
+    def accepted_keys_for_species(self, species_name: str) -> set[str]:
+        """The accepted taxa a recorded name resolves to.
+
+        Usually one, but a name recorded against differing higher taxonomy is
+        several inputs to the matcher and can resolve more than one way.
+
+        Identity by taxon rather than by name is what lets a caller exclude a
+        species from its own results even when another record spells it
+        differently — a subspecies of it, or a synonym.
+        """
+        normalized = _normalize_recorded(species_name)
+        if not normalized or not self._status_available():
+            return set()
+        try:
+            result = self.db_client.execute_prepared_to_pl(
+                f"""
+                SELECT DISTINCT accepted_id, display_accepted_name
+                FROM {self.status_table}
+                WHERE lower(replace(recorded_name, ' ', '_')) = ?
+                """,
+                [normalized],
+            )
+        except duckdb.Error as error:
+            logger.info(f"No taxa resolved for '{species_name}': {error}")
+            return set()
+        if result is None or result.is_empty():
+            return set()
+        keys = {accepted_key(row) for row in result.to_dicts()}
+        keys.discard(None)
+        return keys
 
     def _candidates(self, input_taxon_key: str | None) -> list[dict]:
         """Return the runner-up candidates for a taxon, best first.

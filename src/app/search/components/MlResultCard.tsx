@@ -21,10 +21,15 @@ function computeMatchPercent(score: number) {
   return Math.max(0, Math.min(100, Math.round(score * 100)));
 }
 
-// Compute match percent inversely from a raw Euclidean/Cosine distance (0.0 = perfect match, 1.0+ = irrelevant)
-// Use for image search that returns cosine distances.
+// Compute match percent from a cosine distance.
+//
+// Every vector search runs with `distance_type("cosine")`, whose range is
+// 0..2: identical, orthogonal at 1, opposed at 2. Halving is what maps that
+// onto a percentage. Treating the range as 0..1 clamped every text query to
+// "Match: 0%" — text and image embeddings sit far enough apart that a good
+// colour match still scores around 1.38.
 function computeDistancePercent(distance: number) {
-  const similarity = Math.max(0, 1 - distance);
+  const similarity = 1 - distance / 2;
   return Math.max(0, Math.min(100, Math.round(similarity * 100)));
 }
 

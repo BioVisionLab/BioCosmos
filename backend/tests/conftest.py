@@ -47,6 +47,10 @@ class FakeDuckDBClient:
     def table_exists(self, table_name: str) -> bool:
         return table_name in self._tables
 
+    def column_exists(self, table_name: str, column_name: str) -> bool:
+        table = self._tables.get(table_name)
+        return table is not None and column_name in table.columns
+
 
 # ---------------------------------------------------------------------------
 # Fake LanceDB table
@@ -200,6 +204,18 @@ class MemoryDuckDBClient:
 
     def table_exists(self, table_name: str) -> bool:
         return not self.missing_tables([table_name])
+
+    def column_exists(self, table_name: str, column_name: str) -> bool:
+        with self.lock:
+            rows = self.conn.execute(
+                """
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = ? AND column_name = ?
+                LIMIT 1
+                """,
+                [table_name, column_name],
+            ).fetchall()
+        return bool(rows)
 
     def table_names(self) -> list[str]:
         rows = self.conn.execute(

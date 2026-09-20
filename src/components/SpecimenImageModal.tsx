@@ -3,8 +3,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { imageUrlById } from "@/lib/images";
-import { SpecimenImageMeta, acceptedDisplayName, taxonomyOf } from "@/lib/imageMetadata";
+import {
+  SpecimenImageMeta,
+  acceptedDisplayName,
+  nameWasUpdated,
+  taxonomyOf,
+} from "@/lib/imageMetadata";
 import { TaxonStatusBadge } from "@/components/CodeHint";
+import { cleanSpeciesName } from "@/lib/names";
 
 /**
  * Metadata returned by `/api/images/id/metadata?imageId=...` for a single
@@ -377,6 +383,7 @@ function SpecimenImageModal({
                         const taxonomy = taxonomyOf(meta);
                         if (!taxonomy) return null;
                         const accepted = acceptedDisplayName(taxonomy);
+                        const showRecorded = nameWasUpdated(taxonomy);
                         return (
                           <div className="flex flex-col gap-1">
                             <div className="flex flex-wrap items-start gap-2">
@@ -393,6 +400,27 @@ function SpecimenImageModal({
                                 <i className="italic text-deep-mocha-700 dark:text-white">
                                   {accepted}
                                 </i>
+                              </div>
+                            )}
+                            {/* This is a view of one image, so what that
+                                record actually said belongs here just as it
+                                does in the species-page panel. */}
+                            {showRecorded && taxonomy.inputName && (
+                              <div>
+                                <span className="font-medium text-hunter-green-700 dark:text-hunter-green-500">
+                                  Recorded as:{" "}
+                                </span>
+                                <i className="italic text-deep-mocha-500 dark:text-deep-mocha-400">
+                                  {cleanSpeciesName(taxonomy.inputName)}
+                                </i>
+                                {taxonomy.recordedRank &&
+                                taxonomy.recordedRank.toLowerCase() !==
+                                  "species" ? (
+                                  <span className="text-deep-mocha-500 dark:text-deep-mocha-400">
+                                    {" "}
+                                    ({taxonomy.recordedRank.toLowerCase()})
+                                  </span>
+                                ) : null}
                               </div>
                             )}
                           </div>

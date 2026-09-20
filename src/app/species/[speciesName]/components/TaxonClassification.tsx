@@ -45,8 +45,11 @@ export function SpeciesClassification({
   })).filter(({ rank, value }) => CORE_COL_RANKS.has(rank) || value);
 
   const acceptedName = taxonomyData.acceptedName;
-  const recordedName = taxonomyData.inputName;
-  const nameWasUpdated = !!recordedName && recordedName !== acceptedName;
+  // The name this page was looked up under. Only used to decide whether the
+  // accepted name is worth stating; it is not shown, because a page-level
+  // "recorded as" would speak for images that were recorded differently.
+  const queriedName = taxonomyData.inputName;
+  const nameWasUpdated = !!queriedName && queriedName !== acceptedName;
 
   return (
     <div className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg">
@@ -77,19 +80,17 @@ export function SpeciesClassification({
             </Row>
 
             {nameWasUpdated ? (
-              <>
-                <Row label="Accepted Name">
-                  <i className="italic">{acceptedName}</i>
-                  {taxonomyData.acceptedRank === "genus" ? (
-                    <span className="text-deep-mocha-500"> (genus only)</span>
-                  ) : null}
-                </Row>
-                <Row label="Recorded As">
-                  {/* Kept visible so a reader who searched the old name can
-                      see why the page is showing a different one. */}
-                  <i className="italic text-deep-mocha-500">{recordedName}</i>
-                </Row>
-              </>
+              // No "Recorded As" here. What a record called this taxon is a
+              // property of that occurrence, not of the taxon: the images on
+              // this page can carry several different recorded names, and one
+              // of them presented as the page's own would be wrong. The Image
+              // Metadata panel shows it per image instead.
+              <Row label="Accepted Name">
+                <i className="italic">{acceptedName}</i>
+                {taxonomyData.acceptedRank === "genus" ? (
+                  <span className="text-deep-mocha-500"> (genus only)</span>
+                ) : null}
+              </Row>
             ) : null}
 
             {taxonomyData.vernacularName ? (
