@@ -1,17 +1,26 @@
 "use client"; // Mark this component as a Client Component
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { getSpeciesList } from "@/lib/speciesList";
-import { fetchSpeciesThumbnail } from "@/lib/images";
+import { speciesThumbnailUrl } from "@/lib/images";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import SpeciesTile from "./SpeciesTile";
+import LandingSectionHeading, { LANDING_GRID } from "./LandingSection";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
 import ColorSearch from "./ColorSearch";
 
-export default function HomePage() {
+/**
+ * @param dataSummary The collection summary, rendered on the server and
+ *   passed in as a slot so this client component does not have to fetch it.
+ */
+export default function HomePage({
+  dataSummary,
+}: {
+  dataSummary?: ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center min-h-screen">
       <div className="mt-12 mb-6 text-center">
@@ -38,15 +47,20 @@ export default function HomePage() {
         </div>
       </div>
 
-      <HomeContent />
+      <HomeContent dataSummary={dataSummary} />
       {/* spacer between homepage content and the site footer */}
       <div className="h-8 md:h-14 lg:h-16" aria-hidden="true" />
     </div>
   );
 }
 
-function HomeContent() {
+function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
   const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
+
+  // Chosen once per mount. `getSpeciesList()` shuffles, so calling it from
+  // the render body swapped the featured six on every re-render — including
+  // the re-render that resolves the backend check.
+  const speciesList = useMemo(() => getSpeciesList(), []);
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -93,29 +107,25 @@ function HomeContent() {
       </div>
     );
   }
-  const speciesList = getSpeciesList();
+
   return (
-    <div>
+    <div className="w-full">
       <SearchSwitcher />
-      <div className="w-full max-w-5xl mt-12 mb-4 px-4 mx-auto">
-        <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50" />
-          <h2 className="text-xs sm:text-sm font-semibold tracking-wider uppercase text-hunter-green-600 dark:text-hunter-green-300 flex items-center gap-2">
-            <span className="text-lg">🦋</span>
-            Featured Butterflies
-          </h2>
-          <span className="h-px flex-1 bg-gradient-to-r rounded-full from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50" />
-        </div>
-        <p className="mt-3 text-center text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
-          Get started with a curated list of butterflies.
-        </p>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mx-auto">
+
+      <LandingSectionHeading
+        className="mt-12"
+        emoji="🦋"
+        title="Featured Butterflies"
+        description="Get started with a curated list of butterflies."
+      />
+      <div className={`${LANDING_GRID} max-w-5xl px-4`}>
         {speciesList.map((species, index) => (
-          <SpeciesThumbnail key={index} species={species} index={index} />
+          <SpeciesThumbnail key={species} species={species} index={index} />
         ))}
       </div>
+
       <ColorSearch />
+      {dataSummary}
     </div>
   );
 }
@@ -127,25 +137,13 @@ function SpeciesThumbnail({
   species: string;
   index: number;
 }) {
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchThumbnail = async () => {
-      try {
-        const thumbnailUrl = await fetchSpeciesThumbnail(species);
-        setThumbnailUrl(thumbnailUrl);
-      } catch (error) {
-        console.error("Failed to fetch species thumbnail:", error);
-      }
-    };
-
-    fetchThumbnail();
-  }, [species]);
-
+  // No state and no effect: the thumbnail URL is a pure function of the
+  // name, so fetching it asynchronously only bought a guaranteed first
+  // render with no image — six of them, every visit.
   return (
     <SpeciesTile
-      href={thumbnailUrl ? `/species/${speciesUrlFromName(species)}` : "#"}
-      imageUrl={thumbnailUrl}
+      href={`/species/${speciesUrlFromName(species)}`}
+      imageUrl={speciesThumbnailUrl(species)}
       label={cleanSpeciesName(species)}
       alt={`Species Thumbnail ${index + 1}`}
     />

@@ -815,6 +815,17 @@ function DbSearchResults({
 
               <ColAttribution leadingText="Taxonomy source:" />
               <GadmAttribution leadingText="Boundary source:" />
+              {/* One link for the whole table: the status columns above
+                  carry a hover hint per row, and this is the page that
+                  explains what those verdicts are. */}
+              <p className="text-xs text-deep-mocha-500 mt-2">
+                <Link
+                  href="/resources#taxonomy-matching"
+                  className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
+                >
+                  How taxonomy and coordinate matching work
+                </Link>
+              </p>
             </div>
           )}
         </div>

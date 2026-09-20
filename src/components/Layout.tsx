@@ -1,6 +1,5 @@
 import React from "react";
 import Navigation from "./Navigation";
-import { ThemeToggle } from "./ThemeToggle";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,7 +12,6 @@ const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
       {/* <HeaderClient /> */}
 
       <Navigation />
-      <ThemeToggle />
 
       {/* Main Content - Putting container back on main */}
       <main className="flex-grow container mx-auto px-4 py-4">

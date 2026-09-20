@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImageLoading } from "@/components/Loadings";
 import SpeciesTile from "@/components/SpeciesTile";
-import { fetchThumbnailById } from "@/lib/images";
+import LandingSectionHeading, { LANDING_GRID } from "@/components/LandingSection";
+import { imageUrlById } from "@/lib/images";
 import { ColorSearchResult, searchByColor } from "@/lib/ml_search";
 import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 
@@ -37,34 +37,6 @@ const PILL_SELECTED =
   "border-transparent bg-hunter-green-200 dark:bg-hunter-green-900 text-deep-mocha-900 dark:text-hunter-green-50 shadow";
 
 type SearchOptionValue = (typeof SEARCH_OPTIONS)[number]["value"];
-
-/** One result, shown exactly as a featured butterfly is. */
-function ColorSearchTile({ result }: { result: ColorSearchResult }) {
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let ignore = false;
-    void fetchThumbnailById(result.imgId)
-      .then((url) => {
-        if (!ignore) setThumbnailUrl(url);
-      })
-      .catch((error) =>
-        console.error("Error fetching visual search thumbnail:", error),
-      );
-    return () => {
-      ignore = true;
-    };
-  }, [result.imgId]);
-
-  return (
-    <SpeciesTile
-      href={`/species/${speciesUrlFromName(result.species)}`}
-      imageUrl={thumbnailUrl}
-      label={cleanSpeciesName(result.species)}
-      alt={`Image of ${result.species}`}
-    />
-  );
-}
 
 export default function ColorSearch() {
   const [selectedOption, setSelectedOption] =
@@ -123,18 +95,29 @@ export default function ColorSearch() {
     (option) => option.value === selectedOption,
   )?.label;
 
+  // Every outcome — searching, failed, found nothing, idle — is one line in
+  // one place. They used to be three differently sized blocks that replaced
+  // each other, so the grid below moved every time the state changed.
+  const statusMessage = error
+    ? error
+    : loading && selectedOption
+      ? `Finding ${selectedLabel ?? selectedOption} butterflies…`
+      : selectedOption && results.length === 0
+        ? `No ${selectedLabel ?? selectedOption} butterfly matches were found. Try another option.`
+        : selectedOption
+          ? " "
+          : "Select an option to preview matching butterflies.";
+
   return (
     <section className="w-full mt-16" aria-labelledby="visual-search-heading">
-      <div className="w-full max-w-5xl mb-4 px-4 mx-auto">
-        <h2
-          id="visual-search-heading"
-          className="text-2xl font-semibold text-center"
-        >
-          Explore by Appearance
-        </h2>
-      </div>
+      <LandingSectionHeading
+        id="visual-search-heading"
+        emoji="🎨"
+        title="Explore by Appearance"
+        description="Pick a colour or pattern to preview matching butterflies."
+      />
 
-      <div className="mb-8 flex flex-wrap justify-center gap-3 px-4">
+      <div className="mb-4 flex flex-wrap justify-center gap-3 px-4">
         {SEARCH_OPTIONS.map((option) => {
           const isSelected = selectedOption === option.value;
 
@@ -143,55 +126,63 @@ export default function ColorSearch() {
               key={option.value}
               type="button"
               aria-pressed={isSelected}
+              aria-busy={loading && isSelected}
               onClick={() => handleOptionSearch(option.value)}
               className={`${PILL_BASE} ${isSelected ? PILL_SELECTED : PILL_IDLE}`}
             >
               {option.label}
-              {loading && isSelected ? "…" : ""}
+              {/* A permanently reserved slot. The ellipsis used to be
+                  appended to the label, so the pill grew mid-request and
+                  reflowed the whole wrapped row. */}
+              <span
+                aria-hidden="true"
+                className="inline-block w-3 overflow-hidden text-left align-middle"
+              >
+                {loading && isSelected ? "…" : ""}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div
-        className={selectedOption ? "min-h-48" : ""}
-        aria-busy={loading}
+      <p
+        role={error ? "alert" : "status"}
         aria-live="polite"
+        className={`mx-auto mb-6 h-5 max-w-3xl truncate px-4 text-center text-sm ${
+          error
+            ? "text-burnt-peach-600 dark:text-burnt-peach-400"
+            : "text-deep-mocha-500 dark:text-deep-mocha-400"
+        }`}
       >
-        {loading && selectedOption ? (
-          <div className="flex justify-center py-8">
-            <ImageLoading
-              size={160}
-              msg={`Finding ${selectedLabel ?? selectedOption} butterflies`}
+        {statusMessage}
+      </p>
+
+      {/* Six slots, always. The grid is the same height from first paint and
+          never changes, the tiles stay mounted across searches, and the
+          previous results stay legible while the next ones load rather than
+          being torn down and rebuilt. */}
+      <div
+        aria-busy={loading}
+        className={`${LANDING_GRID} max-w-5xl px-4 transition-opacity duration-200 ${
+          loading ? "opacity-60" : "opacity-100"
+        }`}
+      >
+        {Array.from({ length: RESULT_LIMIT }, (_, slot) => {
+          const result = results[slot] ?? null;
+          return (
+            <SpeciesTile
+              // Keyed by position, not by image id: switching colour should
+              // swap the contents of six tiles that stay put, not unmount
+              // six and mount six more.
+              key={`slot-${slot}`}
+              href={result ? `/species/${speciesUrlFromName(result.species)}` : "#"}
+              imageUrl={result ? imageUrlById(result.imgId, "thumbnail") : null}
+              label={result ? cleanSpeciesName(result.species) : ""}
+              alt={result ? `Image of ${result.species}` : ""}
+              placeholder={loading ? "spinner" : "empty"}
             />
-          </div>
-        ) : error ? (
-          <p
-            role="alert"
-            className="mx-auto max-w-2xl rounded-lg border border-burnt-peach-200 bg-burnt-peach-50 px-4 py-3 text-center text-sm text-burnt-peach-700 dark:border-burnt-peach-800 dark:bg-burnt-peach-900/30 dark:text-burnt-peach-300"
-          >
-            {error}
-          </p>
-        ) : selectedOption && results.length === 0 ? (
-          <p className="text-center text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
-            No {selectedLabel ?? selectedOption} butterfly matches were found.
-            Try another option.
-          </p>
-        ) : selectedOption ? (
-          // The same grid the featured butterflies use, and no match
-          // percentage: on a landing page the number invites a comparison
-          // nobody came to make, and cosine distances read low even for a
-          // good match.
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mx-auto">
-            {results.map((result) => (
-              <ColorSearchTile key={result.imgId} result={result} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
-            Select an option to preview matching butterflies.
-          </p>
-        )}
+          );
+        })}
       </div>
     </section>
   );

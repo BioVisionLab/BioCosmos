@@ -20,6 +20,7 @@ import {
   METADATA_EMPTY,
   METADATA_LABEL,
   METADATA_VALUE,
+  MatchingHelpLink,
   MetadataLinks,
 } from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
@@ -144,6 +145,10 @@ function TaxonomyBlock({ update }: { update: TaxonUpdate }) {
       <div className="flex flex-wrap items-start gap-2">
         <span className="whitespace-nowrap">Taxonomy:</span>
         <TaxonStatusBadge update={update} showMethod />
+        <MatchingHelpLink
+          section="taxonomy-matching"
+          label="How taxonomy matching works"
+        />
       </div>
 
       {accepted ? (
@@ -320,9 +325,15 @@ export default function ImageMetadata({
                     : "—"}
                 </span>
               </div>
-              <div className="flex items-center min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {coordinates ? (
-                  <CoordinateStatusBadge validation={coordinates} />
+                  <>
+                    <CoordinateStatusBadge validation={coordinates} />
+                    <MatchingHelpLink
+                      section="coordinate-matching"
+                      label="How coordinate matching works"
+                    />
+                  </>
                 ) : null}
               </div>
 

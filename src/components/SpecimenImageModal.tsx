@@ -15,6 +15,7 @@ import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
 import {
   METADATA_LABEL,
   METADATA_VALUE,
+  MatchingHelpLink,
   MetadataLinks,
 } from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
@@ -370,9 +371,15 @@ function SpecimenImageModal({
                           </span>
                         </span>
                         {coordinatesOf(meta) ? (
-                          <CoordinateStatusBadge
-                            validation={coordinatesOf(meta)}
-                          />
+                          <>
+                            <CoordinateStatusBadge
+                              validation={coordinatesOf(meta)}
+                            />
+                            <MatchingHelpLink
+                              section="coordinate-matching"
+                              label="How coordinate matching works"
+                            />
+                          </>
                         ) : null}
                       </div>
 
@@ -393,6 +400,10 @@ function SpecimenImageModal({
                                 Taxonomy:
                               </span>
                               <TaxonStatusBadge update={taxonomy} showMethod />
+                              <MatchingHelpLink
+                                section="taxonomy-matching"
+                                label="How taxonomy matching works"
+                              />
                             </div>
                             {accepted && (
                               <div>
