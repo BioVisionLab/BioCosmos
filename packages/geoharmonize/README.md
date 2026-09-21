@@ -37,6 +37,18 @@ the upstream project, <https://github.com/hhandika/col-taxonomy>.
 `integrate` runs the same validation and then writes it into the **occurrence**
 database, rather than only under `reports/`:
 
+For BioCosmos, first start the backend and wait for it to build
+`main.image_meta_locality` from `image_meta` and `gbif_meta`. Stop the backend,
+then verify the derived source before integrating:
+
+```bash
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --list-columns main.image_meta_locality
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality \
+  --map source_id=img_id --map country=country_code --map adm1=state_province
+```
+
 ```bash
 uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
   --table main.image_meta_locality --gadm "$GADM_DIR/gadm_410-levels.gpkg" \
@@ -46,6 +58,10 @@ uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
 
 **Stop anything else using the database first.** DuckDB allows a single writer,
 and `integrate` needs the file read-write.
+
+Do not use `main.image_meta` with the locality mappings above. That raw table
+has `img_id`, `lat`, and `lon`, but `country_code` and `state_province` only
+become available after the backend creates `main.image_meta_locality`.
 
 The destination holds one row per occurrence, keyed on the mapped `source_id`,
 so it joins straight back to the table it was read from:

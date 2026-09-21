@@ -24,7 +24,7 @@ There are many ways to contribute to BioCosmos, from writing code and documentat
 
 ## Project Structure
 
-```
+```text
 biocosmos/
 ├── backend/                  # Python backend (FastAPI)
 │   ├── duck_db/                # DuckDB database files (git-ignored)
@@ -124,7 +124,7 @@ biocosmos/
 
 ### Prerequisites
 
-- **Yarn** (recommended), **Bun**, or **Node.js** (v18+)
+- **Bun** (recommended), **Yarn**,  or **Node.js** (v18+)
 - **Python** (v3.12 or higher)
 - **uv** - Modern Python package manager (recommended)
 - **Git**
@@ -162,12 +162,10 @@ If you prefer to run the services manually without Docker, follow these steps:
     pip install uv
     ```
 
-    **Install backend dependencies:**
+    **Install the Python workspace dependencies from the repository root:**
 
     ```bash
-    cd backend
-    uv sync
-    cd ..
+    uv sync --all-packages
     ```
 
 4. **Environment Configuration**
@@ -175,26 +173,44 @@ If you prefer to run the services manually without Docker, follow these steps:
     **Frontend** - Create a `.env.local` file in the root directory:
 
     ```bash
-    # Optional: OpenAI API key for agentic search
-    OPENAI_API_KEY=your_openai_api_key_here
-
-    # API host for local development
     API_HOST=http://127.0.0.1:8000
     ```
 
-    **Backend** - Create a `.env` file in the `backend/` directory:
+    **Backend** - Create `backend/.env`. Use absolute paths: the backend helper
+    runs from `backend/`, while the harmonization CLIs run from the repository
+    root, so relative paths otherwise refer to different directories.
 
     ```bash
-    DUCK_DIR=./duck_db
-    LANCE_DIR=./lance_db_lite
-    IMAGE_DIR=../public/images
-    IMAGE_META_DIR=./data
-    GBIF_DIR=./data
-    UMAP_DIR=./data
+    DUCK_DIR=/absolute/path/to/BioCosmos/backend/duck_db
+    LANCE_DIR=/absolute/path/to/BioCosmos/backend/lance_db_lite
+    IMAGE_DIR=/absolute/path/to/BioCosmos/public/images
+    IMAGE_META_DIR=/absolute/path/to/BioCosmos/backend/data
+    GBIF_DIR=/absolute/path/to/BioCosmos/backend/data
+    UMAP_DIR=/absolute/path/to/BioCosmos/backend/data
+
+    # Optional, but required for Catalogue of Life ingestion and matching.
+    # This directory must contain an extracted ColDP NameUsage.tsv.
+    COL_DIR=/absolute/path/to/catalogue-of-life-col-dp
 
     # Optional: Custom LLM service
     # LLM_API_URL=your_llm_endpoint
     # LLM_API_KEY=your_api_key
+    ```
+
+    `DUCK_DIR` is a directory; the backend opens
+    `$DUCK_DIR/biocosmos.duckdb`. `COL_DIR` is also a directory, not the path
+    to `NameUsage.tsv` itself. Keep `.env` files and credentials out of Git.
+
+    The offline geography workflow also needs a directory containing
+    `gadm_410-levels.gpkg`. `GADM_DIR` is a shell variable used by the commands
+    below, not a backend setting. From the repository root, load
+    `backend/.env` into the current shell and set the GADM path:
+
+    ```bash
+    set -a
+    source backend/.env
+    set +a
+    export GADM_DIR=/absolute/path/to/gadm
     ```
 
 5. **Prepare the Dataset**
@@ -263,12 +279,80 @@ Data preparation uses the harmonization packages and maintained backend scripts:
 - **geoharmonize** (`packages/geoharmonize/`): Validate occurrence coordinates against GADM geography. `geoharmonize integrate` writes the coordinate-validation table read by the backend.
 - **Backend scripts** (`backend/scripts/`): `precompute_similarity.py` computes per-species visual similarity from existing LanceDB embeddings and DuckDB metadata, then stores the results in DuckDB.
 
-Inspect the harmonization CLI options from the repository root:
+Sync all packages first:
+
+```bash
+uv sync --all-packages
+```
+
+Run every command in this section from the repository root. The examples assume
+the absolute path variables from [Environment Configuration](#environment-configuration)
+are exported in the current shell. The required reference inputs are:
+
+- An extracted Catalogue of Life ColDP release at `$COL_DIR`, including
+  `$COL_DIR/NameUsage.tsv`.
+- The GADM 4.1 GeoPackage at `$GADM_DIR/gadm_410-levels.gpkg`.
+
+Inspect the CLI options and the source table before running taxonomy matching:
 
 ```bash
 uv run colharmonize --help
 uv run geoharmonize --help
+
+uv run colharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta --map scientific_name=species \
+  --map family=family --map order=order --map class=class --map kingdom=kingdom
 ```
+
+The backend performs the same taxonomy harmonization during startup, so this
+CLI run is optional for the site. Use it when tuning matching or exporting the
+CSV summary and plot:
+
+```bash
+uv run colharmonize run --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta --map scientific_name=species \
+  --map family=family --map order=order --map class=class --map kingdom=kingdom \
+  --col "$COL_DIR/NameUsage.tsv" --reports-dir reports --csv --plot
+```
+
+Geography has one additional prerequisite. The backend must run once after the
+current `image_meta` and `gbif_meta` tables are loaded so `LocalityService` can
+join them into `main.image_meta_locality`. Start it and wait for either
+`Locality table built` or `Occurrence locality ready` in the log, then stop it
+with Ctrl-C so the offline writer can open DuckDB:
+
+```bash
+./scripts/run_backend.sh
+```
+
+Confirm the derived table and its resolved coordinate fields:
+
+```bash
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --list-columns main.image_meta_locality
+
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality \
+  --map source_id=img_id --map country=country_code --map adm1=state_province
+```
+
+Then validate the coordinates and write the table consumed by the backend:
+
+```bash
+uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality --gadm "$GADM_DIR/gadm_410-levels.gpkg" \
+  --map source_id=img_id --map country=country_code --map adm1=state_province \
+  --into main.image_meta_coordinates --reports-dir reports
+```
+
+Do not substitute `main.image_meta` in that command: it contains `img_id`,
+`lat`, and `lon`, but its `country_code` and `state_province` values live in
+`gbif_meta` until the backend constructs `image_meta_locality`. If
+`main.image_meta_coordinates` already exists, review it and add `--replace` to
+the integration command to rebuild it.
+
+Stop the backend before either CLI accesses the live database. DuckDB permits
+only one writer, and the API keeps the file open read-write while it runs.
 
 To precompute similarity with existing embeddings and metadata:
 
@@ -277,7 +361,8 @@ cd backend
 uv run python scripts/precompute_similarity.py --lance-dir lance_db_lite --duck-dir duck_db
 ```
 
-Stop the backend before running tools against its live DuckDB database. The backend also harmonizes taxonomy at startup, so running `colharmonize` separately is not required to start the site. See [packages/README.md](packages/README.md) and [reports/README.md](reports/README.md) for harmonization workflows and outputs.
+See [packages/README.md](packages/README.md) and [reports/README.md](reports/README.md)
+for the package details and generated artifact contract.
 
 Everything in the root `tools/` directory is outdated and unused. Do not use those scripts for data preparation, embedding generation, or visualization setup.
 
@@ -366,11 +451,13 @@ docker run -d \
   -e IMAGE_DIR=/app/images \
   -e IMAGE_META_DIR=/app/data \
   -e GBIF_DIR=/app/data \
+  -e COL_DIR=/app/data/col \
   -e UMAP_DIR=/app/data \
   --env-file ./backend/.env \
   -v ./backend/duck_db:/app/duck_db:Z \
   -v ./backend/lance_db_lite:/app/lance_db:Z \
   -v ./backend/data:/app/data:Z \
+  -v /absolute/path/to/catalogue-of-life-col-dp:/app/data/col:ro \
   -v ./backend/static:/app/static:Z \
   -v ./public/images:/app/images:Z \
   biocosmos-backend

@@ -35,8 +35,12 @@ documents the manifest contract the backend will consume.
 
 ## Relationship to the backend
 
-The tools do not import the backend, and the backend does not yet import them.
-They communicate through files: each run writes a DuckDB database plus a JSON
-manifest carrying a SHA-256 digest of every artifact it produced, so the backend
-can later compare digests to decide whether re-ingestion is needed. See
-[`reports/README.md`](../reports/README.md).
+The packages do not import the backend. The backend does import
+`colharmonize`, however: it runs the taxonomy matcher in-process at startup and
+writes its application tables directly. Running the `colharmonize` CLI remains
+useful for tuning and report exports, but is not required to start the site.
+
+`geoharmonize` remains an offline workflow. After the backend creates
+`main.image_meta_locality`, stop the backend and run `geoharmonize integrate`
+to write `main.image_meta_coordinates`. See [`reports/README.md`](../reports/README.md)
+for the complete workflow and the CLI artifact contract.

@@ -107,7 +107,17 @@ builds `main.image_meta_locality` — the written locality, joined out of
 `gbif_meta` and keyed on `img_id` — and then reads `main.image_meta_coordinates`
 if it is there. Nothing in the backend ever writes that second table.
 
-It is produced once per data refresh, by hand, with the backend stopped:
+It is produced once per data refresh, by hand. Start the backend first and wait
+for `Locality table built` or `Occurrence locality ready`, then stop it. Confirm
+that the derived input exists and resolves the intended columns:
+
+```bash
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality \
+  --map source_id=img_id --map country=country_code --map adm1=state_province
+```
+
+With the backend stopped, integrate the result:
 
 ```bash
 uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
@@ -121,6 +131,11 @@ country and state the validation compares against, so the backend has to have
 run at least once before this does. Until it has, every coordinate status is
 null and the site shows an em-dash in its place — the join is optional in
 exactly the way the taxonomy one is.
+
+`main.image_meta` is not an equivalent input: it has `img_id`, `lat`, and
+`lon`, but no `country_code` or `state_province`. On a later data refresh, pass
+`--replace` to `integrate` after confirming that the existing
+`main.image_meta_coordinates` table should be rebuilt.
 
 ### The CLI
 
