@@ -1,0 +1,49 @@
+# Podman uses one repository-root context for both application images. Keep the
+# source and manifests copied by either Dockerfile, while excluding local state,
+# generated output, tests, and datasets that must not enter the build context.
+
+# Repository metadata and local configuration
+.git
+.github
+.gitignore
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Frontend dependencies and build output
+node_modules
+.next
+out
+
+# Python environments and caches
+.venv
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+
+# Offline tooling and generated artifacts
+analyses
+reports
+tools
+
+# Backend development data and local state
+backend/data
+backend/duck_db
+backend/lance_db
+backend/lance_db_lite
+backend/static
+backend/tests
+backend/tsne_outputs
+backend/scripts
+
+# Package test suites are not needed to install workspace packages.
+packages/*/tests
+
+# Editor and operating-system artifacts
+.DS_Store
+**/.DS_Store
+.idea
+.vscode
+

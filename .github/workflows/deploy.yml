@@ -62,13 +62,15 @@ jobs:
 
       - name: Build backend image
         run: |
-          podman build -t ${{ steps.img.outputs.backend }}:latest \
+          podman build --ignorefile .containerignore \
+                       -t ${{ steps.img.outputs.backend }}:latest \
                        -t ${{ steps.img.outputs.backend }}:${{ github.sha }} \
-                       -f backend/Dockerfile backend/
+                       -f backend/Dockerfile .
 
       - name: Build frontend image
         run: |
-          podman build -t ${{ steps.img.outputs.frontend }}:latest \
+          podman build --ignorefile .containerignore \
+                       -t ${{ steps.img.outputs.frontend }}:latest \
                        -t ${{ steps.img.outputs.frontend }}:${{ github.sha }} \
                        -f Dockerfile.frontend .
 

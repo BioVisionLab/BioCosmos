@@ -49,7 +49,7 @@ gbif:
 # missing gbif_meta or a failed join leaves search and the metadata panel
 # serving nulls rather than blocking startup.
 locality:
-  skip: false
+  skip: true
   table: "image_meta_locality"
   # Written by `geoharmonize integrate`, never by the backend. Absent until
   # that has been run once with the backend stopped; readers degrade to null.
@@ -79,7 +79,7 @@ col:
   # by a fingerprint in ingestion_state: one stat call (~0ms) when the release
   # is unchanged, ~4s when it changes, and a logged warning when COL_DIR is
   # unset or the release is missing.
-  skip: false
+  skip: true
 leptrait:
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"
