@@ -1,6 +1,6 @@
 # geoharmonize
 
-Validates occurrence coordinates against GADM administrative geography.
+Validates occurrence coordinates against [GADM](https://gadm.org) administrative geography.
 `validate` reads the occurrence DuckDB read-only and never modifies it;
 `integrate` additionally writes the result back as a new table.
 
@@ -19,9 +19,11 @@ directory instead. See [`reports/`](../../reports) for the artifact contract.
 Detects the Darwin Core fields `occurrenceID`, `decimalLatitude`,
 `decimalLongitude`, `countryCode` or `country`, and `stateProvince`. Override
 one with `--map FIELD=COLUMN`; the logical fields are `source_id`, `latitude`,
-`longitude`, `country`, and `adm1`. The GADM input must be an EPSG:4326
+`longitude`, `country`, and `adm1`.
+
+The GADM input must be an EPSG:4326
 GeoPackage with an indexed ADM1 layer containing `GID_0`, `COUNTRY`, `GID_1`,
-and `NAME_1`; use `--gadm-layer` when it cannot be selected automatically.
+and `NAME_1`; use `--gadm-layer` when it cannot be selected automatically. Download the latest GADM 410 release (six separate layers (one for each level of subdivision/aggregation)) from <https://gadm.org/download_country_v4.html>. Extract the `gadm_410-levels.gpkg` file and point to it with `--gadm`.
 
 `--config harmonize.toml` supplies the same settings; CLI values win. `db`,
 `table`, `output`, and `reports_dir` fall back to `[run]` when `[coordinates]`

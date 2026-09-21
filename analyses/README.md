@@ -1,14 +1,15 @@
 # Publication analyses and backend benchmarks
 
-Notebooks in `notebooks/` only load figure-ready summaries, draw figures, and export them.
-`publication.py` holds configuration, read-only queries, aggregation, and reusable plotting.
+Jupyter notebook files in `notebooks/` load summaries, draw figures, and export them. 
+Configuration, queries and aggregation to the database, and matplotlib/sns reusable code is in `publication.py`.
+
 The separate `benchmarks/` workflow tests backend vector-index performance on an isolated copy.
 Neither workflow changes a backend source database.
 
 ## Indexing and backend performance
 
-`benchmarks/image_indexing.ipynb` is independent of publication plotting and DuckDB.
-Its implementation lives in `benchmarks/lance_indexing.py`, with no publication imports.
+`benchmarks/image_indexing.ipynb` is to test the performance of the backend vector-index on an isolated copy of the database.
+Its implementation lives in `benchmarks/lance_indexing.py`.
 
 ```bash
 uv sync --project analyses --extra indexing --locked
@@ -17,19 +18,18 @@ uv run --project analyses --extra indexing jupyter lab analyses/benchmarks/image
 
 The optional indexing dependencies pin LanceDB to `0.39.0`, matching the backend's
 current root lockfile. Keep this pin aligned when upgrading the backend. `LANCE_DIR`
-comes from `backend/.env` (existing environment variables override it); the database
-filename and image table name come from backend YAML. Relative paths resolve from
-`backend/`. No backend startup code, embedding models, or external `pyMimicry` client
-are imported.
+comes from `backend/.env`. The database filename and image table name come 
+from backend YAML config file (`backend/app/configs/config.yaml`). Relative paths resolve from
+`backend/`.
 
 Run setup/configuration cells first to inspect the source and select sample size,
 repetitions, warmup, partitions, PQ subvectors, and optional query controls. Defaults
 test UNICOM and CLIP against exact search, IVF-PQ, IVF-HNSW-SQ, and IVF-HNSW-PQ.
 The same seeded sample across the full table is used for each candidate. Both the
 exact reference and ANN searches explicitly use the backend's cosine metric.
-Subvector counts must divide embedding dimensions; ANN training requires at least
+Subvector counts must divide embedding dimensions. ANN training requires at least
 256 rows and at least as many rows as partitions. Missing/invalid vectors and duplicate
-image IDs are errors, rather than silently changing the benchmark population.
+image IDs raise errors, rather than silently changing the benchmark population.
 
 Running the benchmark streams a pinned source version into a new full-table copy
 under `results/indexing/<timestamp_uuid>/scratch.lance`. Allow disk space for that
