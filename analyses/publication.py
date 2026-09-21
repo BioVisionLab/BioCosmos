@@ -41,7 +41,7 @@ def project_root(start: Path | None = None) -> Path:
 def load_settings(root: Path | None = None) -> Settings:
     root = project_root(root)
     backend = root / "backend"
-    # Using .env of the backend so the database path is 
+    # Using .env of the backend so the database path is
     # consistent with the backend's environment.
     env = {**dotenv_values(backend / ".env"), **os.environ}
     with (backend / "app/configs/config.yaml").open() as handle:
@@ -335,8 +335,52 @@ def taxonomy_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
     return result
 
 
-def publication_style() -> None:
-    sns.set_theme(style="ticks", context="paper", palette="colorblind", font_scale=1.1)
+DEFAULT_PALETTE = "Dark2"
+
+# Prepared status, method, and validation values arrive as upper-case codes and are
+# rewritten for display. Free-text categories, including upper-case institution codes,
+# are left exactly as recorded.
+CODED_CATEGORIES = frozenset(
+    {
+        "MATCHED",
+        "AMBIGUOUS",
+        "UNMATCHED",
+        "UNCLASSIFIED",
+        "EXACT_ACCEPTED",
+        "EXACT_SYNONYM",
+        "EXACT_CANONICAL",
+        "UNIQUE_FAMILY_EPITHET",
+        "SPELLING_GENUS",
+        "SPELLING_EPITHET",
+        "FUZZY_TYPO",
+        "VALID",
+        "NOT_EVALUATED",
+        "MISSING_COORDINATE",
+        "COORDINATE_OUT_OF_RANGE",
+        "ZERO_COORDINATE",
+        "NO_REFERENCE_MATCH",
+        "AMBIGUOUS_REFERENCE",
+        "COUNTRY_MISMATCH",
+        "ADM1_MISMATCH",
+    }
+)
+
+
+def bar_color(palette: str = DEFAULT_PALETTE):
+    return sns.color_palette(palette)[0]
+
+
+def pie_colors(wedges: int, palette: str = DEFAULT_PALETTE) -> list:
+    """Colour wedges by position, so every pie in the manuscript shares one sequence."""
+    return sns.color_palette(palette, n_colors=max(wedges, 1))
+
+
+def display_label(label: str) -> str:
+    return label.replace("_", " ").capitalize() if label in CODED_CATEGORIES else label
+
+
+def publication_style(palette: str = DEFAULT_PALETTE) -> None:
+    sns.set_theme(style="ticks", context="paper", palette=palette, font_scale=1.1)
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
@@ -357,6 +401,7 @@ def bar_plot(
     exclude: tuple[str, ...] = (),
     italic: bool = False,
     proportion: bool = True,
+    palette: str = DEFAULT_PALETTE,
 ):
     """Draw counts/proportions without renormalizing top-ten subsets."""
     selected = frame.loc[~frame["category"].isin(exclude)].sort_values(
@@ -367,51 +412,10 @@ def bar_plot(
     excluded = int(frame.loc[frame["category"].isin(exclude), "count"].sum())
     metric = "percentage" if proportion else "count"
     labels = selected["category"].astype(str).tolist()
-    palette = sns.color_palette("colorblind", n_colors=max(len(frame), 1))
-    color_map = dict(zip(sorted(frame["category"].astype(str)), palette, strict=True))
-    # Stable meanings across the image/taxon panels even if a category is absent.
-    semantic_colors = {
-        "MATCHED": "#009E73",
-        "VALID": "#009E73",
-        "AMBIGUOUS": "#E69F00",
-        "UNMATCHED": "#D55E00",
-        "UNCLASSIFIED": "#777777",
-        "NOT_EVALUATED": "#777777",
-        "Unknown": "#777777",
-        "Unresolved": "#777777",
-        "Unattributed": "#777777",
-        "Conflicting attribution": "#E69F00",
-        "EXACT_ACCEPTED": "#009E73",
-        "EXACT_SYNONYM": "#0072B2",
-        "EXACT_CANONICAL": "#56B4E9",
-        "UNIQUE_FAMILY_EPITHET": "#CC79A7",
-        "SPELLING_GENUS": "#8C564B",
-        "SPELLING_EPITHET": "#332288",
-        "FUZZY_TYPO": "#882255",
-        "MISSING_COORDINATE": "#999999",
-        "COORDINATE_OUT_OF_RANGE": "#D55E00",
-        "ZERO_COORDINATE": "#882255",
-        "NO_REFERENCE_MATCH": "#56B4E9",
-        "AMBIGUOUS_REFERENCE": "#E69F00",
-        "COUNTRY_MISMATCH": "#0072B2",
-        "ADM1_MISMATCH": "#CC79A7",
-        "With coordinate pair": "#009E73",
-        "Missing or unparseable pair": "#999999",
-        "Detailed locality available": "#009E73",
-        "No detailed locality": "#999999",
-        "dorsal": "#0072B2",
-        "ventral": "#E69F00",
-        "lateral": "#CC79A7",
-    }
-    color_map.update(semantic_colors)
-    ax.barh(range(len(selected)), selected[metric], color=[color_map[label] for label in labels])
-    display_labels = [
-        label.replace("_", " ").capitalize()
-        if label in semantic_colors and label.isupper()
-        else label
-        for label in labels
-    ]
-    ax.set_yticks(range(len(selected)), display_labels)
+    # Bars are one category per row, so the axis labels carry the meaning and a
+    # single colour keeps the panel from implying a grouping that is not there.
+    ax.barh(range(len(selected)), selected[metric], color=bar_color(palette))
+    ax.set_yticks(range(len(selected)), [display_label(label) for label in labels])
     ax.invert_yaxis()
     if italic:
         plt.setp(ax.get_yticklabels(), fontstyle="italic")
@@ -428,17 +432,90 @@ def bar_plot(
         ax.text(0.5, 0.5, "No eligible records", transform=ax.transAxes, ha="center")
     maximum = float(selected[metric].max()) if not selected.empty else 1
     ax.set_xlim(0, 100 if proportion else max(maximum * 1.5, 1))
-    population = str(frame["population"].iloc[0])
-    ax.set_xlabel(
-        f"Percentage of all {population} (%)" if proportion else f"Number of {population}"
+    ax.set_xlabel(axis_label(frame, proportion))
+    ax.set_title(panel_title(frame, title, exclude, excluded), loc="left", fontsize=11)
+    sns.despine(ax=ax)
+    return ax
+
+
+def pie_plot(
+    ax,
+    frame: pd.DataFrame,
+    title: str,
+    *,
+    italic: bool = False,
+    palette: str = DEFAULT_PALETTE,
+):
+    """Draw a complete population as proportions of one whole, largest share first."""
+    selected = frame.sort_values(["count", "category"], ascending=[False, True])
+    labels = selected["category"].astype(str).tolist()
+    texts = ax.pie(
+        selected["count"],
+        labels=[
+            f"{display_label(label)}\n{row.count:,} ({row.percentage:.1f}%)"
+            for label, row in zip(labels, selected.itertuples(), strict=True)
+        ],
+        colors=pie_colors(len(labels), palette),
+        startangle=90,
+        counterclock=False,
+        wedgeprops={"edgecolor": "white", "linewidth": 1.5},
+        textprops={"fontsize": 9},
     )
+    if italic:
+        plt.setp(texts, fontstyle="italic")
+    ax.set_aspect("equal")
+    ax.set_title(panel_title(frame, title, (), 0), loc="left", fontsize=11)
+    return ax
+
+
+def category_plot(
+    ax,
+    frame: pd.DataFrame,
+    title: str,
+    *,
+    kind: str = "auto",
+    top: int | None = None,
+    exclude: tuple[str, ...] = (),
+    italic: bool = False,
+    proportion: bool = True,
+    palette: str = DEFAULT_PALETTE,
+):
+    """Draw a summary as a pie when it compares two classes and as bars otherwise.
+
+    Pass kind="pie" for a whole-population panel that is worth reading as shares of one
+    total even though it has more than two classes.
+    """
+    if kind not in {"auto", "bar", "pie"}:
+        raise ValueError("kind must be 'auto', 'bar', or 'pie'.")
+    ranked = bool(top or exclude)
+    if kind == "pie" and ranked:
+        raise ValueError("A pie must show its whole population; drop top and exclude.")
+    if kind == "pie" or (kind == "auto" and not ranked and frame["category"].nunique() == 2):
+        return pie_plot(ax, frame, title, italic=italic, palette=palette)
+    return bar_plot(
+        ax,
+        frame,
+        title,
+        top=top,
+        exclude=exclude,
+        italic=italic,
+        proportion=proportion,
+        palette=palette,
+    )
+
+
+def axis_label(frame: pd.DataFrame, proportion: bool) -> str:
+    population = str(frame["population"].iloc[0])
+    return f"Percentage of all {population} (%)" if proportion else f"Number of {population}"
+
+
+def panel_title(frame: pd.DataFrame, title: str, exclude: tuple[str, ...], excluded: int) -> str:
+    population = str(frame["population"].iloc[0])
     denominator = int(frame["denominator"].iloc[0])
     subtitle = f"N = {denominator:,} {population}"
     if exclude:
         subtitle += f"; unresolved / unattributed excluded: {excluded:,}"
-    ax.set_title(f"{title}\n{subtitle}", loc="left", fontsize=11)
-    sns.despine(ax=ax)
-    return ax
+    return f"{title}\n{subtitle}"
 
 
 def export_figure(figure, settings: Settings, name: str, summaries: dict[str, pd.DataFrame]):

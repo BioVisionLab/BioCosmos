@@ -7,10 +7,13 @@ import duckdb
 import matplotlib.pyplot as plt
 import nbformat
 import pytest
+import seaborn as sns
 from analyses.publication import (
+    DEFAULT_PALETTE,
     AnalysisError,
     bar_plot,
     benchmark_data,
+    category_plot,
     connect,
     dataset_summaries,
     geography_summaries,
@@ -149,6 +152,56 @@ def test_ranking_ties_and_denominator(settings):
     bar_plot(ax, frame, "Institutions", top=2, exclude=("Unattributed", "Conflicting attribution"))
     assert [label.get_text() for label in ax.get_yticklabels()] == ["B", "MUSEUM"]
     assert [bar.get_width() for bar in ax.patches] == [25, 25]
+    plt.close(fig)
+
+
+def test_bars_use_one_palette_color(settings):
+    frame = dataset_summaries(settings)["family"]
+    fig, ax = plt.subplots()
+    category_plot(ax, frame, "Family")
+    expected = sns.color_palette(DEFAULT_PALETTE)[0]
+    assert {bar.get_facecolor()[:3] for bar in ax.patches} == {expected}
+    plt.close(fig)
+
+
+def test_two_class_summaries_become_pies(settings):
+    summaries = geography_summaries(settings)
+    fig, axes = plt.subplots(1, 3)
+    category_plot(axes[0], summaries["coordinate_availability"], "Coordinates")
+    category_plot(axes[1], summaries["coordinate_validation"], "Validation")
+    category_plot(axes[2], summaries["coordinate_availability"], "Coordinates", kind="bar")
+    wedges, bars = [ax.patches for ax in axes[:2]], axes[2].patches
+    assert [len(patches) for patches in wedges] == [2, 5]
+    assert {type(patch).__name__ for patch in wedges[0]} == {"Wedge"}
+    # More than two classes, and an explicit override, stay bars.
+    assert {type(patch).__name__ for patch in wedges[1] + list(bars)} == {"Rectangle"}
+    assert [text.get_text() for text in axes[0].texts] == [
+        "With coordinate pair\n5 (62.5%)",
+        "Missing or unparseable pair\n3 (37.5%)",
+    ]
+    plt.close(fig)
+
+
+def test_pie_refuses_a_ranked_subset(settings):
+    frame = dataset_summaries(settings)["institutions"]
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError, match="whole population"):
+        category_plot(ax, frame, "Institutions", kind="pie", top=2)
+    plt.close(fig)
+
+
+def test_every_pie_shares_one_color_sequence(settings):
+    availability = geography_summaries(settings)["coordinate_availability"]
+    status = taxonomy_summaries(settings)["images_status"]
+    fig, axes = plt.subplots(1, 3)
+    category_plot(axes[0], availability, "Coordinates")
+    category_plot(axes[1], status, "Status", kind="pie")
+    category_plot(axes[2], status, "Status", kind="pie", palette="muted")
+    dark2, muted = sns.color_palette(DEFAULT_PALETTE), sns.color_palette("muted")
+    colors = [[wedge.get_facecolor()[:3] for wedge in ax.patches] for ax in axes]
+    assert colors[0] == dark2[:2]
+    assert colors[1] == dark2[:4]
+    assert colors[2] == muted[:4]
     plt.close(fig)
 
 

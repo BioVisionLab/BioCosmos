@@ -94,9 +94,19 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 | Notebook | Outputs |
 | --- | --- |
 | `data_summary.ipynb` | Family and dorso-ventral proportions; top ten institutions and species |
-| `georeference.ipynb` | Coordinate/locality availability; coordinate-validation category bars |
-| `taxonomy_harmonization.ipynb` | Status and method proportions for images and unique input taxa |
+| `georeference.ipynb` | Coordinate/locality availability pies; coordinate-validation category bars |
+| `taxonomy_harmonization.ipynb` | Match-status pies and match-method bars for images and unique input taxa |
 | `index_perf.ipynb` | Recorded index latency versus recall@10 |
+
+**Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
+qualitative palette set by `publication_style()`. Bars are one colour: each bar is a labelled
+category, so per-bar colour would imply a grouping that is not there. Every pie uses the same
+palette in the same order, largest share first, so the figures read as one set; a category's
+colour therefore follows its rank within its own panel, not a fixed meaning. `category_plot()`
+draws a pie when a summary compares exactly two classes of a complete population and bars
+otherwise; pass `kind="pie"` for a whole-population panel worth reading as shares even with more
+than two classes (match status does this), `kind="bar"` to force bars, and `palette=` for another
+seaborn palette. Pies never take `top`/`exclude`, because a ranked subset is not a whole.
 
 **Counting unit.** Each unique nonblank `img_id` counts once. Repeated specimen UUIDs are
 expected: dorsal and ventral images remain separate. Prepared per-image joins must be
