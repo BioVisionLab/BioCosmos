@@ -5,6 +5,8 @@ node_modules
 .env
 .env.*
 backend
+packages
+reports
 tools
 *.md
 LICENSE

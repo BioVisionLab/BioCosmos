@@ -1,0 +1,49 @@
+[project]
+name = "biocosmos-analyses"
+version = "0.1.0"
+description = "Publication figures and isolated backend performance benchmarks for BioCosmos"
+requires-python = ">=3.12"
+dependencies = [
+  "duckdb>=1.3.1",
+  "harmonize-core",
+  "matplotlib>=3.8",
+  "pandas>=2.2",
+  "python-dotenv>=1.0",
+  "pyyaml>=6",
+  "seaborn>=0.13",
+  "nbformat>=5.10",
+  "nbclient>=0.10",
+  "ipykernel>=6",
+  "jupyterlab>=4",
+]
+
+[project.optional-dependencies]
+indexing = [
+    "lancedb==0.39.0",
+    "numpy>=2",
+    "pyarrow>=18",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.12"]
+
+[tool.uv]
+package = false
+
+# Standalone project: its environment and lockfile stay inside analyses/.
+[tool.uv.workspace]
+members = []
+
+[tool.uv.sources]
+harmonize-core = { path = "../packages/harmonize-core" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]

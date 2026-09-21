@@ -66,3 +66,11 @@ biocosmos.lance
 # backend data files (parquet, tsv, csv)
 backend/data/
 backend/scripts/embedding/
+
+# harmonize run artifacts (see reports/README.md)
+reports/*
+!reports/.gitkeep
+!reports/README.md
+
+# manuscript directory
+results/

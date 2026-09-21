@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 from typing import Optional, Annotated, List
 from pydantic import BaseModel, ConfigDict, Field
@@ -74,6 +75,7 @@ LEPTRAIT_MAPPING = {
 UnicomVector = Annotated[List[float], Vector(unicom.get_unicom_ndims())]
 ClipVector = Annotated[List[float], Vector(clip.get_clip_ndims())]
 
+
 class LanceSchema(LanceModel):
     """Schema for images with CLIP/UNICOM embeddings and file path reference.
 
@@ -84,9 +86,7 @@ class LanceSchema(LanceModel):
         unicom_embeddings: UNICOM embedding vector.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     img_path: str
@@ -117,11 +117,7 @@ class ImageMetadata(BaseModel):
         }
 
     def from_dict(cls, data: dict):
-        return cls(
-            path=os.path.join(
-                data["species_folder"], data["image_filename"]
-            )
-        )
+        return cls(path=os.path.join(data["species_folder"], data["image_filename"]))
 
     def __repr__(self):
         return f"ImageMetadata(species_folder={self.species_folder}, image_filename={self.image_filename})"
@@ -135,47 +131,191 @@ class ImageData(BaseModel):
         return f"ImageData(unique_id={self.metadata.unique_id}, embedding={self.embedding}, metadata={self.metadata})"
 
 
-class SpeciesTaxonomy(BaseModel):
-    key: int | None = Field(None, alias="key")
-    kingdom: str = Field("", alias="kingdom")
-    phylum: str = Field("", alias="phylum")
-    taxonClass: str = Field("", alias="taxonClass")
-    order: str = Field("", alias="order")
-    family: str = Field("", alias="family")
-    genus: str = Field("", alias="genus")
-    species: str = Field("", alias="species")
-    authorship: str = Field("", alias="authorship")
-    vernacularName: str = Field("", alias="vernacularName")
-    redlistCategory: str = Field("Unknown", alias="redlistCategory")
-    taxonomicStatus: str = Field("Accepted", alias="taxonomicStatus")
+# Ranks rendered by the classification panel, coarsest first.
+COL_RANK_ORDER = (
+    "kingdom",
+    "phylum",
+    "subphylum",
+    "class",
+    "subclass",
+    "order",
+    "suborder",
+    "superfamily",
+    "family",
+    "subfamily",
+    "tribe",
+    "subtribe",
+    "genus",
+    "subgenus",
+    "species",
+)
+
+
+_SUBGENUS_PARENTHETICAL = re.compile(r"\(([^)]*)\)")
+
+
+def subgenus_name(value: str) -> str:
+    """Reduce ``Genus (Subgenus)`` to the subgenus alone.
+
+    CoL writes zoological subgenus usages with the genus in front and the
+    subgenus in parentheses. Only the parenthesised part names the subgenus,
+    and the genus already has its own row in the classification panel.
+    """
+
+    match = _SUBGENUS_PARENTHETICAL.search(value)
+    return match.group(1).strip() if match else value
+
+
+# The private spelling every existing caller uses. Kept so promoting this to
+# the public API of the module did not have to touch them.
+_subgenus_name = subgenus_name
+
+
+def binomial_name(value: str) -> str:
+    """Drop a parenthesised subgenus from a species name.
+
+    Catalogue of Life writes zoological species usages with the subgenus
+    between the genus and the epithet — `Danaus (Danaus) plexippus`. The
+    subgenus has a row of its own in the classification, so repeating it
+    inside the name only makes the name harder to read and harder to line up
+    against the binomial every other part of the application keys on.
+
+    A subspecies keeps its third epithet; only the parenthetical goes.
+    """
+
+    return " ".join(_SUBGENUS_PARENTHETICAL.sub(" ", value).split())
+
+
+class ColTaxonomy(BaseModel):
+    """A Catalogue of Life classification for one taxon.
+
+    Replaces the GBIF-shaped SpeciesTaxonomy. Two differences matter:
+
+    * CoL supplies the intermediate ranks GBIF never did (subphylum, subclass,
+      suborder, superfamily, subfamily, tribe, subtribe, subgenus). They are
+      optional because CoL populates them unevenly across groups.
+    * There is no conservation status. CoL does not publish IUCN categories.
+
+    When the queried name is a synonym, ``inputName`` keeps what was asked for
+    and the remaining fields describe the accepted taxon it resolves to.
+    """
+
+    colId: str | None = None
+    scientificName: str = ""
+    inputName: str | None = None
+    acceptedName: str | None = None
+    acceptedRank: str | None = None
+    authorship: str = ""
+    taxonomicStatus: str = ""
+    vernacularName: str = ""
+
+    kingdom: str = ""
+    phylum: str = ""
+    subphylum: str | None = None
+    # `class` is a Python keyword, so the field is declared under an alias and
+    # must be dumped `by_alias=True` to reach the frontend as `class`.
+    taxonClass: str = Field("", alias="class")
+    subclass: str | None = None
+    order: str = ""
+    suborder: str | None = None
+    superfamily: str | None = None
+    family: str = ""
+    subfamily: str | None = None
+    tribe: str | None = None
+    subtribe: str | None = None
+    genus: str = ""
+    subgenus: str | None = None
+    species: str = ""
+
+    extinct: bool | None = None
+    environment: str | None = None
+    colLink: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
-    def from_json(cls, data: dict, redlistCategory: str = "Unknown"):
-        taxonomic_status: str = data.get(
-            "taxonomicStatus", ""
-        ).capitalize()
+    def from_row(cls, row: dict, *, input_name: str | None = None) -> "ColTaxonomy":
+        """Build a payload from a col_taxonomy row joined to col_vernacular."""
+
+        # Empty strings read better than nulls for the always-shown ranks;
+        # the optional intermediate ranks stay None so the UI can omit the row.
+        def text(key: str) -> str:
+            value = row.get(key)
+            return "" if value is None else str(value).strip()
+
+        def optional(key: str) -> str | None:
+            value = text(key)
+            return value or None
+
+        rank = text("taxon_rank")
+        scientific_name = text("scientific_name")
+        # CoL genus usages have no epithet, so `species` is only meaningful at
+        # species rank or below. The subgenus is stripped here rather than in
+        # each view: this field is a name to show a reader, and the subgenus
+        # already has its own row below.
+        at_species_rank = rank in ("species", "subspecies")
+        species = binomial_name(scientific_name) if at_species_rank else ""
+        # The name a reader sees for the taxon itself. Cleaned at species rank
+        # for the same reason as `species`; left alone above it, where a
+        # parenthetical is the subgenus usage's own name rather than noise
+        # inside somebody else's.
+        display_name = (
+            binomial_name(scientific_name) if at_species_rank else scientific_name
+        )
+
+        # CoL's denormalized lineage excludes the usage's own rank: a genus row
+        # carries family and above but leaves `genus` empty. Backfill it so a
+        # genus or family lookup names itself.
+        self_ranks = {rank: scientific_name} if rank in COL_RANK_ORDER else {}
+
+        def ranked(key: str) -> str:
+            return text(key) or self_ranks.get(key, "")
+
+        def ranked_optional(key: str) -> str | None:
+            return ranked(key) or None
 
         return cls(
-            key=data.get("key", None),
-            kingdom=data.get("kingdom", ""),
-            phylum=data.get("phylum", ""),
-            taxonClass=data.get("taxonClass", ""),
-            order=data.get("order", ""),
-            family=data.get("family", ""),
-            genus=data.get("genus", ""),
-            species=data.get("species", ""),
-            authorship=data.get("authorship", ""),
-            vernacularName=data.get("vernacularName", ""),
-            redlistCategory=redlistCategory,
-            taxonomicStatus=taxonomic_status,
+            colId=optional("usage_id"),
+            scientificName=scientific_name,
+            inputName=input_name,
+            acceptedName=display_name,
+            acceptedRank=optional("taxon_rank"),
+            authorship=text("authorship"),
+            taxonomicStatus=text("status"),
+            vernacularName=text("vernacular_name"),
+            kingdom=ranked("kingdom"),
+            phylum=ranked("phylum"),
+            subphylum=ranked_optional("subphylum"),
+            taxonClass=ranked("class"),
+            subclass=ranked_optional("subclass"),
+            order=ranked("order"),
+            suborder=ranked_optional("suborder"),
+            superfamily=ranked_optional("superfamily"),
+            family=ranked("family"),
+            subfamily=ranked_optional("subfamily"),
+            tribe=ranked_optional("tribe"),
+            subtribe=ranked_optional("subtribe"),
+            genus=ranked("genus"),
+            subgenus=_subgenus_name(ranked("subgenus")) or None,
+            species=species,
+            extinct=cls._to_bool(row.get("extinct")),
+            environment=optional("environment"),
+            colLink=optional("col_link"),
         )
+
+    @staticmethod
+    def _to_bool(value: object) -> bool | None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in ("true", "1", "yes")
 
     def __repr__(self):
         return (
-            f"SpeciesTaxonomy(kingdom={self.kingdom}, phylum={self.phylum}, "
-            f"class_={self.class_}, order={self.order}, family={self.family}, "
-            f"genus={self.genus}, species={self.species}, scientificName={self.scientificName}, "
-            f"vernacularName={self.vernacularName}, redlistCategory={self.redlistCategory})"
+            f"ColTaxonomy(colId={self.colId}, scientificName={self.scientificName}, "
+            f"rank={self.acceptedRank}, family={self.family}, "
+            f"status={self.taxonomicStatus})"
         )
 
 
@@ -237,9 +377,7 @@ class LepTraitData(BaseModel):
         for k_csv, k_model in LEPTRAIT_MAPPING.items():
             val = row.get(k_csv)
             # Convert types if needed
-            if k_model.startswith("wingspan") or k_model.startswith(
-                "forewing"
-            ):
+            if k_model.startswith("wingspan") or k_model.startswith("forewing"):
                 kwargs[k_model] = cls._to_float(val)
             elif k_model.endswith("_presence") or k_model in [
                 "flight_duration",
@@ -248,15 +386,11 @@ class LepTraitData(BaseModel):
             ]:
                 kwargs[k_model] = cls._to_int(val)
             else:
-                kwargs[k_model] = (
-                    val if val not in ["NA", "null", ""] else None
-                )
+                kwargs[k_model] = val if val not in ["NA", "null", ""] else None
         # Decode presence values
         for month in MONTHS:
             presence_key = f"{month}_adult_presence"
-            kwargs[presence_key] = cls._to_present_absent(
-                kwargs.get(presence_key)
-            )
+            kwargs[presence_key] = cls._to_present_absent(kwargs.get(presence_key))
         return cls(**kwargs)
 
     def summarize(self):
@@ -311,9 +445,7 @@ class LepTraitData(BaseModel):
 
 
 class UmapEmbedding(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     umap_x: float
@@ -328,9 +460,7 @@ class UmapEmbedding(BaseModel):
 
 
 class UmapData(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     species: str
     cluster_counts: int
@@ -345,9 +475,7 @@ class ImageMetadata(BaseModel):
     Metadata for an image file.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     species: str

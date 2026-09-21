@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   PieChart,
   Pie,
@@ -38,6 +38,37 @@ const EMBEDDING_COLORS: Record<string, string> = {
 
 const AXIS_TICK_FILL = "#8b7474";
 const GRID_STROKE = "#d1c7c7";
+
+/**
+ * A chart keeps a floor width and scrolls sideways below it.
+ *
+ * Recharts sizes its SVG to the container but never clips it, so on a narrow
+ * card the pie's outside labels and the bar chart's species names were drawn
+ * past the card edge and cut off by the page. Giving each chart a minimum
+ * width it is actually legible at — and letting the reader pan to the rest —
+ * keeps every label intact at any screen size.
+ */
+function ChartScroll({
+  minWidth,
+  children,
+}: {
+  /** Narrowest width the chart still reads at, in pixels. */
+  minWidth: number;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="-mx-2 overflow-x-auto overscroll-x-contain px-2 pb-2"
+      // A scroll container is only reachable by keyboard if it can take
+      // focus, and it needs a name once it can.
+      tabIndex={0}
+      role="group"
+      aria-label="Chart, scrollable horizontally"
+    >
+      <div style={{ minWidth }}>{children}</div>
+    </div>
+  );
+}
 
 interface PayloadItem {
   name?: string;
@@ -100,23 +131,50 @@ function FamilyPieChart({
       .sort((a, b) => b.value - a.value);
   }, [entriesByFamily]);
 
-  const renderLabel = (props: { name?: string | number }) =>
-    String(props.name ?? "");
+  // Families under this share sit within a degree or two of each other, so
+  // their outside labels landed on top of one another. The legend below and
+  // the tooltip still name every slice.
+  const LABEL_MIN_SHARE = 0.02;
+
+  const renderLabel = (props: { name?: string | number; percent?: number }) =>
+    (props.percent ?? 0) >= LABEL_MIN_SHARE ? String(props.name ?? "") : "";
+
+  const renderLabelLine = (props: {
+    points?: { x: number; y: number }[];
+    percent?: number;
+  }) => {
+    const points = props.points ?? [];
+    if ((props.percent ?? 0) < LABEL_MIN_SHARE || points.length < 2) {
+      return <g />;
+    }
+    return (
+      <polyline
+        points={points.map((point) => `${point.x},${point.y}`).join(" ")}
+        stroke="#8b7474"
+        strokeWidth={1}
+        fill="none"
+      />
+    );
+  };
 
   return (
-    <ResponsiveContainer width="100%" height={420}>
-      <PieChart>
+    // 480px is where the widest family name still fits beside the ring; the
+    // radii are proportional so the ring shrinks with the card instead of
+    // pushing its own labels off the edge.
+    <ChartScroll minWidth={480}>
+      <ResponsiveContainer width="100%" height={440}>
+      <PieChart margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
         <Pie
           data={data}
           dataKey="value"
           nameKey="name"
           cx="50%"
           cy="50%"
-          outerRadius={140}
-          innerRadius={60}
+          outerRadius="68%"
+          innerRadius="32%"
           paddingAngle={2}
           label={renderLabel}
-          labelLine={{ stroke: "#8b7474", strokeWidth: 1 }}
+          labelLine={renderLabelLine}
           animationDuration={800}
           animationEasing="ease-out"
           stroke="none"
@@ -134,7 +192,8 @@ function FamilyPieChart({
           )}
         />
       </PieChart>
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </ChartScroll>
   );
 }
 
@@ -156,7 +215,10 @@ function TopSpeciesBarChart({
   }, [topTenSpecies]);
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(400, data.length * 44)}>
+    // The name gutter plus a bar long enough to compare: below this the
+    // species names were the first thing the card clipped.
+    <ChartScroll minWidth={520}>
+      <ResponsiveContainer width="100%" height={Math.max(400, data.length * 44)}>
       <BarChart
         data={data}
         layout="vertical"
@@ -212,7 +274,8 @@ function TopSpeciesBarChart({
           }}
         />
       </BarChart>
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </ChartScroll>
   );
 }
 
@@ -444,6 +507,7 @@ function EmbeddingBoxPlot() {
 
   return (
     <>
+      <ChartScroll minWidth={460}>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart
           data={data}
@@ -494,6 +558,7 @@ function EmbeddingBoxPlot() {
           />
         </BarChart>
       </ResponsiveContainer>
+      </ChartScroll>
       <p className="mt-2 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
         Box spans the interquartile range with the median marked; whiskers reach
         1.5&times;IQR. Hover for the full five-number summary, including the
@@ -510,11 +575,16 @@ export default function CollectionCharts({
   entriesByFamily: Record<string, number> | null;
   topTenSpecies: Record<string, number> | null;
 }) {
+  // min-w-0: a grid item defaults to the width of its content, so without
+  // this the charts would widen their own column instead of scrolling.
   const cardClasses =
-    "rounded-xl p-6 bg-deep-mocha-50/80 dark:bg-deep-mocha-800/80 border border-deep-mocha-200 dark:border-deep-mocha-700 backdrop-blur-sm";
+    "min-w-0 rounded-xl p-4 sm:p-6 bg-deep-mocha-50/80 dark:bg-deep-mocha-800/80 border border-deep-mocha-200 dark:border-deep-mocha-700 backdrop-blur-sm";
 
+  // Side by side only from xl: at lg the two columns were narrower than the
+  // charts' own minimum, so both of them scrolled on a desktop screen with
+  // room to spare.
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
       {entriesByFamily && Object.keys(entriesByFamily).length > 0 && (
         <div className={cardClasses}>
           <h3 className="text-xl font-semibold mb-4 text-deep-mocha-900 dark:text-white">
@@ -533,7 +603,7 @@ export default function CollectionCharts({
         </div>
       )}
 
-      <div className={`${cardClasses} lg:col-span-2`}>
+      <div className={`${cardClasses} xl:col-span-2`}>
         <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
           Embedding Value Distribution
         </h3>

@@ -1,0 +1,5 @@
+col:taxonID	col:sourceID	col:name	col:transliteration	col:language	col:preferred	col:country	col:area	col:sex	col:referenceID	col:remarks	col:modified	col:modifiedBy	clb:merged
+AAA1		Small heath		eng	true								
+AAA1		Kleines Wiesenvoegelchen		deu	true								
+AAA3		Large heath		eng	false								
+BEE1		Golden ground beetle		eng	true								

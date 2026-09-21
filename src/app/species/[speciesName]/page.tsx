@@ -4,11 +4,13 @@ import {
   parseSpeciesSlug,
   SpeciesData,
 } from "@/lib/speciesData"; // Import the function and the type
-import Link from "next/link";
 import TabsComponent from "./components/PageTabs";
+import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
+import { familyHref, genusHref } from "@/lib/taxonSlug";
 import SpeciesHeader from "./components/SpeciesTitle";
 import { use, useEffect, useMemo, useState } from "react";
 import { NoData } from "@/components/NoData";
+import { cleanSpeciesName, isSpeciesName } from "@/lib/names";
 
 export default function SpeciesPage({
   params,
@@ -38,6 +40,11 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
   );
 
   useEffect(() => {
+    // Nothing to look up for a slug that does not name a species. No state is
+    // touched on the way out: the guard below returns before `loading` is
+    // ever consulted, and setting it here would only add a render.
+    if (!isSpeciesName(speciesName)) return;
+
     let mounted = true;
 
     const fetchSpeciesData = async () => {
@@ -73,6 +80,19 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
     };
   }, [speciesName]);
 
+  // A species page is a page about a species. A slug that names only a genus,
+  // or is otherwise not a binomial, has no images to show and no
+  // classification to resolve — it used to render a header reading
+  // "Unknown sp." over an empty shell. Say so instead; the effect above
+  // skips the backend entirely for these.
+  if (!isSpeciesName(speciesName)) {
+    return (
+      <NoData
+        text={`"${cleanSpeciesName(speciesName)}" is not a species name. Species pages need a genus and a specific epithet.`}
+      />
+    );
+  }
+
   if (error) {
     return <p>{error}</p>;
   }
@@ -81,34 +101,26 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
     return <NoData text="No species data available." />;
   }
 
-  const family = speciesData?.taxonomy.family;
+  const family = speciesData?.taxonomy?.family;
+
+  // The family crumb only appears once taxonomy has resolved; genus and
+  // species come straight from the slug, so the trail paints immediately.
+  const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
+  if (family) crumbs.push({ label: family, href: familyHref(family) });
+  crumbs.push({ label: genus, href: genusHref(genus), italic: true });
+  crumbs.push({
+    label: speciesData?.taxonomy?.species ?? formattedName,
+    italic: true,
+  });
 
   return (
     <section>
-      <nav className="text-sm mb-1 text-deep-mocha-600 dark:text-deep-mocha-400 flex items-center gap-2 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur py-1 px-2 w-fit rounded-full">
-        {/* The family link only appears once taxonomy has resolved; genus and
-            species come straight from the slug. */}
-        {family ? (
-          <>
-            <Link href={`/family/${family}`} className="hover:underline">
-              {family}
-            </Link>
-            <span>&gt;</span>
-          </>
-        ) : null}
-        <Link href={`/genus/${genus}`} className="hover:underline italic">
-          {genus}
-        </Link>
-        <span>&gt;</span>
-        <span className="italic text-deep-mocha-800 dark:text-deep-mocha-200">
-          {speciesData?.taxonomy.species ?? formattedName}
-        </span>
-      </nav>
+      <TaxonBreadcrumb items={crumbs} />
 
       <div>
         <SpeciesHeader
           taxonomy={speciesData?.taxonomy ?? null}
-          name={speciesData?.taxonomy.species ?? formattedName}
+          name={speciesData?.taxonomy?.species ?? formattedName}
         />
 
         <div className="mt-8">

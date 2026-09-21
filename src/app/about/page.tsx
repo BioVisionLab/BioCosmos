@@ -14,7 +14,7 @@ const coreTeam = [
     role: "Lead Developer",
     affiliation: "Florida Museum of Natural History, University of Florida",
     description:
-      "Main developer of the BioCosmos platform, including core software infrastructure, data integration, search systems, deployment workflows, and user-facing tools for AI-powered biodiversity discovery.",
+      "Main developer of the BioCosmos platform, including core software infrastructure, model and data integration, search systems, deployment workflows, and user-facing tools for AI-powered biodiversity discovery.",
   },
   {
     name: "Jose Fortes",
@@ -49,11 +49,11 @@ const coreTeam = [
     role: "Machine Learning Researcher",
     affiliation: "BioCosmos / BioVision Lab",
     description:
-      "Contributes to machine-learning development and evaluation for fine-grained biological retrieval in BioCosmos.",
+      "Developed the VLM research framework with a focus on encoding biological priors into fine-tuning objectives for fine-grained retrieval.",
   },
   {
-    name: "Kira Nitchtawitz",
-    role: "Undergraduate Researcher",
+    name: "Kira Nichtawitz",
+    role: "Undergraduate Researcher / Intern",
     affiliation: "Florida Museum of Natural History, University of Florida",
     description:
       "Contributes to the design of the web layout, data integration, and visualization.",
@@ -90,11 +90,8 @@ const haagCollaborators = [
 
 export default function AboutPage() {
   return (
-    <main className="max-w-4xl mx-auto px-6 py-12">
-      <Link
-        href="/"
-        className="text-pacific-blue-600 hover:underline text-sm"
-      >
+    <main className="max-w-7xl mx-auto p-8">
+      <Link href="/" className="text-pacific-blue-600 hover:underline text-sm">
         &larr; Back to Home
       </Link>
 
@@ -103,8 +100,8 @@ export default function AboutPage() {
       <p className="text-lg text-deep-mocha-700 dark:text-deep-mocha-300 mb-8">
         LepiVerse is the Lepidoptera-focused interface powered by{" "}
         <span className="font-semibold">BioCosmos</span>, an AI engine for
-        exploring biodiversity through images, traits, taxonomy, geography,
-        and natural-language search.
+        exploring biodiversity through images, traits, taxonomy, geography, and
+        natural-language search.
       </p>
 
       {/* Introduction */}
@@ -126,9 +123,8 @@ export default function AboutPage() {
           biological retrieval, and interactive exploration of biodiversity.
           LepiVerse is the interface that brings these capabilities to the
           Lepidoptera community, with BioCosmos as the engine behind it. From
-          this foundation,
-          BioCosmos aims to support broader discovery across organismal groups
-          and natural history collections.
+          this foundation, BioCosmos aims to support broader discovery across
+          organismal groups and natural history collections.
         </p>
       </section>
 
@@ -147,9 +143,7 @@ export default function AboutPage() {
         </p>
         <ul className="list-disc list-inside space-y-1 text-deep-mocha-700 dark:text-deep-mocha-300 ml-2">
           <li>Which species look visually similar to this specimen?</li>
-          <li>
-            What butterflies are blue and occur in the United States?
-          </li>
+          <li>What butterflies are blue and occur in the United States?</li>
           <li>
             Which specimens match a particular visual pattern, trait, or
             ecological context?
@@ -226,10 +220,10 @@ export default function AboutPage() {
         <p className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
           BioCosmos benefited from early prototyping support from researchers in
           Georgia Tech&apos;s Human-Augmented Analytics Group (HAAG). HAAG
-          researchers were primarily involved in the initial prototyping phase of
-          the project, helping shape early work on data ingestion, frontend and
-          backend infrastructure, vector search, deployment, model evaluation,
-          and LLM-assisted query control.
+          researchers were primarily involved in the initial prototyping phase
+          of the project, helping shape early work on data ingestion, frontend
+          and backend infrastructure, vector search, deployment, model
+          evaluation, and LLM-assisted query control.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           {haagCollaborators.map((person) => (
@@ -307,14 +301,14 @@ export default function AboutPage() {
             discovery. The platform integrates public biodiversity data, museum
             specimen information, and biological images where available. Because
             AI models can reflect biases in training data, sampling, taxonomy,
-            geography, and image availability, BioCosmos should be used as a tool
-            for exploration and hypothesis generation rather than as a substitute
-            for expert verification.
+            geography, and image availability, BioCosmos should be used as a
+            tool for exploration and hypothesis generation rather than as a
+            substitute for expert verification.
           </p>
           <p>
             We welcome feedback from biodiversity researchers, collection
-            managers, students, educators, and developers interested in improving
-            AI tools for natural history collections.
+            managers, students, educators, and developers interested in
+            improving AI tools for natural history collections.
           </p>
         </div>
       </section>

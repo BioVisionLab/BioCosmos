@@ -1,0 +1,42 @@
+# Configuration for `colharmonize`. Required values may be supplied here or on
+# the command line; CLI values take precedence.
+#
+# This file may also hold the `[coordinates]` and `[coordinate_columns]` tables
+# read by `geoharmonize`; tables belonging to the other tool are ignored here.
+
+[run]
+# db = "/path/to/occurrences.duckdb"
+# table = "main.occurrence"
+# col = "/path/to/col-release.zip"
+# Write artifacts to an explicit directory ...
+# output = "/path/to/results"
+# ... or let them land in reports/taxonomy/<run_id>/
+reports_dir = "reports"
+# cache_dir = "/path/to/cache"
+csv = false
+plot = false
+plot_palette = "Dark2"
+force = false
+# write_back_table = "main.taxonomy_lookup"
+
+# Set scientific_name explicitly when both scientificName and species exist.
+[columns]
+# scientific_name = "species"
+# genus = "genus"
+# specific_epithet = "specificEpithet"
+# infraspecific_epithet = "infraspecificEpithet"
+# family = "family"
+# order = "order"
+# class = "class"
+# kingdom = "kingdom"
+# taxon_rank = "taxonRank"
+# authorship = "scientificNameAuthorship"
+
+[matching]
+top_k = 5
+short_epithet_length = 5
+short_epithet_distance = 1
+long_epithet_distance = 2
+genus_distance = 2
+min_genus_similarity = 0.90
+min_score_margin = 25

@@ -1,0 +1,618 @@
+"""Tests for the family and genus page data.
+
+These run against a real in-memory DuckDB with the miniature Catalogue of Life
+release actually ingested, because the behaviour under test *is* the SQL:
+which images count towards a taxon, which genus a renamed species lands in,
+and which usage wins when two families share a genus name. A fake client
+returning empty frames would assert nothing about any of that.
+
+`build_tree` is the exception — it is a pure function over member rows and is
+tested with no database at all.
+"""
+
+import os
+
+import polars as pl
+import pytest
+
+from app.query.higher_taxa import UNPLACED_KEY, build_tree
+from app.services.col import ColBackboneService
+from app.services.higher_taxa import HigherTaxonRepository
+
+# Only the columns the higher-taxon queries actually read. `species` is stored
+# lowercase and underscored, as the real collection stores it.
+IMAGES = [
+    ("i0", "coenonympha_pamphilus", "ventral"),
+    ("i1", "coenonympha_pamphilus", "dorsal"),
+    ("i2", "coenonympha_pamphilus", "ventral"),
+    ("i3", "aphantopus_hyperantus", "dorsal"),
+    ("i4", "aphantopus_hyperantus", "ventral"),
+    ("i5", "zzzonympha_pamphilus", "dorsal"),
+    # Recorded under a name Catalogue of Life has since moved.
+    ("i6", "oldgenus_renamed", "dorsal"),
+    # Never resolved by the harmonization run.
+    ("i7", "unresolvable_name", "dorsal"),
+    # Identified only to genus: an image of a specimen, but not of a species.
+    ("i8", "coenonympha", "dorsal"),
+    # A genus the backbone knows nothing about.
+    ("i9", "nosuchgenus_ghost", "dorsal"),
+    # A subspecies of a species the collection also holds: one species to a
+    # reader, and one tile.
+    ("i10", "coenonympha_pamphilus_lyllus", "dorsal"),
+]
+
+# img_id -> (update_status, accepted_name, accepted_family)
+TAXONOMY = {
+    "i0": ("MATCHED", "Coenonympha pamphilus", "Nymphalidae"),
+    "i1": ("MATCHED", "Coenonympha pamphilus", "Nymphalidae"),
+    "i2": ("MATCHED", "Coenonympha pamphilus", "Nymphalidae"),
+    "i3": ("MATCHED", "Aphantopus hyperantus", "Nymphalidae"),
+    "i4": ("MATCHED", "Aphantopus hyperantus", "Nymphalidae"),
+    "i5": ("MATCHED", "Zzzonympha pamphilus", "Nymphalidae"),
+    "i6": ("MATCHED", "Coenonympha tullia", "Nymphalidae"),
+    "i7": ("UNMATCHED", None, None),
+    "i8": ("MATCHED", "Coenonympha", "Nymphalidae"),
+    "i9": ("MATCHED", "Nosuchgenus ghost", "Nymphalidae"),
+    "i10": ("MATCHED", "Coenonympha pamphilus", "Nymphalidae"),
+}
+
+
+def _install_collection(client) -> None:
+    images = pl.DataFrame(
+        [
+            {
+                "img_id": img_id,
+                "species": species,
+                "family": "nymphalidae",
+                "class_dv": class_dv,
+            }
+            for img_id, species, class_dv in IMAGES
+        ]
+    )
+    taxonomy = pl.DataFrame(
+        [
+            {
+                "img_id": img_id,
+                "update_status": status,
+                "accepted_name": accepted,
+                # colharmonize leaves this empty for a match that only
+                # reached genus rank, which is what makes such a record an
+                # image without a species.
+                "accepted_species_name": (
+                    accepted if accepted and " " in accepted else None
+                ),
+                "display_accepted_name": accepted,
+                "accepted_family": family,
+            }
+            for img_id, (status, accepted, family) in TAXONOMY.items()
+        ]
+    )
+    client.register("seed_images", images)
+    client.execute("CREATE TABLE image_meta AS SELECT * FROM seed_images")
+    client.register("seed_taxonomy", taxonomy)
+    client.execute("CREATE TABLE image_meta_taxonomy AS SELECT * FROM seed_taxonomy")
+
+
+@pytest.fixture
+def repository(memory_duckdb, col_fixture_dir):
+    """A repository over an ingested backbone and a small collection."""
+    backbone = ColBackboneService.__new__(ColBackboneService)
+    backbone.db_client = memory_duckdb
+    backbone.path = os.path.join(col_fixture_dir, "NameUsage.tsv")
+    backbone.vernacular_path = os.path.join(col_fixture_dir, "VernacularName.tsv")
+    backbone.table = "col_taxonomy"
+    backbone.vernacular_table = "col_vernacular"
+    backbone.clade_rank = "order"
+    backbone.clade_value = "Lepidoptera"
+    backbone.skip_ingestion = False
+    backbone._ingest_name_usage()
+    backbone._ingest_vernacular_names()
+
+    _install_collection(memory_duckdb)
+    return _repository(memory_duckdb)
+
+
+@pytest.fixture
+def repository_without_backbone(memory_duckdb):
+    """The same collection with no Catalogue of Life ingested."""
+    _install_collection(memory_duckdb)
+    return _repository(memory_duckdb)
+
+
+def _repository(client) -> HigherTaxonRepository:
+    repository = HigherTaxonRepository.__new__(HigherTaxonRepository)
+    repository.db_client = client
+    repository.image_meta_table = "image_meta"
+    repository.col_table = "col_taxonomy"
+    repository.status_table = "image_meta_taxonomy"
+    repository._col_present = None
+    repository._status_present = None
+    return repository
+
+
+def by_key(rows: list[dict], field: str) -> dict:
+    return {row[field]: row for row in rows}
+
+
+class TestFamilyMembers:
+    def test_rolls_images_up_to_the_accepted_genus(self, repository):
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert set(genera) == {
+            "coenonympha",
+            "aphantopus",
+            "zzzonympha",
+            "nosuchgenus",
+        }
+
+    def test_a_renamed_species_counts_under_its_new_genus(self, repository):
+        """`oldgenus_renamed` resolves to Coenonympha tullia, so it belongs there.
+
+        Membership follows the accepted name, which is the whole point of
+        harmonizing: a species Catalogue of Life moved appears where Catalogue
+        of Life now puts it, not where the label happened to say.
+        """
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert genera["coenonympha"]["species_count"] == 2
+        assert "oldgenus" not in genera
+
+    def test_unmatched_images_are_excluded(self, repository):
+        """Strict membership: an image the run could not resolve counts nowhere."""
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert "unresolvable" not in genera
+        total = sum(row["image_count"] for row in genera.values())
+        # Every image but the one the run could not resolve.
+        assert total == len(IMAGES) - 1
+
+    def test_a_genus_only_record_counts_as_an_image_not_a_species(self, repository):
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        # Three pamphilus images, one of its subspecies, one renamed, one
+        # identified only to genus.
+        assert genera["coenonympha"]["image_count"] == 6
+        # Two species among them: the subspecies is not a third, and the
+        # genus-only record is not one at all.
+        assert genera["coenonympha"]["species_count"] == 2
+
+    def test_places_a_genus_under_its_col_subfamily_and_tribe(self, repository):
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert genera["aphantopus"]["subfamily"] == "Satyrinae"
+        assert genera["aphantopus"]["tribe"] == "Coenonymphini"
+
+    def test_prefers_the_homonym_in_the_family_being_rendered(self, repository):
+        """Two families accept a genus called Zzzonympha; this page wants ours.
+
+        Without the dedupe this row would either multiply or resolve to the
+        Erebidae usage and be filed as belonging to another family.
+        """
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert genera["zzzonympha"]["col_id"] == "GEN2"
+        assert genera["zzzonympha"]["col_family"] == "nymphalidae"
+
+    def test_a_genus_absent_from_col_still_appears(self, repository):
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert genera["nosuchgenus"]["col_id"] is None
+        assert genera["nosuchgenus"]["image_count"] == 1
+
+    def test_without_the_backbone_the_rollup_still_returns_genera(
+        self, repository_without_backbone
+    ):
+        genera = by_key(
+            repository_without_backbone.family_members("nymphalidae"), "genus_key"
+        )
+        assert "coenonympha" in genera
+        assert genera["coenonympha"]["image_count"] == 6
+        # Placement is all that is lost.
+        assert genera["coenonympha"]["subfamily"] is None
+
+    def test_an_unknown_family_has_no_members(self, repository):
+        assert repository.family_members("nosuchfamily") == []
+
+
+class TestGenusMembers:
+    def test_lists_species_with_their_image_counts(self, repository):
+        species = by_key(repository.genus_members("coenonympha"), "species_key")
+        # Three images of the species plus one of its subspecies, which is
+        # folded in rather than standing beside it under the same name.
+        assert species["coenonympha_pamphilus"]["image_count"] == 4
+        assert "coenonympha_pamphilus_lyllus" not in species
+
+    def test_keys_a_renamed_species_on_the_name_the_collection_records(
+        self, repository
+    ):
+        """The href has to resolve, so the key stays the recorded one.
+
+        A species page looks its images up by `image_meta.species`. Keying this
+        node on the accepted name would give a page that renders a header over
+        an empty gallery.
+        """
+        species = by_key(repository.genus_members("coenonympha"), "species_key")
+        row = species["oldgenus_renamed"]
+        assert row["species_name"] == "Coenonympha tullia"
+        assert row["recorded_name"] == "Oldgenus renamed"
+
+    def test_a_genus_only_record_is_not_a_species(self, repository):
+        species = by_key(repository.genus_members("coenonympha"), "species_key")
+        assert "coenonympha" not in species
+
+    def test_resolves_authorship_through_the_backbone(self, repository):
+        species = by_key(repository.genus_members("coenonympha"), "species_key")
+        assert species["coenonympha_pamphilus"]["authorship"] == "(Linnaeus, 1758)"
+        assert species["coenonympha_pamphilus"]["col_id"] == "AAA1"
+
+    def test_without_the_backbone_species_keep_their_recorded_names(
+        self, repository_without_backbone
+    ):
+        species = by_key(
+            repository_without_backbone.genus_members("coenonympha"), "species_key"
+        )
+        assert species["coenonympha_pamphilus"]["authorship"] is None
+        assert species["coenonympha_pamphilus"]["species_name"] == (
+            "Coenonympha pamphilus"
+        )
+
+
+class TestRepresentativeImages:
+    def test_draws_one_image_per_species_when_species_are_plentiful(self, repository):
+        rows = repository.representative_images("family", "nymphalidae", 4)
+        assert len(rows) == 4
+        assert len({row["species"] for row in rows}) == 4
+
+    def test_never_shows_one_species_twice(self, repository):
+        """The strip sits under a heading naming these as the species present.
+
+        Coenonympha has two of them, so a grid asked for four still shows two:
+        padding it with a second specimen of the best-photographed one would
+        put the same name in the grid twice.
+        """
+        rows = repository.representative_images("genus", "coenonympha", 4)
+        assert len(rows) == 2
+        assert len({row["species"] for row in rows}) == 2
+
+    def test_a_one_species_genus_shows_one_tile(self, repository):
+        rows = repository.representative_images("genus", "zzzonympha", 20)
+        assert len(rows) == 1
+
+    def test_prefers_a_dorsal_view_within_a_species(self, repository):
+        rows = repository.representative_images("genus", "coenonympha", 1)
+        # i1 is the only dorsal image of coenonympha_pamphilus.
+        assert rows[0]["img_id"] == "i1"
+
+    def test_excludes_records_identified_only_to_genus(self, repository):
+        """Every tile links to a species page, so every tile needs a species."""
+        rows = repository.representative_images("family", "nymphalidae", 20)
+        assert "coenonympha" not in {row["species"] for row in rows}
+
+    def test_excludes_unmatched_images(self, repository):
+        rows = repository.representative_images("family", "nymphalidae", 20)
+        assert "unresolvable_name" not in {row["species"] for row in rows}
+
+    def test_a_subspecies_does_not_take_a_tile_of_its_own(self, repository):
+        """`coenonympha_pamphilus_lyllus` is the same species to a reader.
+
+        Both records link to the same page, so spreading across the raw
+        recorded keys would put two identical tiles in the grid.
+        """
+        rows = repository.representative_images("genus", "coenonympha", 20)
+        binomials = [row["species"] for row in rows]
+        assert binomials.count("coenonympha_pamphilus") == 1
+        assert "coenonympha_pamphilus_lyllus" not in binomials
+
+    def test_is_deterministic_across_calls(self, repository):
+        """These responses are cached for thirty days behind one ETag."""
+        first = repository.representative_images("family", "nymphalidae", 5)
+        second = repository.representative_images("family", "nymphalidae", 5)
+        assert [row["img_id"] for row in first] == [row["img_id"] for row in second]
+
+
+class TestAvailability:
+    def test_membership_is_unavailable_without_the_harmonized_taxonomy(
+        self, memory_duckdb
+    ):
+        """Strict membership is defined in terms of that table.
+
+        Falling back to the recorded taxonomy would answer a different
+        question than the counts on the page claim to answer, so the page is
+        not served at all.
+        """
+        repository = _repository(memory_duckdb)
+        assert repository.harmonized_available() is False
+        assert repository.family_members("nymphalidae") == []
+        assert repository.representative_images("family", "nymphalidae", 20) == []
+
+
+def _family_row(genus, **overrides):
+    row = {
+        "genus_key": genus,
+        "genus_name": genus.capitalize(),
+        "authorship": None,
+        "col_id": f"ID-{genus}",
+        "col_link": None,
+        "col_family": "nymphalidae",
+        "subfamily": None,
+        "tribe": None,
+        "subtribe": None,
+        "species_count": 1,
+        "image_count": 1,
+    }
+    row.update(overrides)
+    return row
+
+
+def find(nodes, name):
+    for node in nodes:
+        if node.name == name:
+            return node
+        found = find(node.children, name)
+        if found is not None:
+            return found
+    return None
+
+
+class TestTreeAssembly:
+    def test_nests_genus_under_tribe_under_subfamily(self):
+        tree = build_tree(
+            [_family_row("aphantopus", subfamily="Satyrinae", tribe="Coenonymphini")],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        subfamily = tree[0]
+        assert subfamily.rank == "subfamily"
+        assert subfamily.children[0].rank == "tribe"
+        assert subfamily.children[0].children[0].rank == "genus"
+
+    def test_omits_a_rank_col_has_not_populated(self):
+        """A missing tribe is skipped, not rendered as a nameless level."""
+        tree = build_tree(
+            [_family_row("coenonympha", subfamily="Satyrinae")],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert [node.rank for node in tree] == ["subfamily"]
+        assert tree[0].children[0].rank == "genus"
+
+    def test_counts_roll_up_to_every_ancestor(self):
+        tree = build_tree(
+            [
+                _family_row(
+                    "a", subfamily="Satyrinae", species_count=3, image_count=10
+                ),
+                _family_row("b", subfamily="Satyrinae", species_count=2, image_count=5),
+            ],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        subfamily = tree[0]
+        assert subfamily.species_count == 5
+        assert subfamily.image_count == 15
+        assert subfamily.genus_count == 2
+
+    def test_genera_are_alphabetical_within_their_rank(self):
+        """A classification is looked up, not scanned.
+
+        The rows arrive most-photographed first, which is what picks the
+        image strip and is no help at all to someone hunting for a genus.
+        """
+        tree = build_tree(
+            [
+                _family_row("zephyrus", subfamily="Satyrinae", image_count=99),
+                _family_row("aphantopus", subfamily="Satyrinae", image_count=2),
+                _family_row("melanargia", subfamily="Satyrinae", image_count=50),
+            ],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert [node.name for node in tree[0].children] == [
+            "Aphantopus",
+            "Melanargia",
+            "Zephyrus",
+        ]
+
+    def test_grouping_ranks_sort_before_the_genera_beside_them(self):
+        """A tribe sorted in among loose genera reads as a list that has lost
+        its structure, so the levels stay apart and each is alphabetical."""
+        tree = build_tree(
+            [
+                _family_row("zephyrus"),
+                _family_row("aphantopus"),
+                _family_row("melitaea", subfamily="Nymphalinae"),
+            ],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert [node.rank for node in tree] == ["subfamily", "genus", "genus"]
+        assert [node.name for node in tree] == [
+            "Nymphalinae",
+            "Aphantopus",
+            "Zephyrus",
+        ]
+
+    def test_species_are_alphabetical_within_a_subgenus(self):
+        def species(key, name, subgenus=None, images=1):
+            return {
+                "species_key": key,
+                "species_name": name,
+                "recorded_name": name,
+                "authorship": None,
+                "col_id": None,
+                "col_link": None,
+                "col_status": None,
+                "subgenus": subgenus,
+                "image_count": images,
+            }
+
+        tree = build_tree(
+            [
+                species("danaus_plexippus", "Danaus plexippus", "Danaus", 900),
+                species("danaus_cleophile", "Danaus cleophile", "Danaus", 3),
+                species("danaus_erippus", "Danaus erippus", "Danaus", 40),
+            ],
+            scope="genus",
+            scope_key="danaus",
+        )
+        assert [node.name for node in tree[0].children] == [
+            "Danaus cleophile",
+            "Danaus erippus",
+            "Danaus plexippus",
+        ]
+
+    def test_a_genus_col_cannot_place_goes_in_the_unplaced_bucket(self):
+        tree = build_tree(
+            [_family_row("ghost", col_id=None, col_family=None)],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert tree[-1].key == UNPLACED_KEY
+        assert tree[-1].placed is False
+        assert tree[-1].children[0].placed is False
+
+    def test_a_genus_col_places_in_another_family_is_unplaced(self):
+        """Better to admit we cannot place it than to file it under a
+        subfamily belonging to a different family."""
+        tree = build_tree(
+            [_family_row("stray", col_family="erebidae", subfamily="Arctiinae")],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert find(tree, "Arctiinae") is None
+        assert tree[-1].key == UNPLACED_KEY
+
+    def test_the_unplaced_bucket_comes_last(self):
+        tree = build_tree(
+            [
+                _family_row("ghost", col_id=None),
+                _family_row("real", subfamily="Satyrinae"),
+            ],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert tree[-1].key == UNPLACED_KEY
+
+    def test_a_genus_leaf_links_to_its_page(self):
+        tree = build_tree(
+            [_family_row("aphantopus")], scope="family", scope_key="nymphalidae"
+        )
+        assert tree[0].href == "/genus/aphantopus"
+
+    def test_grouping_ranks_never_link(self):
+        """Only ranks with a page of their own are links, which is also what
+        keeps a link out of every `<summary>` on the rendered page."""
+        tree = build_tree(
+            [_family_row("aphantopus", subfamily="Satyrinae", tribe="Coenonymphini")],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert tree[0].href is None
+        assert tree[0].children[0].href is None
+
+    def test_a_subgenus_is_reduced_to_its_parenthetical(self):
+        """Catalogue of Life writes `Genus (Subgenus)`; only the second half
+        names the subgenus, and the genus already has its own node."""
+        tree = build_tree(
+            [
+                {
+                    "species_key": "danaus_genutia",
+                    "species_name": "Danaus genutia",
+                    "recorded_name": "Danaus genutia",
+                    "authorship": None,
+                    "col_id": "X1",
+                    "col_link": None,
+                    "col_status": "accepted",
+                    "subgenus": "Danaus (Salatura)",
+                    "image_count": 2,
+                }
+            ],
+            scope="genus",
+            scope_key="danaus",
+        )
+        assert tree[0].name == "Salatura"
+        assert tree[0].rank == "subgenus"
+
+    def test_a_species_leaf_links_on_its_recorded_key(self):
+        tree = build_tree(
+            [
+                {
+                    "species_key": "oldgenus_renamed",
+                    "species_name": "Coenonympha tullia",
+                    "recorded_name": "Oldgenus renamed",
+                    "authorship": None,
+                    "col_id": None,
+                    "col_link": None,
+                    "col_status": None,
+                    "subgenus": None,
+                    "image_count": 1,
+                }
+            ],
+            scope="genus",
+            scope_key="coenonympha",
+        )
+        assert tree[0].href == "/species/oldgenus_renamed"
+        assert tree[0].key == "oldgenus_renamed"
+        assert tree[0].name == "Coenonympha tullia"
+        assert tree[0].recorded_name == "Oldgenus renamed"
+
+    def test_a_recorded_trinomial_links_to_the_binomial_route(self):
+        """The species route parses two parts, which is what the rest of the
+        site links by; the key stays the full recorded name."""
+        tree = build_tree(
+            [
+                {
+                    "species_key": "danaus_eresimus_tethys",
+                    "species_name": "Danaus eresimus tethys",
+                    "recorded_name": "Danaus eresimus tethys",
+                    "authorship": None,
+                    "col_id": None,
+                    "col_link": None,
+                    "col_status": None,
+                    "subgenus": None,
+                    "image_count": 4,
+                }
+            ],
+            scope="genus",
+            scope_key="danaus",
+        )
+        assert tree[0].href == "/species/danaus_eresimus"
+        assert tree[0].key == "danaus_eresimus_tethys"
+
+    def test_a_subgenus_parenthetical_is_not_a_rename(self):
+        """`Danaus (Salatura) genutia` is the name the collection recorded.
+
+        Without comparing canonically, every species in a genus that has
+        subgenera would claim to have been renamed.
+        """
+        tree = build_tree(
+            [
+                {
+                    "species_key": "danaus_genutia",
+                    "species_name": "Danaus (Salatura) genutia",
+                    "recorded_name": "Danaus genutia",
+                    "authorship": None,
+                    "col_id": None,
+                    "col_link": None,
+                    "col_status": None,
+                    "subgenus": None,
+                    "image_count": 2,
+                }
+            ],
+            scope="genus",
+            scope_key="danaus",
+        )
+        assert tree[0].recorded_name is None
+
+    def test_a_species_that_was_not_renamed_says_nothing_about_it(self):
+        tree = build_tree(
+            [
+                {
+                    "species_key": "coenonympha_pamphilus",
+                    "species_name": "Coenonympha pamphilus",
+                    "recorded_name": "Coenonympha pamphilus",
+                    "authorship": None,
+                    "col_id": None,
+                    "col_link": None,
+                    "col_status": None,
+                    "subgenus": None,
+                    "image_count": 1,
+                }
+            ],
+            scope="genus",
+            scope_key="coenonympha",
+        )
+        assert tree[0].recorded_name is None

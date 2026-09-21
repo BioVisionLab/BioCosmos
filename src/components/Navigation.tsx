@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "./ThemeToggle";
 
 export default function Navigation() {
   const navItems = [
@@ -37,6 +38,11 @@ export default function Navigation() {
   const baseBtn =
     "inline-flex items-center justify-center px-8 py-1 rounded-full text-1xl font-semibold transition-all";
 
+  // The gradient the mobile hamburger and the mobile theme toggle share.
+  const mobileSurface =
+    "bg-gradient-to-r from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 " +
+    "dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800";
+
   const pillClasses =
     `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
     `bg-gradient-to-r from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 text-black border-transparent ` +
@@ -45,11 +51,16 @@ export default function Navigation() {
   return (
     <div className="flex flex-col items-end w-full relative z-[1000]">
       {/* Mobile: hamburger button */}
-      <div className="md:hidden flex items-center mt-4 mr-4">
+      <div className="md:hidden flex items-center gap-2 mt-4 mr-4">
+        {/* Reachable without opening the menu: the theme is page chrome,
+            not a destination. */}
+        <div className={`p-1 rounded-lg backdrop-blur-lg ${mobileSurface}`}>
+          <ThemeToggle />
+        </div>
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          className={`p-2 rounded-lg backdrop-blur-lg ${pillClasses.includes("dark:") ? "bg-gradient-to-r from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800" : ""}`}
+          className={`p-2 rounded-lg backdrop-blur-lg ${mobileSurface}`}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
         >
@@ -120,12 +131,16 @@ export default function Navigation() {
       )}
 
       {/* Desktop: horizontal pill nav */}
-      <div className="hidden md:flex items-center mt-4 mr-8">
-        <div className={pillClasses} role="tablist">
+      <nav aria-label="Main" className="hidden md:flex items-center mt-4 mr-8">
+        {/* These are links to routes, not tabs: no tablist/tab roles, and
+            the current page is marked with aria-current instead. That also
+            leaves room for the theme toggle, which is not a destination and
+            could not have lived inside a tablist. */}
+        <div className={pillClasses}>
           {navItems.map((tab) => {
             const isActive = activeTab === tab.id;
             const textColor = "text-black dark:text-white";
-            const outerClasses = `${baseBtn} ${textColor} relative first:ml-1 last:mr-1`;
+            const outerClasses = `${baseBtn} ${textColor} relative first:ml-1`;
             const showOval =
               hoveredTab !== null ? hoveredTab === tab.id : isActive;
             const bgSpanClasses = `absolute inset-0 rounded-full transition-opacity pointer-events-none ${
@@ -136,11 +151,9 @@ export default function Navigation() {
               <Link
                 href={tab.href}
                 key={tab.id}
-                id={`tab-${tab.id}`}
+                id={`nav-${tab.id}`}
                 className={outerClasses}
-                role="tab"
-                aria-controls={`tabpanel-${tab.id}`}
-                tabIndex={activeTab === tab.id ? 0 : -1}
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => setActiveTab(tab.id)}
                 onMouseEnter={() => setHoveredTab(tab.id)}
                 onMouseLeave={() => setHoveredTab(null)}
@@ -150,8 +163,19 @@ export default function Navigation() {
               </Link>
             );
           })}
+
+          {/* A rule, because the links wear pill-shaped hover ovals and a
+              round button at the end of that row would otherwise read as a
+              fifth, oddly-shaped tab. */}
+          <span
+            aria-hidden
+            className="h-6 w-px bg-black/15 dark:bg-white/20"
+          />
+          <span className="mr-1 flex items-center">
+            <ThemeToggle />
+          </span>
         </div>
-      </div>
+      </nav>
     </div>
   );
 }

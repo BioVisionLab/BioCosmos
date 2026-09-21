@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "colharmonize"
+version = "0.1.0"
+description = "Batch taxonomic matching for occurrence data against Catalogue of Life"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Haryo Handika" }]
+dependencies = [
+    "harmonize-core",
+    "matplotlib>=3.9,<4",
+    "seaborn>=0.13,<1",
+]
+
+[project.scripts]
+colharmonize = "colharmonize.cli:app"
+
+[tool.uv.sources]
+harmonize-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-cov>=6,<7",
+    "pyright>=1.1.400,<2",
+    "ruff>=0.11,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/colharmonize"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+markers = ["benchmark: performance-scaling fixtures"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"

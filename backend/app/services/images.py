@@ -458,10 +458,12 @@ class ImagePersistData:
                 self.logger.warning("No results to filter by species.")
                 return results
 
-            # Keep the first occurrence of each species (most similar)
+            # Keep the first occurrence of each species (most similar).
+            # `keep="first"` is load-bearing: polars defaults to "any", which
+            # would discard the sort above and pick an arbitrary image.
             filtered_results = (
                 results.sort("distance", descending=False)
-                .unique(subset=["species"], maintain_order=True)
+                .unique(subset=["species"], keep="first", maintain_order=True)
             )
 
             return filtered_results

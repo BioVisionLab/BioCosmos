@@ -7,9 +7,22 @@ export interface SimilarSpeciesList {
 export interface SimilarSpeciesMeta {
   imgId: string;
   distance: number;
+  /**
+   * The name as recorded, and the link target.
+   *
+   * Every image endpoint keys on `image_meta.species`, so a link built from
+   * the accepted name would open a species page with an empty gallery for
+   * exactly the renamed taxa this panel surfaces.
+   */
   species: string;
-  source_db: string;
-  class_dv: string;
+  /**
+   * The accepted taxon the record resolves to. Null only when no
+   * harmonization run has been loaded, or when the precomputed table predates
+   * the accepted-taxon columns — the backend skips unresolved records.
+   */
+  acceptedName: string | null;
+  acceptedRank: string | null;
+  updateStatus: string | null;
 }
 
 async function fetchSimilarSpecies(
