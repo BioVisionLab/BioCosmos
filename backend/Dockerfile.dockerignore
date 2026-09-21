@@ -1,7 +1,7 @@
-# Build context for backend/Dockerfile is the repository root (the uv workspace
-# root holds pyproject.toml, uv.lock, and packages/). BuildKit prefers this file
-# over the root .dockerignore, which is written for the frontend build and
-# excludes backend/ entirely.
+# Docker/BuildKit context for backend/Dockerfile is the repository root (the uv
+# workspace root holds pyproject.toml, uv.lock, and packages/). BuildKit prefers
+# this file over the root .dockerignore, which is written for the frontend build
+# and excludes backend/ entirely. Podman uses the root .containerignore instead.
 
 # Frontend
 node_modules
