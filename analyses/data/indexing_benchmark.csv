@@ -1,0 +1,11 @@
+index,model,vector_column,avg_ms,p50_ms,p95_ms,total_ms,qps,recall@10
+No Index (baseline),UNICOM,unicom_embeddings,245.935,251.457,260.335,1229.673,4.1,1.0
+IVF_PQ,UNICOM,unicom_embeddings,6.364,5.793,9.408,31.82,157.1,0.92
+IVF_HNSW_SQ,UNICOM,unicom_embeddings,21.238,7.998,76.053,106.19,47.1,0.82
+IVF_HNSW_PQ,UNICOM,unicom_embeddings,28.834,10.273,106.482,144.171,34.7,0.7
+Flat (brute-force),UNICOM,unicom_embeddings,226.381,229.92,239.376,1131.907,4.4,1.0
+No Index (baseline),CLIP,clip_embeddings,219.666,221.366,234.174,1098.331,4.6,1.0
+IVF_PQ,CLIP,clip_embeddings,6.095,5.627,8.207,30.477,164.1,0.88
+IVF_HNSW_SQ,CLIP,clip_embeddings,39.658,23.957,116.254,198.291,25.2,0.94
+IVF_HNSW_PQ,CLIP,clip_embeddings,29.819,22.596,75.814,149.097,33.5,0.64
+Flat (brute-force),CLIP,clip_embeddings,229.519,230.584,235.866,1147.596,4.4,1.0

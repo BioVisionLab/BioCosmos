@@ -89,6 +89,29 @@ def test_old_validate_command_name_is_gone() -> None:
     assert result.exit_code == 2
 
 
+def test_inspect_invalid_mapping_reports_table_and_preflight_command(
+    coordinate_db: Path,
+) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "inspect",
+            "--db",
+            str(coordinate_db),
+            "--table",
+            "main.occurrence",
+            "--map",
+            "country=country_code",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "country=country_code" in result.output
+    assert "main.occurrence" in result.output
+    assert "geoharmonize inspect" in result.output
+    assert "--list-columns main.occurrence" in result.output
+
+
 def _integrate(
     coordinate_db: Path,
     gadm_gpkg: Path,

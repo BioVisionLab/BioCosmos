@@ -71,3 +71,6 @@ backend/scripts/embedding/
 reports/*
 !reports/.gitkeep
 !reports/README.md
+
+# manuscript directory
+results/

@@ -4,7 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
-import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
+import {
+  cleanSpeciesName,
+  isSpeciesName,
+  isSubspeciesName,
+  speciesUrlFromName,
+  toBinomialName,
+} from "@/lib/names";
 import { SimilarSpeciesList, SimilarSpeciesMeta } from "@/lib/similarSpecies";
 import { useInView } from "@/lib/useInView";
 
@@ -64,8 +70,8 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
           Other species that look similar to{" "}
           {/* `species` is the URL slug, so it needs un-slugging before it is
               shown as prose. */}
-          <i>{cleanSpeciesName(species)}</i> based on image embedding
-          similarity.
+          <i>{toBinomialName(cleanSpeciesName(species))}</i> based on image
+          embedding similarity.
         </p>
       </div>
       {isLoading ? (
@@ -142,49 +148,63 @@ function SimilarSpeciesImage({
     fetchImage();
   }, [meta.imgId]);
 
-  // The accepted name leads, with the record's own wording beneath it when
-  // the two differ — the same treatment the search results table gives a
-  // renamed taxon. The link still targets the recorded slug, because that is
-  // what the gallery endpoints key on.
-  const recordedName = cleanSpeciesName(meta.species);
-  const acceptedName = meta.acceptedName;
-  const differs =
+  // The accepted species name is what a reader compares against, so it is the
+  // only name shown — unless the record is a subspecies, which is genuinely
+  // more specific than the binomial above it and worth naming. A record that
+  // differs for any other reason, a misspelling or a synonym, says nothing
+  // extra: the accepted name has already answered the question.
+  //
+  // The link still targets the recorded slug, because that is what the
+  // gallery endpoints key on.
+  const recordedName = toBinomialName(cleanSpeciesName(meta.species));
+  const acceptedName = meta.acceptedName
+    ? toBinomialName(meta.acceptedName)
+    : null;
+  const showsSubspecies =
+    isSubspeciesName(meta.species) &&
     !!acceptedName &&
     acceptedName.toLowerCase() !== recordedName.toLowerCase();
 
+  const card = (
+    <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-2">
+      {thumbnailUrl ? (
+        <>
+          <div className="flex w-[120px] h-[120px] relative my-auto bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl p-2 items-center justify-center">
+            <Image
+              src={thumbnailUrl}
+              alt={`Similar species image ${meta.imgId}`}
+              width={IMAGE_SIZE}
+              height={IMAGE_SIZE}
+              className="object-contain"
+              unoptimized
+            />
+          </div>
+          <div className="w-[120px] text-center">
+            <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
+              {acceptedName ?? recordedName}
+            </p>
+            {showsSubspecies ? (
+              <p className="text-xs text-deep-mocha-400 dark:text-deep-mocha-500 italic break-words whitespace-normal">
+                as {recordedName}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <ImageLoading size={IMAGE_SIZE} />
+      )}
+    </div>
+  );
+
+  // The backend drops genus-only matches from this panel, so the plain branch
+  // is a guard rather than something a reader should meet — but an older
+  // precomputed table predates that filter, and a card leading to an empty
+  // gallery is worse than a card leading nowhere.
+  if (!isSpeciesName(meta.species)) return card;
+
   return (
     <Link key={index} href={`/species/${speciesUrlFromName(meta.species)}`}>
-      <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-2">
-        {thumbnailUrl ? (
-          <>
-            <div className="flex w-[120px] h-[120px] relative my-auto bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl p-2 items-center justify-center">
-              <Image
-                src={thumbnailUrl}
-                alt={`Similar species image ${meta.imgId}`}
-                width={IMAGE_SIZE}
-                height={IMAGE_SIZE}
-                className="object-contain"
-                unoptimized
-              />
-            </div>
-            <div className="w-[120px] text-center">
-              <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
-                {acceptedName ?? recordedName}
-                {meta.acceptedRank === "genus" ? (
-                  <span className="not-italic text-xs"> genus only</span>
-                ) : null}
-              </p>
-              {differs ? (
-                <p className="text-xs text-deep-mocha-400 dark:text-deep-mocha-500 italic break-words whitespace-normal">
-                  as {recordedName}
-                </p>
-              ) : null}
-            </div>
-          </>
-        ) : (
-          <ImageLoading size={IMAGE_SIZE} />
-        )}
-      </div>
+      {card}
     </Link>
   );
 }

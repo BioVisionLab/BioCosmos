@@ -43,7 +43,11 @@ function CommonName({
 }) {
   const name = vernacularName ?? commonName;
 
-  return <p className="text-2xl text-deep-mocha-700 dark:text-deep-mocha-300">{name}</p>;
+  return (
+    <p className="text-2xl text-deep-mocha-700 dark:text-deep-mocha-300">
+      {name}
+    </p>
+  );
 }
 
 function SpeciesHeader({
@@ -55,7 +59,7 @@ function SpeciesHeader({
 }) {
   return (
     <header>
-      <div className="mb-6 mt-4 text-center mx-auto">
+      <div className="mb-6 text-center mx-auto">
         <SpeciesTitle taxonomy={taxonomy} name={name} />
         <CommonName
           vernacularName={taxonomy?.vernacularName || null}

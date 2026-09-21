@@ -1,0 +1,43 @@
+/**
+ * URLs for taxon pages.
+ *
+ * Catalogue of Life capitalizes its names and the species route has always
+ * been lowercase, so a canonical form has to be chosen somewhere. It is
+ * chosen here: lowercase, spaces as underscores, for every rank. One casing
+ * also means one cache key — serving a family at both `/family/Nymphalidae`
+ * and `/family/nymphalidae` would split a thirty-day cache in two and leave
+ * the page competing with itself in search results.
+ *
+ * A slug is only ever a lookup key. Nothing un-slugs one for display: the
+ * name shown on a page comes from the payload, because title-casing a slug
+ * back is lossy and would eventually mangle a hyphenated or accented name.
+ */
+
+import { formatSpeciesNameForUrl, speciesUrlFromName } from "@/lib/names";
+
+export function toTaxonSlug(name: string): string {
+  return formatSpeciesNameForUrl(name.trim());
+}
+
+/** Whether a route parameter is already canonical, i.e. needs no redirect. */
+export function isCanonicalTaxonSlug(slug: string): boolean {
+  return slug === toTaxonSlug(slug);
+}
+
+export function familyHref(name: string): string {
+  return `/family/${encodeURIComponent(toTaxonSlug(name))}`;
+}
+
+export function genusHref(name: string): string {
+  return `/genus/${encodeURIComponent(toTaxonSlug(name))}`;
+}
+
+/**
+ * The species page resolves its images on the name the collection recorded,
+ * so a link built from an accepted name that differs would reach a page with
+ * nothing on it. Callers pass the recorded key; `speciesUrlFromName` trims a
+ * recorded trinomial to the binomial the route expects.
+ */
+export function speciesHref(recordedName: string): string {
+  return `/species/${encodeURIComponent(speciesUrlFromName(recordedName))}`;
+}

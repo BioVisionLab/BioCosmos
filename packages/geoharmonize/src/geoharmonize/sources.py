@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from shlex import quote
+
 from harmonize_core.errors import SourceValidationError
 from harmonize_core.sources import OccurrenceSource
 
@@ -28,10 +30,21 @@ class CoordinateOccurrenceSource(OccurrenceSource):
     ) -> tuple[dict[str, str], list[str]]:
         """Resolve required coordinates and optional locality columns."""
         lower_names = self.index_by_casefold(available)
-        resolved = {
-            logical: self.resolve_requested(physical, available, lower_names)
-            for logical, physical in mappings.as_logical_dict().items()
-        }
+        resolved: dict[str, str] = {}
+        for logical, physical in mappings.as_logical_dict().items():
+            try:
+                resolved[logical] = self.resolve_requested(physical, available, lower_names)
+            except SourceValidationError as error:
+                inspect_command = (
+                    "geoharmonize inspect "
+                    f"--db {quote(str(self.database))} "
+                    f"--list-columns {quote(self.identifier.display_name)}"
+                )
+                raise SourceValidationError(
+                    f"Invalid mapping {logical}={physical} for "
+                    f"{self.identifier.display_name}: {error}. "
+                    f"Inspect the source table with `{inspect_command}`."
+                ) from error
         self.autodetect(resolved, COORDINATE_COLUMNS, lower_names)
 
         warnings: list[str] = []

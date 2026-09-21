@@ -1,6 +1,6 @@
 # geoharmonize
 
-Validates occurrence coordinates against GADM administrative geography.
+Validates occurrence coordinates against [GADM](https://gadm.org) administrative geography.
 `validate` reads the occurrence DuckDB read-only and never modifies it;
 `integrate` additionally writes the result back as a new table.
 
@@ -19,9 +19,11 @@ directory instead. See [`reports/`](../../reports) for the artifact contract.
 Detects the Darwin Core fields `occurrenceID`, `decimalLatitude`,
 `decimalLongitude`, `countryCode` or `country`, and `stateProvince`. Override
 one with `--map FIELD=COLUMN`; the logical fields are `source_id`, `latitude`,
-`longitude`, `country`, and `adm1`. The GADM input must be an EPSG:4326
+`longitude`, `country`, and `adm1`.
+
+The GADM input must be an EPSG:4326
 GeoPackage with an indexed ADM1 layer containing `GID_0`, `COUNTRY`, `GID_1`,
-and `NAME_1`; use `--gadm-layer` when it cannot be selected automatically.
+and `NAME_1`; use `--gadm-layer` when it cannot be selected automatically. Download the latest GADM 410 release (six separate layers (one for each level of subdivision/aggregation)) from <https://gadm.org/download_country_v4.html>. Extract the `gadm_410-levels.gpkg` file and point to it with `--gadm`.
 
 `--config harmonize.toml` supplies the same settings; CLI values win. `db`,
 `table`, `output`, and `reports_dir` fall back to `[run]` when `[coordinates]`
@@ -35,6 +37,18 @@ the upstream project, <https://github.com/hhandika/col-taxonomy>.
 `integrate` runs the same validation and then writes it into the **occurrence**
 database, rather than only under `reports/`:
 
+For BioCosmos, first start the backend and wait for it to build
+`main.image_meta_locality` from `image_meta` and `gbif_meta`. Stop the backend,
+then verify the derived source before integrating:
+
+```bash
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --list-columns main.image_meta_locality
+uv run geoharmonize inspect --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta_locality \
+  --map source_id=img_id --map country=country_code --map adm1=state_province
+```
+
 ```bash
 uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
   --table main.image_meta_locality --gadm "$GADM_DIR/gadm_410-levels.gpkg" \
@@ -44,6 +58,10 @@ uv run geoharmonize integrate --db "$DUCK_DIR/biocosmos.duckdb" \
 
 **Stop anything else using the database first.** DuckDB allows a single writer,
 and `integrate` needs the file read-write.
+
+Do not use `main.image_meta` with the locality mappings above. That raw table
+has `img_id`, `lat`, and `lon`, but `country_code` and `state_province` only
+become available after the backend creates `main.image_meta_locality`.
 
 The destination holds one row per occurrence, keyed on the mapped `source_id`,
 so it joins straight back to the table it was read from:

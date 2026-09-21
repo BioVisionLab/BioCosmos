@@ -42,6 +42,38 @@ class SimilarSpeciesRow(BaseModel):
     update_status: str | None = None
 
 
+# The ranks a card can carry. A match that only reached genus names no
+# species a reader could compare against, and its card would link to a
+# species page that does not exist.
+_COMPARABLE_RANKS = frozenset({"species", "subspecies"})
+
+
+def is_comparable_taxon(record: dict | None) -> bool:
+    """Whether a resolved record names a species this panel can show.
+
+    Two ways it does not: the match stopped at genus rank, or the name it
+    resolved to is a single word, which is a genus however the rank column
+    labels it. Either way there is no binomial, so there is no species page
+    to link to and nothing for a reader to compare against.
+    """
+    if record is None:
+        return False
+    rank = (record.get("accepted_rank") or "").strip().lower()
+    if rank and rank not in _COMPARABLE_RANKS:
+        return False
+    name = (record.get("display_accepted_name") or "").strip()
+    return len(name.split()) >= 2
+
+
+def has_binomial_record(candidate: dict) -> bool:
+    """The same test against a recorded name, for the un-harmonized fallback.
+
+    `image_meta.species` is stored underscored, so a record identified only to
+    genus is a single segment.
+    """
+    return len([part for part in candidate["species"].split("_") if part]) >= 2
+
+
 def similar_species_row(candidate: dict, record: dict | None) -> dict:
     """Shape one card the way the payload declares it."""
     return {
@@ -83,7 +115,11 @@ def resolve_similar_species(
             "No taxonomic update available; "
             "falling back to recorded names for similar species."
         )
-        return [similar_species_row(row, None) for row in candidates[:limit]]
+        return [
+            similar_species_row(row, None)
+            for row in candidates
+            if has_binomial_record(row)
+        ][:limit]
 
     rows: list[dict] = []
     seen: set[str] = set()
@@ -92,9 +128,12 @@ def resolve_similar_species(
         if record is None:
             continue
         key = record["accepted_key"]
-        # Skip whatever did not resolve to a taxon: an unidentifiable name is
-        # not a species a reader can compare against.
+        # Skip whatever did not resolve to a species: an unidentifiable name,
+        # or a match that stopped at genus, is not something a reader can
+        # compare against and has no species page to open.
         if not key or key in exclude_keys or key in seen:
+            continue
+        if not is_comparable_taxon(record):
             continue
         seen.add(key)
         rows.append(similar_species_row(candidate, record))
