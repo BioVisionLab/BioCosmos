@@ -244,3 +244,101 @@ class TestClassificationEndpoints:
         instance.get_classification = AsyncMock(return_value=None)
         response = client.get("/species/Unknown/species/classification")
         assert response.status_code == 404
+
+
+# =========================================================================
+# GET /family/{family_name} and GET /genus/{genus_name}
+# =========================================================================
+
+OVERVIEW = {
+    "key": "nymphalidae",
+    "name": "Nymphalidae",
+    "rank": "family",
+    "counts": {"genusCount": 2, "speciesCount": 4, "imageCount": 9},
+    "tree": [],
+    "images": [],
+    "sources": {"colTaxonomy": True, "harmonizedTaxonomy": True},
+}
+
+
+class TestHigherTaxonEndpoints:
+
+    @patch("app.routers.species_data.FamilyOverview")
+    def test_family_overview_success(self, MockFamily):
+        instance = MockFamily.return_value
+        instance.overview = AsyncMock(return_value=OVERVIEW)
+        response = client.get("/family/Nymphalidae")
+        assert response.status_code == 200
+        assert response.json()["name"] == "Nymphalidae"
+
+    @patch("app.routers.species_data.FamilyOverview")
+    def test_success_is_cacheable_for_thirty_days(self, MockFamily):
+        """Higher-taxon data changes only when the backend re-ingests."""
+        instance = MockFamily.return_value
+        instance.overview = AsyncMock(return_value=OVERVIEW)
+        response = client.get("/family/Nymphalidae")
+        assert "max-age=2592000" in response.headers["cache-control"]
+
+    @patch("app.routers.species_data.FamilyOverview")
+    def test_family_overview_not_found_returns_404(self, MockFamily):
+        instance = MockFamily.return_value
+        instance.overview = AsyncMock(return_value=None)
+        response = client.get("/family/Unknown")
+        assert response.status_code == 404
+
+    @patch("app.routers.species_data.FamilyOverview")
+    def test_a_missing_taxon_is_not_cached(self, MockFamily):
+        """A typo must not stick in the reader's browser for a month.
+
+        Nothing would clear it: the entry would outlive several ingestions,
+        and there is no request the application could make to invalidate a
+        cache that lives on someone else's machine.
+        """
+        instance = MockFamily.return_value
+        instance.overview = AsyncMock(return_value=None)
+        response = client.get("/family/Unknown")
+        assert response.headers.get("cache-control") == "no-store"
+
+    @patch("app.routers.species_data.FamilyOverview")
+    def test_family_overview_error_returns_500(self, MockFamily):
+        instance = MockFamily.return_value
+        instance.overview = AsyncMock(side_effect=Exception("boom"))
+        response = client.get("/family/Nymphalidae")
+        assert response.status_code == 500
+        assert response.headers.get("cache-control") == "no-store"
+
+    @patch("app.routers.species_data.GenusOverview")
+    def test_genus_overview_success(self, MockGenus):
+        instance = MockGenus.return_value
+        instance.overview = AsyncMock(
+            return_value={
+                **OVERVIEW,
+                "key": "danaus",
+                "name": "Danaus",
+                "rank": "genus",
+            }
+        )
+        response = client.get("/genus/Danaus")
+        assert response.status_code == 200
+        assert response.json()["rank"] == "genus"
+
+    @patch("app.routers.species_data.GenusOverview")
+    def test_genus_overview_not_found_returns_404(self, MockGenus):
+        instance = MockGenus.return_value
+        instance.overview = AsyncMock(return_value=None)
+        response = client.get("/genus/Unknown")
+        assert response.status_code == 404
+
+    @patch("app.routers.species_data.FamilySearch")
+    def test_the_classification_route_still_resolves(self, MockFamily):
+        """The one-segment overview must not shadow the two-segment route.
+
+        Starlette path parameters never match a slash, so it cannot — this
+        pins that, because the two routes differ by one path segment and the
+        failure would be silent.
+        """
+        instance = MockFamily.return_value
+        instance.get_classification = AsyncMock(return_value={"family": "Nymphalidae"})
+        response = client.get("/family/Nymphalidae/classification")
+        assert response.status_code == 200
+        assert response.json()["family"] == "Nymphalidae"

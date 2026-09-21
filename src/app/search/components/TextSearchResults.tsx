@@ -14,7 +14,9 @@ import { fetchSpeciesThumbnail, imageUrlById } from "@/lib/images";
 import {
   cleanSpeciesName,
   formatSpeciesNameForUrl,
+  isSpeciesName,
   speciesUrlFromName,
+  toBinomialName,
 } from "@/lib/names";
 import { FlaskConical } from "lucide-react";
 import Image from "next/image";
@@ -68,6 +70,36 @@ function HighlightText({
 }
 
 /**
+ * Wrap children in a link to the species page, when there is one to link to.
+ *
+ * A record identified only to genus has no species page: `/species/vanessa`
+ * resolves to an empty gallery. The result is still worth showing — it is a
+ * real image that matched — so the card renders without pretending to lead
+ * somewhere.
+ */
+function MaybeSpeciesLink({
+  species,
+  className,
+  children,
+}: {
+  species: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  if (!isSpeciesName(species)) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <Link
+      href={`/species/${speciesUrlFromName(species)}`}
+      className={className}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/**
  * The Species cell: the Catalogue of Life accepted name, with the name as
  * recorded beneath it when the two differ.
  *
@@ -79,10 +111,14 @@ function HighlightText({
 function renderTaxonCell(specimen: SpecimenMetadata, query: string) {
   const matched = specimen.matched_fields || [];
   const isMatched = matched.includes("species");
-  const accepted = specimen.display_accepted_name;
+  const accepted = specimen.display_accepted_name
+    ? toBinomialName(specimen.display_accepted_name)
+    : specimen.display_accepted_name;
   const recorded = specimen.species;
 
-  const recordedLabel = recorded ? cleanSpeciesName(recorded) : "";
+  const recordedLabel = recorded
+    ? toBinomialName(cleanSpeciesName(recorded))
+    : "";
   const differs =
     !!accepted &&
     !!recordedLabel &&
@@ -107,10 +143,13 @@ function renderTaxonCell(specimen: SpecimenMetadata, query: string) {
     );
   }
 
-  const href = recorded
-    ? `/species/${speciesUrlFromName(recorded)}`
-    : undefined;
   const isGenusOnly = specimen.accepted_rank === "genus";
+  // Linked only when the record names a species. A genus has no species page
+  // to open, so the name stays plain text and the marker beside it says why.
+  const href =
+    recorded && isSpeciesName(recorded)
+      ? `/species/${speciesUrlFromName(recorded)}`
+      : undefined;
 
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
@@ -202,9 +241,7 @@ function SpecimenThumbnail({
   if (!imgId) {
     return (
       <div className={`${boxClasses} flex items-center justify-center`}>
-        <span className="text-deep-mocha-400 dark:text-deep-mocha-600">
-          —
-        </span>
+        <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
       </div>
     );
   }
@@ -219,7 +256,11 @@ function SpecimenThumbnail({
     >
       <Image
         src={imageUrlById(imgId, "thumbnail")}
-        alt={species ? `Specimen image of ${species.replace(/_/g, " ")}` : "Specimen image"}
+        alt={
+          species
+            ? `Specimen image of ${species.replace(/_/g, " ")}`
+            : "Specimen image"
+        }
         fill
         sizes={`${SPECIMEN_THUMB_SIZE}px`}
         className="object-contain"
@@ -867,8 +908,8 @@ function DbResultCard({ data }: { data: DbResultItems }) {
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
-        <Link
-          href={`/species/${speciesUrlFromName(data.species)}`}
+        <MaybeSpeciesLink
+          species={data.species}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
@@ -891,7 +932,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
               .map((field) => field.replace(/_/g, " "))
               .join(", ")}
           </p>
-        </Link>
+        </MaybeSpeciesLink>
       )}
     </div>
   );

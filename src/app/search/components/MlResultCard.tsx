@@ -7,7 +7,12 @@ import {
   fetchSpeciesImageIds,
   fetchThumbnailById,
 } from "@/lib/images";
-import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
+import {
+  cleanSpeciesName,
+  isSpeciesName,
+  speciesUrlFromName,
+  toBinomialName,
+} from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
 import { MlResultItems } from "@/lib/ml_search";
@@ -17,6 +22,36 @@ const IMAGE_SIZE = 128;
 
 // Compute match percent from a 0..1 normalized score provided by the backend agent
 // Use for semantic search that returns normalized scores.
+/**
+ * Wrap children in a link to the species page, when there is one to link to.
+ *
+ * A record identified only to genus has no species page: `/species/vanessa`
+ * resolves to an empty gallery. Those results are still worth showing — they
+ * are real images that matched — so the card renders, it just does not
+ * pretend to lead somewhere.
+ */
+function MaybeSpeciesLink({
+  species,
+  className,
+  children,
+}: {
+  species: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  if (!isSpeciesName(species)) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <Link
+      href={`/species/${speciesUrlFromName(species)}`}
+      className={className}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function computeMatchPercent(score: number) {
   return Math.max(0, Math.min(100, Math.round(score * 100)));
 }
@@ -52,7 +87,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
     fetchImage();
   }, [data.imgId]);
 
-  const speciesName = cleanSpeciesName(data.species);
+  const speciesName = toBinomialName(cleanSpeciesName(data.species));
 
   const getMatchPillClass = (pct: number) => {
     const base =
@@ -73,8 +108,8 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
-        <Link
-          href={`/species/${speciesUrlFromName(data.species)}`}
+        <MaybeSpeciesLink
+          species={data.species}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
@@ -110,7 +145,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
               </span>
             )}
           </div>
-        </Link>
+        </MaybeSpeciesLink>
       )}
     </div>
   );
@@ -183,11 +218,11 @@ function TopResultCard({ data }: { data: MlResultItems }) {
       </div>
 
       <div className="p-4">
-        <Link href={`/species/${speciesUrlFromName(data.species)}`}>
+        <MaybeSpeciesLink species={data.species}>
           <h2 className="text-2xl font-semibold mb-2 italic text-start text-deep-mocha-300 dark:text-deep-mocha-300 mt-4">
-            {cleanSpeciesName(data.species)}
+            {toBinomialName(cleanSpeciesName(data.species))}
           </h2>
-        </Link>
+        </MaybeSpeciesLink>
 
         {loading ? (
           <ImageLoading size={160} />
@@ -228,14 +263,18 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                 </div>
               )}
 
-              <div className="mt-4">
-                <Link
-                  href={`/species/${speciesUrlFromName(data.species)}`}
-                  className="mb-2 inline-block rounded-lg bg-gradient-to-br from-hunter-green-500/50 to-pacific-blue-700/50 w-fit px-4 py-2 hover:bg-pacific-blue-600/70 transition text-deep-mocha-100"
-                >
-                  Show species page →
-                </Link>
-              </div>
+              {/* Omitted rather than disabled for a genus-only record: there
+                  is no species page to show. */}
+              {isSpeciesName(data.species) ? (
+                <div className="mt-4">
+                  <Link
+                    href={`/species/${speciesUrlFromName(data.species)}`}
+                    className="mb-2 inline-block rounded-lg bg-gradient-to-br from-hunter-green-500/50 to-pacific-blue-700/50 w-fit px-4 py-2 hover:bg-pacific-blue-600/70 transition text-deep-mocha-100"
+                  >
+                    Show species page →
+                  </Link>
+                </div>
+              ) : null}
             </div>
           </div>
         )}

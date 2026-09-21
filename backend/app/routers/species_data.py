@@ -3,6 +3,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from ..database.ingestion_state import IngestionState
+from ..query.higher_taxa import FamilyOverview, GenusOverview
 from ..query.specimen_data import SpecimenData
 from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
 from ..query.species_similarity import (
@@ -10,6 +12,7 @@ from ..query.species_similarity import (
     VisuallySimilarSpeciesPayload,
 )
 from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
+from .http_cache import NO_STORE, cached_json
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -170,6 +173,74 @@ async def fetch_species_specimen_info(
         raise HTTPException(
             status_code=500,
             detail="An internal error occurred while fetching specimens.",
+        )
+
+
+def _overview_etag(request: Request, rank: str, key: str) -> str | None:
+    """Tie the ETag to the ingestion that produced the payload.
+
+    A re-ingestion changes the backbone fingerprint, which changes every
+    higher-taxon ETag at once — the only way to retire a thirty-day cache
+    entry early once a shared cache sits in front of this service.
+    """
+    try:
+        fingerprint = IngestionState(request.app.state.duck_db).get("col_taxonomy")
+    except Exception:  # noqa: BLE001 - an ETag is never worth failing a request
+        return None
+    return f"{rank}:{key}:{fingerprint}" if fingerprint else None
+
+
+@router.get("/family/{family_name}", tags=["Species Data"])
+async def fetch_family_overview(request: Request, family_name: str):
+    """Everything the family page renders: classification, counts, tree, images.
+
+    One endpoint rather than three, because the tree, the counts and the image
+    strip all come off the same scan of the collection. Splitting them would
+    triple the work and give a proxy three chances to hold inconsistent
+    generations of one page.
+    """
+    try:
+        overview = await FamilyOverview(request=request, name=family_name).overview()
+        if not overview:
+            raise HTTPException(
+                status_code=404, detail=f"No data found for family: {family_name}"
+            )
+        return cached_json(
+            overview, etag=_overview_etag(request, "family", family_name.lower())
+        )
+    except HTTPException as error:
+        error.headers = {**(error.headers or {}), "Cache-Control": NO_STORE}
+        raise
+    except Exception:
+        logger.exception(f"Error fetching family overview for {family_name}")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred.",
+            headers={"Cache-Control": NO_STORE},
+        )
+
+
+@router.get("/genus/{genus_name}", tags=["Species Data"])
+async def fetch_genus_overview(request: Request, genus_name: str):
+    """Everything the genus page renders. Same shape as the family overview."""
+    try:
+        overview = await GenusOverview(request=request, name=genus_name).overview()
+        if not overview:
+            raise HTTPException(
+                status_code=404, detail=f"No data found for genus: {genus_name}"
+            )
+        return cached_json(
+            overview, etag=_overview_etag(request, "genus", genus_name.lower())
+        )
+    except HTTPException as error:
+        error.headers = {**(error.headers or {}), "Cache-Control": NO_STORE}
+        raise
+    except Exception:
+        logger.exception(f"Error fetching genus overview for {genus_name}")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred.",
+            headers={"Cache-Control": NO_STORE},
         )
 
 

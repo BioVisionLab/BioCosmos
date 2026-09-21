@@ -75,6 +75,7 @@ LEPTRAIT_MAPPING = {
 UnicomVector = Annotated[List[float], Vector(unicom.get_unicom_ndims())]
 ClipVector = Annotated[List[float], Vector(clip.get_clip_ndims())]
 
+
 class LanceSchema(LanceModel):
     """Schema for images with CLIP/UNICOM embeddings and file path reference.
 
@@ -85,9 +86,7 @@ class LanceSchema(LanceModel):
         unicom_embeddings: UNICOM embedding vector.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     img_path: str
@@ -118,11 +117,7 @@ class ImageMetadata(BaseModel):
         }
 
     def from_dict(cls, data: dict):
-        return cls(
-            path=os.path.join(
-                data["species_folder"], data["image_filename"]
-            )
-        )
+        return cls(path=os.path.join(data["species_folder"], data["image_filename"]))
 
     def __repr__(self):
         return f"ImageMetadata(species_folder={self.species_folder}, image_filename={self.image_filename})"
@@ -159,7 +154,7 @@ COL_RANK_ORDER = (
 _SUBGENUS_PARENTHETICAL = re.compile(r"\(([^)]*)\)")
 
 
-def _subgenus_name(value: str) -> str:
+def subgenus_name(value: str) -> str:
     """Reduce ``Genus (Subgenus)`` to the subgenus alone.
 
     CoL writes zoological subgenus usages with the genus in front and the
@@ -169,6 +164,26 @@ def _subgenus_name(value: str) -> str:
 
     match = _SUBGENUS_PARENTHETICAL.search(value)
     return match.group(1).strip() if match else value
+
+
+# The private spelling every existing caller uses. Kept so promoting this to
+# the public API of the module did not have to touch them.
+_subgenus_name = subgenus_name
+
+
+def binomial_name(value: str) -> str:
+    """Drop a parenthesised subgenus from a species name.
+
+    Catalogue of Life writes zoological species usages with the subgenus
+    between the genus and the epithet — `Danaus (Danaus) plexippus`. The
+    subgenus has a row of its own in the classification, so repeating it
+    inside the name only makes the name harder to read and harder to line up
+    against the binomial every other part of the application keys on.
+
+    A subspecies keeps its third epithet; only the parenthetical goes.
+    """
+
+    return " ".join(_SUBGENUS_PARENTHETICAL.sub(" ", value).split())
 
 
 class ColTaxonomy(BaseModel):
@@ -235,8 +250,18 @@ class ColTaxonomy(BaseModel):
         rank = text("taxon_rank")
         scientific_name = text("scientific_name")
         # CoL genus usages have no epithet, so `species` is only meaningful at
-        # species rank or below.
-        species = scientific_name if rank in ("species", "subspecies") else ""
+        # species rank or below. The subgenus is stripped here rather than in
+        # each view: this field is a name to show a reader, and the subgenus
+        # already has its own row below.
+        at_species_rank = rank in ("species", "subspecies")
+        species = binomial_name(scientific_name) if at_species_rank else ""
+        # The name a reader sees for the taxon itself. Cleaned at species rank
+        # for the same reason as `species`; left alone above it, where a
+        # parenthetical is the subgenus usage's own name rather than noise
+        # inside somebody else's.
+        display_name = (
+            binomial_name(scientific_name) if at_species_rank else scientific_name
+        )
 
         # CoL's denormalized lineage excludes the usage's own rank: a genus row
         # carries family and above but leaves `genus` empty. Backfill it so a
@@ -253,7 +278,7 @@ class ColTaxonomy(BaseModel):
             colId=optional("usage_id"),
             scientificName=scientific_name,
             inputName=input_name,
-            acceptedName=scientific_name,
+            acceptedName=display_name,
             acceptedRank=optional("taxon_rank"),
             authorship=text("authorship"),
             taxonomicStatus=text("status"),
@@ -352,9 +377,7 @@ class LepTraitData(BaseModel):
         for k_csv, k_model in LEPTRAIT_MAPPING.items():
             val = row.get(k_csv)
             # Convert types if needed
-            if k_model.startswith("wingspan") or k_model.startswith(
-                "forewing"
-            ):
+            if k_model.startswith("wingspan") or k_model.startswith("forewing"):
                 kwargs[k_model] = cls._to_float(val)
             elif k_model.endswith("_presence") or k_model in [
                 "flight_duration",
@@ -363,15 +386,11 @@ class LepTraitData(BaseModel):
             ]:
                 kwargs[k_model] = cls._to_int(val)
             else:
-                kwargs[k_model] = (
-                    val if val not in ["NA", "null", ""] else None
-                )
+                kwargs[k_model] = val if val not in ["NA", "null", ""] else None
         # Decode presence values
         for month in MONTHS:
             presence_key = f"{month}_adult_presence"
-            kwargs[presence_key] = cls._to_present_absent(
-                kwargs.get(presence_key)
-            )
+            kwargs[presence_key] = cls._to_present_absent(kwargs.get(presence_key))
         return cls(**kwargs)
 
     def summarize(self):
@@ -426,9 +445,7 @@ class LepTraitData(BaseModel):
 
 
 class UmapEmbedding(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     umap_x: float
@@ -443,9 +460,7 @@ class UmapEmbedding(BaseModel):
 
 
 class UmapData(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     species: str
     cluster_counts: int
@@ -460,9 +475,7 @@ class ImageMetadata(BaseModel):
     Metadata for an image file.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     species: str

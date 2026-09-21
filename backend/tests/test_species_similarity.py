@@ -261,3 +261,78 @@ class TestResolvingToAcceptedTaxa:
         # It must survive the route's response model.
         VisuallySimilarSpeciesPayload(dorsal=rows, ventral=[])
 
+
+
+class TestOnlyComparableSpecies:
+    """A card has to name a species a reader can open and compare against."""
+
+    def _record(self, img_id, key, name, rank):
+        return {
+            "img_id": img_id,
+            "accepted_key": key,
+            "display_accepted_name": name,
+            "accepted_rank": rank,
+            "update_status": "MATCHED",
+        }
+
+    def _resolve(self, fake_request, frame, resolved):
+        sim = SpeciesSimilarity(request=fake_request, limit=10)
+        sim.taxonomy = MagicMock()
+        sim.taxonomy.get_for_images.return_value = resolved
+        return sim._resolve_accepted(frame, "danaus plexippus", set())
+
+    def test_drops_a_match_that_stopped_at_genus(self, fake_request):
+        """There is no species page for a genus, so the card led nowhere."""
+        frame = pl.DataFrame({
+            "imgId": ["genus-only", "good"],
+            "species": ["vanessa", "vanessa_cardui"],
+            "distance": [0.1, 0.3],
+        })
+        rows = self._resolve(fake_request, frame, {
+            "genus-only": self._record("genus-only", "vanessa", "Vanessa", "genus"),
+            "good": self._record("good", "vanessa_cardui", "Vanessa cardui", "species"),
+        })
+        assert [row["imgId"] for row in rows] == ["good"]
+
+    def test_drops_a_one_word_name_whatever_its_rank_says(self, fake_request):
+        """The rank column is not always right; a single word is a genus."""
+        frame = pl.DataFrame({
+            "imgId": ["bare", "good"],
+            "species": ["vanessa", "vanessa_cardui"],
+            "distance": [0.1, 0.3],
+        })
+        rows = self._resolve(fake_request, frame, {
+            "bare": self._record("bare", "vanessa", "Vanessa", "species"),
+            "good": self._record("good", "vanessa_cardui", "Vanessa cardui", "species"),
+        })
+        assert [row["imgId"] for row in rows] == ["good"]
+
+    def test_keeps_a_subspecies(self, fake_request):
+        """A trinomial still names a species; only the epithet is extra."""
+        frame = pl.DataFrame({
+            "imgId": ["ssp"],
+            "species": ["vanessa_cardui_kershawi"],
+            "distance": [0.1],
+        })
+        rows = self._resolve(fake_request, frame, {
+            "ssp": self._record(
+                "ssp", "vanessa_cardui", "Vanessa cardui", "subspecies"
+            ),
+        })
+        assert [row["imgId"] for row in rows] == ["ssp"]
+
+    def test_the_unharmonized_fallback_drops_genus_only_records(
+        self, fake_request
+    ):
+        """With no run loaded the recorded name is all there is to judge on."""
+        frame = pl.DataFrame({
+            "imgId": ["genus-only", "good"],
+            "species": ["vanessa", "vanessa_cardui"],
+            "distance": [0.1, 0.3],
+        })
+        sim = SpeciesSimilarity(request=fake_request, limit=10)
+        sim.taxonomy = MagicMock()
+        # No harmonization run has been loaded.
+        sim.taxonomy.get_for_images.return_value = {}
+        rows = sim._resolve_accepted(frame, "danaus plexippus", set())
+        assert [row["imgId"] for row in rows] == ["good"]

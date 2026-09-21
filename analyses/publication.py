@@ -1,4 +1,4 @@
-"""Configuration, read-only summaries, and exports used by publication notebooks.
+"""Configuration, read-only summaries, and exports used by Jupyter notebooks to create manuscript figures.
 
 No ingestion, harmonization, application startup, or source database writes occur here.
 """
@@ -41,8 +41,8 @@ def project_root(start: Path | None = None) -> Path:
 def load_settings(root: Path | None = None) -> Settings:
     root = project_root(root)
     backend = root / "backend"
-    # A session override is useful for an offline snapshot or fixture database.
-    # Parsing .env does not expose secrets or mutate the process environment.
+    # Using .env of the backend so the database path is 
+    # consistent with the backend's environment.
     env = {**dotenv_values(backend / ".env"), **os.environ}
     with (backend / "app/configs/config.yaml").open() as handle:
         config = yaml.safe_load(handle)

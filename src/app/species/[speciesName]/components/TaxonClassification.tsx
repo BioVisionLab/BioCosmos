@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ColAttribution } from "@/components/Attribution";
 import {
   COL_RANK_ORDER,
@@ -5,6 +7,7 @@ import {
   ITALIC_COL_RANKS,
   rankValue,
 } from "@/lib/colTaxonomy";
+import { familyHref, genusHref } from "@/lib/taxonSlug";
 import { TaxonomyData } from "@/lib/speciesData";
 
 function Row({
@@ -25,6 +28,40 @@ function Row({
         {children}
       </td>
     </tr>
+  );
+}
+
+/**
+ * One rank's value, linked when that rank has a page.
+ *
+ * Only family and genus do. Reading a classification is where someone is
+ * most likely to want to go up a level, and until these rows were links the
+ * only way there was the breadcrumb.
+ */
+function RankValue({ rank, value }: { rank: string; value: string | null }) {
+  const label = value ?? "Unknown";
+  const body = ITALIC_COL_RANKS.has(rank) ? (
+    <i className="italic">{label}</i>
+  ) : (
+    label
+  );
+
+  if (!value) return body;
+  const href =
+    rank === "family"
+      ? familyHref(value)
+      : rank === "genus"
+        ? genusHref(value)
+        : null;
+  if (!href) return body;
+
+  return (
+    <Link
+      href={href}
+      className="hover:underline text-pacific-blue-700 dark:text-pacific-blue-300"
+    >
+      {body}
+    </Link>
   );
 }
 
@@ -67,11 +104,7 @@ export function SpeciesClassification({
           <tbody>
             {rows.map(({ rank, value }) => (
               <Row key={rank} label={rank.charAt(0).toUpperCase() + rank.slice(1)}>
-                {ITALIC_COL_RANKS.has(rank) ? (
-                  <i className="italic">{value ?? "Unknown"}</i>
-                ) : (
-                  (value ?? "Unknown")
-                )}
+                <RankValue rank={rank} value={value} />
               </Row>
             ))}
 

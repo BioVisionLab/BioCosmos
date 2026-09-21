@@ -8,7 +8,12 @@ import LandingSectionHeading, {
 } from "@/components/LandingSection";
 import { imageUrlById } from "@/lib/images";
 import { ColorSearchResult, searchByColor } from "@/lib/ml_search";
-import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
+import {
+  cleanSpeciesName,
+  isSpeciesName,
+  speciesUrlFromName,
+  toBinomialName,
+} from "@/lib/names";
 
 const RESULT_LIMIT = 6;
 // The backend removes duplicate species after its vector lookup, so request a
@@ -186,9 +191,17 @@ export default function ColorSearch() {
               // swap the contents of six tiles that stay put, not unmount
               // six and mount six more.
               key={`slot-${slot}`}
-              href={result ? `/species/${speciesUrlFromName(result.species)}` : "#"}
+              // A record identified only to genus has no species page, so the
+              // tile shows the image without pretending to lead anywhere.
+              href={
+                result && isSpeciesName(result.species)
+                  ? `/species/${speciesUrlFromName(result.species)}`
+                  : "#"
+              }
               imageUrl={result ? imageUrlById(result.imgId, "thumbnail") : null}
-              label={result ? cleanSpeciesName(result.species) : ""}
+              label={
+                result ? toBinomialName(cleanSpeciesName(result.species)) : ""
+              }
               alt={result ? `Image of ${result.species}` : ""}
               placeholder={loading ? "spinner" : "empty"}
             />

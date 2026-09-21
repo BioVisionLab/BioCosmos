@@ -172,6 +172,45 @@ class TestSubgenusNotation:
         )
         assert taxonomy.subgenus == "Sub"
 
+    def test_the_species_name_carries_no_subgenus(self):
+        """The subgenus belongs in its own row, not inside the species name.
+
+        `Danaus (Danaus) plexippus` is the name Catalogue of Life stores, but
+        it is not a name to show a reader next to a Subgenus row saying the
+        same thing — and it does not line up against the binomial every route
+        and every image query in this application keys on.
+        """
+        taxonomy = ColTaxonomy.from_row(
+            {
+                "scientific_name": "Zzzonympha (Sub) tricolor",
+                "taxon_rank": "species",
+                "subgenus": "Zzzonympha (Sub)",
+            }
+        )
+        assert taxonomy.species == "Zzzonympha tricolor"
+        assert taxonomy.acceptedName == "Zzzonympha tricolor"
+        assert taxonomy.subgenus == "Sub"
+        # The verbatim Catalogue of Life name is still carried, for anything
+        # that needs the name exactly as published.
+        assert taxonomy.scientificName == "Zzzonympha (Sub) tricolor"
+
+    def test_a_subspecies_keeps_its_third_epithet(self):
+        taxonomy = ColTaxonomy.from_row(
+            {
+                "scientific_name": "Zzzonympha (Sub) tricolor minor",
+                "taxon_rank": "subspecies",
+            }
+        )
+        assert taxonomy.species == "Zzzonympha tricolor minor"
+
+    def test_a_subgenus_usage_keeps_its_own_parenthetical_name(self):
+        """Only species names are cleaned. Above species rank the
+        parenthetical is the usage's own name, not noise inside another."""
+        taxonomy = ColTaxonomy.from_row(
+            {"scientific_name": "Zzzonympha (Sub)", "taxon_rank": "subgenus"}
+        )
+        assert taxonomy.acceptedName == "Zzzonympha (Sub)"
+
     def test_a_subgenus_usage_names_itself_without_its_genus(self):
         # A lookup of the subgenus usage backfills its own rank from the
         # scientific name, which carries the same parenthesised form.
