@@ -9,6 +9,29 @@ from ..database.duckdb import DuckDBClient
 
 logger = logging.getLogger(__name__)
 
+# The full-text search index definition, in one place: `ingest` builds it after
+# replacing the table and `reindex` rebuilds it on every start, and the two
+# drifting apart would mean a search that behaves differently depending on
+# whether ingestion happened to run.
+IMAGE_META_INDEX_ID = "rowid"
+IMAGE_META_COLUMNS_INDEXED = [
+    "class_dv",
+    "tax_rank",
+    "tax_status",
+    "family",
+    "species",
+    "sex",
+    "life_stage",
+    "lat",
+    "lon",
+    "source_db",
+    "kingdom",
+    "phylum",
+    "class",
+    "order",
+    "common_name",
+]
+
 
 # The occurrence columns every specimen listing returns. Kingdom, phylum,
 # class and order are included for callers that need them; the search table
@@ -225,26 +248,9 @@ class ImageMetaService:
         Create a full-text search index on relevant columns of the metadata table.
         """
         try:
-            IMAGE_META_COLUMNS_INDEXED = [
-                "class_dv",
-                "tax_rank",
-                "tax_status",
-                "family",
-                "species",
-                "sex",
-                "life_stage",
-                "lat",
-                "lon",
-                "source_db",
-                "kingdom",
-                "phylum",
-                "class",
-                "order",
-                "common_name",
-            ]
             self.db_client.index_table(
                 table_name=self.table,
-                id_column="rowid",
+                id_column=IMAGE_META_INDEX_ID,
                 columns=IMAGE_META_COLUMNS_INDEXED,
                 overwrite=True,
             )
@@ -254,6 +260,34 @@ class ImageMetaService:
                 f"Failed to create full-text search index on image metadata table: {e}"
             )
             raise
+
+    def reindex(self) -> bool:
+        """Rebuild the full-text index, whether or not ingestion ran.
+
+        `ingest` rebuilds the index as a side effect of replacing the table,
+        but it returns early when ingestion is skipped -- which is the normal
+        production setting, because re-reading the source file on every boot is
+        expensive. The DuckDB file can still have changed underneath that: a
+        `geoharmonize integrate` run, a colharmonize update, a freshly dropped
+        parquet. The index would then be describing rows that no longer exist,
+        and text search would return stale hits with no way to notice.
+
+        Rebuilding it on every start is cheap relative to being wrong. Failure
+        is logged, never raised: a stale index still answers queries, and
+        refusing to boot over one would take the whole site down.
+        """
+        if not self.db_client.table_exists(self.table):
+            logger.info("No '%s' table, so nothing to reindex.", self.table)
+            return False
+        try:
+            self._index_columns()
+            return True
+        except Exception:
+            logger.exception(
+                "Could not rebuild the image metadata search index; the "
+                "existing one is left in place and may be stale."
+            )
+            return False
 
     def get_image_count_by_species(self, scientific_name: str) -> int | None:
         """

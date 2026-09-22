@@ -28,6 +28,23 @@ PREFILTER_CHUNK_SIZE = 200
 PREFILTER_MAX_IDS = 2_000
 POSTFILTER_POOL_SIZES = (5_000, 50_000)
 
+# Search parameters for the ANN index on the embedding columns.
+#
+# Twenty probes is LanceDB's own default. The refine factor is the one that
+# earns its keep: it pulls ten times the requested rows off the quantized
+# index and re-ranks them against the full-precision stored vectors.
+#
+# Measured on the 619,787-image collection, against exact cosine distance
+# computed by hand for the union of both candidate sets: without refinement
+# only 70% of the top ten matched the true top ten, and with it 100%. Product
+# quantization was not making the search approximate at the margins -- it was
+# returning three different images in every ten. That is a wrong answer on a
+# panel that makes a claim about the collection, and worth the cost: roughly
+# 50ms to 350ms per search, which now runs in a worker thread rather than on
+# the event loop.
+NPROBES = 20
+REFINE_FACTOR = 10
+
 
 class SpeciesImage(BaseModel):
     """Class to represent species image data."""
@@ -454,6 +471,15 @@ class ImagePersistData:
             )
             .distance_type("cosine")
             .select(["img_id"])
+            # Both are no-ops on an unindexed column and only take effect once
+            # the IVF-PQ index exists. `nprobes` buys recall back from
+            # partitioning; `refine_factor` re-ranks the shortlist against the
+            # full-precision vectors, which is what keeps product quantization
+            # from changing *which* species come back rather than just how
+            # fast they arrive. That distinction matters here: this endpoint
+            # makes a claim about the collection, not a suggestion.
+            .nprobes(NPROBES)
+            .refine_factor(REFINE_FACTOR)
         )
         if where is not None:
             search = search.where(where, prefilter=True)

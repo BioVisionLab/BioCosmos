@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Request
@@ -14,6 +15,11 @@ MAX_IMAGE_ID_LIMIT = 500
 
 logger = logging.getLogger(__name__)
 
+# Every retrieval below is synchronous DuckDB and disk work. Awaited through
+# `asyncio.to_thread` rather than called inline, because these are the
+# endpoints a species page opens sixteen of at once: run on the event loop
+# they serialise the whole server behind whichever one is slowest.
+
 
 @router.get("/image/id/{image_id}", tags=["Taxon Images"])
 async def image_search_by_id(request: Request, image_id: str) -> FileResponse:
@@ -25,7 +31,9 @@ async def image_search_by_id(request: Request, image_id: str) -> FileResponse:
 
     logger.info(f"Received image search request for image ID: {image_id}")
     try:
-        img_path = ImageFileRetrieval(request=request).get_full_res(image_id)
+        img_path = await asyncio.to_thread(
+            ImageFileRetrieval(request=request).get_full_res, image_id
+        )
         if img_path is None:
             logger.warning(f"Image not found for ID: {image_id}")
             raise HTTPException(
@@ -54,7 +62,9 @@ async def image_metadata_by_id(request: Request, image_id: str):
     """
     logger.info(f"Fetching metadata for image ID: {image_id}")
     try:
-        meta = ImageMetaRetrieval(request=request).get_meta_by_id(image_id)
+        meta = await asyncio.to_thread(
+            ImageMetaRetrieval(request=request).get_meta_by_id, image_id
+        )
         if not meta:
             logger.warning(f"No metadata found for image ID: {image_id}")
             raise HTTPException(
@@ -82,7 +92,9 @@ async def image_search_thumbnail_by_id(request: Request, image_id: str):
 
     logger.info(f"Received thumbnail image request for image ID: {image_id}")
     try:
-        img_path = ImageFileRetrieval(request=request).get_thumbnail(image_id)
+        img_path = await asyncio.to_thread(
+            ImageFileRetrieval(request=request).get_thumbnail, image_id
+        )
         if img_path is None:
             logger.warning(f"Thumbnail image not found for ID: {image_id}")
             raise HTTPException(
@@ -135,8 +147,11 @@ async def fetch_species_image_ids(
     )
 
     try:
-        image_ids = ImageMetaRetrieval(request=request).get_species_image_ids(
-            scientific_name, limit=limit, offset=offset
+        image_ids = await asyncio.to_thread(
+            ImageMetaRetrieval(request=request).get_species_image_ids,
+            scientific_name,
+            limit=limit,
+            offset=offset,
         )
     except Exception as e:
         logger.error(f"Error fetching image IDs for {scientific_name}: {e}")
@@ -166,8 +181,9 @@ async def fetch_taxon_thumbnail(request: Request, scientific_name: str):
     logger.info(f"Fetching taxon thumbnail for species: {scientific_name}")
 
     try:
-        img_path = ImageFileRetrieval(request=request).get_species_thumbnail(
-            scientific_name
+        img_path = await asyncio.to_thread(
+            ImageFileRetrieval(request=request).get_species_thumbnail,
+            scientific_name,
         )
     except Exception as e:
         logger.error(f"Error fetching data for {scientific_name}: {e}")
@@ -199,8 +215,9 @@ async def fetch_species_high_res_image(request: Request, scientific_name: str):
     )
 
     try:
-        img_path = ImageFileRetrieval(request=request).get_species_image(
-            scientific_name
+        img_path = await asyncio.to_thread(
+            ImageFileRetrieval(request=request).get_species_image,
+            scientific_name,
         )
         if img_path is None:
             logger.warning(f"No image found for species: {scientific_name}")
@@ -210,6 +227,9 @@ async def fetch_species_high_res_image(request: Request, scientific_name: str):
             )
 
         return FileResponse(img_path)
+    except HTTPException:
+        # Without this the 404 above is caught below and reported as a 500.
+        raise
     except Exception as e:
         logger.error(f"Error fetching data for {scientific_name}: {e}")
         raise HTTPException(

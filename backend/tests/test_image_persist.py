@@ -161,8 +161,18 @@ class RecordingSearch:
         self.data = data
         self.where_clause = None
         self.limit_value = None
+        self.nprobes_value = None
+        self.refine_factor_value = None
 
     def distance_type(self, _dtype):
+        return self
+
+    def nprobes(self, n):
+        self.nprobes_value = n
+        return self
+
+    def refine_factor(self, n):
+        self.refine_factor_value = n
         return self
 
     def select(self, columns):
@@ -178,6 +188,7 @@ class RecordingSearch:
         return self
 
     def to_polars(self):
+        self.table.searches.append(self)
         self.table.calls.append((self.where_clause, self.limit_value))
         data = self.data
         if self.where_clause and " IN (" in self.where_clause:
@@ -192,9 +203,46 @@ class RecordingTable:
         self.data = data
         self.calls: list[tuple[str | None, int | None]] = []
         self.selects: list[list[str]] = []
+        self.searches: list["RecordingSearch"] = []
 
     def search(self, query=None, vector_column_name=None):
         return RecordingSearch(self, self.data)
+
+
+class TestAnnSearchParameters:
+    """Every vector search asks for the index to be probed and re-ranked.
+
+    Both calls are no-ops while the column is unindexed, which is why they can
+    be set unconditionally -- but if they were ever dropped, the day an IVF-PQ
+    index is built the endpoint would quietly start returning a *different*
+    set of neighbours rather than the same set faster, because product
+    quantization changes the ranking it is not refined against.
+    """
+
+    def test_search_sets_nprobes_and_refine_factor(self):
+        from app.services.images import (
+            NPROBES,
+            REFINE_FACTOR,
+            ImagePersistData,
+        )
+
+        table = RecordingTable(
+            pl.DataFrame({"img_id": ["a", "b"], "_distance": [0.1, 0.2]})
+        )
+        persist = ImagePersistData.__new__(ImagePersistData)
+        persist.db_table = table
+        persist.logger = MagicMock()
+
+        persist._vector_search(
+            query_vector=np.zeros(4),
+            vector_column_name="unicom_embeddings",
+            limit=10,
+        )
+
+        assert len(table.searches) == 1
+        search = table.searches[0]
+        assert search.nprobes_value == NPROBES
+        assert search.refine_factor_value == REFINE_FACTOR
 
 
 class TestAllowlistedVectorSearch:

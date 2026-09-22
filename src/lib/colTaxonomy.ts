@@ -16,6 +16,18 @@ import type { CodeTone } from "./codeTone";
 export { toneClasses } from "./codeTone";
 export type { CodeTone } from "./codeTone";
 
+/**
+ * The Catalogue of Life release the taxonomy on this site was reconciled
+ * against.
+ *
+ * EDIT THIS ONE CONSTANT when a taxonomic update is performed — it is the only
+ * place the release is written down, and every attribution on the site reads
+ * it from here. A release named in one component and stale in another is
+ * worse than none: a reader cannot tell which classification they are looking
+ * at.
+ */
+export const COL_RELEASE = "v2026-08-26 XR";
+
 export type UpdateStatusCode = "MATCHED" | "AMBIGUOUS" | "UNMATCHED";
 
 export interface TaxonCandidate {
@@ -314,11 +326,11 @@ export function normalizeTaxonUpdate(raw: unknown): TaxonUpdate | null {
 
   const candidates = Array.isArray(source.candidates)
     ? source.candidates
-        .filter(
-          (entry): entry is Record<string, unknown> =>
-            !!entry && typeof entry === "object",
-        )
-        .map(normalizeCandidate)
+      .filter(
+        (entry): entry is Record<string, unknown> =>
+          !!entry && typeof entry === "object",
+      )
+      .map(normalizeCandidate)
     : [];
 
   return {

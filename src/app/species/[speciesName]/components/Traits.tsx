@@ -6,39 +6,41 @@ import {
   parseMonthPresence,
   parseOvipositionStyle,
   parseVoltinism,
+  toDiapauseCode,
+  toOvipositionCode,
+  toVoltinismCode,
 } from "@/lib/leptraits";
 
-// import { Chart } from "chart.js/auto";
-import { Egg } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
 import { LepTraitDataSourceInfo } from "@/components/Attribution";
-import { ButterflyFlat, ButterflyFly } from "@/components/ui/Butterfly";
 import {
+  AdultPresenceIcon,
   CanopyIcon,
-  MultiLeafIcon,
-  MultiPlantIcon,
-  SingleLeafIcon,
-} from "@/components/ui/Plants";
-import { MoistureIcon } from "@/components/ui/Moisture";
-import { DisturbanceIcon, EdgeForestIcon } from "@/components/ui/Forest";
-import { OvipositionIcon, VoltinismIcon } from "@/components/ui/LifeHistory";
+  DiapauseIcon,
+  DisturbanceIcon,
+  EdgeForestIcon,
+  FlightDurationIcon,
+  HostPlantAccountsIcon,
+  HostPlantFamiliesIcon,
+  HostPlantFamilyIcon,
+  MoistureIcon,
+  OvipositionIcon,
+  VoltinismIcon,
+  WingspanIcon,
+} from "@/components/ui/icons";
 import { NoData } from "@/components/NoData";
 import { IconContainer } from "@/components/IconContainer";
 
-ChartJS.register(RadialLinearScale, ArcElement, Tooltip, Legend);
-
-const valueClass = "font-semibold text-grey-600 dark:text-grey-300 text-lg";
-const labelClass = "font-normal text-lg text-grey-600 dark:text-grey-300";
-const iconColor = "fill-pacific-blue-500";
-const commonIconClass = `w-12 h-12 ${iconColor} m-2`;
+const valueClass =
+  "font-semibold text-deep-mocha-700 dark:text-deep-mocha-200 text-lg";
+const labelClass =
+  "font-normal text-lg text-deep-mocha-700 dark:text-deep-mocha-200";
+// Colour lives in the icon primitive now, so a call site says only how big.
+const commonIconClass = "w-12 h-12 m-2";
+// The icons scale their stroke with them, so the large ones need a thinner
+// one to read at the same weight as the 48px set.
+const LARGE_ICON_STROKE = 1.25;
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits || noTraitData(traits)) {
@@ -197,7 +199,12 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
         )}
       <div className={boxClasses}>
         <h3 className="text-xl m-2">Adult Presence</h3>
-        <MonthPresence traits={traits} />
+        <div className="flex items-start gap-2 px-3 py-1">
+          <IconContainer>
+            <AdultPresenceIcon className={commonIconClass} />
+          </IconContainer>
+          <MonthPresence traits={traits} />
+        </div>
       </div>
       <div className="w-full flex justify-center items-center mt-12 mb-6">
         <LepTraitDataSourceInfo />
@@ -207,11 +214,19 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
 }
 
 function MonthPresence({ traits }: { traits: LepTraits | null }) {
+  // Above every early return. React identifies a hook by call order, so a
+  // `useMemo` sitting below the `!traits` guard is only reached on some
+  // renders — the moment `traits` arrives after a render without it, the hook
+  // order changes and React throws. Latent only because nothing flips it
+  // within a mount today.
+  const presentAbsentMap = useMemo(
+    () => (traits ? parseMonthPresence(traits) : {}),
+    [traits]
+  );
+
   if (!traits) {
     return null;
   }
-
-  const presentAbsentMap = useMemo(() => parseMonthPresence(traits), [traits]);
 
   // Only render if we have data
   if (Object.keys(presentAbsentMap).length === 0) {
@@ -285,7 +300,7 @@ function WingspanCard({
   return (
     <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        <ButterflyFlat className={`w-20 h-20 m-1 ${iconColor}`} />
+        <WingspanIcon className="w-20 h-20 m-1" strokeWidth={LARGE_ICON_STROKE} />
       </IconContainer>
       <div className="space-y-1">
         <div>
@@ -363,10 +378,11 @@ function Wingspan({
 
 function FlightDuration({
   duration,
-  iconClassName,
+  icon,
 }: {
   duration: number | null | undefined;
-  iconClassName?: string;
+  /** Supplied when the caller renders at a size other than the card default. */
+  icon?: ReactNode;
 }) {
   const hasValue = (v: unknown): v is number =>
     typeof v === "number" && !Number.isNaN(v);
@@ -378,7 +394,7 @@ function FlightDuration({
   return (
     <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        <ButterflyFly className={iconClassName ?? commonIconClass} />
+        {icon ?? <FlightDurationIcon className={commonIconClass} />}
       </IconContainer>
       <div>
         <p className={valueClass}>
@@ -393,11 +409,9 @@ function FlightDuration({
 function Affinity({
   affinity,
   icon,
-  iconClassName,
 }: {
   affinity: string | null | undefined;
   icon?: ReactNode;
-  iconClassName?: string;
 }) {
   const hasValue = (v: unknown): v is string =>
     typeof v === "string" && v.trim() !== "";
@@ -409,11 +423,7 @@ function Affinity({
   return (
     <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        {icon ? (
-          icon
-        ) : (
-          <CanopyIcon className={iconClassName ?? commonIconClass} />
-        )}
+        {icon ?? <CanopyIcon className={commonIconClass} />}
       </IconContainer>
       <div>
         <p className={valueClass}>{affinity}</p>
@@ -435,7 +445,10 @@ function Voltinism({ voltinism }: { voltinism: string | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <VoltinismIcon className={commonIconClass} />
+        <VoltinismIcon
+          className={commonIconClass}
+          variant={toVoltinismCode(voltinism)}
+        />
       </IconContainer>
       <p className={valueClass}>
         {voltinismLabel.label}{" "}
@@ -462,7 +475,10 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <Egg className={`h-12 w-12 stroke-pacific-blue-500 m-2`} />
+        <DiapauseIcon
+          className={commonIconClass}
+          variant={toDiapauseCode(diapause)}
+        />
       </IconContainer>
       <p className={valueClass}>
         {diapauseLabel.label}{" "}
@@ -487,7 +503,10 @@ function OvipositionStyle({ style }: { style: string | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <OvipositionIcon className={commonIconClass} />
+        <OvipositionIcon
+          className={commonIconClass}
+          variant={toOvipositionCode(style)}
+        />
       </IconContainer>
       <p className={valueClass}>{styleLabel}</p>
     </div>
@@ -505,7 +524,7 @@ function NumberOfHostPlants({ count }: { count: number | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <MultiLeafIcon className={commonIconClass} />
+        <HostPlantFamiliesIcon className={commonIconClass} />
       </IconContainer>
       <div>
         <p className={valueClass}>
@@ -540,7 +559,7 @@ function HostPlantFamilies({
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        {icon ? icon : <SingleLeafIcon className={commonIconClass} />}
+        {icon ?? <HostPlantFamilyIcon className={commonIconClass} />}
       </IconContainer>
       <div>
         <p className={valueClass}>{familyList.join(" · ")}</p>
@@ -560,11 +579,14 @@ function HostPlantAccount({ count }: { count: number | null | undefined }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <IconContainer>
-        <MultiPlantIcon className={commonIconClass} />
+        <HostPlantAccountsIcon className={commonIconClass} />
       </IconContainer>
       <div>
         <p className={valueClass}>
-          {count} <span className={labelClass}>host plant account</span>
+          {count}{" "}
+          <span className={labelClass}>
+            host plant account{count === 1 ? "" : "s"}
+          </span>
         </p>
       </div>
     </div>

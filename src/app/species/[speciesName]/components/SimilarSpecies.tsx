@@ -11,7 +11,11 @@ import {
   speciesUrlFromName,
   toBinomialName,
 } from "@/lib/names";
-import { SimilarSpeciesList, SimilarSpeciesMeta } from "@/lib/similarSpecies";
+import {
+  fetchSimilarSpecies,
+  SimilarSpeciesList,
+  SimilarSpeciesMeta,
+} from "@/lib/similarSpecies";
 import { useInView } from "@/lib/useInView";
 
 const IMAGE_SIZE = 120;
@@ -33,27 +37,36 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
     // This embedding search is expensive and the panel sits below the fold, so
     // hold off until the reader actually scrolls towards it.
     if (!inView) return;
-    const fetchSimilarSpecies = async () => {
+
+    // Aborted on cleanup, and the result dropped on the way back in. This is
+    // the slowest request the species page makes, so without it a response for
+    // the species a reader just navigated away from can land after the next
+    // one and overwrite the panel with the wrong neighbours.
+    const controller = new AbortController();
+    let ignore = false;
+
+    const load = async () => {
       try {
-        const response = await fetch(
-          `/api/ml-search/similarity?species=${encodeURIComponent(species)}`,
-        );
-        if (!response.ok) {
-          console.error(
-            `Failed to fetch similar species for ${species}: ${response.statusText}`,
-          );
-          setIsLoading(false);
-          return;
-        }
-        const data: SimilarSpeciesList = await response.json();
+        const data = await fetchSimilarSpecies(species, controller.signal);
+        if (ignore) return;
         setSimilarSpecies(data);
       } catch (error) {
+        // The only throw the helper lets through is the abort, which means a
+        // newer request has already taken over. Leave the panel alone.
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
         console.error("Error fetching similar species:", error);
       } finally {
-        setIsLoading(false);
+        if (!ignore) setIsLoading(false);
       }
     };
-    fetchSimilarSpecies();
+    load();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
   }, [species, inView]);
 
   const isNotFound =
@@ -137,15 +150,22 @@ function SimilarSpeciesImage({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    // Up to twenty of these mount at once, one per neighbour, and each one
+    // outlives its card if the reader scrolls on. Latched so a late thumbnail
+    // cannot set state on a card that has already been replaced.
+    let ignore = false;
     const fetchImage = async () => {
       try {
         const response = await fetchThumbnailById(meta.imgId);
-        setThumbnailUrl(response);
+        if (!ignore) setThumbnailUrl(response);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
       }
     };
     fetchImage();
+    return () => {
+      ignore = true;
+    };
   }, [meta.imgId]);
 
   // The accepted species name is what a reader compares against, so it is the

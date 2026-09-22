@@ -277,6 +277,12 @@ def test_embedding_query_applies_escaped_allowlist_prefilter():
         def distance_type(self, _distance_type):
             return self
 
+        def nprobes(self, _n):
+            return self
+
+        def refine_factor(self, _n):
+            return self
+
         def select(self, columns):
             assert columns == ["img_id"]
             return self

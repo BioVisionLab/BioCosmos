@@ -1,5 +1,7 @@
 """Tests for the species_data router endpoints."""
 
+import asyncio
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import FastAPI
@@ -164,6 +166,122 @@ class TestFetchVisuallySimilarSpecies:
         try:
             response = client.get("/species/nonexistent_species/similar")
             assert response.status_code == 404
+        finally:
+            app.dependency_overrides.clear()
+
+    def _records_its_thread(self, payload):
+        """A stand-in lookup that reports whether it ran on the event loop.
+
+        `asyncio.get_running_loop()` succeeds only when called from a thread
+        that is currently running a loop. A synchronous lookup invoked inline
+        from an `async def` handler runs on exactly that thread; one handed to
+        `asyncio.to_thread` does not.
+        """
+        seen = {}
+
+        def lookup(_scientific_name):
+            try:
+                asyncio.get_running_loop()
+                seen["on_event_loop"] = True
+            except RuntimeError:
+                seen["on_event_loop"] = False
+            return payload
+
+        return lookup, seen
+
+    def test_precomputed_lookup_runs_off_the_event_loop(self):
+        """Blocking DuckDB work must not hold the loop.
+
+        Called inline, one slow similarity search stalled the whole server, so
+        every thumbnail and metadata request the species page was waiting on
+        queued behind it and the overview tab painted in pieces.
+        """
+        lookup, seen = self._records_its_thread({"dorsal": [], "ventral": []})
+        precomputed = MagicMock()
+        precomputed.find_similar_species.side_effect = lookup
+        runtime = MagicMock()
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            response = client.get("/species/danaus_plexippus/similar")
+            assert response.status_code == 200
+            assert seen["on_event_loop"] is False
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_runtime_lookup_runs_off_the_event_loop(self):
+        """The fallback path is the slow one; it especially must not block."""
+        lookup, seen = self._records_its_thread({"dorsal": [], "ventral": []})
+        precomputed = MagicMock()
+        precomputed.find_similar_species.return_value = None
+        runtime = MagicMock()
+        runtime.find_similar_species.side_effect = lookup
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            response = client.get("/species/danaus_plexippus/similar")
+            assert response.status_code == 200
+            assert seen["on_event_loop"] is False
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_a_hit_is_cacheable_and_a_miss_is_not(self):
+        """Every mount of the panel re-ran the search; a hit may be reused."""
+        precomputed = MagicMock()
+        precomputed.find_similar_species.return_value = {
+            "dorsal": [],
+            "ventral": [],
+        }
+        runtime = MagicMock()
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            hit = client.get("/species/danaus_plexippus/similar")
+            assert hit.status_code == 200
+            assert "max-age=" in hit.headers["Cache-Control"]
+
+            precomputed.find_similar_species.return_value = None
+            runtime.find_similar_species.return_value = None
+            miss = client.get("/species/nonexistent_species/similar")
+            assert miss.status_code == 404
+            assert miss.headers["Cache-Control"] == "no-store"
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_the_payload_stays_camel_cased(self):
+        """Returning a JSONResponse bypasses `response_model`.
+
+        The payload model camel-cases its fields on the way out, so the
+        aliasing has to be reapplied by hand or the frontend silently starts
+        receiving snake_case keys.
+        """
+        precomputed = MagicMock()
+        precomputed.find_similar_species.return_value = {
+            "dorsal": [
+                {
+                    "species": "vanessa_cardui",
+                    "imgId": "img-001",
+                    "distance": 0.1,
+                    "acceptedName": "Vanessa cardui",
+                }
+            ],
+            "ventral": [],
+        }
+        runtime = MagicMock()
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            row = client.get("/species/danaus_plexippus/similar").json()["dorsal"][0]
+            assert "imgId" in row and "img_id" not in row
+            assert "acceptedName" in row and "accepted_name" not in row
         finally:
             app.dependency_overrides.clear()
 

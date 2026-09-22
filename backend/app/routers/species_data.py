@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,7 +13,7 @@ from ..query.species_similarity import (
     VisuallySimilarSpeciesPayload,
 )
 from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
-from .http_cache import NO_STORE, cached_json
+from .http_cache import NO_STORE, SIMILARITY_CACHE_CONTROL, cached_json
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -80,6 +81,24 @@ def get_precomputed_similarity(request: Request) -> PrecomputedSpeciesSimilarity
     return PrecomputedSpeciesSimilarity(request=request, limit=10)
 
 
+def _similar_species_response(result: dict) -> JSONResponse:
+    """Serialize through the payload model, then attach a cache policy.
+
+    Returning a `JSONResponse` bypasses `response_model`, and that model
+    camel-cases its fields on the way out (`alias_generator=to_camel`). The
+    aliasing has to be applied here or the frontend would silently start
+    receiving snake_case keys.
+
+    No ETag: unlike the higher-taxon overviews there is no ingestion
+    fingerprint for the similarity table to tie one to, so the entry ages out
+    instead.
+    """
+    payload = VisuallySimilarSpeciesPayload.model_validate(result).model_dump(
+        mode="json", by_alias=True
+    )
+    return cached_json(payload, cache_control=SIMILARITY_CACHE_CONTROL)
+
+
 @router.get(
     "/species/{scientific_name}/similar",
     tags=["Species Data", "ML Search"],
@@ -89,11 +108,18 @@ async def fetch_visually_similar_species(
     scientific_name: str,
     precomputed: PrecomputedSpeciesSimilarity = Depends(get_precomputed_similarity),
     runtime: SpeciesSimilarity = Depends(get_species_similarity),
-) -> dict:
+):
     """
     Fetch visually similar species based on image similarity analyses.
     Uses precomputed results when available, falls back to runtime vector search.
     Returns 404 if no similar species are found.
+
+    Both lookups are synchronous DuckDB and LanceDB work, so they are handed to
+    a worker thread. Called inline from this `async def` they held uvicorn's
+    event loop for the length of the search, and every thumbnail, image
+    metadata and taxonomy request the species page was waiting on queued behind
+    them — which is what made the overview tab paint in pieces and look like it
+    needed a refresh.
     """
     logger.info(
         "Fetching visually similar species for: %s", scientific_name
@@ -101,21 +127,23 @@ async def fetch_visually_similar_species(
 
     try:
         # Try precomputed first
-        result = precomputed.find_similar_species(scientific_name)
+        result = await asyncio.to_thread(
+            precomputed.find_similar_species, scientific_name
+        )
         if result is not None:
             logger.info(
                 "Returning precomputed similarity for: %s",
                 scientific_name,
             )
-            return result
+            return _similar_species_response(result)
 
         # Fallback to runtime vector search
         logger.info(
             "Falling back to runtime similarity for: %s",
             scientific_name,
         )
-        similar_species = runtime.find_similar_species(
-            scientific_name
+        similar_species = await asyncio.to_thread(
+            runtime.find_similar_species, scientific_name
         )
         if similar_species is None:
             logger.warning(
@@ -126,8 +154,9 @@ async def fetch_visually_similar_species(
                 detail=f"Visually similar species not found for: {scientific_name}",
             )
 
-        return similar_species
-    except HTTPException:
+        return _similar_species_response(similar_species)
+    except HTTPException as error:
+        error.headers = {**(error.headers or {}), "Cache-Control": NO_STORE}
         raise
     except Exception:
         logger.exception(
@@ -136,6 +165,7 @@ async def fetch_visually_similar_species(
         raise HTTPException(
             status_code=500,
             detail="An internal error occurred while fetching visually similar species.",
+            headers={"Cache-Control": NO_STORE},
         )
 
 

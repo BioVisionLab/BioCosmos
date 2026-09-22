@@ -11,9 +11,13 @@ const RULE =
  * section to every section: the page used to pair it with a plain
  * `text-2xl font-semibold` heading elsewhere, which read as two pages
  * stacked rather than one.
+ *
+ * Sized as a heading rather than as a label. The old `text-xs` uppercase
+ * treatment was smaller than the body copy underneath it, so the sections it
+ * titled read as unlabelled.
  */
 const HEADING =
-  "text-xs sm:text-sm font-semibold tracking-wider uppercase text-hunter-green-600 dark:text-hunter-green-300 flex items-center gap-2";
+  "text-xl sm:text-2xl font-semibold text-hunter-green-600 dark:text-hunter-green-300 flex items-center gap-2 shrink-0";
 
 /**
  * The width every landing-page section shares: readable on a phone, and
@@ -36,9 +40,15 @@ export const LANDING_GRID =
 
 export interface LandingSectionHeadingProps {
   title: string;
-  /** Decorative only, so it is hidden from assistive technology. */
-  emoji?: string;
-  /** One line of sub-copy, centred beneath the rules. */
+  /**
+   * The section's mark, drawn from the same two-tone set the species pages
+   * use. Decorative, so it carries no accessible name.
+   *
+   * This replaced a literal emoji, which rendered as a different drawing on
+   * every platform and could not follow the theme.
+   */
+  icon?: ReactNode;
+  /** One line of sub-copy, beneath the title. */
   description?: ReactNode;
   /** Set when the caller wires `aria-labelledby` to this heading. */
   id?: string;
@@ -47,15 +57,20 @@ export interface LandingSectionHeadingProps {
 }
 
 /**
- * A landing-page section heading: two gradient rules, a small uppercase
- * green title, and optional sub-copy.
+ * A landing-page section heading: a green title flush left, one gradient rule
+ * running out to the right, and optional sub-copy beneath it.
+ *
+ * Left-aligned rather than centred between two rules. A centred title has to
+ * be found before it can be read, and on a narrow screen it wrapped while the
+ * rules stayed vertically centred, which drew them straight through the
+ * second line.
  *
  * Pure markup, so it carries no `"use client"` and can be used from both the
  * client tree and a server component.
  */
 export default function LandingSectionHeading({
   title,
-  emoji,
+  icon,
   description,
   id,
   className = "",
@@ -63,11 +78,13 @@ export default function LandingSectionHeading({
   return (
     <div className={`${LANDING_CONTAINER} mb-4 ${className}`}>
       <div className="flex items-center gap-3">
-        <span className={RULE} aria-hidden="true" />
         <h2 id={id} className={HEADING}>
-          {emoji ? (
-            <span className="text-lg" aria-hidden="true">
-              {emoji}
+          {icon ? (
+            <span
+              className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 [&>svg]:h-full [&>svg]:w-full"
+              aria-hidden="true"
+            >
+              {icon}
             </span>
           ) : null}
           {title}
@@ -75,7 +92,7 @@ export default function LandingSectionHeading({
         <span className={RULE} aria-hidden="true" />
       </div>
       {description ? (
-        <p className="mt-3 text-center text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
+        <p className="mt-3 text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
           {description}
         </p>
       ) : null}

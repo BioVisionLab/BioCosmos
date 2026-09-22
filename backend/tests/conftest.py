@@ -68,11 +68,24 @@ class FakeLanceSearch:
         self._data = data
         self._offset = 0
         self._limit: int | None = None
+        # Only meaningful once the vector column carries an ANN index, but the
+        # builder accepts them either way and the code under test always sets
+        # them.
+        self.nprobes_value: int | None = None
+        self.refine_factor_value: int | None = None
 
     def where(self, condition, prefilter=False):
         return self
 
     def distance_type(self, dtype):
+        return self
+
+    def nprobes(self, n):
+        self.nprobes_value = n
+        return self
+
+    def refine_factor(self, n):
+        self.refine_factor_value = n
         return self
 
     def select(self, columns):

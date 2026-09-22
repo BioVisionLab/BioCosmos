@@ -8,7 +8,7 @@ import {
   ProteinCodingIcon,
   PseudoGeneIcon,
   RnaIcon,
-} from "@/components/ui/Genetics";
+} from "@/components/ui/icons";
 import {
   cleanGeneType,
   fetchGenBankGeneCount,
@@ -114,7 +114,7 @@ function GeneCounts({ geneType, count }: { geneType: string; count: number }) {
 }
 
 function GeneIcon({ category }: { category: GeneCategory }) {
-  const className = "w-12 h-12 fill-pacific-blue-500 mb-2";
+  const className = "w-12 h-12 mb-2";
   switch (category) {
     case GeneCategory.ProteinCoding:
       return <ProteinCodingIcon key="protein-coding" className={className} />;

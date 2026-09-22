@@ -20,15 +20,30 @@ HIGHER_TAXON_CACHE_CONTROL = (
     f"s-maxage={HIGHER_TAXON_MAX_AGE}, stale-while-revalidate=86400"
 )
 
+# One day. Visually similar species come off a precomputed table that is
+# regenerated on its own schedule, with no fingerprint to hang an ETag on, so
+# the only way a cache entry retires is by ageing out. A month would be too
+# long to wait for a recomputed neighbourhood to reach a reader.
+SIMILARITY_MAX_AGE = 60 * 60 * 24
+SIMILARITY_CACHE_CONTROL = (
+    f"public, max-age={SIMILARITY_MAX_AGE}, "
+    f"s-maxage={SIMILARITY_MAX_AGE}, stale-while-revalidate=3600"
+)
+
 # Errors are not cached at all. A month-long cache entry for a typo'd family
 # name would outlive several ingestions and there would be no way to clear it
 # from the browser that holds it.
 NO_STORE = "no-store"
 
 
-def cached_json(payload: dict | list, *, etag: str | None = None) -> JSONResponse:
-    """A 200 that may be cached for thirty days."""
-    headers = {"Cache-Control": HIGHER_TAXON_CACHE_CONTROL}
+def cached_json(
+    payload: dict | list,
+    *,
+    etag: str | None = None,
+    cache_control: str = HIGHER_TAXON_CACHE_CONTROL,
+) -> JSONResponse:
+    """A 200 that may be cached — for thirty days unless told otherwise."""
+    headers = {"Cache-Control": cache_control}
     if etag:
         # Weak: the bytes are only guaranteed equivalent, not identical, across
         # serializations of the same ingestion.
