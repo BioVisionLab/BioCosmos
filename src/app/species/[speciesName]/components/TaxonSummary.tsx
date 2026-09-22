@@ -1,7 +1,7 @@
 import { LepTraitsAttribution } from "@/components/Attribution";
 import { Affinity, FlightDuration, WingspanCard } from "./Traits";
 import { LepTraits } from "@/lib/leptraits";
-import { CanopyIcon } from "@/components/ui/Plants";
+import { CanopyIcon, FlightDurationIcon } from "@/components/ui/icons";
 
 export function SpeciesDescription({
   traits,
@@ -43,7 +43,10 @@ function SpeciesDescriptionText({
   const showCanopy =
     typeof traits.canopy_affinity === "string" &&
     traits.canopy_affinity.trim() !== "";
-  const keyTraitIconClass = "w-20 h-20 m-1 fill-pacific-blue-500";
+  // Colour comes from the icon primitive; the thinner stroke keeps these
+  // large icons at the same visual weight as the 48px set on the Biology tab.
+  const keyTraitIconClass = "w-20 h-20 m-1";
+  const keyTraitStroke = 1.25;
 
   return (
     <section
@@ -71,7 +74,12 @@ function SpeciesDescriptionText({
           <h3 className="text-lg ml-2 mt-0 mb-2">Canopy Affinity</h3>
           <Affinity
             affinity={traits.canopy_affinity!}
-            icon={<CanopyIcon className={keyTraitIconClass} />}
+            icon={
+              <CanopyIcon
+                className={keyTraitIconClass}
+                strokeWidth={keyTraitStroke}
+              />
+            }
           />
         </div>
       )}
@@ -83,7 +91,12 @@ function SpeciesDescriptionText({
             <h3 className="text-lg ml-2 mt-0 mb-2">Flight Duration</h3>
             <FlightDuration
               duration={traits.flight_duration}
-              iconClassName={keyTraitIconClass}
+              icon={
+                <FlightDurationIcon
+                  className={keyTraitIconClass}
+                  strokeWidth={keyTraitStroke}
+                />
+              }
             />
           </div>
         )}

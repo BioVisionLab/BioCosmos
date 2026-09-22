@@ -1,0 +1,122 @@
+# Labelled planner queries for plannerbench.
+#
+# Each case lists every tool plan that counts as correct. A plan maps a tool
+# name to the arguments it must carry:
+#
+#   {}                          any arguments
+#   { location = "BR" }         exact value (case-insensitive, trimmed)
+#   { location = ["BR", "PE"] } any of these values
+#   { canopy_affinity = "*" }   present, with any value
+#
+# A trial is correct when the set of valid tool calls equals the plan's tools
+# exactly: a missing tool and an extra tool are both wrong. An empty plan
+# (`{}` in `accept`) means "call no tool".
+
+# --- Single intent -----------------------------------------------------------
+
+[[cases]]
+id = "color-only"
+query = "orange butterflies with black stripes"
+note = "Visual description only."
+accept = [{ search_by_color = {} }]
+
+[[cases]]
+id = "country-only"
+query = "butterflies of Indonesia"
+note = "Country name to ISO alpha-2."
+accept = [{ search_by_location = { location = "ID" } }]
+
+[[cases]]
+id = "region-to-country"
+query = "species from the Amazon rainforest"
+note = "Region resolved to its most representative country."
+accept = [{ search_by_location = { location = "BR" } }]
+
+[[cases]]
+id = "similar-scientific"
+query = "similar to Danaus plexippus"
+accept = [{ search_by_image_similarity = { reference_species = "Danaus plexippus" } }]
+
+[[cases]]
+id = "similar-common-name"
+query = "monarch look-alikes"
+note = "Common name must become the scientific name."
+accept = [{ search_by_image_similarity = { reference_species = "Danaus plexippus" } }]
+
+[[cases]]
+id = "similar-common-name-morpho"
+query = "species that resemble the blue morpho"
+accept = [
+  { search_by_image_similarity = { reference_species = ["Morpho menelaus", "Morpho peleides", "Morpho helenor", "Morpho"] } },
+]
+
+[[cases]]
+id = "trait-only"
+query = "butterflies that live in the forest canopy"
+accept = [{ search_by_traits = { canopy_affinity = "*" } }]
+
+# --- Combinations ------------------------------------------------------------
+
+[[cases]]
+id = "color-country"
+query = "blue from brazil"
+accept = [{ search_by_color = {}, search_by_location = { location = "BR" } }]
+
+[[cases]]
+id = "color-country-yellow"
+query = "yellow butterflies from Indonesia"
+accept = [{ search_by_color = {}, search_by_location = { location = "ID" } }]
+
+[[cases]]
+id = "similar-country"
+query = "butterflies like Morpho menelaus from Peru"
+accept = [
+  { search_by_image_similarity = { reference_species = "Morpho menelaus" }, search_by_location = { location = "PE" } },
+]
+
+[[cases]]
+id = "color-trait"
+query = "spotted butterflies in disturbed habitats"
+accept = [{ search_by_color = {}, search_by_traits = { disturbance_affinity = "*" } }]
+
+[[cases]]
+id = "color-country-trait"
+query = "orange canopy butterflies in Costa Rica"
+accept = [
+  { search_by_color = {}, search_by_location = { location = "CR" }, search_by_traits = { canopy_affinity = "*" } },
+]
+
+# --- Descriptive queries with more than one reasonable reading ---------------
+
+[[cases]]
+id = "descriptive"
+query = "owl-like butterfly"
+note = "Eyespot description, or a Caligo reference."
+accept = [
+  { search_by_color = {} },
+  { search_by_image_similarity = { reference_species = ["Caligo", "Caligo eurilochus", "Caligo memnon", "Caligo idomeneus", "Caligo atreus"] } },
+]
+
+[[cases]]
+id = "descriptive-country"
+query = "owl-like butterfly from brazil"
+accept = [
+  { search_by_color = {}, search_by_location = { location = "BR" } },
+  { search_by_image_similarity = { reference_species = ["Caligo", "Caligo eurilochus", "Caligo memnon", "Caligo idomeneus", "Caligo atreus", "Caligo brasiliensis"] }, search_by_location = { location = "BR" } },
+]
+
+[[cases]]
+id = "descriptive-glasswing"
+query = "glasswing butterfly"
+accept = [
+  { search_by_color = {} },
+  { search_by_image_similarity = { reference_species = ["Greta oto", "Greta"] } },
+]
+
+# --- Restraint ---------------------------------------------------------------
+
+[[cases]]
+id = "ignore-generic-terms"
+query = "show me red butterfly species"
+note = "Generic words must not add tools."
+accept = [{ search_by_color = {} }]

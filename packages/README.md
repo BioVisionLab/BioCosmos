@@ -9,6 +9,7 @@ split into three Python packages.
 | [`harmonize-core`](harmonize-core) | —              | Shared DuckDB, config, output, and reporting primitives    |
 | [`colharmonize`](colharmonize)     | `colharmonize` | Match occurrence names against a Catalogue of Life release |
 | [`geoharmonize`](geoharmonize)     | `geoharmonize` | Validate occurrence coordinates against GADM geography     |
+| [`plannerbench`](plannerbench)     | `plannerbench` | Benchmark LLMs as the agent-search planner                 |
 
 The two tools were one package upstream. They are split here because they share
 no domain logic and have disjoint dependencies — `shapely` and `pycountry` for
@@ -26,12 +27,19 @@ uv run geoharmonize --help
 uv run --package harmonize-core pytest packages/harmonize-core/tests -q
 uv run --package colharmonize   pytest packages/colharmonize/tests -q
 uv run --package geoharmonize   pytest packages/geoharmonize/tests -q
+uv run --package plannerbench   pytest packages/plannerbench/tests -q
 
 uv run ruff check packages/ && uv run ruff format --check packages/
 ```
 
 Both tools write their run artifacts to [`reports/`](../reports), which
 documents the manifest contract the backend will consume.
+
+`plannerbench` is not a harmonization tool. It replays the agent-search
+planner prompt against different LLMs to compare tool-call accuracy,
+consistency, and latency. It reads a spec the backend exports
+(`backend/scripts/export_planner_spec.py`) instead of importing the backend.
+See [`plannerbench/README.md`](plannerbench/README.md).
 
 ## Relationship to the backend
 

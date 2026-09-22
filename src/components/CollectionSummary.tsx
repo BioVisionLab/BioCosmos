@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import LandingSectionHeading from "@/components/LandingSection";
+import { SummaryIcon } from "@/components/ui/icons";
 
 export interface CollectionCounts {
   images: number;
@@ -48,7 +49,7 @@ export default function CollectionSummary({
     <section className="w-full mt-16" aria-labelledby="collection-summary-heading">
       <LandingSectionHeading
         id="collection-summary-heading"
-        emoji="📊"
+        icon={<SummaryIcon />}
         title="Collection Summary"
         description="What the collection holds right now."
       />

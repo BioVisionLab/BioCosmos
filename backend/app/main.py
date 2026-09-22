@@ -16,7 +16,7 @@ from .services.embedder import ImageEmbedder
 from .services.umap import SpeciesImageUmap
 from .services.metadata import ImageMetaService
 from .services.gbif import GbifPersistData
-from .configs.config import ColConfig, GbifConfig, LocalityConfig
+from .configs.config import ColConfig, GbifConfig, ImageConfig, LocalityConfig
 from .services.col import ColBackboneService
 from .services.locality import LocalityService
 from .services.taxonomy_update import TaxonomyUpdateService
@@ -248,9 +248,45 @@ def run_data_ingestion(app: FastAPI):
     )
     image_embedder.ingest()
     logger.info("Image embeddings ingested.")
+
+    rebuild_search_indexes(app)
+
     logger.info(
         "All data ingestion processes completed successfully."
     )
+
+
+def rebuild_search_indexes(app: FastAPI):
+    """Refresh every search index so it describes the data as it is now.
+
+    Two different kinds of index, with two different policies:
+
+    * The DuckDB full-text indexes are rebuilt on **every** start. Ingestion is
+      normally skipped in production, so without this the index is whatever the
+      last ingest left behind -- and the database changes underneath it through
+      routes that never touch ingestion, such as a `geoharmonize integrate` run
+      or a colharmonize update. Rebuilding is cheap next to serving stale hits.
+
+    * The LanceDB vector indexes are built **once** and then left alone.
+      Training an IVF-PQ index is minutes of work and only becomes stale when
+      the embeddings themselves change, which a restart does not do.
+
+    Neither is allowed to fail startup: an index that is missing or stale makes
+    search slower or slightly out of date, and neither is worth taking the site
+    down for.
+    """
+    logger.info("Refreshing search indexes...")
+
+    if ImageMetaService(app.state.duck_db).reindex():
+        logger.info("Image metadata full-text index rebuilt.")
+    if GbifPersistData(app.state.duck_db).reindex():
+        logger.info("GBIF full-text index rebuilt.")
+
+    image_config = ImageConfig()
+    for column in ("unicom_embeddings", "clip_embeddings"):
+        app.state.lance_db.ensure_vector_index(image_config.table, column)
+
+    logger.info("Search indexes refreshed.")
 
 
 @asynccontextmanager

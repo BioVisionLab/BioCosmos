@@ -37,7 +37,7 @@ export default function SemanticForm({
         ring-1 ring-deep-mocha-200 dark:ring-deep-mocha-700
         shadow-sm hover:shadow-md transition-all
         focus-within:ring-2 focus-within:ring-hunter-green-500/60
-        w-full h-full
+        flex-1 min-w-0 h-full
         `}
         >
           <div className="flex items-center">
@@ -65,7 +65,11 @@ export default function SemanticForm({
         `}
           />
         </div>
-        <div className="col-span-2 flex items-center h-full">
+        {/* `shrink-0` so the button keeps its width and the field gives way,
+            rather than both being asked for their full size and overflowing
+            the row. `col-span-2` was left over from a grid this has not been
+            inside for some time. */}
+        <div className="flex shrink-0 items-center h-full">
           <button
             type="submit"
             disabled={!searchTerm.trim()}

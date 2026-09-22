@@ -1,3 +1,5 @@
+import { COL_RELEASE } from "@/lib/colTaxonomy";
+
 const gbifURL = "https://www.gbif.org/";
 const colURL = "https://www.catalogueoflife.org/";
 const lepTraitURL = "https://github.com/RiesLabGU/LepTraits";
@@ -29,7 +31,7 @@ export function GbifAttribution({
 
 export function GbifDataSourceInfo() {
   return (
-    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+    <div className="text-base text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
       <p>
         The occurrence data is sourced from{" "}
         <a
@@ -80,7 +82,7 @@ export function LepTraitsAttribution({
 
 export function LepTraitDataSourceInfo() {
   return (
-    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+    <div className="text-base text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
       <p>
         The trait data is sourced from the{" "}
         <a
@@ -121,7 +123,7 @@ export function NcbiAttribution({
 }) {
   return (
     <p
-      className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}
+      className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-base" : "text-xs"}`}
     >
       {leadingText}{" "}
       <a
@@ -138,7 +140,7 @@ export function NcbiAttribution({
 
 export function NcbiDataSourceInfo() {
   return (
-    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+    <div className="text-base text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
       <p>
         Genetic data is sourced from{" "}
         <a
@@ -174,7 +176,7 @@ export function CrossRefAttribution({
 }) {
   return (
     <p
-      className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-md" : "text-xs"}`}
+      className={`text-deep-mocha-500 mt-2 ${isLarge ? "text-base" : "text-xs"}`}
     >
       {leadingText}{" "}
       <a
@@ -216,12 +218,20 @@ export function NcbiLink() {
 }
 
 
+/**
+ * @param release The Catalogue of Life release, named so a reader can tell
+ *   which backbone produced the classification above it. Defaults to the one
+ *   constant the whole site reads; pass `null` only where the release is
+ *   already stated nearby.
+ */
 export function ColAttribution({
   leadingText = "Source: ",
   isLarge = false,
+  release = COL_RELEASE,
 }: {
   leadingText?: string;
   isLarge?: boolean;
+  release?: string | null;
 }) {
   return (
     <p
@@ -236,13 +246,18 @@ export function ColAttribution({
       >
         Catalogue of Life
       </a>
+      {release ? <span className="whitespace-nowrap"> ({release})</span> : null}
     </p>
   );
 }
 
-export function ColDataSourceInfo({ release }: { release?: string }) {
+export function ColDataSourceInfo({
+  release = COL_RELEASE,
+}: {
+  release?: string | null;
+}) {
   return (
-    <div className="text-md text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+    <div className="text-base text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
       <p>
         Taxonomy is reconciled against{" "}
         <a

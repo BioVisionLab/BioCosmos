@@ -53,6 +53,43 @@ the notebook never deploys a winner. No figures are generated and the curated
 continues to plot that separate CSV; explicitly curate a completed benchmark export
 into it if you want to update the publication's measurements (keep top-k at 10).
 
+## Planner model performance
+
+`benchmarks/planner_model_performance.ipynb` compares the models recorded by one
+`plannerbench` run. It loads the planner entry in `reports/latest.json` by default,
+or the manifest selected by `BIOCOSMOS_PLANNER_MANIFEST`. The notebook compares
+accuracy, repeat consistency, latency, API/tool-call failures, prompt/completion/total
+tokens, and per-case accuracy. Trial-level box plots expose latency and token outliers.
+The quality-cost figure compares accuracy with p50 successful-call latency and tokens
+per successful call. Each panel highlights its own Pareto leaders: models for which no
+other eligible model is at least as accurate and no more costly, with a strict improvement
+in at least one dimension. Models without successful calls or finite cost measurements
+remain visible in the aggregate summary but are excluded from that comparison.
+After the per-case section, a combined publication figure places accuracy versus latency
+and token usage above the per-case accuracy heatmap. Every planner figure is exported as
+PDF, SVG, and 300-dpi PNG, with its source CSV data, under `analyses/results/`.
+
+Generate a run before opening the notebook:
+
+```bash
+cd backend && uv run python scripts/export_planner_spec.py
+cd ..
+uv run --env-file backend/.env plannerbench run \
+    -m mistral-small-3.1 \
+    -m gemma-4-31b-it \
+    -m llama-3.1-nemotron-nano-8B-v1 \
+    -m ministral-8b-instruct \
+    -m magistral-small \
+    --repeats 3
+uv run --project analyses jupyter lab analyses/benchmarks/planner_model_performance.ipynb
+```
+
+Models are compared only within the selected run, where the prompt fingerprint,
+cases, repeats, concurrency, and endpoint conditions are shared. The notebook is
+read-only and never changes the backend model or benchmark artifacts. Models with
+no successful calls are flagged as access/provider failures and must not be ranked
+as though their zero accuracy measured model quality.
+
 Indexing tests are optional with the dependency extra:
 
 ```bash

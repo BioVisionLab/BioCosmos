@@ -6,6 +6,7 @@ import LandingSectionHeading, {
   LANDING_CONTAINER,
   LANDING_GRID,
 } from "@/components/LandingSection";
+import { AppearanceIcon } from "@/components/ui/icons";
 import { imageUrlById } from "@/lib/images";
 import { ColorSearchResult, searchByColor } from "@/lib/ml_search";
 import {
@@ -128,7 +129,7 @@ export default function ColorSearch() {
     <section className="w-full mt-16" aria-labelledby="visual-search-heading">
       <LandingSectionHeading
         id="visual-search-heading"
-        emoji="🎨"
+        icon={<AppearanceIcon />}
         title="Explore by Appearance"
         description="Pick a colour or pattern to preview matching butterflies."
       />

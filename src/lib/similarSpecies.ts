@@ -25,12 +25,26 @@ export interface SimilarSpeciesMeta {
   updateStatus: string | null;
 }
 
+/**
+ * The visually-similar panel's data.
+ *
+ * This lives here rather than inline in the component because the panel is
+ * the slowest request the species page makes, and the abort handling below is
+ * the only thing keeping a stale response from overwriting a newer one. A
+ * second copy of this fetch would be a second copy of that bug.
+ *
+ * Aborts are rethrown rather than swallowed: the caller has to be able to tell
+ * "this request was superseded" from "this species has no neighbours", because
+ * only the second one should clear the panel.
+ */
 async function fetchSimilarSpecies(
-  species: string
+  species: string,
+  signal?: AbortSignal
 ): Promise<SimilarSpeciesList | null> {
   try {
     const response = await fetch(
-      `/api/ml-search/similarity?species=${encodeURIComponent(species)}`
+      `/api/ml-search/similarity?species=${encodeURIComponent(species)}`,
+      { signal }
     );
     if (!response.ok) {
       console.error(
@@ -41,6 +55,9 @@ async function fetchSimilarSpecies(
     const data = await response.json();
     return data as SimilarSpeciesList;
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     console.error(`Error fetching similar species for ${species}:`, error);
     return null;
   }
