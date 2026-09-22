@@ -17,20 +17,31 @@ function SemanticSearchResults({ query }: { query: string }) {
   useEffect(() => {
     if (!query) return;
 
+    // Abort the previous search so a slow, stale response cannot overwrite
+    // the results of a newer query.
+    const controller = new AbortController();
+
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await searchSemantic(query);
+        const data = await searchSemantic(query, controller.signal);
         setResults(data);
-      } catch (err: any) {
-        setError(err.message || "An unexpected error occurred");
+      } catch (err: unknown) {
+        if (controller.signal.aborted) return;
+        setResults([]);
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "An unexpected error occurred",
+        );
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchResults();
+    return () => controller.abort();
   }, [query]);
 
   const router = useRouter();
@@ -44,10 +55,6 @@ function SemanticSearchResults({ query }: { query: string }) {
     const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
     router.push(newUrl);
   };
-
-  if (error) {
-    return <p className="text-burnt-peach-500">Error: {error}</p>;
-  }
 
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
@@ -71,7 +78,11 @@ function SemanticSearchResults({ query }: { query: string }) {
             Search Results
           </h1>
         </div>
-        <MlSearchResults results={results} query={query} loading={loading} />
+        {error ? (
+          <p className="text-center text-burnt-peach-500">Error: {error}</p>
+        ) : (
+          <MlSearchResults results={results} query={query} loading={loading} />
+        )}
       </div>
     </div>
   );

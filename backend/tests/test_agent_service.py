@@ -277,6 +277,16 @@ def test_embedding_query_applies_escaped_allowlist_prefilter():
         def distance_type(self, _distance_type):
             return self
 
+        def nprobes(self, _n):
+            return self
+
+        def refine_factor(self, _n):
+            return self
+
+        def select(self, columns):
+            assert columns == ["img_id"]
+            return self
+
         def where(self, clause, *, prefilter):
             assert prefilter is True
             self.where_clause = clause
@@ -321,3 +331,78 @@ def test_country_code_search_uses_bound_parameters():
     assert "BR" not in sql
     assert params == ["BR", 25]
     assert result == ["Species a"]
+
+
+def _similarity_service(species_ids, genus_ids):
+    service = AgentSearchService.__new__(AgentSearchService)
+    service.image_meta_service = MagicMock()
+    service.image_meta_service.get_image_ids_by_species.return_value = species_ids
+    service.image_meta_service.get_image_ids_by_genus.return_value = genus_ids
+    service.image_service = MagicMock()
+    service.image_service.find_similar_images.return_value = pl.DataFrame(
+        {
+            "imgId": ["img-a", "img-b"],
+            "species": ["caligo_eurilochus", "opsiphanes_invirae"],
+            "distance": [0.1, 0.3],
+        }
+    )
+    return service
+
+
+@pytest.mark.asyncio
+async def test_image_similarity_falls_back_to_genus_reference():
+    service = _similarity_service(species_ids=[], genus_ids=["ref-1", "ref-2"])
+
+    rows = await service._search_by_image_similarity("Caligo", None)
+
+    service.image_meta_service.get_image_ids_by_genus.assert_called_once()
+    call = service.image_service.find_similar_images.call_args
+    assert call.args[0] == ["ref-1", "ref-2"]
+    # The genus's own species are what a descriptive query is after.
+    assert call.kwargs["exclude_species"] is None
+    assert [row["species"] for row in rows] == [
+        "caligo_eurilochus",
+        "opsiphanes_invirae",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_image_similarity_excludes_exact_reference_species():
+    service = _similarity_service(species_ids=["ref-1"], genus_ids=[])
+
+    await service._search_by_image_similarity("Caligo eurilochus", None)
+
+    service.image_meta_service.get_image_ids_by_genus.assert_not_called()
+    kwargs = service.image_service.find_similar_images.call_args.kwargs
+    assert kwargs["exclude_species"] == "Caligo eurilochus"
+    assert kwargs["min_species"] > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "calls",
+    [(), (tool_call("search_by_location", '{"location": "Brazil"}'),)],
+    ids=["no-tools", "only-invalid-tools"],
+)
+async def test_search_falls_back_to_text_search_without_usable_tools(calls):
+    service = make_service(*calls)
+    executed = []
+
+    async def execute(call, allowlist):
+        executed.append((call.name, call.args.model_dump(), allowlist))
+        return [
+            {
+                "imgId": "rank-a",
+                "species": "Species a",
+                "score": 0.9,
+                "tool_names": call.name,
+            }
+        ]
+
+    service._execute_tool = execute
+    outcome = await service.search("owl-like butterfly")
+
+    assert executed == [
+        ("search_by_color", {"color_description": "owl-like butterfly"}, None)
+    ]
+    assert outcome.dataframe["species"].to_list() == ["Species a"]

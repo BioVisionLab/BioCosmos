@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ImageLoading } from "@/components/Loadings";
 import { IconContainer } from "@/components/IconContainer";
-import { ButterflyComplex } from "@/components/ui/Butterfly";
+import { SpecimenIcon } from "@/components/ui/icons";
 import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
 import { formatNumberToLocaleString } from "@/lib/textUtils";
 import {
@@ -575,7 +575,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       {showImageCount && (
         <div className="flex items-center gap-4 mb-8">
           <IconContainer>
-            <ButterflyComplex className="w-16 h-16 fill-pacific-blue-500" />
+            <SpecimenIcon className="w-16 h-16" strokeWidth={1.4} />
           </IconContainer>
           <div className="my-2">
             {specimenLoading ? (

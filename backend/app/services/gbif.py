@@ -294,3 +294,28 @@ class GbifPersistData:
         except Exception as e:
             logger.error(f"Failed to create full-text search index on GBIF table: {e}")
             raise
+
+    def reindex(self) -> bool:
+        """Rebuild the full-text index, whether or not ingestion ran.
+
+        `ingest` returns early when ingestion is skipped, and its table is
+        created with `IF NOT EXISTS`, so on a database that already has the
+        occurrence table the index is whatever the last ingest left behind.
+        Rebuilding it here keeps it describing the rows that are actually
+        there. Failure is logged rather than raised -- a stale index still
+        answers, and this is not worth refusing to boot over.
+        """
+        if not self.db_client.table_exists(self.table_name):
+            logger.info(
+                "No '%s' table, so nothing to reindex.", self.table_name
+            )
+            return False
+        try:
+            self._index_columns()
+            return True
+        except Exception:
+            logger.exception(
+                "Could not rebuild the GBIF search index; the existing one is "
+                "left in place and may be stale."
+            )
+            return False

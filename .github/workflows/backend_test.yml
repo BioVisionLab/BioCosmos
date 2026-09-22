@@ -69,6 +69,7 @@ jobs:
                   uv run --package harmonize-core pytest packages/harmonize-core/tests -q
                   uv run --package colharmonize pytest packages/colharmonize/tests -q
                   uv run --package geoharmonize pytest packages/geoharmonize/tests -q
+                  uv run --package plannerbench pytest packages/plannerbench/tests -q
 
             - name: Lint packages
               run: |

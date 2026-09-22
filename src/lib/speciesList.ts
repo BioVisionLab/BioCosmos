@@ -1,13 +1,12 @@
 const INITIAL_SPECIES = [
   "agrias_narcissus",
-  "limenitis_archippus",
   "athyma_libnites",
-  "danaus_gilippus",
+  "danaus_melanippus",
   "euploea_eleusina",
   "nessaea_hewitsonii",
   "zeuxidia_ameythystus",
   "panacea_prola",
-  "charaxes_subornatus",
+  "charaxes_dilutus",
   "agrias_phalcidon",
   "ypthima_doleta",
 ];

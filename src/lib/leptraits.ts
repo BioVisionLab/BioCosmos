@@ -156,6 +156,38 @@ function parseOvipositionStyle(style: string | undefined): string {
   return ovipositionStyle[value] || "Unknown";
 }
 
+/**
+ * The coded vocabularies, as closed unions.
+ *
+ * Exported so the icons can be driven by the code rather than by the prose
+ * label: "Univoltine" and "Multivoltine" describe genuinely different things,
+ * and one shared glyph for the field cannot say which.
+ */
+export type VoltinismCode = "u" | "b" | "m" | "na";
+export type DiapauseCode = "l" | "p" | "pl" | "a" | "na";
+export type OvipositionCode = "s" | "g" | "sc" | "na";
+
+function normalizeCode<T extends string>(
+  value: string | undefined,
+  codes: readonly T[],
+  fallback: T
+): T {
+  const candidate = value?.trim().toLowerCase();
+  return codes.find((code) => code === candidate) ?? fallback;
+}
+
+function toVoltinismCode(value: string | undefined): VoltinismCode {
+  return normalizeCode(value, ["u", "b", "m", "na"] as const, "na");
+}
+
+function toDiapauseCode(value: string | undefined): DiapauseCode {
+  return normalizeCode(value, ["l", "p", "pl", "a", "na"] as const, "na");
+}
+
+function toOvipositionCode(value: string | undefined): OvipositionCode {
+  return normalizeCode(value, ["s", "g", "sc", "na"] as const, "na");
+}
+
 function isAbsentAllYear(presenceMap: Record<string, boolean>): boolean {
   return Object.values(presenceMap).every((present) => present === false);
 }
@@ -172,4 +204,7 @@ export {
   parseDiapauseStage,
   parseOvipositionStyle,
   noTraitData,
+  toVoltinismCode,
+  toDiapauseCode,
+  toOvipositionCode,
 };

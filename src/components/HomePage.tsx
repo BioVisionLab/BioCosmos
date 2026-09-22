@@ -14,6 +14,7 @@ import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
 import ColorSearch from "./ColorSearch";
+import { ButterflyIcon } from "./ui/icons";
 
 /**
  * @param dataSummary The collection summary, rendered on the server and
@@ -117,7 +118,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
 
       <LandingSectionHeading
         className="mt-12"
-        emoji="🦋"
+        icon={<ButterflyIcon />}
         title="Featured Butterflies"
         description="Get started with a curated list of butterflies."
       />

@@ -91,6 +91,33 @@ body {
 /* Tailwind v4: base/components/utilities directives removed; main import at top handles everything. */
 /* :root, @theme, and body blocks removed */
 
+/* The two-tone domain icons.
+ *
+ * Colour is carried on custom properties rather than baked into each icon, so
+ * the palette lives in one place and an icon can still be retinted per
+ * instance with an arbitrary property at the call site. `currentColor` is the
+ * fallback: with no token in scope the icon degrades to a clean monochrome
+ * line icon in the inherited text colour rather than disappearing.
+ *
+ * The steps are measured, not chosen by eye. Against the composited
+ * IconContainer background the old pacific-blue-500 was 2.05:1 in light mode
+ * and the 600 step only reached 2.83:1 — both under the 3:1 WCAG 1.4.11 floor
+ * for graphical objects, and line art needs more contrast than a solid
+ * silhouette, not less. The 700 step clears it at 4.9:1.
+ *
+ * Dark mode has the opposite problem and needs the light end of the ramp; 400
+ * measures 6.5:1 there.
+ */
+.bc-icon {
+  --bc-icon-primary: var(--color-pacific-blue-700);
+  --bc-icon-secondary: var(--color-hunter-green-700);
+}
+
+.dark .bc-icon {
+  --bc-icon-primary: var(--color-pacific-blue-400);
+  --bc-icon-secondary: var(--color-hunter-green-400);
+}
+
 /* Dark theme chrome for the MapLibre maps */
 .dark .umap-dark-map .maplibregl-map {
   border: 1px solid #354153;
