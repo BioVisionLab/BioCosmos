@@ -500,6 +500,59 @@ def accepted_key(row: dict) -> str | None:
     return (row.get("accepted_id") or "").strip() or None
 
 
+class TaxonomyValidationStats:
+    """Site-wide counts over the harmonized taxonomy.
+
+    Scoped to MATCHED rows with a resolved family, matching how
+    HigherTaxonRepository defines membership: a family is only counted when
+    colharmonize resolved the occurrence to it with confidence. AMBIGUOUS and
+    UNMATCHED rows -- and MATCHED rows with no family, such as a genus-only
+    resolution -- are the "unresolved" this excludes.
+    """
+
+    def __init__(self, duckdb_client: DuckDBClient):
+        self.status_table = ColConfig().occurrence_status_table
+        self.db_client = duckdb_client
+
+    def _available(self) -> bool:
+        return self.db_client.table_exists(self.status_table)
+
+    def get_validated_family_count(self) -> int | None:
+        """Count of distinct families resolved with confidence."""
+        if not self._available():
+            return None
+        result = self.db_client.execute(
+            f"""
+            SELECT COUNT(DISTINCT accepted_family) AS families
+            FROM {self.status_table}
+            WHERE update_status = 'MATCHED' AND accepted_family IS NOT NULL
+            """
+        ).pl()
+        if result.is_empty():
+            return None
+        return result["families"][0]
+
+    def count_images_per_validated_family(self) -> dict | None:
+        """Image counts per family, after harmonization.
+
+        The same scope as `get_validated_family_count`, so the two describe
+        one consistent picture of the validated collection.
+        """
+        if not self._available():
+            return None
+        result = self.db_client.execute(
+            f"""
+            SELECT accepted_family, COUNT(*) AS count
+            FROM {self.status_table}
+            WHERE update_status = 'MATCHED' AND accepted_family IS NOT NULL
+            GROUP BY accepted_family
+            """
+        ).pl()
+        if result.is_empty():
+            return None
+        return dict(zip(result["accepted_family"].to_list(), result["count"].to_list()))
+
+
 _CANDIDATE_FIELDS = (
     ("candidate_rank", "candidateRank"),
     ("accepted_name", "acceptedName"),

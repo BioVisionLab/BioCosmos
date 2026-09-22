@@ -54,6 +54,12 @@ locality:
   # Written by `geoharmonize integrate`, never by the backend. Absent until
   # that has been run once with the backend stopped; readers degrade to null.
   coordinates_table: "image_meta_coordinates"
+# Per-occurrence institution and catalog number, joined out of gbif_meta the
+# same way as locality above, but keyed on who holds the specimen rather than
+# where it was found.
+provenance:
+  skip: true
+  table: "image_meta_provenance"
 # Catalogue of Life taxonomy backbone, ingested from a ColDP release directory
 # pointed at by COL_DIR. Replaces GBIF as the source of classification data.
 col:

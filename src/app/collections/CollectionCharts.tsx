@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   PieChart,
   Pie,
@@ -114,22 +115,50 @@ function ChartTooltip({
   );
 }
 
+/**
+ * Assigns every family one color, stable across both pies.
+ *
+ * The before and after breakdowns rank families differently once validation
+ * folds records into a family the raw data never recorded, so coloring by
+ * sorted-value index (as a single pie safely can) would give Nymphalidae one
+ * color on one chart and another on the other. Keying off the alphabetical
+ * name instead means a slice always means the same family no matter which
+ * chart it is read from.
+ */
+function familyColorMap(
+  ...familyRecords: (Record<string, number> | null)[]
+): (name: string) => string {
+  const names = familyRecords
+    .flatMap((record) => (record ? Object.keys(record) : []))
+    .map((key) => toSentenceCase(key));
+  const uniqueSorted = Array.from(new Set(names)).sort();
+  const colorByName = new Map(
+    uniqueSorted.map((name, idx) => [name, FAMILY_COLORS[idx % FAMILY_COLORS.length]])
+  );
+  return (name: string) => colorByName.get(name) ?? AXIS_TICK_FILL;
+}
+
 function FamilyPieChart({
   entriesByFamily,
+  colorFor,
 }: {
   entriesByFamily: Record<string, number>;
+  colorFor: (name: string) => string;
 }) {
   const data = useMemo(() => {
     const total = Object.values(entriesByFamily).reduce((a, b) => a + b, 0);
     return Object.entries(entriesByFamily)
-      .map(([key, value], idx) => ({
-        name: toSentenceCase(key),
-        value,
-        percentage: total > 0 ? ((value / total) * 100).toFixed(1) + "%" : "0%",
-        fill: FAMILY_COLORS[idx % FAMILY_COLORS.length],
-      }))
+      .map(([key, value]) => {
+        const name = toSentenceCase(key);
+        return {
+          name,
+          value,
+          percentage: total > 0 ? ((value / total) * 100).toFixed(1) + "%" : "0%",
+          fill: colorFor(name),
+        };
+      })
       .sort((a, b) => b.value - a.value);
-  }, [entriesByFamily]);
+  }, [entriesByFamily, colorFor]);
 
   // Families under this share sit within a degree or two of each other, so
   // their outside labels landed on top of one another. The legend below and
@@ -262,6 +291,94 @@ function TopSpeciesBarChart({
         <Bar
           dataKey="count"
           fill="url(#barGradient)"
+          radius={[0, 6, 6, 0]}
+          animationDuration={800}
+          animationEasing="ease-out"
+          label={{
+            position: "right",
+            formatter: (v: unknown) =>
+              typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
+            fontSize: 12,
+            fill: "#8b7474",
+          }}
+        />
+      </BarChart>
+      </ResponsiveContainer>
+    </ChartScroll>
+  );
+}
+
+// How many institutions get their own bar; the rest are folded into one
+// "+N more" row so a long tail of single-digit contributors cannot push the
+// chart's height past what a reader can usefully compare.
+const INSTITUTION_BAR_LIMIT = 10;
+
+function InstitutionBarChart({
+  institutionCounts,
+}: {
+  institutionCounts: Record<string, number>;
+}) {
+  const data = useMemo(() => {
+    const total = Object.values(institutionCounts).reduce((a, b) => a + b, 0);
+    const sorted = Object.entries(institutionCounts).sort((a, b) => b[1] - a[1]);
+    const shown = sorted.slice(0, INSTITUTION_BAR_LIMIT);
+    const rest = sorted.slice(INSTITUTION_BAR_LIMIT);
+    const restCount = rest.reduce((sum, [, count]) => sum + count, 0);
+
+    const rows = shown.map(([name, count]) => ({ name, count }));
+    if (rest.length > 0) {
+      rows.push({ name: `+${rest.length} more institutions`, count: restCount });
+    }
+    return rows.map((row) => ({
+      ...row,
+      percentage: total > 0 ? ((row.count / total) * 100).toFixed(1) + "%" : "0%",
+    }));
+  }, [institutionCounts]);
+
+  return (
+    <ChartScroll minWidth={480}>
+      <ResponsiveContainer width="100%" height={Math.max(360, data.length * 40)}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ top: 4, right: 48, bottom: 4, left: 8 }}
+        barCategoryGap="20%"
+      >
+        <defs>
+          <linearGradient id="institutionBarGradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={BAR_GRADIENT_END} />
+            <stop offset="100%" stopColor={BAR_GRADIENT_START} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid
+          horizontal={false}
+          strokeDasharray="3 3"
+          stroke={GRID_STROKE}
+          strokeOpacity={0.4}
+        />
+        <XAxis
+          type="number"
+          tickFormatter={(v: number) => v.toLocaleString()}
+          tick={{ fontSize: 12, fill: AXIS_TICK_FILL }}
+          axisLine={{ stroke: GRID_STROKE, strokeOpacity: 0.5 }}
+          tickLine={false}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={150}
+          tick={{ fontSize: 13, fill: "#534646" }}
+          className="dark:fill-deep-mocha-300"
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          content={<ChartTooltip />}
+          cursor={{ fill: "rgba(62,173,193,0.08)" }}
+        />
+        <Bar
+          dataKey="count"
+          fill="url(#institutionBarGradient)"
           radius={[0, 6, 6, 0]}
           animationDuration={800}
           animationEasing="ease-out"
@@ -570,15 +687,23 @@ function EmbeddingBoxPlot() {
 
 export default function CollectionCharts({
   entriesByFamily,
+  entriesByFamilyValidated,
   topTenSpecies,
+  institutionCounts,
 }: {
   entriesByFamily: Record<string, number> | null;
+  entriesByFamilyValidated: Record<string, number> | null;
   topTenSpecies: Record<string, number> | null;
+  institutionCounts: Record<string, number> | null;
 }) {
   // min-w-0: a grid item defaults to the width of its content, so without
   // this the charts would widen their own column instead of scrolling.
   const cardClasses =
     "min-w-0 rounded-xl p-4 sm:p-6 bg-deep-mocha-50/80 dark:bg-deep-mocha-800/80 border border-deep-mocha-200 dark:border-deep-mocha-700 backdrop-blur-sm";
+
+  // Both pies read this so the same family is always the same color,
+  // whichever side of validation it is shown on.
+  const colorFor = familyColorMap(entriesByFamily, entriesByFamilyValidated);
 
   // Side by side only from xl: at lg the two columns were narrower than the
   // charts' own minimum, so both of them scrolled on a desktop screen with
@@ -587,10 +712,29 @@ export default function CollectionCharts({
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
       {entriesByFamily && Object.keys(entriesByFamily).length > 0 && (
         <div className={cardClasses}>
-          <h3 className="text-xl font-semibold mb-4 text-deep-mocha-900 dark:text-white">
-            Entries by Family
+          <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
+            Family Breakdown — Before Validation
           </h3>
-          <FamilyPieChart entriesByFamily={entriesByFamily} />
+          <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
+            Every image, grouped by the family recorded at ingestion.
+          </p>
+          <FamilyPieChart entriesByFamily={entriesByFamily} colorFor={colorFor} />
+        </div>
+      )}
+
+      {entriesByFamilyValidated && Object.keys(entriesByFamilyValidated).length > 0 && (
+        <div className={cardClasses}>
+          <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
+            Family Breakdown — After Validation
+          </h3>
+          <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
+            Images whose family the taxonomy harmonization resolved with
+            confidence against the Catalogue of Life backbone.
+          </p>
+          <FamilyPieChart
+            entriesByFamily={entriesByFamilyValidated}
+            colorFor={colorFor}
+          />
         </div>
       )}
 
@@ -600,6 +744,27 @@ export default function CollectionCharts({
             Top 10 Species
           </h3>
           <TopSpeciesBarChart topTenSpecies={topTenSpecies} />
+        </div>
+      )}
+
+      {institutionCounts && Object.keys(institutionCounts).length > 0 && (
+        <div className={cardClasses}>
+          <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
+            Top Institutions
+          </h3>
+          <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
+            Proportion of images by holding institution. &quot;Unknown&quot;
+            covers images with no institution on record.
+          </p>
+          <InstitutionBarChart institutionCounts={institutionCounts} />
+          <p className="mt-3 text-sm">
+            <Link
+              href="/collections/providers"
+              className="text-pacific-blue-600 dark:text-pacific-blue-400 hover:underline"
+            >
+              See the full institution table →
+            </Link>
+          </p>
         </div>
       )}
 

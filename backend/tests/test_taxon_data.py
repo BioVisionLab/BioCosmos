@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.query.taxon_data import TaxonSearch
+from app.query.taxon_data import TaxonSearch, TaxonStatPayload
 
 
 @pytest.fixture
@@ -52,3 +52,48 @@ class TestSearchWithoutABackbone:
 
     def test_classification_is_empty_not_an_error(self, search_without_backbone):
         assert search_without_backbone("danaus_plexippus", "get_classification") == []
+
+
+class TestTaxonStatPayloadDefaults:
+    """A missing colharmonize run or GBIF join must not blank the whole page.
+
+    Every counting service returns None when its source table is absent, so
+    the payload has to turn that into a reportable zero/empty value rather
+    than raising or serializing null.
+    """
+
+    def test_missing_validation_data_defaults_to_zero_and_empty(self):
+        payload = TaxonStatPayload.from_data(
+            gbif_entries=None,
+            lep_traits_entries=None,
+            image_entries=None,
+            family_count=None,
+            family_count_validated=None,
+            species_count=None,
+            source_db_count=None,
+            entries_by_family=None,
+            entries_by_family_validated=None,
+            institution_counts=None,
+            top_ten_species={},
+        )
+        assert payload.familyCountValidated == 0
+        assert payload.entriesByFamilyValidated == {}
+        assert payload.institutionCounts == {}
+
+    def test_present_validation_data_survives_untouched(self):
+        payload = TaxonStatPayload.from_data(
+            gbif_entries=10,
+            lep_traits_entries=5,
+            image_entries=100,
+            family_count=7,
+            family_count_validated=9,
+            species_count=20,
+            source_db_count={"gbif": 100},
+            entries_by_family={"nymphalidae": 60},
+            entries_by_family_validated={"Nymphalidae": 58},
+            institution_counts={"NHMUK": 40, "Unknown": 60},
+            top_ten_species={"danaus_plexippus": 30},
+        )
+        assert payload.familyCountValidated == 9
+        assert payload.entriesByFamilyValidated == {"Nymphalidae": 58}
+        assert payload.institutionCounts == {"NHMUK": 40, "Unknown": 60}

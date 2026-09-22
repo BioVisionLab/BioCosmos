@@ -20,11 +20,7 @@ import { ButterflyIcon } from "./ui/icons";
  * @param dataSummary The collection summary, rendered on the server and
  *   passed in as a slot so this client component does not have to fetch it.
  */
-export default function HomePage({
-  dataSummary,
-}: {
-  dataSummary?: ReactNode;
-}) {
+export default function HomePage({ dataSummary }: { dataSummary?: ReactNode }) {
   return (
     <div className="flex flex-col items-center min-h-screen">
       <div className="mt-10 sm:mt-12 mb-6 text-center">
@@ -33,10 +29,15 @@ export default function HomePage({
           <Logo className="w-64 sm:w-80 md:w-96" />
         </div>
         <p className="text-base sm:text-md text-deep-mocha-600 dark:text-deep-mocha-300">
-          A BioCosmos portal for Lepidoptera, featuring all butterfly families.
+          A modernized, museum-quality web portal for Lepidoptera, featuring all
+          butterfly families.
         </p>
         <p className="mt-8 text-base sm:text-lg text-deep-mocha-600 dark:text-deep-mocha-300 max-w-3xl mx-auto text-balance">
-          BioCosmos is an image-based web platform that combines conventional biodiversity database with computer vision and natural language processing to reveal hidden patterns in organism coloration and simplify querying large-scale biological data.
+          Explore and learn about butterfly diversity, taxonomy, and fascinating
+          coloration. Powered by BioCosmos hybrid engine that combines
+          conventional biodiversity you familiar with modern machine learning
+          techniques to uncover hidden evolutionary patterns of complex traits,
+          such as coloration.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
           <span className="px-3 py-1 rounded-full bg-hunter-green-100 dark:bg-hunter-green-900/40 text-hunter-green-700 dark:text-hunter-green-300">

@@ -11,6 +11,7 @@ from ..services.leptraits import LepTraits
 from ..services.col import ColTaxonSearch
 from ..services.gbif import GbifPersistData
 from ..services.openai import AiSummary
+from ..services.taxonomy_update import TaxonomyValidationStats
 
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,13 @@ class TaxonStatPayload(BaseModel):
     lepTraitsEntries: int
     imageEntries: int
     familyCount: int
+    familyCountValidated: int
     speciesCount: int
     sourceDbCount: dict[str, int] | None
     entriesByFamily: dict | None
+    entriesByFamilyValidated: dict | None
+    institutionCounts: dict[str, int] | None
     topTenSpecies: dict | None
-    
-
 
     @classmethod
     def from_data(
@@ -39,9 +41,12 @@ class TaxonStatPayload(BaseModel):
         lep_traits_entries: int | None,
         image_entries: int | None,
         family_count: int | None,
+        family_count_validated: int | None,
         species_count: int | None,
         source_db_count: dict[str, int] | None,
         entries_by_family: dict | None,
+        entries_by_family_validated: dict | None,
+        institution_counts: dict[str, int] | None,
         top_ten_species: dict | None,
     ):
         """
@@ -51,7 +56,12 @@ class TaxonStatPayload(BaseModel):
             gbif_entries (int): The number of entries in the GBIF data table.
             lep_traits_entries (int): The number of entries in the Leptraits.
             image_entries (int): The number of image entries
+            family_count (int): The number of distinct recorded families.
+            family_count_validated (int): The number of distinct families
+                resolved with confidence by the taxonomy harmonization,
+                excluding unresolved (ambiguous or unmatched) occurrences.
             gbif_species_count (int): The number of unique GBIF species in the occurrence
+            institution_counts (dict): Image counts per holding institution.
 
         Returns:
             TaxonStatPayload: An instance of TaxonStatPayload.
@@ -63,9 +73,18 @@ class TaxonStatPayload(BaseModel):
             else 0,
             imageEntries=image_entries if image_entries is not None else 0,
             familyCount=family_count if family_count is not None else 0,
+            familyCountValidated=family_count_validated
+            if family_count_validated is not None
+            else 0,
             speciesCount=species_count if species_count is not None else 0,
             sourceDbCount=source_db_count if source_db_count is not None else {},
             entriesByFamily=entries_by_family if entries_by_family is not None else {},
+            entriesByFamilyValidated=entries_by_family_validated
+            if entries_by_family_validated is not None
+            else {},
+            institutionCounts=institution_counts
+            if institution_counts is not None
+            else {},
             topTenSpecies=top_ten_species if top_ten_species is not None else [],
         )
 
@@ -230,14 +249,26 @@ class TaxonSearch:
         gbif_service = GbifPersistData(duckdb=self.request.app.state.duck_db)
         leptraits_service = LepTraits(duckdb=self.request.app.state.duck_db)
         img_meta_stats = ImageMetaStats(duckdb=self.request.app.state.duck_db)
+        taxonomy_validation = TaxonomyValidationStats(
+            duckdb_client=self.request.app.state.duck_db
+        )
         try:
             counts_gbif: int | None = gbif_service.count_entries()
             count_leptrait: int | None = leptraits_service.count_entries()
             count_img: int | None = img_meta_stats.get_entries_count()
             count_families: int | None = img_meta_stats.get_family_count()
+            count_families_validated: int | None = (
+                taxonomy_validation.get_validated_family_count()
+            )
             count_species: int | None = img_meta_stats.get_species_count()
             source_db_count: dict[str, int] | None = img_meta_stats.get_source_db_count()
             entries_by_family: dict[str, int] | None = img_meta_stats.count_images_per_family()
+            entries_by_family_validated: dict[str, int] | None = (
+                taxonomy_validation.count_images_per_validated_family()
+            )
+            institution_counts: dict[str, int] | None = (
+                img_meta_stats.get_institution_counts()
+            )
             top_ten_species: list[str] | None = img_meta_stats.get_top_ten_species()
 
             payload = TaxonStatPayload.from_data(
@@ -245,9 +276,12 @@ class TaxonSearch:
                 lep_traits_entries=count_leptrait,
                 image_entries=count_img,
                 family_count=count_families,
+                family_count_validated=count_families_validated,
                 species_count=count_species,
                 source_db_count=source_db_count,
                 entries_by_family=entries_by_family,
+                entries_by_family_validated=entries_by_family_validated,
+                institution_counts=institution_counts,
                 top_ten_species=top_ten_species,
             )
             return payload.model_dump()

@@ -13,7 +13,11 @@
 import Link from "next/link";
 import { HelpCircle } from "lucide-react";
 
-import { SpecimenImageMeta, sourceDbHref } from "@/lib/imageMetadata";
+import {
+  SpecimenImageMeta,
+  SpecimenProvenance,
+  sourceDbHref,
+} from "@/lib/imageMetadata";
 
 export const METADATA_LABEL = "font-medium whitespace-nowrap";
 export const METADATA_VALUE = "text-deep-mocha-700 dark:text-deep-mocha-300";
@@ -45,6 +49,40 @@ export function MatchingHelpLink({
     >
       <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
     </Link>
+  );
+}
+
+/**
+ * The holding institution and the specimen's catalog number.
+ *
+ * Omitted entirely when neither was recorded, the same contract as the
+ * taxonomy and locality blocks: no run, no empty row.
+ */
+export function ProvenanceBlock({
+  provenance,
+}: {
+  provenance: SpecimenProvenance | null;
+}) {
+  if (!provenance) return null;
+  return (
+    <div className="col-span-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0 leading-normal">
+      {provenance.institutionCode ? (
+        <span className="flex items-baseline gap-1 min-w-0">
+          <span className={METADATA_LABEL}>Institution:</span>
+          <span className={`truncate ${METADATA_VALUE}`}>
+            {provenance.institutionCode}
+          </span>
+        </span>
+      ) : null}
+      {provenance.catalogNumber ? (
+        <span className="flex items-baseline gap-1 min-w-0">
+          <span className={METADATA_LABEL}>Specimen ID:</span>
+          <span className={`truncate ${METADATA_VALUE}`}>
+            {provenance.catalogNumber}
+          </span>
+        </span>
+      ) : null}
+    </div>
   );
 }
 

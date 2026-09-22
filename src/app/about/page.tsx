@@ -14,7 +14,7 @@ const coreTeam = [
     role: "Lead Developer",
     affiliation: "Florida Museum of Natural History, University of Florida",
     description:
-      "Main developer of the BioCosmos platform, including core software infrastructure, model and data integration, search systems, deployment workflows, and user-facing tools for AI-powered biodiversity discovery.",
+      "Main developer of the BioCosmos platform, including core software infrastructure, model and data integration, search systems, UI/UX design,deployment workflows, and user-facing tools for AI-powered biodiversity discovery.",
   },
   {
     name: "Jose Fortes",
