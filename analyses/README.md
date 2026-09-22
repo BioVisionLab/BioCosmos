@@ -65,6 +65,9 @@ per successful call. Each panel highlights its own Pareto leaders: models for wh
 other eligible model is at least as accurate and no more costly, with a strict improvement
 in at least one dimension. Models without successful calls or finite cost measurements
 remain visible in the aggregate summary but are excluded from that comparison.
+After the per-case section, a combined publication figure places accuracy versus latency
+and token usage above the per-case accuracy heatmap. Every planner figure is exported as
+PDF, SVG, and 300-dpi PNG, with its source CSV data, under `analyses/results/`.
 
 Generate a run before opening the notebook:
 
