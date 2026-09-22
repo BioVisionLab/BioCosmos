@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import duckdb
 import pytest
-from analyses.publication import load_settings
+from analyses.helpers.publication import load_settings
 
 
 @pytest.fixture
@@ -13,17 +13,18 @@ def settings(tmp_path):
     with duckdb.connect(str(database)) as connection:
         connection.execute("""
             CREATE TABLE image_meta (
-                img_id VARCHAR, uuid VARCHAR, class_dv VARCHAR, lat VARCHAR, lon VARCHAR
+                img_id VARCHAR, uuid VARCHAR, class_dv VARCHAR, lat VARCHAR, lon VARCHAR,
+                source_db VARCHAR
             );
             INSERT INTO image_meta VALUES
-                ('i1', 'u1', 'dorsal', '10', '20'),
-                ('i2', 'u1', 'ventral', '10', '20'),
-                ('i3', 'u2', 'dorsal', '10', NULL),
-                ('i4', 'u3', NULL, 'NaN', '20'),
-                ('i5', 'u4', 'lateral', '91', '20'),
-                ('i6', 'u5', 'ventral', '0', '0'),
-                ('i7', 'u6', 'dorsal', 'no coordinate', '20'),
-                ('i8', NULL, '', '10', '20');
+                ('i1', 'u1', 'dorsal', '10', '20', 'gbif'),
+                ('i2', 'u1', 'ventral', '10', '20', 'gbif'),
+                ('i3', 'u2', 'dorsal', '10', NULL, 'gbif/scanbugs'),
+                ('i4', 'u3', NULL, 'NaN', '20', 'scanbugs'),
+                ('i5', 'u4', 'lateral', '91', '20', 'ecdysis'),
+                ('i6', 'u5', 'ventral', '0', '0', 'gbif'),
+                ('i7', 'u6', 'dorsal', 'no coordinate', '20', 'gbif'),
+                ('i8', NULL, '', '10', '20', NULL);
             CREATE TABLE gbif_meta (
                 occurrenceID VARCHAR, institutionID VARCHAR, institutionCode VARCHAR
             );
@@ -61,10 +62,24 @@ def settings(tmp_path):
             INSERT INTO image_meta_locality VALUES
                 ('i1', 'Forest', NULL), ('i2', 'Forest', NULL), ('i3', '', ' Valley '),
                 ('i4', '  ', ''), ('i5', NULL, NULL), ('i6', NULL, NULL), ('i7', NULL, NULL);
-            CREATE TABLE image_meta_coordinates (source_id VARCHAR, validation_status VARCHAR);
+            ALTER TABLE image_meta_locality ADD COLUMN country_code VARCHAR;
+            ALTER TABLE image_meta_locality ADD COLUMN country VARCHAR;
+            UPDATE image_meta_locality SET country_code = CASE
+                WHEN img_id IN ('i1', 'i2', 'i4', 'i6') THEN 'US'
+                WHEN img_id = 'i3' THEN ' ca '
+                WHEN img_id = 'i7' THEN 'ZZ' END;
+            CREATE TABLE image_meta_coordinates (
+                source_id VARCHAR, validation_status VARCHAR, country_check VARCHAR,
+                latitude DOUBLE, longitude DOUBLE, reference_gid_0 VARCHAR,
+                reference_country VARCHAR
+            );
             INSERT INTO image_meta_coordinates VALUES
-                ('i1', 'VALID'), ('i2', 'VALID'), ('i3', 'MISSING_COORDINATE'),
-                ('i4', 'MISSING_COORDINATE'), ('i5', 'COORDINATE_OUT_OF_RANGE'),
-                ('i6', 'ZERO_COORDINATE'), ('i7', 'MISSING_COORDINATE');
+                ('i1', 'VALID', 'COUNTRY_MATCH', 40, -100, 'USA', 'United States'),
+                ('i2', 'VALID', 'COUNTRY_MATCH', 40, -100, 'USA', 'United States'),
+                ('i3', 'MISSING_COORDINATE', 'NOT_EVALUATED', 10, NULL, NULL, NULL),
+                ('i4', 'MISSING_COORDINATE', 'NOT_EVALUATED', NULL, 20, NULL, NULL),
+                ('i5', 'COORDINATE_OUT_OF_RANGE', 'NOT_EVALUATED', 91, 20, NULL, NULL),
+                ('i6', 'ZERO_COORDINATE', 'NOT_EVALUATED', 0, 0, NULL, NULL),
+                ('i7', 'MISSING_COORDINATE', 'NOT_EVALUATED', NULL, 20, NULL, NULL);
         """)
     return replace(load_settings(), database=database, output=tmp_path / "figures")

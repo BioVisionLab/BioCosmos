@@ -1,7 +1,12 @@
 # Publication analyses and backend benchmarks
 
-Jupyter notebook files in `notebooks/` load summaries, draw figures, and export them. 
-Configuration, queries and aggregation to the database, and matplotlib/sns reusable code is in `publication.py`.
+Jupyter notebook files in `notebooks/` load summaries, draw figures, and export them.
+Each notebook produces exactly one publication figure; intermediate exploratory panels
+are not kept. 
+Reusable helpers live in the `helpers/` package: configuration, database queries and
+aggregation, and matplotlib/seaborn plotting in `helpers/publication.py`; country
+normalization in `helpers/country_mapping.py`; and the equal-area grid maps in
+`helpers/grid_mapping.py`. Notebooks import them as `analyses.helpers.<module>`.
 
 The separate `benchmarks/` workflow tests backend vector-index performance on an isolated copy.
 Neither workflow changes a backend source database.
@@ -128,12 +133,11 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 
 ## Figures and definitions
 
-| Notebook | Outputs |
+| Notebook | Figure |
 | --- | --- |
-| `data_summary.ipynb` | Family and dorso-ventral proportions; top ten institutions and species |
-| `georeference.ipynb` | Coordinate/locality availability pies; coordinate-validation category bars |
-| `taxonomy_harmonization.ipynb` | Match-status pies and match-method bars for images and unique input taxa |
-| `index_perf.ipynb` | Recorded index latency versus recall@10 |
+| `data_summary.ipynb` | `dataset_overview`: dorso-ventral (A), image providers (B), source aggregators (C), family (D), top ten accepted species (E), validated-coordinate grid (F), species diversity by validated country (G) |
+| `harmonization.ipynb` | `harmonization_metrics`: coordinate-validation outcomes and match methods for images and unique input taxa |
+| `index_perf.ipynb` | `indexing_benchmark`: recorded index latency versus recall@10 |
 
 **Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
 qualitative palette set by `publication_style()`. Bars are one colour: each bar is a labelled
@@ -143,7 +147,10 @@ colour therefore follows its rank within its own panel, not a fixed meaning. `ca
 draws a pie when a summary compares exactly two classes of a complete population and bars
 otherwise; pass `kind="pie"` for a whole-population panel worth reading as shares even with more
 than two classes (match status does this), `kind="bar"` to force bars, and `palette=` for another
-seaborn palette. Pies never take `top`/`exclude`, because a ranked subset is not a whole.
+seaborn palette. Pies never take `top`/`exclude`, because a ranked subset is not a whole. Pie counts and
+percentages sit in a legend to the right of the pie rather than beside each wedge, so small
+adjacent wedges cannot overlap and the legend fills the space an equal-aspect pie leaves in
+its grid cell.
 
 **Counting unit.** Each unique nonblank `img_id` counts once. Repeated specimen UUIDs are
 expected: dorsal and ventral images remain separate. Prepared per-image joins must be
@@ -156,6 +163,54 @@ species. Species use `accepted_species_name`, falling back to `accepted_name` on
 species rank. This groups subspecies where an accepted species exists and excludes
 genus-only/unresolved assignments from the species ranking. Ambiguous candidates never
 count as accepted identifications. Unresolved families remain a visible category.
+
+**Country richness and mapping (panel G).** Countries come from the backend
+coordinate-validation table written by `geoharmonize integrate`, not from raw locality
+fields. An image (with `MATCHED` taxonomy to an accepted species) is mapped when its
+coordinate falls in exactly one GADM region and nothing contradicts that region's country:
+`COUNTRY_MATCH` (including `ADM1_MISMATCH` records, whose country is still validated even
+though their state or province is not) or `COUNTRY_NOT_PROVIDED`, where no country was
+recorded and the single GADM region stands unopposed — the country is **imputed from the
+coordinate**. Those images carry a mapped coordinate, so dropping them would blank a country
+here whose images appear in panel F. The exported audit carries a `country_source` column
+(`validated against recorded country` or `imputed from coordinates`) for every group, and
+the notebook prints the imputed image count, so an imputed country is never read as one the
+collector recorded.
+`COUNTRY_MISMATCH`, `NO_REFERENCE_MATCH`, `AMBIGUOUS_REFERENCE` and unevaluated
+coordinates are never eligible. The GADM `GID_0` code is normalized to ISO alpha-2 before
+counting distinct accepted species; non-ISO GADM codes (for example `XKO`, or the `Z0x`
+disputed areas) resolve only through their exact, unambiguous GADM country name. There is
+no fuzzy matching; anything else stays unresolved. The notebook displays the complete
+GADM-reference-to-normalized audit (`reference_code`, `reference_country`) and exports
+`dataset_overview_country_mapping.csv`; its per-reference species counts are not additive. `dataset_overview_country_species.csv` contains the deduplicated
+country totals, with an empty code for the pooled unresolved group. Read these CSVs with
+`keep_default_na=False` to preserve Namibia's literal `NA` code.
+
+The Equal Earth map uses both Natural Earth code fields (including `TW` for Taiwan).
+A basemap polygon with no ISO code of its own is shaded with the country GADM files its
+territory under, so it does not read as having no records: Somaliland is drawn with
+Somalia's total, which already includes those coordinates. It is not a separate total.
+N. Cyprus stays unmapped, because no eligible record resolves to it.
+Countries/territories lacking separate 110m polygons use fixed-size markers on the same
+richness color scale; territories are never merged with parent-country totals. Marker
+positions are representative labels, not specimen locations. The coarse basemap may
+include overseas outlines in parent features; markers give those territories' own counts.
+See [country lookup provenance](data/README.md) for the offline marker reference.
+
+**Combined overview.** `dataset_overview` reads in three rows: dorso-ventral composition
+(A), image providers (B) and source aggregators (C); family composition (D) and the top ten
+accepted species (E); validated-coordinate image counts per grid cell (F) and species
+richness by validated country (G). Panel B covers every image: providers after the top five
+pool as “Other providers” and unattributed/conflicting images pool separately, both in gray;
+institution codes keep their recorded capitalization. `top_share()` builds that frame, and
+the pie exports as `dataset_overview_provider_shares.csv` beside the grid cells and country
+tables.
+
+**Source aggregators.** Panel C counts the recorded `source_db` key on each image. Keys
+print in published form (`gbif` → GBIF, `scanbugs` → SCAN, `ecdysis` → Ecdysis); a record
+carried by several aggregators keeps its combined key (`gbif/scanbugs` → “GBIF / SCAN”)
+instead of counting once under each, so the panel stays one share of one whole. A blank key
+is “Unknown.” No aggregator is inferred from institution, license, or URL.
 
 **Institutions.** Recorded GBIF `institutionID` takes precedence over `institutionCode`;
 codes label institutions. A code-only record joins an ID only when that code maps to a
@@ -196,8 +251,25 @@ uv run --project analyses ruff format --check analyses
 
 Tests use a small synthetic DuckDB containing duplicate GBIF records, conflicting
 institution attribution, subspecies/genus matches, unknowns, and invalid coordinates.
-They check denominators, join cardinality, read-only behavior, and execute all four
+They check denominators, join cardinality, read-only behavior, and execute all three
 notebooks in real Jupyter kernels. Executed test notebooks and figures go to
 `analyses/results/fixture-validation/`; these are **synthetic checks, not publication data**.
 Source notebooks remain unexecuted with no stale outputs. Inspect actual-data exports
 before publication, especially institution labels and any large unresolved categories.
+
+**Validated-coordinate grid (panel F).** The data summary exports the grid it draws as
+`dataset_overview_cells.csv`. Only prepared `VALID` coordinates enter a fixed EPSG:8857
+equal-area grid, positioned by the parsed `latitude`/`longitude` stored in the validation
+table (not a re-parse of the raw image fields):
+100 × 100 km (10,000 km²), anchored at projected (0, 0), with lower-inclusive,
+upper-exclusive boundaries. Cells are not clipped to land. The panel counts images,
+including unresolved identifications; the exported table also carries distinct MATCHED
+accepted species per cell, using the same subspecies and species-rank fallback rules as
+composition. Gray land indicates no validated images. Counts are strongly right-skewed,
+so the color scale is logarithmic, without correction for sampling effort. A cell whose
+plotted column is zero is highlighted outside the scale rather than colored as its lowest
+value. The cell export includes projected lower-left
+bounds, CRS, area, and identified-image counts.
+
+Coordinates marked VALID but unusable raise an error rather than silently changing the
+population.

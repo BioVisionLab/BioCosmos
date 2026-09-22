@@ -16,7 +16,12 @@ import pandas as pd
 import seaborn as sns
 import yaml
 from dotenv import dotenv_values
-from harmonize_core.identifiers import parse_table_identifier, qualified_name, quote_identifier
+from harmonize_core.identifiers import (
+    parse_table_identifier,
+    qualified_name,
+    quote_identifier,
+)
+from matplotlib.patches import Wedge
 
 
 class AnalysisError(RuntimeError):
@@ -87,7 +92,12 @@ def connect(settings: Settings):
         connection.close()
 
 
-def table(connection, settings: Settings, name: str, required: tuple[str, ...]) -> str:
+def table(
+    connection,
+    settings: Settings,
+    name: str,
+    required: tuple[str, ...],
+) -> str:
     identifier = qualified_name(parse_table_identifier(settings.tables[name]))
     try:
         columns = {row[0] for row in connection.execute(f"DESCRIBE {identifier}").fetchall()}
@@ -138,9 +148,26 @@ def image_table(connection, settings: Settings, extra=()) -> str:
     return identifier
 
 
+# How the recorded aggregator keys print. A record carried by several aggregators
+# keeps its combined key rather than being counted under each one.
+SOURCE_LABELS = {
+    "gbif": "GBIF",
+    "scanbugs": "SCAN",
+    "ecdysis": "Ecdysis",
+}
+
+
+def source_label(value: str) -> str:
+    """Render a recorded source_db key, including combined 'a/b' keys."""
+    return " / ".join(
+        SOURCE_LABELS.get(part.strip().lower(), part.strip().capitalize())
+        for part in value.split("/")
+    )
+
+
 def dataset_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
     with connect(settings) as connection:
-        images = image_table(connection, settings, ("uuid", "class_dv"))
+        images = image_table(connection, settings, ("uuid", "class_dv", "source_db"))
         taxonomy = table(
             connection,
             settings,
@@ -183,8 +210,22 @@ def dataset_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
         """,
             "images",
         )
+        sources = counts(
+            connection,
+            f"""
+            SELECT coalesce({text("source_db")}, 'Unknown') AS category FROM {images}
+        """,
+            "images",
+        )
+        sources["category"] = sources["category"].map(source_label)
         institutions = institution_counts(connection, settings, images)
-    return {"family": family, "views": views, "species": species, "institutions": institutions}
+    return {
+        "family": family,
+        "views": views,
+        "species": species,
+        "sources": sources,
+        "institutions": institutions,
+    }
 
 
 def institution_counts(connection, settings: Settings, images: str) -> pd.DataFrame:
@@ -248,13 +289,23 @@ def institution_counts(connection, settings: Settings, images: str) -> pd.DataFr
     return frame
 
 
-def geography_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
+def geography_summaries(
+    settings: Settings,
+) -> dict[str, pd.DataFrame]:
     with connect(settings) as connection:
         images = image_table(connection, settings, ("lat", "lon"))
         locality = table(
-            connection, settings, "locality", ("img_id", "locality", "verbatim_locality")
+            connection,
+            settings,
+            "locality",
+            ("img_id", "locality", "verbatim_locality"),
         )
-        coordinates = table(connection, settings, "coordinates", ("source_id", "validation_status"))
+        coordinates = table(
+            connection,
+            settings,
+            "coordinates",
+            ("source_id", "validation_status"),
+        )
         unique_key(connection, locality, "img_id")
         unique_key(connection, coordinates, "source_id")
         available = counts(
@@ -326,7 +377,10 @@ def taxonomy_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
             ("images", image_source, "images"),
             ("taxa", taxon_source, "unique input taxa"),
         ):
-            for metric, column in (("status", "update_status"), ("method", "match_method")):
+            for metric, column in (
+                ("status", "update_status"),
+                ("method", "match_method"),
+            ):
                 result[f"{unit}_{metric}"] = counts(
                     connection,
                     f"SELECT coalesce({text('t.' + column)}, 'UNCLASSIFIED') AS category {source}",
@@ -336,34 +390,6 @@ def taxonomy_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
 
 
 DEFAULT_PALETTE = "Dark2"
-
-# Prepared status, method, and validation values arrive as upper-case codes and are
-# rewritten for display. Free-text categories, including upper-case institution codes,
-# are left exactly as recorded.
-CODED_CATEGORIES = frozenset(
-    {
-        "MATCHED",
-        "AMBIGUOUS",
-        "UNMATCHED",
-        "UNCLASSIFIED",
-        "EXACT_ACCEPTED",
-        "EXACT_SYNONYM",
-        "EXACT_CANONICAL",
-        "UNIQUE_FAMILY_EPITHET",
-        "SPELLING_GENUS",
-        "SPELLING_EPITHET",
-        "FUZZY_TYPO",
-        "VALID",
-        "NOT_EVALUATED",
-        "MISSING_COORDINATE",
-        "COORDINATE_OUT_OF_RANGE",
-        "ZERO_COORDINATE",
-        "NO_REFERENCE_MATCH",
-        "AMBIGUOUS_REFERENCE",
-        "COUNTRY_MISMATCH",
-        "ADM1_MISMATCH",
-    }
-)
 
 
 def bar_color(palette: str = DEFAULT_PALETTE):
@@ -375,12 +401,63 @@ def pie_colors(wedges: int, palette: str = DEFAULT_PALETTE) -> list:
     return sns.color_palette(palette, n_colors=max(wedges, 1))
 
 
-def display_label(label: str) -> str:
-    return label.replace("_", " ").capitalize() if label in CODED_CATEGORIES else label
+RESIDUAL_COLORS = ("#999999", "#cccccc")
+
+
+def display_label(label: str, keep_case: bool = False) -> str:
+    """Format a plotted category as sentence case without identifier underscores.
+
+    keep_case leaves a label exactly as recorded, for identifiers such as institution
+    codes whose capitalization carries meaning.
+    """
+    return label if keep_case else label.replace("_", " ").capitalize()
+
+
+def top_share(
+    frame: pd.DataFrame,
+    top: int,
+    *,
+    exclude: tuple[str, ...] = (),
+    other: str = "Other",
+    excluded: str = "Excluded",
+) -> pd.DataFrame:
+    """Collapse a ranking into its top categories and residual groups of one whole.
+
+    Unlike a top-ten bar panel, a pie needs the full population: categories after
+    the top are pooled as `other`, and excluded categories (unresolved or unattributed
+    records) are pooled as `excluded`. Residual rows are flagged so they plot last.
+    Percentages are recomputed from counts over the unchanged denominator.
+    """
+    ranked = frame.loc[~frame["category"].isin(exclude)].sort_values(
+        ["count", "category"], ascending=[False, True]
+    )
+    rows = [(row.category, int(row.count), False) for row in ranked.head(top).itertuples()]
+    for label, count in (
+        (other, int(ranked.iloc[top:]["count"].sum())),
+        (
+            excluded,
+            int(frame.loc[frame["category"].isin(exclude), "count"].sum()),
+        ),
+    ):
+        if count:
+            rows.append((label, count, True))
+    result = pd.DataFrame(rows, columns=["category", "count", "residual"])
+    total = int(frame["count"].sum())
+    if int(result["count"].sum()) != total:
+        raise AnalysisError("Collapsed shares must preserve the full population.")
+    result["percentage"] = result["count"] * 100.0 / total
+    result["denominator"] = total
+    result["population"] = frame["population"].iloc[0]
+    return result
 
 
 def publication_style(palette: str = DEFAULT_PALETTE) -> None:
-    sns.set_theme(style="ticks", context="paper", palette=palette, font_scale=1.1)
+    sns.set_theme(
+        style="ticks",
+        context="paper",
+        palette=palette,
+        font_scale=1.1,
+    )
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
@@ -402,6 +479,7 @@ def bar_plot(
     italic: bool = False,
     proportion: bool = True,
     palette: str = DEFAULT_PALETTE,
+    keep_case: bool = False,
 ):
     """Draw counts/proportions without renormalizing top-ten subsets."""
     selected = frame.loc[~frame["category"].isin(exclude)].sort_values(
@@ -414,8 +492,15 @@ def bar_plot(
     labels = selected["category"].astype(str).tolist()
     # Bars are one category per row, so the axis labels carry the meaning and a
     # single colour keeps the panel from implying a grouping that is not there.
-    ax.barh(range(len(selected)), selected[metric], color=bar_color(palette))
-    ax.set_yticks(range(len(selected)), [display_label(label) for label in labels])
+    ax.barh(
+        range(len(selected)),
+        selected[metric],
+        color=bar_color(palette),
+    )
+    ax.set_yticks(
+        range(len(selected)),
+        [display_label(label, keep_case) for label in labels],
+    )
     ax.invert_yaxis()
     if italic:
         plt.setp(ax.get_yticklabels(), fontstyle="italic")
@@ -429,11 +514,21 @@ def bar_plot(
             fontsize=9,
         )
     if selected.empty:
-        ax.text(0.5, 0.5, "No eligible records", transform=ax.transAxes, ha="center")
+        ax.text(
+            0.5,
+            0.5,
+            "No eligible records",
+            transform=ax.transAxes,
+            ha="center",
+        )
     maximum = float(selected[metric].max()) if not selected.empty else 1
     ax.set_xlim(0, 100 if proportion else max(maximum * 1.5, 1))
     ax.set_xlabel(axis_label(frame, proportion))
-    ax.set_title(panel_title(frame, title, exclude, excluded), loc="left", fontsize=11)
+    ax.set_title(
+        panel_title(frame, title, exclude, excluded),
+        loc="left",
+        fontsize=11,
+    )
     sns.despine(ax=ax)
     return ax
 
@@ -445,24 +540,48 @@ def pie_plot(
     *,
     italic: bool = False,
     palette: str = DEFAULT_PALETTE,
+    keep_case: bool = False,
 ):
-    """Draw a complete population as proportions of one whole, largest share first."""
-    selected = frame.sort_values(["count", "category"], ascending=[False, True])
+    """Draw a complete population as proportions of one whole, largest share first.
+
+    Rows flagged `residual` (see top_share) follow the ranked shares in gray, so a
+    pooled "Other" never takes a palette colour that implies a single category.
+    """
+    residual = frame["residual"] if "residual" in frame else pd.Series(False, frame.index)
+    ranked = frame.loc[~residual].sort_values(["count", "category"], ascending=[False, True])
+    selected = pd.concat([ranked, frame.loc[residual]])
     labels = selected["category"].astype(str).tolist()
-    texts = ax.pie(
+    if int(residual.sum()) > len(RESIDUAL_COLORS):
+        raise ValueError(f"A pie supports at most {len(RESIDUAL_COLORS)} residual groups.")
+    wedges, _ = ax.pie(
         selected["count"],
-        labels=[
-            f"{display_label(label)}\n{row.count:,} ({row.percentage:.1f}%)"
-            for label, row in zip(labels, selected.itertuples(), strict=True)
-        ],
-        colors=pie_colors(len(labels), palette),
+        colors=[
+            *pie_colors(len(ranked), palette)[: len(ranked)],
+            *RESIDUAL_COLORS,
+        ][: len(labels)],
         startangle=90,
         counterclock=False,
         wedgeprops={"edgecolor": "white", "linewidth": 1.5},
-        textprops={"fontsize": 9},
+    )
+    # A legend beside the pie, not labels around each wedge: small adjacent wedges
+    # (e.g. a 99% match status) otherwise stack their labels on top of each other.
+    # It sits to the right, where it fills the space an equal-aspect pie leaves in
+    # its grid cell instead of adding height below the panel.
+    legend = ax.legend(
+        wedges,
+        [
+            f"{display_label(label, keep_case)}: {row.count:,} ({row.percentage:.1f}%)"
+            for label, row in zip(labels, selected.itertuples(), strict=True)
+        ],
+        loc="center left",
+        bbox_to_anchor=(0.98, 0.5),
+        frameon=False,
+        fontsize=9,
+        handlelength=1,
+        handleheight=1,
     )
     if italic:
-        plt.setp(texts, fontstyle="italic")
+        plt.setp(legend.get_texts(), fontstyle="italic")
     ax.set_aspect("equal")
     ax.set_title(panel_title(frame, title, (), 0), loc="left", fontsize=11)
     return ax
@@ -479,6 +598,7 @@ def category_plot(
     italic: bool = False,
     proportion: bool = True,
     palette: str = DEFAULT_PALETTE,
+    keep_case: bool = False,
 ):
     """Draw a summary as a pie when it compares two classes and as bars otherwise.
 
@@ -491,7 +611,14 @@ def category_plot(
     if kind == "pie" and ranked:
         raise ValueError("A pie must show its whole population; drop top and exclude.")
     if kind == "pie" or (kind == "auto" and not ranked and frame["category"].nunique() == 2):
-        return pie_plot(ax, frame, title, italic=italic, palette=palette)
+        return pie_plot(
+            ax,
+            frame,
+            title,
+            italic=italic,
+            palette=palette,
+            keep_case=keep_case,
+        )
     return bar_plot(
         ax,
         frame,
@@ -501,7 +628,66 @@ def category_plot(
         italic=italic,
         proportion=proportion,
         palette=palette,
+        keep_case=keep_case,
     )
+
+
+def panel_left(ax) -> float:
+    """The leftmost display coordinate a panel's own drawing reaches.
+
+    A pie is measured from its circle, not the axes box it is centred in, so its
+    title starts where the wedges do. A bar panel reaches left of its axes box by
+    the width of its tick labels. Anything else, a map among them, is measured from
+    its box, which an equal-aspect projection has already shrunk to the graphic.
+    """
+    box = ax.get_window_extent()
+    wedges = [patch for patch in ax.patches if isinstance(patch, Wedge)]
+    if wedges:
+        return min(wedge.get_window_extent().x0 for wedge in wedges)
+    labels = [label.get_window_extent().x0 for label in ax.get_yticklabels() if label.get_text()]
+    return min(box.x0, *labels) if labels else box.x0
+
+
+def align_panel_titles(axes) -> None:
+    """Align panel titles flush with their column and on the first line of each row.
+
+    Horizontally, a left-aligned title starts at the axes box, which sits right of a
+    bar panel's tick labels and inside the box of an equal-aspect pie or map. Each
+    title moves to the leftmost point its panel draws (see panel_left), and rows laid
+    out on the same number of columns share one anchor per column, so a map under a
+    ranking starts where the ranking starts rather than where its graphic happens to
+    begin. Vertically, matplotlib grows a multi-line title upwards from the axes, so
+    a panel carrying a subtitle line lifts its heading above a single-line neighbour;
+    padding the shorter titles in a row with trailing blank lines puts every heading
+    on one line. Call it after the layout is resolved (``fig.canvas.draw()``) and
+    frozen, because it reads the positions that layout produced.
+    """
+    rows: dict[int, list] = {}
+    columns: dict[tuple[int, int], float] = {}
+    for ax in axes:
+        figure = ax.get_figure()
+        spec = ax.get_subplotspec()
+        cell = spec.get_position(figure)
+        # Group titles by the cell's top edge in display space, so axes that live
+        # in different subfigures still compare on the same scale.
+        top = round(figure.transSubfigure.transform((0, cell.y1))[1])
+        rows.setdefault(top, []).append(ax)
+        column = (spec.get_gridspec().ncols, spec.colspan.start)
+        columns[column] = min(columns.get(column, float("inf")), panel_left(ax))
+    for row in rows.values():
+        lines = max(len(ax.get_title(loc="left").split("\n")) for ax in row)
+        for ax in row:
+            spec = ax.get_subplotspec()
+            box = ax.get_window_extent()
+            title = ax.get_title(loc="left")
+            padding = "\n " * (lines - len(title.split("\n")))
+            left = columns[(spec.get_gridspec().ncols, spec.colspan.start)]
+            ax.set_title(
+                title + padding,
+                loc="left",
+                fontsize=11,
+                x=(left - box.x0) / box.width,
+            )
 
 
 def axis_label(frame: pd.DataFrame, proportion: bool) -> str:
@@ -509,21 +695,35 @@ def axis_label(frame: pd.DataFrame, proportion: bool) -> str:
     return f"Percentage of all {population} (%)" if proportion else f"Number of {population}"
 
 
-def panel_title(frame: pd.DataFrame, title: str, exclude: tuple[str, ...], excluded: int) -> str:
+def panel_title(
+    frame: pd.DataFrame,
+    title: str,
+    exclude: tuple[str, ...],
+    excluded: int,
+) -> str:
     population = str(frame["population"].iloc[0])
     denominator = int(frame["denominator"].iloc[0])
     subtitle = f"N = {denominator:,} {population}"
     if exclude:
-        subtitle += f"; unresolved / unattributed excluded: {excluded:,}"
+        subtitle += f"; Unresolved / unattributed excluded: {excluded:,}"
     return f"{title}\n{subtitle}"
 
 
-def export_figure(figure, settings: Settings, name: str, summaries: dict[str, pd.DataFrame]):
+def export_figure(
+    figure,
+    settings: Settings,
+    name: str,
+    summaries: dict[str, pd.DataFrame],
+):
     if Path(name).name != name:
         raise ValueError("Figure names must be plain filenames without directories.")
     settings.output.mkdir(parents=True, exist_ok=True)
     for extension in ("pdf", "svg", "png"):
-        figure.savefig(settings.output / f"{name}.{extension}", dpi=300, bbox_inches="tight")
+        figure.savefig(
+            settings.output / f"{name}.{extension}",
+            dpi=300,
+            bbox_inches="tight",
+        )
     for key, frame in summaries.items():
         if Path(key).name != key:
             raise ValueError("Summary names must be plain filenames without directories.")
