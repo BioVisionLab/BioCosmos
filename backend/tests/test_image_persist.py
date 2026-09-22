@@ -20,6 +20,7 @@ class TestImagePersistData:
         with patch("app.services.images.ImageConfig") as MockCfg:
             MockCfg.return_value.table = "nymphalidae"
             from app.services.images import ImagePersistData
+
             return ImagePersistData(lance_db=lance, duckdb=duck)
 
     # ------------------------------------------------------------------
@@ -67,11 +68,13 @@ class TestImagePersistData:
     # ------------------------------------------------------------------
 
     def test_filter_by_species_keeps_best_per_species(self):
-        df = pl.DataFrame({
-            "imgId": ["img-001", "img-002", "img-003"],
-            "species": ["species_a", "species_a", "species_b"],
-            "distance": [0.5, 0.3, 0.1],
-        })
+        df = pl.DataFrame(
+            {
+                "imgId": ["img-001", "img-002", "img-003"],
+                "species": ["species_a", "species_a", "species_b"],
+                "distance": [0.5, 0.3, 0.1],
+            }
+        )
         persist = self._make_instance()
         result = persist._filter_by_species(df)
 
@@ -91,10 +94,12 @@ class TestImagePersistData:
 
     def test_query_embedding_distance_filter(self):
         """Results above max_distance should be filtered out."""
-        df = pl.DataFrame({
-            "img_id": ["img-001", "img-002", "img-003"],
-            "_distance": [0.1, 0.5, 1.5],
-        })
+        df = pl.DataFrame(
+            {
+                "img_id": ["img-001", "img-002", "img-003"],
+                "_distance": [0.1, 0.5, 1.5],
+            }
+        )
         table = FakeLanceTable(df)
         persist = self._make_instance(lance_table=table)
 
@@ -109,10 +114,12 @@ class TestImagePersistData:
 
     def test_query_embedding_no_distance_filter(self):
         """Without max_distance, all results should pass."""
-        df = pl.DataFrame({
-            "img_id": ["img-001", "img-002"],
-            "_distance": [0.1, 1.9],
-        })
+        df = pl.DataFrame(
+            {
+                "img_id": ["img-001", "img-002"],
+                "_distance": [0.1, 1.9],
+            }
+        )
         table = FakeLanceTable(df)
         persist = self._make_instance(lance_table=table)
 
@@ -126,10 +133,12 @@ class TestImagePersistData:
 
     def test_query_embedding_deduplicates_by_img_id(self):
         """Duplicate img_ids should be removed."""
-        df = pl.DataFrame({
-            "img_id": ["img-001", "img-001"],
-            "_distance": [0.1, 0.2],
-        })
+        df = pl.DataFrame(
+            {
+                "img_id": ["img-001", "img-001"],
+                "_distance": [0.1, 0.2],
+            }
+        )
         table = FakeLanceTable(df)
         persist = self._make_instance(lance_table=table)
 
@@ -358,3 +367,35 @@ class TestFindSimilarImagesPoolGrowth:
         assert pools == [500, 5_000]
         assert result.height == 30
         assert all(name.startswith("other_") for name in result["species"])
+
+    def test_excludes_multiple_references_and_their_subspecies(self):
+        from app.services.images import ImagePersistData
+
+        persist = ImagePersistData.__new__(ImagePersistData)
+        persist.logger = MagicMock()
+        persist._query_unicom_embeddings = MagicMock(return_value=np.ones((2, 4)))
+        persist._query_embedding = MagicMock(
+            return_value=pl.DataFrame(
+                {
+                    "imgId": ["a", "b", "c", "d"],
+                    "distance": [0.1, 0.2, 0.3, 0.4],
+                }
+            )
+        )
+        persist._merge_result_with_metadata = lambda rows: rows.with_columns(
+            pl.Series(
+                "species",
+                [
+                    "danaus_plexippus",
+                    "Danaus erippus",
+                    "danaus_erippus_subspecies",
+                    "vanessa_cardui",
+                ],
+            )
+        )
+        result = persist.find_similar_images(
+            ["ref-a", "ref-b"],
+            exclude_species=["Danaus plexippus", "danaus_erippus"],
+            raise_on_error=True,
+        )
+        assert result["species"].to_list() == ["vanessa_cardui"]

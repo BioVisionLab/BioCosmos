@@ -12,6 +12,12 @@ from plannerbench.spec import PlannerSpec
 TRAIT = {"anyOf": [{"enum": ["High", "Medium", "Low"], "type": "string"}, {"type": "null"}]}
 
 SCHEMAS: dict[str, dict[str, Any]] = {
+    "search_by_common_name": {
+        "additionalProperties": False,
+        "properties": {"common_name": {"maxLength": 200, "minLength": 1, "type": "string"}},
+        "required": ["common_name"],
+        "type": "object",
+    },
     "search_by_color": {
         "additionalProperties": False,
         "properties": {"color_description": {"maxLength": 200, "minLength": 1, "type": "string"}},
@@ -43,6 +49,7 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     },
 }
 CATEGORIES = {
+    "search_by_common_name": "filter",
     "search_by_color": "ranking",
     "search_by_image_similarity": "ranking",
     "search_by_location": "filter",

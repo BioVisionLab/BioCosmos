@@ -578,6 +578,10 @@ class PromptsConfig:
         return self._load_prompt("router_agent.md")
 
     @property
+    def common_name_search(self) -> str:
+        return self._resolve_path("common_name_search.md")
+
+    @property
     def image_similarity(self) -> str:
         return self._resolve_path("image_similarity.md")
 

@@ -57,7 +57,7 @@ export default function SemanticForm({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`
-          flex-1 bg-transparent border-0 focus:outline-none
+          flex-1 min-w-0 bg-transparent border-0 focus:outline-none
           placeholder:text-deep-mocha-400 dark:placeholder:text-deep-mocha-500
           text-deep-mocha-800 dark:text-deep-mocha-100
           text-sm md:text-base

@@ -15,13 +15,12 @@ import {
 } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
+import { SemanticFunctionBadges } from "@/components/SemanticSearchFunctions";
 import { MlResultItems } from "@/lib/ml_search";
 
 // Image size matching the backend resizing
 const IMAGE_SIZE = 128;
 
-// Compute match percent from a 0..1 normalized score provided by the backend agent
-// Use for semantic search that returns normalized scores.
 /**
  * Wrap children in a link to the species page, when there is one to link to.
  *
@@ -68,23 +67,25 @@ function computeDistancePercent(distance: number) {
   return Math.max(0, Math.min(100, Math.round(similarity * 100)));
 }
 
-function MLSearchResultCard({ data }: { data: MlResultItems }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolNames?: string[] }) {
+  const [thumbnail, setThumbnail] = useState<{ id: string; url: string | null } | null>(null);
+  const loading = thumbnail?.id !== data.imgId;
+  const imageUrl = thumbnail?.id === data.imgId ? thumbnail.url : null;
 
   useEffect(() => {
-    setLoading(true);
+    let active = true;
     const fetchImage = async () => {
+      let url: string | null = null;
       try {
-        const response = await fetchThumbnailById(data.imgId);
-        setImageUrl(response);
+        url = await fetchThumbnailById(data.imgId);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
       } finally {
-        setLoading(false);
+        if (active) setThumbnail({ id: data.imgId, url });
       }
     };
     fetchImage();
+    return () => { active = false; };
   }, [data.imgId]);
 
   const speciesName = toBinomialName(cleanSpeciesName(data.species));
@@ -104,7 +105,7 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
   };
 
   return (
-    <div className="bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-[160px] min-h-[200px]">
+    <div className={`bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center min-h-[200px] ${toolNames ? "w-full min-w-0" : "w-[160px]"}`}>
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
@@ -123,19 +124,20 @@ function MLSearchResultCard({ data }: { data: MlResultItems }) {
             />
           </div>
 
-          <h2 className="text-sm truncate text-center text-deep-mocha-400 italic w-full">
+          <h2 className={`text-sm text-center italic w-full ${toolNames ? "break-words text-deep-mocha-800 dark:text-deep-mocha-100" : "truncate text-deep-mocha-400"}`}>
             {speciesName}
           </h2>
 
           <div className="flex flex-col gap-1 items-center w-full">
-            {data.score !== undefined && (
+            {toolNames && <SemanticFunctionBadges toolNames={toolNames} />}
+            {!toolNames && data.score !== undefined && (
               <span
                 className={getMatchPillClass(computeMatchPercent(data.score))}
               >
                 Match: {computeMatchPercent(data.score)}%
               </span>
             )}
-            {data.distance !== undefined && (
+            {!toolNames && data.distance !== undefined && (
               <span
                 className={getMatchPillClass(
                   computeDistancePercent(data.distance),

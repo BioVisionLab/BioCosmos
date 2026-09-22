@@ -86,3 +86,18 @@ def test_parse_tool_calls_keeps_first_valid_duplicate():
     assert len(calls) == 1
     assert calls[0].args.color_description == "blue"
     assert [warning.code for warning in warnings] == ["duplicate_tool_call"]
+
+
+def test_common_names_pass_through_without_scientific_translation():
+    registry = build_tool_registry(PromptsConfig())
+    calls, warnings = parse_tool_calls(
+        [
+            tool_call("search_by_common_name", '{"common_name": "blue morpho"}'),
+            tool_call("search_by_image_similarity", '{"reference_species": "monarch"}'),
+        ],
+        registry,
+    )
+    assert warnings == []
+    assert calls[0].category == "filter"
+    assert calls[0].args.common_name == "blue morpho"
+    assert calls[1].args.reference_species == "monarch"

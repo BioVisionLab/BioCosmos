@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from ..configs.config import PromptsConfig
 
-
 ToolCategory = Literal["filter", "ranking"]
 
 
@@ -22,6 +21,10 @@ class ToolArgs(BaseModel):
 
 class ImageSimilarityArgs(ToolArgs):
     reference_species: str = Field(min_length=1, max_length=128)
+
+
+class CommonNameArgs(ToolArgs):
+    common_name: str = Field(min_length=1, max_length=200)
 
 
 class LocationArgs(ToolArgs):
@@ -45,7 +48,7 @@ class TraitArgs(ToolArgs):
     disturbance_affinity: TraitValue | None = None
 
     @model_validator(mode="after")
-    def require_trait(self) -> "TraitArgs":
+    def require_trait(self) -> TraitArgs:
         if not any(
             (
                 self.canopy_affinity,
@@ -94,6 +97,12 @@ def _compact_schema(value: Any) -> Any:
 
 def build_tool_registry(prompts: PromptsConfig) -> dict[str, ToolSpec]:
     specs = (
+        ToolSpec(
+            "search_by_common_name",
+            "filter",
+            CommonNameArgs,
+            prompts.common_name_search,
+        ),
         ToolSpec(
             "search_by_image_similarity",
             "ranking",
@@ -185,10 +194,10 @@ def parse_tool_calls(
 
         try:
             if not isinstance(arguments, str):
-                raise ValueError("Tool arguments must be a JSON string.")
+                raise TypeError("Tool arguments must be a JSON string.")
             decoded = json.loads(arguments)
             if not isinstance(decoded, dict):
-                raise ValueError("Tool arguments must be a JSON object.")
+                raise TypeError("Tool arguments must be a JSON object.")
             validated = spec.args_model.model_validate(decoded)
         except (json.JSONDecodeError, TypeError, ValidationError, ValueError):
             warnings.append(

@@ -20,11 +20,19 @@ Decomposition rules (apply ALL that match):
    → call `search_by_traits`.
 
 4. SIMILARITY: Call `search_by_image_similarity` when the user asks for species
-   "similar to" or "resembling" a specific reference species. If the user provides 
-   a common name (e.g. "Monarch butterfly"), you MUST translate it to its 
-   scientific species name (e.g. "Danaus plexippus") for the function payload.
+   "similar to", "resembling", or "look-alikes" of a reference species or genus.
+   Pass the reference name exactly as supplied, whether common or scientific.
+   The database resolves common names; NEVER translate or guess a scientific name.
 
-5. COMBINATION: For multi-attribute queries, call ALL relevant tools in the
+5. COMMON NAME: For direct name requests ("monarch", "glasswing butterfly"),
+   call `search_by_common_name` with the user's common-name phrase unchanged.
+   Do not add this filter for a similarity reference. Words within a common
+   name ("blue morpho") are not separate color or trait constraints.
+
+6. COMBINATION: For multi-attribute queries, call ALL relevant tools in the
    same response and combine related arguments into one call per tool.
 
-6. IGNORE generic terms like "butterfly", "insect", "species", "show me".
+7. IGNORE standalone generic terms like "butterfly", "insect", "species",
+   "show me". Preserve them when part of a supplied common-name phrase.
+   Pure appearance descriptions such as "owl-like butterfly" use search_by_color;
+   do not invent a scientific reference for descriptive queries.
