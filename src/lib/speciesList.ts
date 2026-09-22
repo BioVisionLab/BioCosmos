@@ -6,9 +6,11 @@ const INITIAL_SPECIES = [
   "nessaea_hewitsonii",
   "zeuxidia_ameythystus",
   "panacea_prola",
+  "papilio_blumei",
+  "papilio_buddha",
   "charaxes_dilutus",
   "agrias_phalcidon",
-  "ypthima_doleta",
+  "ypthima_lisandra",
 ];
 
 // Get an initial list of species.
