@@ -438,6 +438,45 @@ class ImageMetaService:
                 raise
             return []
 
+    def get_image_ids_by_genus(
+        self,
+        genus: str,
+        *,
+        limit: int = 100,
+        raise_on_error: bool = False,
+    ) -> list[str]:
+        """
+        Retrieve up to `limit` image IDs spread across every species of a genus.
+
+        :param genus: A single-word genus name, e.g. "Caligo".
+        :param limit: Maximum number of image IDs to return.
+        :return: A list of image IDs, empty when the name is not a genus.
+        """
+        cleaned_genus = genus.strip().lower()
+        if not cleaned_genus.isalpha():
+            return []
+        try:
+            # Species are stored as `genus_epithet`; normalizing spaces keeps
+            # the match working for either spelling. Ordering by the random
+            # image UUID samples across the genus instead of one species.
+            query = f"""
+                SELECT img_id FROM {self.table}
+                WHERE split_part(REPLACE(LOWER(species), ' ', '_'), '_', 1) = ?
+                ORDER BY img_id
+                LIMIT ?
+            """
+            results = self.db_client.execute_prepared_to_pl(
+                query, [cleaned_genus, limit]
+            )
+            if results is None or results.is_empty():
+                return []
+            return results["img_id"].to_list()
+        except Exception as e:
+            logger.error(f"Error retrieving image IDs for genus '{genus}': {e}")
+            if raise_on_error:
+                raise
+            return []
+
     def get_image_meta_by_species(self, species: str) -> pl.DataFrame | None:
         """
         Retrieve image IDs for a given species.

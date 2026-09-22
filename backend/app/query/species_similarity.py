@@ -235,6 +235,9 @@ class SpeciesSimilarity:
             ).find_similar_images(
                 image_ids=image_ids,
                 limit=self.candidate_limit,
+                exclude_species=species_name,
+                # Headroom for synonyms and subspecies that resolve away.
+                min_species=self.limit * 2,
             )
             if similar_images is None or similar_images.is_empty():
                 logger.info("No similar images found.")

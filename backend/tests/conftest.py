@@ -77,7 +77,9 @@ class FakeLanceSearch:
 
     def select(self, columns):
         if columns:
-            self._data = self._data.select(columns)
+            # A vector search keeps `_distance` even when it is not selected.
+            keep = [*columns, *(c for c in ("_distance",) if c in self._data.columns)]
+            self._data = self._data.select(list(dict.fromkeys(keep)))
         return self
 
     def offset(self, n):

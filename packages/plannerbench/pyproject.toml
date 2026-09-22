@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plannerbench"
+version = "0.1.0"
+description = "Benchmark LLMs as the agent-search planner: tool choice, argument validity, consistency, latency"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Haryo Handika" }]
+dependencies = [
+    "harmonize-core",
+    "jsonschema>=4.23,<5",
+    "openai>=2.0,<4",
+    "pydantic>=2.10,<3",
+    "typer>=0.15,<1",
+]
+
+[project.scripts]
+plannerbench = "plannerbench.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-cov>=6,<7",
+    "pyright>=1.1.400,<2",
+    "ruff>=0.11,<1",
+]
+
+[tool.uv.sources]
+harmonize-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plannerbench"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"

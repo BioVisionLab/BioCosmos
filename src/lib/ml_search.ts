@@ -34,7 +34,10 @@ function isColorSearchResult(value: unknown): value is ColorSearchResult {
   );
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readErrorMessage(
+  response: Response,
+  label = "Color search",
+): Promise<string> {
   try {
     const body: unknown = await response.json();
     if (
@@ -49,7 +52,7 @@ async function readErrorMessage(response: Response): Promise<string> {
     // The response did not contain JSON, so use the status fallback below.
   }
 
-  return `Color search request failed with status ${response.status}`;
+  return `${label} request failed with status ${response.status}`;
 }
 
 async function searchByColor(
@@ -87,19 +90,21 @@ async function searchByColor(
   return results;
 }
 
-async function searchSemantic(query: string): Promise<MlResultItems[]> {
+async function searchSemantic(
+  query: string,
+  signal?: AbortSignal,
+): Promise<MlResultItems[]> {
   const response = await fetch(
     "/api/ml-search/agent?q=" + encodeURIComponent(query),
     {
       method: "GET",
       headers: { Accept: "application/json" },
+      signal,
     }
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Agent search request failed with status ${response.status}`
-    );
+    throw new Error(await readErrorMessage(response, "Agent search"));
   }
 
   const json: unknown = await response.json();

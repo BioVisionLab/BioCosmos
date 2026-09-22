@@ -142,21 +142,27 @@ class AgentSearchService:
 
         message = response.choices[0].message
         raw_tool_calls = list(getattr(message, "tool_calls", None) or [])
-        if not raw_tool_calls:
-            logger.info("Planner selected no tools.")
-            return AgentSearchOutcome(self._empty_results(), [])
-
         calls, warnings = parse_tool_calls(raw_tool_calls, self.tool_registry)
         if not calls:
-            raise AgentPlannerError("The planner returned no valid tool calls.")
+            # A small planner model sometimes answers a purely descriptive
+            # query ("owl-like butterfly") with no tool at all. The raw query
+            # is still a usable CLIP prompt, so rank by it instead of
+            # returning nothing.
+            logger.info("Planner selected no usable tools; using text search.")
+            calls = [self._text_search_fallback(query)]
 
         filter_calls = [call for call in calls if call.category == "filter"]
         ranking_calls = [call for call in calls if call.category == "ranking"]
 
-        filter_executions = [
-            await self._execute_safely(call, allowlist_species=None)
-            for call in filter_calls
-        ]
+        # Tools within a stage are independent, so run them concurrently.
+        filter_executions = list(
+            await asyncio.gather(
+                *(
+                    self._execute_safely(call, allowlist_species=None)
+                    for call in filter_calls
+                )
+            )
+        )
         warnings.extend(self._execution_warnings(filter_executions))
         successful_filters = [
             execution
@@ -172,10 +178,14 @@ class AgentSearchService:
         if allowlist_species == set():
             return AgentSearchOutcome(self._empty_results(), warnings)
 
-        ranking_executions = [
-            await self._execute_safely(call, allowlist_species)
-            for call in ranking_calls
-        ]
+        ranking_executions = list(
+            await asyncio.gather(
+                *(
+                    self._execute_safely(call, allowlist_species)
+                    for call in ranking_calls
+                )
+            )
+        )
         warnings.extend(self._execution_warnings(ranking_executions))
         successful_rankings = [
             execution
@@ -218,6 +228,14 @@ class AgentSearchService:
         return AgentSearchOutcome(
             self._build_filter_results(allowlist_species, successful_filters),
             warnings,
+        )
+
+    def _text_search_fallback(self, query: str) -> ParsedToolCall:
+        spec = self.tool_registry["search_by_color"]
+        return ParsedToolCall(
+            name=spec.name,
+            category=spec.category,
+            args=ColorArgs(color_description=query[:200]),
         )
 
     async def _plan(self, query: str) -> Any:
@@ -312,6 +330,17 @@ class AgentSearchService:
             reference_species,
             raise_on_error=True,
         )
+        exclude_reference = True
+        if not image_ids and len(reference_species.split()) == 1:
+            # The planner often names a genus for a descriptive query
+            # ("owl-like butterfly" -> "Caligo"). Use the genus's images as
+            # the reference and keep its species: they are the answer.
+            image_ids = await asyncio.to_thread(
+                self.image_meta_service.get_image_ids_by_genus,
+                reference_species,
+                raise_on_error=True,
+            )
+            exclude_reference = False
         if not image_ids:
             return []
 
@@ -324,18 +353,12 @@ class AgentSearchService:
             image_ids,
             VECTOR_CANDIDATE_LIMIT,
             filter_img_ids,
+            exclude_species=reference_species if exclude_reference else None,
+            min_species=RESULT_LIMIT,
             raise_on_error=True,
         )
         if similar is None or similar.is_empty():
             return []
-
-        normalized_reference = self._normalize_species(reference_species)
-        similar = similar.filter(
-            pl.col("species")
-            .cast(pl.String)
-            .map_elements(self._normalize_species, return_dtype=pl.String)
-            != normalized_reference
-        )
         return self._build_ranking_rows(
             similar,
             tool_name="search_by_image_similarity",
@@ -597,10 +620,6 @@ class AgentSearchService:
             if results
             else AgentSearchService._empty_results()
         )
-
-    @staticmethod
-    def _normalize_species(value: str) -> str:
-        return value.strip().lower().replace("_", " ")
 
     @staticmethod
     def _empty_results() -> pl.DataFrame:

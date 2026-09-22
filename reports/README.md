@@ -15,6 +15,11 @@ reports/
   geography/<run_id>/             written by `geoharmonize validate`
     coordinate_run.json
     coordinate_validation.duckdb
+  planner/
+    planner_spec.json             written by backend/scripts/export_planner_spec.py
+    <run_id>/                     written by `plannerbench run`
+      run.json
+      trials.jsonl
 ```
 
 Both tools write here when given `--reports-dir reports` (or `reports_dir` in
@@ -52,7 +57,8 @@ own key, so the two can run independently:
 {
   "schema_version": 1,
   "taxonomy":  {"run_id": "...", "completed_at": "...", "manifest": "taxonomy/<run_id>/run.json"},
-  "geography": {"run_id": "...", "completed_at": "...", "manifest": "geography/<run_id>/coordinate_run.json"}
+  "geography": {"run_id": "...", "completed_at": "...", "manifest": "geography/<run_id>/coordinate_run.json"},
+  "planner":   {"run_id": "...", "completed_at": "...", "manifest": "planner/<run_id>/run.json"}
 }
 ```
 
