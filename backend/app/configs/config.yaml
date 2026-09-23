@@ -58,7 +58,7 @@ locality:
 # same way as locality above, but keyed on who holds the specimen rather than
 # where it was found.
 provenance:
-  skip: true
+  skip: false
   table: "image_meta_provenance"
 # Catalogue of Life taxonomy backbone, ingested from a ColDP release directory
 # pointed at by COL_DIR. Replaces GBIF as the source of classification data.

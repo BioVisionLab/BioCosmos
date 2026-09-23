@@ -88,10 +88,18 @@ export function ProvenanceBlock({
  *
  * Below the rule rather than above it, because provenance is not another
  * field of the specimen — it is the citation, and a citation belongs with the
- * links it is a citation for. The source database and the holding institution
- * share one row for the same reason: they are two halves of one answer, and
- * split across the divider the reader had to hold one in their head to make
- * sense of the other.
+ * links it is a citation for.
+ *
+ * Two lines, holder first, then aggregator. They answer different questions
+ * and a reader who cannot tell them apart will cite the wrong one: "Specimen
+ * Holder" is the museum or herbarium with the physical drawer, and "Source DB"
+ * is the database this record was harvested from. The old label — a bare
+ * "Institution" sharing one row with the database name — read as two spellings
+ * of the same fact, and a long code could wrap into the line below where it no
+ * longer looked like a labelled field at all.
+ *
+ * In this order they read outwards along the provenance chain, from the
+ * specimen itself to the aggregator that published it.
  *
  * The three links come last and always together: they leave the page, so they
  * belong after everything that describes the specimen rather than interleaved
@@ -121,23 +129,22 @@ export function MetadataLinks({
     <div
       className={`mt-1 pt-2 border-t border-deep-mocha-200 dark:border-deep-mocha-700 leading-normal ${className}`}
     >
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0">
-        <span className="flex items-baseline gap-1 min-w-0">
-          <span className={METADATA_LABEL}>Source DB:</span>
-          {/* The name of the database, not a link: the link to this record is
-              one of the three below. */}
-          <span className={`truncate uppercase ${METADATA_VALUE}`}>
-            {sourceDb}
+      {provenance?.institutionCode ? (
+        <div className="flex items-baseline gap-1 min-w-0">
+          <span className={METADATA_LABEL}>Specimen Holder:</span>
+          <span className={`truncate ${METADATA_VALUE}`}>
+            {provenance.institutionCode}
           </span>
+        </div>
+      ) : null}
+      <div className="flex items-baseline gap-1 min-w-0">
+        <span className={METADATA_LABEL}>Source DB:</span>
+        {/* The aggregator that published the record, not the institution that
+            holds the specimen, and not a link: the link to this record is one
+            of the three below. */}
+        <span className={`truncate uppercase ${METADATA_VALUE}`}>
+          {sourceDb}
         </span>
-        {provenance?.institutionCode ? (
-          <span className="flex items-baseline gap-1 min-w-0">
-            <span className={METADATA_LABEL}>Institution:</span>
-            <span className={`truncate ${METADATA_VALUE}`}>
-              {provenance.institutionCode}
-            </span>
-          </span>
-        ) : null}
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">

@@ -212,3 +212,93 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Landing-page motion and atmosphere.
+ *
+ * Both effects are decorative and both stand down entirely under
+ * `prefers-reduced-motion`: the hero has to read the same when it does not
+ * move, so the rise animation ends at its natural position and the glow
+ * simply stops drifting rather than disappearing.
+ * ------------------------------------------------------------------------ */
+
+/* One block entering: a short lift out of a 12px offset. `both` holds the
+ * opening frame so a staggered block is not briefly visible at full opacity
+ * before its delay elapses. */
+@keyframes bc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bc-rise {
+  animation: bc-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The wash behind the wordmark: a wide, heavily blurred ellipse in the brand
+ * blues, breathing slowly. Positioned and sized here rather than as a dozen
+ * arbitrary-value utilities at the call site, which is the only thing that
+ * keeps the hero's JSX readable.
+ *
+ * Deliberately taller than the space above the logo and pulled well past the
+ * hero's top edge, so its upper half runs behind the nav and off the top of
+ * the document. The gradient therefore never resolves to a visible boundary:
+ * it either fades to transparent or leaves the page. Its host section clips on
+ * the x axis only, which is what lets that happen. Nav is z-1000, so it stays
+ * in front of a z-0 glow.
+ *
+ * Light mode carries it at low opacity over white; dark mode needs a
+ * saturated mid-tone at even lower opacity, because the same pale tint over
+ * near-black reads as fog rather than light. */
+.bc-hero-glow {
+  position: absolute;
+  top: -11rem;
+  left: 50%;
+  z-index: 0;
+  width: min(48rem, 120vw);
+  height: 32rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.55;
+  background: radial-gradient(
+    closest-side,
+    var(--color-frozen-water-200),
+    var(--color-pacific-blue-100),
+    transparent
+  );
+  animation: bc-hero-breathe 14s ease-in-out infinite;
+}
+
+.dark .bc-hero-glow {
+  opacity: 0.22;
+  background: radial-gradient(
+    closest-side,
+    var(--color-pacific-blue-600),
+    var(--color-hunter-green-800),
+    transparent
+  );
+}
+
+@keyframes bc-hero-breathe {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-rise,
+  .bc-hero-glow {
+    animation: none;
+  }
+}

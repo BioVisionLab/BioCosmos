@@ -23,39 +23,97 @@ import { ButterflyIcon } from "./ui/icons";
 export default function HomePage({ dataSummary }: { dataSummary?: ReactNode }) {
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <div className="mt-10 sm:mt-12 mb-6 text-center">
-        <div className="flex justify-center mb-2">
-          <h1 className="sr-only">Lepiverse</h1>
-          <Logo className="w-64 sm:w-80 md:w-96" />
-        </div>
-        <p className="text-base sm:text-md text-deep-mocha-600 dark:text-deep-mocha-300">
-          A modernized, museum-quality web portal for Lepidoptera, featuring all
-          butterfly families.
-        </p>
-        <p className="mt-8 text-base sm:text-lg text-deep-mocha-600 dark:text-deep-mocha-300 max-w-3xl mx-auto text-balance">
-          Explore and learn about butterfly diversity, taxonomy, and fascinating
-          coloration. Powered by BioCosmos hybrid engine that combines
-          conventional biodiversity you familiar with modern machine learning
-          techniques to uncover hidden evolutionary patterns of complex traits,
-          such as coloration.
-        </p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs sm:text-sm">
-          <span className="px-3 py-1 rounded-full bg-hunter-green-100 dark:bg-hunter-green-900/40 text-hunter-green-700 dark:text-hunter-green-300">
-            Image Search
-          </span>
-          <span className="px-3 py-1 rounded-full bg-frozen-water-100 dark:bg-frozen-water-900/40 text-frozen-water-700 dark:text-frozen-water-300">
-            Smart Text Query
-          </span>
-          <span className="px-3 py-1 rounded-full bg-pacific-blue-100 dark:bg-pacific-blue-900/40 text-pacific-blue-700 dark:text-pacific-blue-300">
-            Open Biodiversity Data
-          </span>
-        </div>
-      </div>
-
+      <Hero />
       <HomeContent dataSummary={dataSummary} />
       {/* spacer between homepage content and the site footer */}
       <div className="h-8 md:h-14 lg:h-16" aria-hidden="true" />
     </div>
+  );
+}
+
+/**
+ * What the collection is, in three chips — not what it can do.
+ *
+ * The search modes are named on the tab strip a few hundred pixels below, so
+ * listing them up here said the same thing twice before the reader had done
+ * anything. These are the claims nothing else above the fold makes, and they
+ * are what "museum-quality" means in practice.
+ *
+ * Outlined, with one small coloured dot each. The three saturated pills they
+ * replace put more colour above the fold than the butterflies underneath it.
+ */
+const CREDENTIALS = [
+  { label: "Every butterfly family", dot: "bg-hunter-green-500" },
+  { label: "Harmonized taxonomy", dot: "bg-pacific-blue-500" },
+  { label: "Open, citable records", dot: "bg-frozen-water-600" },
+] as const;
+
+/**
+ * The top of the landing page: the mark, one promise, one explanation.
+ *
+ * The copy used to be two paragraphs of the same weight, so neither led. Now
+ * the first line is sized as the headline it actually is and the second gives
+ * the mechanism beneath it.
+ *
+ * `bc-rise` staggers the three blocks in on load and `bc-hero-glow` washes a
+ * soft gradient behind the mark; both sit in globals.css and both stand down
+ * under `prefers-reduced-motion`.
+ *
+ * The section clips on the x axis only. The glow is wider than a phone screen,
+ * so it must not add a horizontal scrollbar — but it also has to carry on up
+ * behind the nav and off the top of the document instead of ending on this
+ * section's top edge, which `overflow-hidden` drew as a hard line straight
+ * across the page. `clip` on one axis leaves the other visible; `hidden` does
+ * not.
+ */
+function Hero() {
+  return (
+    <section className="relative w-full overflow-x-clip px-4 pt-12 pb-2 sm:pt-16">
+      <span className="bc-hero-glow" aria-hidden="true" />
+
+      <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+        <h1 className="bc-rise flex w-full justify-center">
+          <span className="sr-only">Lepiverse</span>
+          <Logo className="w-64 sm:w-80 md:w-96" />
+        </h1>
+
+        <p
+          className="bc-rise mt-6 text-balance text-lg leading-snug text-deep-mocha-800 sm:text-2xl dark:text-deep-mocha-100"
+          style={{ animationDelay: "90ms" }}
+        >
+          Bringing together structured biodiversity data and image-based
+          discovery. Explore butterfly diversity and their fascinating
+          coloration with a modern, museum-quality image platform.
+        </p>
+
+        <p
+          className="bc-rise mt-4 max-w-2xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
+          style={{ animationDelay: "180ms" }}
+        >
+          The BioCosmos engine pairs curated biodiversity records with modern
+          machine learning, revealing patterns in taxonomy, geography, and
+          coloration.
+        </p>
+
+        <ul
+          className="bc-rise mt-7 flex flex-wrap justify-center gap-2"
+          style={{ animationDelay: "270ms" }}
+        >
+          {CREDENTIALS.map(({ label, dot }) => (
+            <li
+              key={label}
+              className="inline-flex items-center gap-2 rounded-full border border-deep-mocha-200 bg-white/60 px-3 py-1 text-xs text-deep-mocha-700 backdrop-blur sm:text-sm dark:border-deep-mocha-700 dark:bg-deep-mocha-900/40 dark:text-deep-mocha-300"
+            >
+              <span
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
+                aria-hidden="true"
+              />
+              {label}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 
