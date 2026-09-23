@@ -20,8 +20,8 @@ import {
   UPDATE_STATUS_ROWS,
   VALIDATION_STATUS_ROWS,
 } from "@/lib/matchingDocs";
-import Link from "next/link";
 import CodeTable from "./CodeTable";
+import BackLink from "@/components/BackLink";
 
 const COL_URL = "https://www.catalogueoflife.org/";
 const COL_TAXONOMY_URL = "https://github.com/hhandika/col-taxonomy";
@@ -51,12 +51,10 @@ export default function ResourcesPage() {
     // 7xl because this page is almost entirely prose, and 7xl on a wide
     // monitor is a 1200px measure.
     <div className="max-w-4xl mx-auto py-4">
+      <BackLink />
       <h1 className="text-3xl font-bold mb-4">
         Resources and Data Usage Attribution
       </h1>
-      <Link href="/" className="text-pacific-blue-600 hover:underline">
-        ← Back to Home
-      </Link>
       <section className="my-12 space-y-4 text-deep-mocha-700 dark:text-deep-mocha-300 leading-relaxed">
         <h2 className="text-2xl font-semibold">Primary Data</h2>
         <p>

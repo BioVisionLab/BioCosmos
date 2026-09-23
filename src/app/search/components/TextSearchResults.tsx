@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { SpecimenImageModal } from "@/components/SpecimenImageModal";
+import BackLink from "@/components/BackLink";
 
 const IMAGE_SIZE = 128;
 const SPECIMEN_THUMB_SIZE = 48;
@@ -331,11 +332,7 @@ function DbSearch({
 
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
-      <div className="mb-4">
-        <a href="/" className="text-blue-600 hover:underline">
-          &larr; Back to Home
-        </a>
-      </div>
+      <BackLink />
       <div
         id="search-query"
         className="mb-12 mt-8 text-center flex flex-col items-center gap-4"

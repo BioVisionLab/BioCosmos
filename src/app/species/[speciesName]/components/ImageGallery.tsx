@@ -1,6 +1,7 @@
 "use client";
 
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import {
   fetchImgById,
   fetchThumbnailById,
@@ -87,7 +88,9 @@ export function SpeciesImageGallery({
       {loading ? (
         <ImageLoading size={400} />
       ) : items.length === 0 ? (
-        <div className="flex items-center justify-center h-full">No images</div>
+        <div className="relative min-h-[400px] w-full">
+          <NoImage />
+        </div>
       ) : (
         <div className="flex flex-col gap-3 h-full">
           {/* add outer padding so thumbs have breathing room */}
@@ -199,6 +202,8 @@ function GalleryFullImage({
 }) {
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Keyed by URL so moving to the next image clears a previous failure.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -223,15 +228,17 @@ function GalleryFullImage({
     return null;
   }
 
-  return loading ? (
-    <ImageLoading size={128} msg="" />
-  ) : (
+  if (loading) return <ImageLoading size={128} msg="" />;
+  if (failedUrl === imgUrl) return <NoImage />;
+
+  return (
     <Image
       src={imgUrl}
       alt={`Image of ${speciesName}`}
       fill
       sizes="(max-width:768px) 100vw, 800px"
       className="object-contain m-1"
+      onError={() => setFailedUrl(imgUrl)}
       unoptimized
     />
   );
@@ -248,6 +255,7 @@ function GalleryThumbnail({
 }) {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -272,14 +280,19 @@ function GalleryThumbnail({
     <ImageLoading size={48} msg="" />
   ) : (
     <div className="relative w-full h-full">
-      <Image
-        src={thumbUrl}
-        alt={`Thumbnail ${idx + 1} of ${speciesName}`}
-        fill
-        sizes="96px"
-        className="object-contain"
-        unoptimized
-      />
+      {failedUrl === thumbUrl ? (
+        <NoImage className="text-[10px] [&>svg]:h-4 [&>svg]:w-4" />
+      ) : (
+        <Image
+          src={thumbUrl}
+          alt={`Thumbnail ${idx + 1} of ${speciesName}`}
+          fill
+          sizes="96px"
+          className="object-contain"
+          onError={() => setFailedUrl(thumbUrl)}
+          unoptimized
+        />
+      )}
     </div>
   );
 }

@@ -199,7 +199,7 @@ export default function ColorSearch() {
                   ? `/species/${speciesUrlFromName(result.species)}`
                   : "#"
               }
-              imageUrl={result ? imageUrlById(result.imgId, "thumbnail") : null}
+              imageUrl={result ? imageUrlById(result.imgId, "full") : null}
               label={
                 result ? toBinomialName(cleanSpeciesName(result.species)) : ""
               }

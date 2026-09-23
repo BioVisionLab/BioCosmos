@@ -1,7 +1,7 @@
-import Link from "next/link";
 
 import { fetchTaxonStats } from "@/lib/metaStats";
 import CollectionCharts from "./CollectionCharts";
+import BackLink from "@/components/BackLink";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
 export const dynamic = "force-dynamic";
@@ -45,12 +45,8 @@ export default async function CollectionsPage() {
 
   return (
     <main className="w-full max-w-7xl 2xl:max-w-[88rem] mx-auto py-8">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-bold">Collections</h1>
-        <Link href="/" className="text-pacific-blue-600 hover:underline">
-          ← Back to Home
-        </Link>
-      </div>
+      <BackLink />
+      <h1 className="text-3xl font-bold mb-6">Collections</h1>
 
       <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
         Statistics on our current dataset, including the number of images,

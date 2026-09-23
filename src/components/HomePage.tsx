@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { getSpeciesList } from "@/lib/speciesList";
-import { speciesThumbnailUrl } from "@/lib/images";
+import { speciesImageUrl } from "@/lib/images";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import SpeciesTile from "./SpeciesTile";
@@ -227,13 +227,13 @@ function SpeciesThumbnail({
   species: string;
   index: number;
 }) {
-  // No state and no effect: the thumbnail URL is a pure function of the
+  // No state and no effect: the image URL is a pure function of the
   // name, so fetching it asynchronously only bought a guaranteed first
   // render with no image — six of them, every visit.
   return (
     <SpeciesTile
       href={`/species/${speciesUrlFromName(species)}`}
-      imageUrl={speciesThumbnailUrl(species)}
+      imageUrl={speciesImageUrl(species)}
       label={cleanSpeciesName(species)}
       alt={`Species Thumbnail ${index + 1}`}
     />

@@ -16,6 +16,7 @@ import {
 } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import { SemanticFunctionBadges } from "@/components/SemanticSearchFunctions";
 import { MlResultItems } from "@/lib/ml_search";
 
@@ -73,6 +74,7 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
   // restored from cache paint straight from the browser's immutable image
   // cache instead of flashing a spinner per card.
   const imageUrl = imageUrlById(data.imgId, "thumbnail");
+  const [imageFailed, setImageFailed] = useState(false);
 
   const speciesName = toBinomialName(cleanSpeciesName(data.species));
 
@@ -98,14 +100,19 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
         >
           <div className="flex flex-1 items-center justify-center w-full">
             <div className="relative aspect-square w-full max-w-32">
-              <Image
-              src={imageUrl}
-              alt={`Image of ${data.species}`}
-              fill
-              sizes={`${IMAGE_SIZE}px`}
-              className="object-contain"
-              unoptimized
-              />
+              {imageFailed ? (
+                <NoImage />
+              ) : (
+                <Image
+                  src={imageUrl}
+                  alt={`Image of ${data.species}`}
+                  fill
+                  sizes={`${IMAGE_SIZE}px`}
+                  className="object-contain"
+                  onError={() => setImageFailed(true)}
+                  unoptimized
+                />
+              )}
             </div>
           </div>
 

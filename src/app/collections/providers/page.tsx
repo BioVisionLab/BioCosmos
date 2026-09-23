@@ -1,7 +1,7 @@
-import Link from "next/link";
 
 import { fetchTaxonStats } from "@/lib/metaStats";
 import ProvidersTable from "./ProvidersTable";
+import BackLink from "@/components/BackLink";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
 export const dynamic = "force-dynamic";
@@ -13,15 +13,8 @@ export default async function ProvidersPage() {
 
   return (
     <main className="w-full max-w-5xl mx-auto py-8">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-bold">Institutions</h1>
-        <Link
-          href="/collections"
-          className="text-pacific-blue-600 hover:underline"
-        >
-          ← Back to Collections
-        </Link>
-      </div>
+      <BackLink href="/collections" label="Back to Collections" />
+      <h1 className="text-3xl font-bold mb-6">Institutions</h1>
 
       <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
         Every holding institution behind the collection, with the number of

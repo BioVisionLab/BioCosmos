@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { Menu } from "lucide-react";
 import { SpeciesOverview } from "./SpeciesOverview";
 import { SpeciesData } from "@/lib/speciesData";
 import { ImageLoading } from "@/components/Loadings";
@@ -59,6 +60,12 @@ const TAB_IDS = [
 ] as const;
 
 type TabId = (typeof TAB_IDS)[number];
+
+// Five pills do not fit a phone, and the row used to scroll sideways to reach
+// the last two. The three a reader actually comes for stay in the bar; the
+// external-source tabs move behind a menu button.
+const PRIMARY_TABS: readonly TabId[] = ["overview", "biology", "specimens"];
+const MORE_TABS: readonly TabId[] = ["wikipedia", "literature"];
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: "Overview",
@@ -122,20 +129,19 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
   };
 
   const baseBtn =
-    "px-4 py-1.5 rounded-full text-sm font-medium transition-colors";
+    "px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-colors";
   const active =
     "bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-white shadow";
   const inactive =
     "text-deep-mocha-600 dark:text-deep-mocha-300 hover:bg-deep-mocha-200/70 dark:hover:bg-deep-mocha-700/70";
 
+  const moreActive = MORE_TABS.includes(activeTab);
+
   return (
     <div className="flex flex-col items-center w-full">
-      <div className="w-full overflow-x-auto mt-2 flex md:justify-center md:px-0 scrollbar-hide">
-        <div
-          className="inline-flex shrink-0 rounded-full border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur-lg whitespace-nowrap"
-          role="tablist"
-        >
-          {TAB_IDS.map((id) => (
+      <div className="relative z-10 mt-2 inline-flex max-w-full items-center rounded-full border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur-lg whitespace-nowrap">
+        <div className="inline-flex" role="tablist" aria-label="Species sections">
+          {PRIMARY_TABS.map((id) => (
             <button
               id={`tab-${id}`}
               key={id}
@@ -151,6 +157,13 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
             </button>
           ))}
         </div>
+        <MoreTabsMenu
+          activeTab={activeTab}
+          onSelect={selectTab}
+          buttonClassName={`${baseBtn} inline-flex items-center gap-1.5 ${
+            moreActive ? active : inactive
+          }`}
+        />
       </div>
 
       <div className="mt-8 rounded-xl w-full">
@@ -169,5 +182,98 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     </div>
   );
 };
+
+/**
+ * The overflow menu for the tabs that do not fit the bar.
+ *
+ * While one of its tabs is open the button takes the active style (and, from
+ * `sm` up, that tab's name), so the bar never shows no selection at all.
+ */
+function MoreTabsMenu({
+  activeTab,
+  onSelect,
+  buttonClassName,
+}: {
+  activeTab: TabId;
+  onSelect: (id: TabId) => void;
+  buttonClassName: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const activeMore = MORE_TABS.includes(activeTab) ? activeTab : null;
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={buttonRef}
+        id={activeMore ? `tab-${activeMore}` : undefined}
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={buttonClassName}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={
+          activeMore
+            ? `More sections, ${TAB_LABELS[activeMore]} selected`
+            : "More sections"
+        }
+      >
+        <Menu aria-hidden="true" className="h-4 w-4" />
+        {/* Icon only on a phone: the three primary tabs already fill the
+            bar, and the gradient alone says a tab in here is open. */}
+        <span className="hidden sm:inline">
+          {activeMore ? TAB_LABELS[activeMore] : "More"}
+        </span>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-2 min-w-40 overflow-hidden rounded-xl border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white dark:bg-deep-mocha-800 py-1 shadow-lg"
+        >
+          {MORE_TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={activeTab === id}
+              onClick={() => {
+                onSelect(id);
+                setOpen(false);
+              }}
+              className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                activeTab === id
+                  ? "font-semibold text-pacific-blue-700 dark:text-pacific-blue-400"
+                  : "text-deep-mocha-700 dark:text-deep-mocha-200 hover:bg-deep-mocha-100 dark:hover:bg-deep-mocha-700"
+              }`}
+            >
+              {TAB_LABELS[id]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default TabsComponent;

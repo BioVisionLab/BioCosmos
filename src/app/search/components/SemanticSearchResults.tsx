@@ -8,7 +8,6 @@ import React, {
   useSyncExternalStore,
   Suspense,
 } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ImageLoading } from "@/components/Loadings";
 import {
@@ -29,6 +28,7 @@ import {
   SemanticSearchLegend,
 } from "@/components/SemanticSearchFunctions";
 import Tips from "@/components/Tips";
+import BackLink from "@/components/BackLink";
 
 function errorMessage(err: unknown): string {
   return err instanceof Error && err.message
@@ -220,11 +220,7 @@ function SemanticSearchView({ query }: { query: string }) {
 
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
-      <div className="mb-4">
-        <Link href="/" className="text-blue-600 hover:underline">
-          &larr; Back to Home
-        </Link>
-      </div>
+      <BackLink />
       <div id="search-query" className="mb-8 mt-8 text-center space-y-4">
         <SemanticSearchDescription />
         <SearchForm
