@@ -10,7 +10,7 @@ import os
 
 import pytest
 
-from app.database.model import ColTaxonomy
+from app.database.model import ColReference, ColTaxonomy
 from app.services.col import ColBackboneService, ColTaxonSearch
 
 
@@ -22,11 +22,17 @@ def backbone(memory_duckdb, col_fixture_dir):
     service.vernacular_path = os.path.join(col_fixture_dir, "VernacularName.tsv")
     service.table = "col_taxonomy"
     service.vernacular_table = "col_vernacular"
+    service.type_material_path = os.path.join(col_fixture_dir, "TypeMaterial.tsv")
+    service.type_material_table = "col_type_material"
+    service.reference_path = os.path.join(col_fixture_dir, "Reference.tsv")
+    service.reference_table = "col_reference"
     service.clade_rank = "order"
     service.clade_value = "Lepidoptera"
     service.skip_ingestion = False
     service._ingest_name_usage()
     service._ingest_vernacular_names()
+    service._ingest_type_material()
+    service._ingest_references()
 
     search = ColTaxonSearch.__new__(ColTaxonSearch)
     search.db_client = memory_duckdb
@@ -313,3 +319,102 @@ class TestMissingBackbone:
         fresh.vernacular_table = "col_vernacular"
         fresh.matches_table = "col_taxonomy_matches"
         assert resolve(fresh, "Coenonympha pamphilus")["colId"] == "AAA1"
+
+
+def detail(search, name):
+    return asyncio.run(search.taxonomy_detail(name))
+
+
+class TestTaxonomyDetail:
+    def test_none_for_a_name_that_does_not_resolve(self, backbone):
+        assert detail(backbone, "Nonexistent species") is None
+
+    def test_none_for_a_genus(self, backbone):
+        assert detail(backbone, "Coenonympha") is None
+
+    def test_carries_the_classification(self, backbone):
+        result = detail(backbone, "Coenonympha pamphilus")
+        assert result["classification"]["family"] == "Nymphalidae"
+        # Nested models keep the `class` alias.
+        assert result["classification"]["class"] == "Insecta"
+        assert result["detailAvailable"] is True
+
+    def test_usages_list_the_accepted_name_then_the_basionym(self, backbone):
+        usages = detail(backbone, "Coenonympha pamphilus")["nameUsages"]
+        assert [usage["name"] for usage in usages] == [
+            "Coenonympha pamphilus",
+            "Papilio pamphilus",
+        ]
+        assert usages[0]["isAccepted"] and not usages[0]["isBasionym"]
+        assert usages[1]["isBasionym"] and not usages[1]["isAccepted"]
+
+    def test_usage_carries_its_publication(self, backbone):
+        basionym = detail(backbone, "Coenonympha pamphilus")["nameUsages"][1]
+        assert basionym["publishedIn"]["citation"].startswith("Linnaeus, C.")
+        assert basionym["publishedIn"]["year"] == 1758
+        assert basionym["publishedInPage"] == "472"
+        assert basionym["nameStatus"] == "established"
+
+    def test_nomenclature_names_the_original_combination(self, backbone):
+        nomenclature = detail(backbone, "Coenonympha pamphilus")["nomenclature"]
+        assert nomenclature["originalCombination"] == "Papilio pamphilus"
+        assert nomenclature["originalAuthorship"] == "Linnaeus, 1758"
+        assert nomenclature["isOriginalCombination"] is False
+        assert nomenclature["originalPublication"]["year"] == 1758
+        assert nomenclature["year"] == 1758
+
+    def test_types_are_found_through_the_basionym(self, backbone):
+        types = detail(backbone, "Coenonympha pamphilus")["typeMaterial"]
+        # The lectotype outranks the paralectotype whatever the file order.
+        assert [t["status"] for t in types] == ["lectotype", "paralectotype"]
+        lectotype = types[0]
+        assert lectotype["typifiedName"] == "Papilio pamphilus"
+        assert lectotype["institutionCode"] == "LSL"
+        assert lectotype["latitude"] == 59.86
+        assert lectotype["reference"]["year"] == 2001
+        assert lectotype["referencePage"] == "88"
+
+    def test_reference_citation_is_assembled_when_missing(self, backbone):
+        usage = detail(backbone, "Zzzonympha pamphilus")["nameUsages"][0]
+        reference = usage["publishedIn"]
+        assert "A new Zzzonympha" in reference["citation"]
+        assert reference["year"] == 1900
+        assert reference["link"] == "https://doi.org/10.1234/zzz"
+
+    def test_holotype_on_the_accepted_name(self, backbone):
+        result = detail(backbone, "Zzzonympha pamphilus")
+        [holotype] = result["typeMaterial"]
+        assert holotype["status"] == "holotype"
+        # An unparseable coordinate is dropped, not a 500.
+        assert holotype["latitude"] is None
+        assert result["nomenclature"]["isOriginalCombination"] is True
+
+    def test_no_types_recorded(self, backbone):
+        result = detail(backbone, "Aphantopus hyperantus")
+        assert result["typeMaterial"] == []
+        # Recombined, but CoL links no basionym.
+        assert result["nomenclature"]["isOriginalCombination"] is None
+
+    def test_degrades_without_the_detail_tables(self, backbone):
+        backbone.db_client.execute("DROP TABLE col_type_material")
+        result = detail(backbone, "Coenonympha pamphilus")
+        assert result["detailAvailable"] is False
+        assert result["typeMaterial"] == []
+        assert result["nameUsages"][0]["name"] == "Coenonympha pamphilus"
+
+
+class TestColReference:
+    def test_a_trailing_link_is_dropped_from_the_citation(self):
+        reference = ColReference.from_row(
+            {
+                "ref_citation": "Linnaeus (1758). Systema naturae. https://bhl.org/p/1",
+                "ref_link": "https://bhl.org/p/1",
+                "ref_issued": "1758",
+            },
+            "ref_",
+        )
+        assert reference.citation == "Linnaeus (1758). Systema naturae."
+        assert reference.link == "https://bhl.org/p/1"
+
+    def test_nothing_to_cite(self):
+        assert ColReference.from_row({}, "ref_") is None

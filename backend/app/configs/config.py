@@ -215,8 +215,28 @@ class ColConfig:
         )
 
     @property
+    def type_material_path(self) -> str:
+        """Path to TypeMaterial.tsv, the CoL type specimen table."""
+        return self._resolve(
+            self._col_config.get("type_material_file", "TypeMaterial.tsv")
+        )
+
+    @property
+    def reference_path(self) -> str:
+        """Path to Reference.tsv, the CoL bibliography."""
+        return self._resolve(self._col_config.get("reference_file", "Reference.tsv"))
+
+    @property
     def table(self) -> str:
         return self._col_config.get("table", "col_taxonomy")
+
+    @property
+    def type_material_table(self) -> str:
+        return self._col_config.get("type_material_table", "col_type_material")
+
+    @property
+    def reference_table(self) -> str:
+        return self._col_config.get("reference_table", "col_reference")
 
     @property
     def vernacular_table(self) -> str:

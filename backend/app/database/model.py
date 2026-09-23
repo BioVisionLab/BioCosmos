@@ -319,6 +319,178 @@ class ColTaxonomy(BaseModel):
         )
 
 
+_YEAR = re.compile(r"(1[5-9]\d\d|20\d\d)")
+
+
+def _row_text(row: dict, key: str) -> str | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def year_from(value: str | None) -> int | None:
+    """The first plausible publication year in a string, e.g. an authorship."""
+    match = _YEAR.search(value or "")
+    return int(match.group(1)) if match else None
+
+
+class ColReference(BaseModel):
+    """A bibliographic reference from the CoL release."""
+
+    citation: str
+    year: int | None = None
+    doi: str | None = None
+    link: str | None = None
+
+    @classmethod
+    def from_row(cls, row: dict, prefix: str) -> "ColReference | None":
+        """Read the `{prefix}*` columns of a row joined to col_reference.
+
+        ColDP fills `citation` for most references, but not all; the parts it
+        is built from are the fallback, so a reference with a title still
+        reads as one.
+        """
+
+        def get(key: str) -> str | None:
+            return _row_text(row, f"{prefix}{key}")
+
+        issued = get("issued")
+        citation = get("citation")
+        if not citation:
+            parts = [
+                get("author"),
+                f"({issued})" if issued else None,
+                get("title"),
+                get("container_title"),
+                get("volume"),
+                get("page"),
+            ]
+            citation = " ".join(part for part in parts if part) or None
+        doi = get("doi")
+        link = get("link") or (f"https://doi.org/{doi}" if doi else None)
+        # CoL citations often end with the same URL the reference links to,
+        # which the page already renders as a link of its own.
+        if citation and link and citation.endswith(link):
+            stripped = citation[: -len(link)].rstrip(" .")
+            citation = f"{stripped}." if stripped else None
+        if not citation and not link:
+            return None
+        return cls(
+            citation=citation or link or "",
+            year=year_from(issued) or year_from(citation),
+            doi=doi,
+            link=link,
+        )
+
+
+class ColNameUsage(BaseModel):
+    """One name a species has been published or recorded under."""
+
+    colId: str | None = None
+    name: str
+    authorship: str | None = None
+    rank: str | None = None
+    status: str
+    isAccepted: bool = False
+    # The original combination the accepted name was based on.
+    isBasionym: bool = False
+    # The name the collection recorded, when CoL does not list it.
+    isRecorded: bool = False
+    nameStatus: str | None = None
+    publishedIn: ColReference | None = None
+    publishedInPage: str | None = None
+    year: int | None = None
+
+
+class ColTypeSpecimen(BaseModel):
+    """A type specimen from the CoL TypeMaterial table."""
+
+    status: str
+    # The name this specimen typifies; often the original combination rather
+    # than the accepted name.
+    typifiedName: str | None = None
+    citation: str | None = None
+    institutionCode: str | None = None
+    catalogNumber: str | None = None
+    sex: str | None = None
+    country: str | None = None
+    locality: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    altitude: str | None = None
+    collector: str | None = None
+    date: str | None = None
+    host: str | None = None
+    link: str | None = None
+    remarks: str | None = None
+    reference: ColReference | None = None
+    referencePage: str | None = None
+
+    @staticmethod
+    def _to_float(value: str | None) -> float | None:
+        try:
+            return float(value) if value else None
+        except ValueError:
+            return None
+
+    @classmethod
+    def from_row(cls, row: dict) -> "ColTypeSpecimen":
+        def get(key: str) -> str | None:
+            return _row_text(row, key)
+
+        return cls(
+            status=(get("status") or "unspecified").lower(),
+            typifiedName=get("typified_name"),
+            citation=get("citation"),
+            institutionCode=get("institution_code"),
+            catalogNumber=get("catalog_number"),
+            sex=get("sex"),
+            country=get("country"),
+            locality=get("locality"),
+            latitude=cls._to_float(get("latitude")),
+            longitude=cls._to_float(get("longitude")),
+            altitude=get("altitude"),
+            collector=get("collector"),
+            date=get("collection_date"),
+            host=get("host"),
+            link=get("link"),
+            remarks=get("remarks"),
+            reference=ColReference.from_row(row, "ref_"),
+            referencePage=get("page"),
+        )
+
+
+class ColNomenclature(BaseModel):
+    """Where the accepted name comes from."""
+
+    acceptedName: str
+    authorship: str | None = None
+    nameStatus: str | None = None
+    # The basionym, when CoL links one and it differs from the accepted name.
+    originalCombination: str | None = None
+    originalAuthorship: str | None = None
+    # True when the accepted name is itself the original combination; None
+    # when CoL cannot say (a recombined name with no basionym linked).
+    isOriginalCombination: bool | None = None
+    originalPublication: ColReference | None = None
+    originalPublicationPage: str | None = None
+    year: int | None = None
+
+
+class ColTaxonomyDetail(BaseModel):
+    """Everything the species taxonomy tab renders."""
+
+    classification: ColTaxonomy
+    nomenclature: ColNomenclature
+    nameUsages: list[ColNameUsage]
+    typeMaterial: list[ColTypeSpecimen]
+    # False when the database predates the type-material and reference
+    # tables, so empty lists mean "not loaded" rather than "none recorded".
+    detailAvailable: bool = True
+
+
 class LepTraitData(BaseModel):
     wingspan_lower_female: Optional[float]
     wingspan_upper_female: Optional[float]

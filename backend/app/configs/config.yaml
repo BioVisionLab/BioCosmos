@@ -67,6 +67,12 @@ col:
   vernacular_file: "VernacularName.tsv"
   table: "col_taxonomy"
   vernacular_table: "col_vernacular"
+  # Type specimens and the bibliography behind the species taxonomy tab. Both
+  # are scoped to the ingested clade; a missing file leaves its table empty.
+  type_material_file: "TypeMaterial.tsv"
+  reference_file: "Reference.tsv"
+  type_material_table: "col_type_material"
+  reference_table: "col_reference"
   # Restrict the ingested backbone to one clade. Leave clade_value empty for all of CoL.
   clade_rank: "order"
   clade_value: "Lepidoptera"

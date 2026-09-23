@@ -128,6 +128,44 @@ async def fetch_species_literature(
     )
 
 
+def get_col_search(request: Request) -> ColTaxonSearch:
+    return ColTaxonSearch(request.app.state.duck_db)
+
+
+@router.get("/species/{scientific_name}/taxonomy", tags=["Species Data"])
+async def fetch_species_taxonomy(
+    request: Request,
+    scientific_name: str,
+    search: ColTaxonSearch = Depends(get_col_search),
+):
+    """
+    Classification, nomenclature, name usages and type material of a species.
+
+    Everything comes from the ingested Catalogue of Life release, so the
+    response changes only when the backbone is re-ingested and carries the
+    same fingerprint-based ETag as the higher-taxon overviews.
+    """
+    try:
+        detail = await search.taxonomy_detail(scientific_name)
+    except Exception:
+        logger.exception(f"Error fetching taxonomy for {scientific_name}")
+        return JSONResponse(
+            content={"message": "An error occurred while fetching taxonomy."},
+            status_code=500,
+            headers={"Cache-Control": NO_STORE},
+        )
+    if detail is None:
+        return JSONResponse(
+            content={"message": f"No taxonomy found for: {scientific_name}"},
+            status_code=404,
+            headers={"Cache-Control": NO_STORE},
+        )
+    return cached_json(
+        detail,
+        etag=_overview_etag(request, "species", scientific_name.strip().lower()),
+    )
+
+
 def get_species_similarity(request: Request) -> SpeciesSimilarity:
     return SpeciesSimilarity(request=request, limit=10)
 
