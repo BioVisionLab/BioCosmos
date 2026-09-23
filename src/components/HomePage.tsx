@@ -15,7 +15,7 @@ import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
 import ColorSearch from "./ColorSearch";
-import { ButterflyIcon } from "./ui/icons";
+import { ButterflyIcon, NetworkIcon, TaxonomyIcon } from "./ui/icons";
 
 interface HomeSlots {
   dataSummary?: ReactNode;
@@ -50,13 +50,15 @@ export default function HomePage({ dataSummary, countryDiversity }: HomeSlots) {
  * anything. These are the claims nothing else above the fold makes, and they
  * are what "museum-quality" means in practice.
  *
- * Outlined, with one small coloured dot each. The three saturated pills they
- * replace put more colour above the fold than the butterflies underneath it.
+ * Outlined, each with a small line icon from the shared set. The three
+ * saturated pills they replace put more colour above the fold than the
+ * butterflies underneath it, and the coloured dots that followed said nothing
+ * about the claim they sat beside.
  */
 const CREDENTIALS = [
-  { label: "Every butterfly family", dot: "bg-hunter-green-500" },
-  { label: "Harmonized taxonomy", dot: "bg-pacific-blue-500" },
-  { label: "Advanced machine learning", dot: "bg-frozen-water-600" },
+  { label: "Every butterfly family", Icon: ButterflyIcon },
+  { label: "Harmonized taxonomy", Icon: TaxonomyIcon },
+  { label: "Advanced machine learning", Icon: NetworkIcon },
 ] as const;
 
 /**
@@ -138,15 +140,12 @@ function Hero() {
           className="bc-rise mt-8 flex flex-wrap justify-center gap-2"
           style={{ animationDelay: "270ms" }}
         >
-          {CREDENTIALS.map(({ label, dot }) => (
+          {CREDENTIALS.map(({ label, Icon }) => (
             <li
               key={label}
               className="inline-flex items-center gap-2 rounded-full border border-deep-mocha-200 bg-white/60 px-3 py-1 text-xs text-deep-mocha-700 backdrop-blur sm:text-sm dark:border-deep-mocha-700 dark:bg-deep-mocha-900/40 dark:text-deep-mocha-300"
             >
-              <span
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
-                aria-hidden="true"
-              />
+              <Icon size="sm" className="h-4 w-4 shrink-0" />
               {label}
             </li>
           ))}
