@@ -331,26 +331,15 @@ export default function ImageMetadata({
                   rather than shown as a row of placeholders. */}
               {taxonomy ? <TaxonomyBlock update={taxonomy} /> : null}
 
-              {/* The holding institution and specimen ID, when recorded. */}
+              {/* The specimen's catalog number, when recorded. Its holding
+                  institution is in the footer with the source database. */}
               <ProvenanceBlock provenance={provenance} />
 
-              {/* Source DB last, right above the links: it names where the
-                  record came from, which reads better as a closing note than
-                  as the first thing under the image. */}
-              <div className="col-span-2 flex items-center min-w-0">
-                <span className={METADATA_LABEL}>
-                  Source DB:
-                </span>
-                {/* The name of the database, not a link: the link to this
-                    record lives with the other two at the bottom. */}
-                <span className={`ml-1 truncate uppercase ${METADATA_VALUE}`}>
-                  {typeof meta.source_db === "string" && meta.source_db
-                    ? meta.source_db
-                    : "GBIF"}
-                </span>
-              </div>
-
-              <MetadataLinks meta={meta} className="col-span-2" />
+              <MetadataLinks
+                meta={meta}
+                provenance={provenance}
+                className="col-span-2"
+              />
             </div>
           </>
         )}

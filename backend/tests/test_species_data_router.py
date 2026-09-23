@@ -179,7 +179,7 @@ class TestFetchVisuallySimilarSpecies:
         """
         seen = {}
 
-        def lookup(_scientific_name):
+        def lookup(_scientific_name, _side=None):
             try:
                 asyncio.get_running_loop()
                 seen["on_event_loop"] = True
@@ -251,6 +251,63 @@ class TestFetchVisuallySimilarSpecies:
             miss = client.get("/species/nonexistent_species/similar")
             assert miss.status_code == 404
             assert miss.headers["Cache-Control"] == "no-store"
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_the_side_parameter_reaches_the_query_layer(self):
+        """The panel's two requests must actually ask for different things."""
+        precomputed = MagicMock()
+        precomputed.find_similar_species.return_value = {
+            "dorsal": [],
+            "ventral": [],
+        }
+        runtime = MagicMock()
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            for side in ("dorsal", "ventral"):
+                precomputed.find_similar_species.reset_mock()
+                response = client.get(
+                    f"/species/danaus_plexippus/similar?side={side}"
+                )
+                assert response.status_code == 200
+                assert precomputed.find_similar_species.call_args.args == (
+                    "danaus_plexippus",
+                    side,
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_omitting_the_side_still_asks_for_both(self):
+        """The unscoped response has to stay byte-for-byte what it was."""
+        precomputed = MagicMock()
+        precomputed.find_similar_species.return_value = {
+            "dorsal": [],
+            "ventral": [],
+        }
+        runtime = MagicMock()
+
+        app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
+        app.dependency_overrides[get_species_similarity] = lambda: runtime
+
+        try:
+            assert client.get("/species/danaus_plexippus/similar").status_code == 200
+            assert precomputed.find_similar_species.call_args.args == (
+                "danaus_plexippus",
+                None,
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_an_unknown_side_is_rejected(self):
+        """A typo must not silently degrade to searching both sides."""
+        app.dependency_overrides[get_precomputed_similarity] = lambda: MagicMock()
+        app.dependency_overrides[get_species_similarity] = lambda: MagicMock()
+        try:
+            response = client.get("/species/danaus_plexippus/similar?side=lateral")
+            assert response.status_code == 422
         finally:
             app.dependency_overrides.clear()
 

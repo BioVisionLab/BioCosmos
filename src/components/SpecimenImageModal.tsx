@@ -434,20 +434,17 @@ function SpecimenImageModal({
                         );
                       })()}
 
-                      {/* The holding institution and specimen ID, when
-                          recorded, then the source database last, right
-                          above the links. */}
+                      {/* The specimen's catalog number, when recorded. Its
+                          holding institution is in the footer, with the
+                          source database. */}
                       <ProvenanceBlock provenance={provenanceOf(meta)} />
-                      <div>
-                        <span className={METADATA_LABEL}>Source DB: </span>
-                        <span className={`uppercase ${METADATA_VALUE}`}>
-                          {typeof meta?.source_db === "string" && meta.source_db
-                            ? meta.source_db
-                            : "GBIF"}
-                        </span>
-                      </div>
 
-                      {meta ? <MetadataLinks meta={meta} /> : null}
+                      {meta ? (
+                        <MetadataLinks
+                          meta={meta}
+                          provenance={provenanceOf(meta)}
+                        />
+                      ) : null}
                     </>
                   )}
                 </div>

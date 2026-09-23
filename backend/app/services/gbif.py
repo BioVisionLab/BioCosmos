@@ -1,48 +1,11 @@
 import logging
 
-from pydantic import BaseModel, ConfigDict, field_serializer
-from pydantic.alias_generators import to_camel
-
 from ..configs.config import GbifConfig
-from ..database.duckdb import DuckDBClient, FtsSearchData
+from ..database.duckdb import DuckDBClient
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-GBIF_COLUMNS_INDEXED = [
-    "species",
-    "genus",
-    "family",
-    "order",
-    "vernacularName",
-    "sex",
-    "lifeStage",
-    "continent",
-    "island",
-    "countryCode",
-    "stateProvince",
-    "county",
-    "municipality",
-    "locality",
-    "verbatimLocality",
-    "level1Name",
-]
-
-
-GBIF_INDEX_ID = "rowid"
-
-
-class SearchGbifData(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    species: str
-    matched_fields: list[str] = []
-    score: float = 0.0
-
-    @field_serializer("score")
-    def serialize_score(self, score: float) -> float:
-        return round(score, 4)
 
 
 class GbifPersistData:
@@ -77,8 +40,6 @@ class GbifPersistData:
             )
             logger.info(f"GBIF data ingested successfully from '{self.tsv_path}'.")
             entries: int | None = self.count_entries()
-            self._index_columns()
-            logger.info("Full-text search index created on GBIF metadata table.")
             logger.info(f"Total entries after ingestion: {entries}")
         except Exception as e:
             logger.error(f"Failed to ingest GBIF data from '{self.tsv_path}': {e}")
@@ -124,47 +85,6 @@ class GbifPersistData:
             )
         gbif_data = result.to_dicts()[0]
         return gbif_data
-
-    def search_any(self, query: str, limit: int = 100) -> list[SearchGbifData]:
-        """
-        Search for species by any column matching the query string.
-        Uses FTS indexing for efficient searching across multiple columns.
-        Returns unique species ordered by best BM25 score.
-        """
-        try:
-            query = (query or "").strip()
-            if not query:
-                logger.warning("Empty query passed to search_any")
-                return []
-
-            results: list[FtsSearchData] = self.db_client.search_fts(
-                table_name=self.table_name,
-                id_column=GBIF_INDEX_ID,
-                query=query,
-                fields=GBIF_COLUMNS_INDEXED,
-                limit=limit,
-                unique_species=True,
-            )
-
-            if not results:
-                logger.warning(f"No species found matching query: {query}")
-                return []
-
-            species_list = [
-                SearchGbifData(
-                    species=r.species, score=r.score, matched_fields=r.matched_fields
-                )
-                for r in results
-            ]
-
-            logger.info(f"Found {len(species_list)} species matching query: {query}")
-            return species_list
-
-        except Exception as e:
-            logger.error(
-                f"Error searching for species with query '{query}': {e}", exc_info=True
-            )
-            return []
 
     def search_by_location(self, location: str, limit: int = 500, species_in: list[str] | None = None) -> list[str]:
         """
@@ -277,45 +197,3 @@ class GbifPersistData:
             for species in result["species"].to_list()
             if species and str(species).strip()
         ]
-
-
-    def _index_columns(self):
-        """
-        Create a full-text search index on relevant columns for location-based searches.
-        This can significantly improve performance for search queries that filter by location.
-        """
-        try:
-            self.db_client.index_table(
-                table_name=self.table_name,
-                id_column=GBIF_INDEX_ID,
-                columns=GBIF_COLUMNS_INDEXED,
-                overwrite=True,  # safe to re-run on restart
-            )
-        except Exception as e:
-            logger.error(f"Failed to create full-text search index on GBIF table: {e}")
-            raise
-
-    def reindex(self) -> bool:
-        """Rebuild the full-text index, whether or not ingestion ran.
-
-        `ingest` returns early when ingestion is skipped, and its table is
-        created with `IF NOT EXISTS`, so on a database that already has the
-        occurrence table the index is whatever the last ingest left behind.
-        Rebuilding it here keeps it describing the rows that are actually
-        there. Failure is logged rather than raised -- a stale index still
-        answers, and this is not worth refusing to boot over.
-        """
-        if not self.db_client.table_exists(self.table_name):
-            logger.info(
-                "No '%s' table, so nothing to reindex.", self.table_name
-            )
-            return False
-        try:
-            self._index_columns()
-            return True
-        except Exception:
-            logger.exception(
-                "Could not rebuild the GBIF search index; the existing one is "
-                "left in place and may be stale."
-            )
-            return False

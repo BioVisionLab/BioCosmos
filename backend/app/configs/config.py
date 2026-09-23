@@ -19,6 +19,27 @@ def load_config():
     return config
 
 
+def _as_bool(value, label: str, *, default: bool = False) -> bool:
+    """Coerce a YAML value that is meant to be a flag.
+
+    YAML gives real booleans for `true`/`false`, but a quoted value, an
+    environment-substituted string, or a hand-edited `"yes"` all arrive as
+    text. Anything else is a typo: it is logged and treated as the default
+    rather than silently taken as truthy.
+
+    This reproduces, exactly, the block copy-pasted into every `skip` property
+    below -- including that a string outside the accepted set returns False
+    without logging. Keeping it identical is what makes migrating those onto
+    this helper a pure deletion later.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ["true", "1", "yes"]
+    logger.info(f"{label} is not a valid boolean: {value}. Falling back to {default}.")
+    return default
+
+
 def get_image_path() -> str:
     config = load_config()
     return config["images"]["dir"]
@@ -543,6 +564,35 @@ class EmbedderConfig:
             f"Embedder skip config is not a valid boolean: {skip}. Falling back to False."
         )
         return False
+
+
+class SearchIndexConfig:
+    """Whether the startup search-index maintenance runs.
+
+    Off by default, which is the opposite polarity to the `skip` flags above.
+    Those name an ingestion source and say "do not read it", so their code
+    default is False and the shipped YAML turns them on. This one names the
+    work itself, so a bare `false` -- or an absent stanza, on a config.yaml
+    written before this existed -- means "do not spend the time".
+
+    The index is not required for the site to work: without one, LanceDB
+    falls back to a brute-force cosine scan, which is correct but slow.
+    Training it is minutes of work that a restart does not invalidate, so
+    paying for it on every boot is the wrong default -- this asks to be turned
+    on for the boot that needs it.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._search_index_config = config.get("search_index", {})
+
+    @property
+    def build_vector(self) -> bool:
+        """Build the LanceDB vector indexes if they are missing."""
+        return _as_bool(
+            self._search_index_config.get("build_vector", False),
+            "search_index.build_vector",
+        )
 
 
 class OpenAIConfig:

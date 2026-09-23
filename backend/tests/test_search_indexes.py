@@ -1,85 +1,18 @@
-"""The index refresh that runs on every backend start.
+"""The vector index build that startup will run if it is asked to.
 
-Two different policies, and the difference is the point of these tests:
-the DuckDB full-text indexes are rebuilt every start because the database
-changes underneath a skipped ingestion, while the LanceDB vector indexes are
-built once because training one is minutes of work that a restart does not
-invalidate.
+Two things are tested here, and the split matters: `ensure_vector_index`
+itself, which is idempotent and never fatal, and the startup caller, which
+only runs it when `search_index.build_vector` says so. An ordinary boot pays
+for neither.
+
+The full-text half of this file went with the FTS stack it tested -- nothing
+in the app ever ran a BM25 query, so both indexes were built on every start
+and read by nothing.
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-
-class TestFullTextReindex:
-    """Rebuilt on every start, including when ingestion is skipped."""
-
-    def _image_service(self, *, skip: bool, table_exists: bool):
-        from app.services.metadata import ImageMetaService
-
-        service = ImageMetaService.__new__(ImageMetaService)
-        service.table = "image_meta"
-        service.skip_ingestion = skip
-        service.db_client = MagicMock()
-        service.db_client.table_exists.return_value = table_exists
-        return service
-
-    def test_reindex_runs_even_when_ingestion_is_skipped(self):
-        """The case this exists for.
-
-        Ingestion is normally skipped in production, so `ingest` returns before
-        it would have rebuilt the index -- and the DuckDB file still changes
-        underneath, through a geoharmonize or colharmonize run. Without this
-        the index describes rows that may no longer be there.
-        """
-        from app.services.metadata import (
-            IMAGE_META_COLUMNS_INDEXED,
-            IMAGE_META_INDEX_ID,
-        )
-
-        service = self._image_service(skip=True, table_exists=True)
-
-        assert service.reindex() is True
-        service.db_client.index_table.assert_called_once_with(
-            table_name="image_meta",
-            id_column=IMAGE_META_INDEX_ID,
-            columns=IMAGE_META_COLUMNS_INDEXED,
-            overwrite=True,
-        )
-
-    def test_reindex_skips_a_table_that_does_not_exist(self):
-        service = self._image_service(skip=True, table_exists=False)
-
-        assert service.reindex() is False
-        service.db_client.index_table.assert_not_called()
-
-    def test_a_failed_reindex_does_not_raise(self):
-        """A stale index still answers; a backend that will not boot does not."""
-        service = self._image_service(skip=True, table_exists=True)
-        service.db_client.index_table.side_effect = RuntimeError("disk full")
-
-        assert service.reindex() is False
-
-    def test_gbif_reindex_rebuilds_its_own_index(self):
-        from app.services.gbif import (
-            GBIF_COLUMNS_INDEXED,
-            GBIF_INDEX_ID,
-            GbifPersistData,
-        )
-
-        service = GbifPersistData.__new__(GbifPersistData)
-        service.table_name = "gbif_meta"
-        service.db_client = MagicMock()
-        service.db_client.table_exists.return_value = True
-
-        assert service.reindex() is True
-        service.db_client.index_table.assert_called_once_with(
-            table_name="gbif_meta",
-            id_column=GBIF_INDEX_ID,
-            columns=GBIF_COLUMNS_INDEXED,
-            overwrite=True,
-        )
 
 
 class _FakeIndex:
@@ -176,3 +109,97 @@ class TestEnsureVectorIndex:
             self._lance(None).ensure_vector_index("images", "unicom_embeddings")
             is False
         )
+
+
+class TestBuildSearchIndexes:
+    """Which builds a start actually pays for."""
+
+    def _app(self):
+        app = MagicMock()
+        app.state.lance_db = MagicMock()
+        return app
+
+    def _config(self, *, build_vector: bool):
+        config = MagicMock()
+        config.build_vector = build_vector
+        return config
+
+    def test_the_default_start_builds_no_index(self):
+        """The regression that matters.
+
+        `ImageConfig` must not even be constructed: `build_search_indexes` runs
+        inside the lifespan `try` that re-raises, so anything constructed on
+        the default path is a way for a boot to fail over work nobody asked
+        for.
+        """
+        from app.main import build_search_indexes
+
+        app = self._app()
+        with (
+            patch(
+                "app.main.SearchIndexConfig",
+                return_value=self._config(build_vector=False),
+            ),
+            patch("app.main.ImageConfig") as MockImageConfig,
+        ):
+            build_search_indexes(app)
+
+        MockImageConfig.assert_not_called()
+        app.state.lance_db.ensure_vector_index.assert_not_called()
+
+    def test_the_flag_builds_both_embedding_columns(self):
+        from app.main import build_search_indexes
+
+        app = self._app()
+        with (
+            patch(
+                "app.main.SearchIndexConfig",
+                return_value=self._config(build_vector=True),
+            ),
+            patch("app.main.ImageConfig") as MockImageConfig,
+        ):
+            MockImageConfig.return_value.table = "nymphalidae"
+            build_search_indexes(app)
+
+        assert app.state.lance_db.ensure_vector_index.call_args_list == [
+            (("nymphalidae", "unicom_embeddings"),),
+            (("nymphalidae", "clip_embeddings"),),
+        ]
+
+    def test_a_skipped_build_says_which_flag_turned_it_off(self, caplog):
+        """The whole readiness story, since there is no separate reporter.
+
+        Without this the only signal that similarity search is scanning every
+        row is that it feels slow.
+        """
+        import logging
+
+        from app.main import build_search_indexes
+
+        with (
+            patch(
+                "app.main.SearchIndexConfig",
+                return_value=self._config(build_vector=False),
+            ),
+            caplog.at_level(logging.INFO, logger="app.main"),
+        ):
+            build_search_indexes(self._app())
+
+        assert "search_index.build_vector" in caplog.text
+        assert "config.yaml" in caplog.text
+
+    def test_a_failed_build_is_not_fatal(self):
+        """An unindexed column is slow, not broken."""
+        from app.main import build_search_indexes
+
+        app = self._app()
+        app.state.lance_db.ensure_vector_index.side_effect = RuntimeError("oom")
+        with (
+            patch(
+                "app.main.SearchIndexConfig",
+                return_value=self._config(build_vector=True),
+            ),
+            patch("app.main.ImageConfig") as MockImageConfig,
+        ):
+            MockImageConfig.return_value.table = "nymphalidae"
+            build_search_indexes(app)  # must not raise

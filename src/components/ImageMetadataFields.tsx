@@ -53,9 +53,16 @@ export function MatchingHelpLink({
 }
 
 /**
- * The holding institution and the specimen's catalog number.
+ * The specimen's catalog number.
  *
- * Omitted entirely when neither was recorded, the same contract as the
+ * The holding institution used to sit here beside it, and has moved down to
+ * the footer to sit with the source database: those two are both answers to
+ * "where did this record come from", and reading them together is what makes
+ * either of them useful. The catalog number is a property of the specimen,
+ * not of its provenance trail, so it stays up here with the rest of the
+ * record.
+ *
+ * Omitted entirely when nothing was recorded, the same contract as the
  * taxonomy and locality blocks: no run, no empty row.
  */
 export function ProvenanceBlock({
@@ -63,41 +70,40 @@ export function ProvenanceBlock({
 }: {
   provenance: SpecimenProvenance | null;
 }) {
-  if (!provenance) return null;
+  if (!provenance?.catalogNumber) return null;
   return (
     <div className="col-span-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0 leading-normal">
-      {provenance.institutionCode ? (
-        <span className="flex items-baseline gap-1 min-w-0">
-          <span className={METADATA_LABEL}>Institution:</span>
-          <span className={`truncate ${METADATA_VALUE}`}>
-            {provenance.institutionCode}
-          </span>
+      <span className="flex items-baseline gap-1 min-w-0">
+        <span className={METADATA_LABEL}>Specimen ID:</span>
+        <span className={`truncate ${METADATA_VALUE}`}>
+          {provenance.catalogNumber}
         </span>
-      ) : null}
-      {provenance.catalogNumber ? (
-        <span className="flex items-baseline gap-1 min-w-0">
-          <span className={METADATA_LABEL}>Specimen ID:</span>
-          <span className={`truncate ${METADATA_VALUE}`}>
-            {provenance.catalogNumber}
-          </span>
-        </span>
-      ) : null}
+      </span>
     </div>
   );
 }
 
 /**
- * License, source and image links, in that order.
+ * The footer of both panels: where the record came from, then where to go.
  *
- * Last in both panels and always together: these three leave the page, so
- * they belong after everything that describes the specimen rather than
- * interleaved with it.
+ * Below the rule rather than above it, because provenance is not another
+ * field of the specimen — it is the citation, and a citation belongs with the
+ * links it is a citation for. The source database and the holding institution
+ * share one row for the same reason: they are two halves of one answer, and
+ * split across the divider the reader had to hold one in their head to make
+ * sense of the other.
+ *
+ * The three links come last and always together: they leave the page, so they
+ * belong after everything that describes the specimen rather than interleaved
+ * with it.
  */
 export function MetadataLinks({
   meta,
+  provenance = null,
   className = "",
 }: {
   meta: SpecimenImageMeta;
+  provenance?: SpecimenProvenance | null;
   className?: string;
 }) {
   const license =
@@ -106,43 +112,69 @@ export function MetadataLinks({
       : null;
   const imageLink = typeof meta.uri === "string" && meta.uri ? meta.uri : null;
 
+  const sourceDb =
+    typeof meta.source_db === "string" && meta.source_db
+      ? meta.source_db
+      : "GBIF";
+
   return (
     <div
-      className={`mt-1 pt-2 border-t border-deep-mocha-200 dark:border-deep-mocha-700 flex flex-wrap items-center gap-x-4 gap-y-1 leading-normal ${className}`}
+      className={`mt-1 pt-2 border-t border-deep-mocha-200 dark:border-deep-mocha-700 leading-normal ${className}`}
     >
-      {license ? (
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0">
+        <span className="flex items-baseline gap-1 min-w-0">
+          <span className={METADATA_LABEL}>Source DB:</span>
+          {/* The name of the database, not a link: the link to this record is
+              one of the three below. */}
+          <span className={`truncate uppercase ${METADATA_VALUE}`}>
+            {sourceDb}
+          </span>
+        </span>
+        {provenance?.institutionCode ? (
+          <span className="flex items-baseline gap-1 min-w-0">
+            <span className={METADATA_LABEL}>Institution:</span>
+            <span className={`truncate ${METADATA_VALUE}`}>
+              {provenance.institutionCode}
+            </span>
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+        {license ? (
+          <a
+            href={license}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={METADATA_LINK}
+            aria-label="Open license"
+          >
+            License
+          </a>
+        ) : (
+          <span className={METADATA_EMPTY}>No license</span>
+        )}
         <a
-          href={license}
+          href={sourceDbHref(meta.uuid)}
           target="_blank"
           rel="noopener noreferrer"
           className={METADATA_LINK}
-          aria-label="Open license"
+          aria-label="Open source database record"
         >
-          License
+          Source Link
         </a>
-      ) : (
-        <span className={METADATA_EMPTY}>No license</span>
-      )}
-      <a
-        href={sourceDbHref(meta.uuid)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={METADATA_LINK}
-        aria-label="Open source database record"
-      >
-        Source Link
-      </a>
-      {imageLink ? (
-        <a
-          href={imageLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={METADATA_LINK}
-          aria-label="Open image link"
-        >
-          Image Link
-        </a>
-      ) : null}
+        {imageLink ? (
+          <a
+            href={imageLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={METADATA_LINK}
+            aria-label="Open image link"
+          >
+            Image Link
+          </a>
+        ) : null}
+      </div>
     </div>
   );
 }

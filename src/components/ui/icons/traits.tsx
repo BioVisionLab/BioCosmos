@@ -6,7 +6,7 @@ import type {
   VoltinismCode,
 } from "@/lib/leptraits";
 
-import { Detail, Dot, IconBase, type IconProps } from "./IconBase";
+import { DASHED, Detail, Dot, IconBase, type IconProps } from "./IconBase";
 
 // ---------------------------------------------------------------------------
 // The year ring
@@ -75,21 +75,21 @@ export function WingspanIcon(props: IconProps) {
         </>
       }
     >
-      <path d="M12 7.4C9 5.6 6 4.4 3.6 4.9C2.6 7.1 3.4 9.8 5.4 11.4C7.6 11.6 10 11.3 12 11.1Z" />
-      <path d="M12 7.4C15 5.6 18 4.4 20.4 4.9C21.4 7.1 20.6 9.8 18.6 11.4C16.4 11.6 14 11.3 12 11.1Z" />
-      <path d="M12 11.4C9.8 11.8 7.2 12.4 5.9 13.8C5.3 15.5 6.7 17.2 8.8 17.4C10.3 16.5 11.4 14.8 12 13.2Z" />
-      <path d="M12 11.4C14.2 11.8 16.8 12.4 18.1 13.8C18.7 15.5 17.3 17.2 15.2 17.4C13.7 16.5 12.6 14.8 12 13.2Z" />
-      <path d="M12 6.6V16.2" />
+      <path d="M12 7.2C9 5.4 6 4.2 3.6 4.7C2.6 6.9 3.4 9.4 5.4 10.9C7.6 11.1 10 10.8 12 10.6Z" />
+      <path d="M12 7.2C15 5.4 18 4.2 20.4 4.7C21.4 6.9 20.6 9.4 18.6 10.9C16.4 11.1 14 10.8 12 10.6Z" />
+      <path d="M12 12.6C9.8 13 7.2 13.6 5.9 14.9C5.3 16.5 6.7 18 8.8 18.2C10.3 17.4 11.4 15.8 12 14.3Z" />
+      <path d="M12 12.6C14.2 13 16.8 13.6 18.1 14.9C18.7 16.5 17.3 18 15.2 18.2C13.7 17.4 12.6 15.8 12 14.3Z" />
+      <path d="M12 6.2V17.2" />
       <Detail>
-        <path d="M11.7 6.6C10.7 4.9 9.5 3.9 8.3 3.4" />
-        <path d="M12.3 6.6C13.3 4.9 14.5 3.9 15.7 3.4" />
-        <path d="M11 8.4C9.3 8.2 7.4 8 5.6 8.2" />
-        <path d="M13 8.4C14.7 8.2 16.6 8 18.4 8.2" />
-        <path d="M10.4 13.2C9.2 13.6 8.2 14.2 7.6 14.9" />
-        <path d="M13.6 13.2C14.8 13.6 15.8 14.2 16.4 14.9" />
+        <path d="M11.7 6.2C10.7 4.6 9.5 3.7 8.3 3.2" />
+        <path d="M12.3 6.2C13.3 4.6 14.5 3.7 15.7 3.2" />
+        <path d="M11 8C9.3 7.8 7.4 7.6 5.6 7.8" />
+        <path d="M13 8C14.7 7.8 16.6 7.6 18.4 7.8" />
+        <path d="M10.4 14.4C9.2 14.8 8.2 15.4 7.6 16.1" />
+        <path d="M13.6 14.4C14.8 14.8 15.8 15.4 16.4 16.1" />
       </Detail>
-      <Dot cx={8.1} cy={3.3} r={0.6} />
-      <Dot cx={15.9} cy={3.3} r={0.6} />
+      <Dot cx={8.1} cy={3.1} r={0.6} />
+      <Dot cx={15.9} cy={3.1} r={0.6} />
     </IconBase>
   );
 }
@@ -121,7 +121,7 @@ function peak(deg: number, key: number, dashed = false) {
   return (
     <path
       key={key}
-      strokeDasharray={dashed ? "1.6 1.5" : undefined}
+      style={dashed ? DASHED : undefined}
       d={`M${p(deg - 17, RING_R)}Q${p(deg, RING_R + 5)} ${p(deg + 17, RING_R)}`}
     />
   );
@@ -202,27 +202,35 @@ export function AdultPresenceIcon(props: IconProps) {
  * Drawn as discrete circles rather than as one scalloped outline: the outline
  * version collapsed into an undifferentiated blob at 48px, where the repeated
  * segments read immediately as a larva.
+ *
+ * The overlap between segments is deliberate, but it was too deep to survive:
+ * at r 2.1 on a 3.4 pitch each junction was a 0.8-wide lens, narrower than the
+ * stroke crossing it, so every joint filled in and the row of circles became
+ * one sausage. r 1.9 on 3.6 widens each lens to 1.4. This is re-used at
+ * `scale(0.46)` inside the pupa-or-larva diapause variant, where the same
+ * ratios render at under half the size, so it has the least room to spare of
+ * anything in the set.
  */
 function Caterpillar() {
   return (
     <>
-      <circle cx="6.6" cy="16.6" r="2.1" />
-      <circle cx="10" cy="16.6" r="2.1" />
-      <circle cx="13.4" cy="16.6" r="2.1" />
-      <circle cx="17" cy="15.8" r="2.5" />
-      <Dot cx={18.2} cy={14.8} r={0.55} />
+      <circle cx="5.8" cy="16.6" r="1.9" />
+      <circle cx="9.4" cy="16.6" r="1.9" />
+      <circle cx="13" cy="16.6" r="1.9" />
+      <circle cx="16.8" cy="15.8" r="2.3" />
+      <Dot cx={17.9} cy={14.9} r={0.55} />
     </>
   );
 }
 
 /** A chrysalis, hanging by its cremaster — the silk thread is the giveaway. */
 function Chrysalis({ dashed = false }: { dashed?: boolean }) {
-  const dash = dashed ? "1.7 1.5" : undefined;
+  const dash = dashed ? DASHED : undefined;
   return (
     <>
-      <path d="M12 3.6V7" strokeDasharray={dash} />
+      <path d="M12 3.6V7" style={dash} />
       <path
-        strokeDasharray={dash}
+        style={dash}
         d="M12 7C14.8 8.4 15.6 11.4 14.6 14.4C14 16.4 13 17.8 12 18.6C11 17.8 10 16.4 9.4 14.4C8.4 11.4 9.2 8.4 12 7Z"
       />
       <Detail>
@@ -244,14 +252,14 @@ function diapauseSubject(variant: DiapauseCode): ReactNode {
       // chrysalis is, and the two variants were impossible to tell apart.
       return (
         <>
-          <path d="M12 8.6C10 7.2 7.6 6.4 6 6.8C5.2 8.6 5.9 10.8 7.5 12C9.3 12.2 10.6 11.9 12 11.7Z" />
-          <path d="M12 8.6C14 7.2 16.4 6.4 18 6.8C18.8 8.6 18.1 10.8 16.5 12C14.7 12.2 13.4 11.9 12 11.7Z" />
-          <path d="M12 11.9C10.2 12.3 8.4 12.8 7.5 13.9C7.1 15.3 8.2 16.6 9.8 16.8C11 16 11.6 14.7 12 13.4Z" />
-          <path d="M12 11.9C13.8 12.3 15.6 12.8 16.5 13.9C16.9 15.3 15.8 16.6 14.2 16.8C13 16 12.4 14.7 12 13.4Z" />
-          <path d="M12 8V16.4" />
+          <path d="M12 8.2C10 6.8 7.6 6 6 6.4C5.2 8.2 5.9 10.2 7.5 11.3C9.3 11.5 10.6 11.2 12 11Z" />
+          <path d="M12 8.2C14 6.8 16.4 6 18 6.4C18.8 8.2 18.1 10.2 16.5 11.3C14.7 11.5 13.4 11.2 12 11Z" />
+          <path d="M12 12.9C10.2 13.3 8.4 13.8 7.5 14.8C7.1 16.1 8.2 17.4 9.8 17.6C11 16.8 11.6 15.6 12 14.3Z" />
+          <path d="M12 12.9C13.8 13.3 15.6 13.8 16.5 14.8C16.9 16.1 15.8 17.4 14.2 17.6C13 16.8 12.4 15.6 12 14.3Z" />
+          <path d="M12 7.6V17" />
           <Detail>
-            <path d="M11.7 8C11 6.6 10.1 5.8 9.2 5.4" />
-            <path d="M12.3 8C13 6.6 13.9 5.8 14.8 5.4" />
+            <path d="M11.7 7.6C11 6.2 10.1 5.4 9.2 5" />
+            <path d="M12.3 7.6C13 6.2 13.9 5.4 14.8 5" />
           </Detail>
         </>
       );
@@ -386,9 +394,38 @@ export function OvipositionIcon({
 /**
  * Canopy affinity.
  *
- * A vertical forest profile, not a tree: the field codes which layer a species
- * occupies, and it is the ticked stratification axis beside it that turns a
- * drawing of a tree into a measurement.
+ * A closed canopy in profile, not a tree. The field codes which stratum a
+ * species occupies, and one tree has no strata -- it just has a top. What the
+ * glyph this replaces actually drew was a topiary on a stick: a single trunk
+ * skewering three lens-shaped layers, and skewering is the word, because a
+ * vertical through a 3-unit lens leaves less clearance either side than the
+ * stroke is wide.
+ *
+ * The crowns are one continuous outline with three lobes rather than three
+ * overlapping crown shapes. Two curves crossing at a shallow angle run closer
+ * together than the stroke for most of their length and set solid -- the same
+ * failure the caterpillar was redrawn to avoid. One outline cannot collide
+ * with itself, and a closed canopy really is a single upper surface, so the
+ * honest drawing is also the legible one.
+ *
+ * The scallops are shallow deliberately. A deep notch between two crowns is a
+ * narrow V, and a narrow V at this weight is a filled wedge; these open to 2.6
+ * units a little above their floor. The seams dropping from each notch are
+ * what keep the mass reading as three crowns rather than one scalloped cloud,
+ * and they are detail because without them this is still a canopy.
+ *
+ * The flat underside is the load-bearing line: it is the canopy floor, and the
+ * brackets measure against it -- the upper stratum is the mass, the lower one
+ * the space beneath. The understory is left empty rather than drawn, because a
+ * species low in the forest is defined by being *under* the canopy rather than
+ * by any particular shrub, and anything drawn down there would have to survive
+ * at 24 units alongside three trunks.
+ *
+ * `EdgeForestIcon` gets the opposite construction so the two can never be
+ * confused: there the trees are separate and a heavy vertical cuts them,
+ * because the subject is the discontinuity. Here nothing is cut, the mass runs
+ * unbroken across the frame, and the only straight lines that are not the
+ * ground are the scale. Edge is a boundary; canopy is a band.
  */
 export function CanopyIcon(props: IconProps) {
   return (
@@ -396,18 +433,20 @@ export function CanopyIcon(props: IconProps) {
       {...props}
       secondary={
         <>
-          <path d="M2.6 20.4H21.4" />
-          <path d="M18.6 5.6V20.4" />
-          <path d="M17.4 7.6H19.8" />
-          <path d="M17.4 12.4H19.8" />
-          <path d="M17.4 16.8H19.8" />
+          <path d="M2.2 20.6H21" />
+          <path d="M21 4H19.2V11H21" />
+          <path d="M21 13.4H19.2V20.6" />
         </>
       }
     >
-      <path d="M9 20.4V6.2" />
-      <path d="M3.6 7.6C5.4 5.1 12.6 5.1 14.4 7.6C12.6 9.5 5.4 9.5 3.6 7.6Z" />
-      <path d="M4.6 12.4C6.2 10.4 11.8 10.4 13.4 12.4C11.8 13.9 6.2 13.9 4.6 12.4Z" />
-      <path d="M5.6 16.8C6.8 15.2 11.2 15.2 12.4 16.8C11.2 18 6.8 18 5.6 16.8Z" />
+      <path d="M2.6 11C2.6 6.4 3.6 4.6 5.2 4.6C6.4 4.6 7 7.4 7.6 7.4C8.2 7.4 8.8 3.6 10 3.6C11.2 3.6 11.8 7.6 12.4 7.6C13 7.6 13.4 5 14.6 5C15.8 5 17 6.6 17 11Z" />
+      <path d="M5.2 11V20.6" />
+      <path d="M10 11V20.6" />
+      <path d="M14.6 11V20.6" />
+      <Detail>
+        <path d="M7.6 7.6V9.6" />
+        <path d="M12.4 7.8V9.8" />
+      </Detail>
     </IconBase>
   );
 }
@@ -418,6 +457,13 @@ export function CanopyIcon(props: IconProps) {
  * The subject is the discontinuity, not the trees — so the boundary line is
  * the heaviest stroke in the icon. Drawn the other way round it would just
  * read "forest" and duplicate the canopy glyph.
+ *
+ * The two crowns used to share a wall: 0.2 apart at the baseline, and the
+ * right one ran within 0.14 of the boundary for its lower third, so the whole
+ * subject set as one mass welded to the line it is supposed to be standing
+ * against. They now clear each other by 1.8 and the boundary by 1.0 — enough
+ * that the boundary reads as something the trees stop at rather than
+ * something they are fused to.
  */
 export function EdgeForestIcon(props: IconProps) {
   return (
@@ -431,14 +477,15 @@ export function EdgeForestIcon(props: IconProps) {
           <path d="M15.6 18.4L17 17" />
           <path d="M19.6 20.2V17.8" />
           <path d="M19.6 19L18.4 17.8" />
+          <path d="M19.6 19L20.8 17.8" />
         </>
       }
     >
       <path d="M12.4 3.2V20.2" />
-      <path d="M1.6 13.8C1.6 7.4 7.2 7.4 7.2 13.8Z" />
-      <path d="M4.4 13.8V20.2" />
-      <path d="M7.4 13C7.4 5 12.4 5 12.4 13Z" />
-      <path d="M9.9 13V20.2" />
+      <path d="M1.4 13.8C1.4 7.6 6.4 7.6 6.4 13.8Z" />
+      <path d="M3.9 13.8V20.2" />
+      <path d="M8.2 13C8.2 5.4 11.4 5.4 11.4 13Z" />
+      <path d="M9.8 13V20.2" />
     </IconBase>
   );
 }
@@ -487,7 +534,6 @@ export function DisturbanceIcon(props: IconProps) {
         <>
           <path d="M2.4 20.2H21.6" />
           <path d="M3.2 20.2V17.8" />
-          <path d="M3.2 19V17.8" />
           <path d="M20.8 20.2V18.2" />
         </>
       }
@@ -549,6 +595,13 @@ export function HostPlantFamilyIcon(props: IconProps) {
  * Three leaves of visibly different architecture — simple ovate, palmately
  * lobed, linear — because different families means different leaf forms.
  * Three identical leaves would say "three plants", which is a different field.
+ *
+ * The two outer leaves carry no midrib. They are narrow lanceolate blades, so
+ * a rib down the chord ran within a stroke of both margins for most of its
+ * length and turned each leaf into a solid sliver — and a midrib is exactly
+ * the kind of line the Detail rule says to cut: a leaf without one is still a
+ * leaf. What distinguishes the three here is their outlines, which is the
+ * whole point of the glyph.
  */
 export function HostPlantFamiliesIcon(props: IconProps) {
   return (
@@ -559,8 +612,6 @@ export function HostPlantFamiliesIcon(props: IconProps) {
           <path d="M12 21L11.2 17.4" />
           <path d="M12 21V18" />
           <path d="M12 21L12.8 17.8" />
-          <path d="M11.2 17.4L3.8 7.6" />
-          <path d="M12.8 17.8L19.8 6.6" />
         </>
       }
     >

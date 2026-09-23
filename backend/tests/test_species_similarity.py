@@ -125,6 +125,37 @@ class TestSpeciesSimilarity:
         assert "dorsal" in result
         assert "ventral" in result
 
+    @patch("app.query.species_similarity.ImagePersistData")
+    @patch("app.query.species_similarity.ImageMetaService")
+    def test_a_side_scoped_search_leaves_the_other_side_empty(
+        self, MockMeta, MockPersist, fake_request
+    ):
+        """One vector scan per request instead of two.
+
+        The panel fetches dorsal and ventral separately so each paints when it
+        lands; doing that would be pointless if each request still scanned
+        both sides.
+        """
+        meta_df = pl.DataFrame({
+            "img_id": ["img-001", "img-002"],
+            "species": ["danaus_plexippus", "danaus_plexippus"],
+            "source_db": ["MCZ", "MCZ"],
+            "class_dv": ["dorsal", "ventral"],
+        })
+        MockMeta.return_value.get_image_meta_by_species.return_value = meta_df
+        MockPersist.return_value.find_similar_images.return_value = pl.DataFrame({
+            "imgId": ["img-100"],
+            "species": ["vanessa_cardui"],
+            "distance": [0.2],
+        })
+
+        sim = self._make_instance(fake_request)
+        result = sim.find_similar_species("danaus plexippus", "dorsal")
+
+        assert result["ventral"] == []
+        assert len(result["dorsal"]) == 1
+        assert MockPersist.return_value.find_similar_images.call_count == 1
+
     @patch("app.query.species_similarity.ImageMetaService")
     def test_find_similar_species_returns_none_when_no_images(self, MockMeta, fake_request):
         MockMeta.return_value.get_image_meta_by_species.return_value = pl.DataFrame()

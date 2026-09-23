@@ -6,7 +6,6 @@ from fastapi import Request
 import math
 
 from ..services.metadata import ImageMetaService
-from ..services.gbif import GbifPersistData, SearchGbifData
 
 logger = logging.getLogger(__name__)
 

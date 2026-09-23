@@ -175,13 +175,19 @@ class SpeciesSimilarity:
         # One lookup for both sides; it caches its own table probe.
         self.taxonomy = OccurrenceTaxonomy(duckdb_client=self.duck_db)
 
-    def find_similar_species(self, species_name: str) -> dict | None:
+    def find_similar_species(
+        self, species_name: str, side: str | None = None
+    ) -> dict | None:
         """
         Find species similar to the given species name using image similarity.
 
         Args:
             species_name (str): The species name to find similar species for.
-            limit (int): The maximum number of similar species to return.
+            side (str | None): "dorsal" or "ventral" to search only that side,
+                leaving the other list empty. The panel requests the two
+                separately so whichever resolves first can paint. The vector
+                scan was always per-side; splitting only repeats the image-id
+                and taxonomy lookups, which are DuckDB reads.
 
         Returns:
             dict | None: A dictionary containing similar species data or None if not found.
@@ -198,17 +204,25 @@ class SpeciesSimilarity:
             # that is this same species under another spelling — a subspecies
             # of it, or a synonym — is kept out of its own panel.
             exclude_keys = self.taxonomy.accepted_keys_for_species(species_name)
-            dorsal: list[dict] = self._get_similar_images_by_side(
-                species_images=image_ids,
-                species_name=species_name,
-                side="dorsal",
-                exclude_keys=exclude_keys,
+            dorsal: list[dict] = (
+                self._get_similar_images_by_side(
+                    species_images=image_ids,
+                    species_name=species_name,
+                    side="dorsal",
+                    exclude_keys=exclude_keys,
+                )
+                if side in (None, "dorsal")
+                else []
             )
-            ventral: list[dict] = self._get_similar_images_by_side(
-                species_images=image_ids,
-                species_name=species_name,
-                side="ventral",
-                exclude_keys=exclude_keys,
+            ventral: list[dict] = (
+                self._get_similar_images_by_side(
+                    species_images=image_ids,
+                    species_name=species_name,
+                    side="ventral",
+                    exclude_keys=exclude_keys,
+                )
+                if side in (None, "ventral")
+                else []
             )
             payload = VisuallySimilarSpeciesPayload(
                 dorsal=dorsal,
