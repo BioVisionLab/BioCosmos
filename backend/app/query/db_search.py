@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import Request
 import math
 
+from ..services.institution import InstitutionDirectory
 from ..services.metadata import ImageMetaService
 
 logger = logging.getLogger(__name__)
@@ -199,6 +200,7 @@ class TextToDbSearch:
             return db_specimens
             
         search_fields = [f for f in valid_fields if f not in TARGETED_ONLY_FIELDS]
+        directory = self._institution_directory(specimens_df)
         for row in specimens_df.iter_rows(named=True):
             matched_cols = []
             if field == "coordinate":
@@ -211,6 +213,7 @@ class TextToDbSearch:
                     val = row.get(col)
                     if val is not None and query_lower in str(val).lower().replace("_", " "):
                         matched_cols.append(col)
+            holder = directory.get(row.get("institution_code") or "", {})
             # We return kingdom, phylum, class, order just in case we need it in the future.
             # The frontend drop this column for viewing.
             #
@@ -260,9 +263,32 @@ class TextToDbSearch:
                 "adm1_check": row.get("adm1_check"),
                 "reference_country": row.get("reference_country"),
                 "reference_adm1": row.get("reference_adm1"),
+                # Who holds the specimen and its catalog number, from the
+                # provenance table; the full name and website only when
+                # instharmonize resolved the code. None until those tables
+                # have been built.
+                "institution_code": row.get("institution_code"),
+                "catalog_number": row.get("catalog_number"),
+                "institution_name": holder.get("name"),
+                "institution_homepage": holder.get("homepage"),
                 "matched_fields": matched_cols
             })
         return db_specimens
+
+    def _institution_directory(self, specimens_df) -> dict[str, dict]:
+        """The resolved names for the holders on this page, keyed by code.
+
+        One read of the directory for the page rather than one per row. Empty
+        when no row carries a code, which also skips the read entirely before
+        the provenance table exists.
+        """
+        if "institution_code" not in specimens_df.columns:
+            return {}
+        codes = {c for c in specimens_df["institution_code"].to_list() if c}
+        if not codes:
+            return {}
+        directory = InstitutionDirectory(self.request.app.state.duck_db).get_all()
+        return {code: directory[code] for code in codes if code in directory}
 
     @staticmethod
     def extract_binomial_species(name: str) -> str:

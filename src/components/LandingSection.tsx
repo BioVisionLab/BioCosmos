@@ -1,23 +1,21 @@
 import type { ReactNode } from "react";
 
-/** The gradient hairline that flanks every landing-page heading. */
-const RULE =
-  "h-px flex-1 rounded-full bg-gradient-to-r from-hunter-green-400/50 via-pacific-blue-400/50 to-frozen-water-400/50";
-
 /**
- * The one heading treatment the landing page agrees on.
+ * The one heading treatment the landing page agrees on: a small mono eyebrow
+ * naming what kind of section this is, then the title, then one line of
+ * sub-copy.
  *
- * The colour is the featured-butterflies green, promoted from that one
- * section to every section: the page used to pair it with a plain
- * `text-2xl font-semibold` heading elsewhere, which read as two pages
- * stacked rather than one.
- *
- * Sized as a heading rather than as a label. The old `text-xs` uppercase
- * treatment was smaller than the body copy underneath it, so the sections it
- * titled read as unlabelled.
+ * The eyebrow is the label a drawer tag would carry, in the same face as the
+ * specimen labels in the hero tray, so the sections below read as parts of
+ * the same collection rather than as a stack of widgets. It replaced an icon
+ * and a gradient rule running out to the right, which put the same ornament
+ * on every section and so said nothing about any of them.
  */
+export const LANDING_EYEBROW =
+  "font-label text-xs font-medium uppercase tracking-[0.08em] text-deep-mocha-500 dark:text-deep-mocha-400";
+
 const HEADING =
-  "text-xl sm:text-2xl font-semibold text-hunter-green-600 dark:text-hunter-green-300 flex items-center gap-2 shrink-0";
+  "font-display text-2xl sm:text-3xl font-semibold tracking-tight text-balance text-deep-mocha-900 dark:text-deep-mocha-50";
 
 /**
  * The width every landing-page section shares: readable on a phone, and
@@ -40,59 +38,47 @@ export const LANDING_GRID =
 
 export interface LandingSectionHeadingProps {
   title: string;
-  /**
-   * The section's mark, drawn from the same two-tone set the species pages
-   * use. Decorative, so it carries no accessible name.
-   *
-   * This replaced a literal emoji, which rendered as a different drawing on
-   * every platform and could not follow the theme.
-   */
-  icon?: ReactNode;
+  /** What kind of section this is, set small above the title. */
+  eyebrow?: string;
   /** One line of sub-copy, beneath the title. */
   description?: ReactNode;
   /** Set when the caller wires `aria-labelledby` to this heading. */
   id?: string;
   /** Spacing only, never colour. */
   className?: string;
+  /**
+   * Whether the heading sets its own column width. Off when the caller has
+   * already placed it in a column, beside other content.
+   */
+  contained?: boolean;
 }
 
 /**
- * A landing-page section heading: a green title flush left, one gradient rule
- * running out to the right, and optional sub-copy beneath it.
+ * A landing-page section heading: eyebrow, title and optional sub-copy, flush
+ * left on the shared column.
  *
- * Left-aligned rather than centred between two rules. A centred title has to
- * be found before it can be read, and on a narrow screen it wrapped while the
- * rules stayed vertically centred, which drew them straight through the
- * second line.
+ * Left-aligned rather than centred: a centred title has to be found before
+ * it can be read, and the sections below it are left-aligned too.
  *
  * Pure markup, so it carries no `"use client"` and can be used from both the
  * client tree and a server component.
  */
 export default function LandingSectionHeading({
   title,
-  icon,
+  eyebrow,
   description,
   id,
   className = "",
+  contained = true,
 }: LandingSectionHeadingProps) {
   return (
-    <div className={`${LANDING_CONTAINER} mb-4 ${className}`}>
-      <div className="flex items-center gap-3">
-        <h2 id={id} className={HEADING}>
-          {icon ? (
-            <span
-              className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 [&>svg]:h-full [&>svg]:w-full"
-              aria-hidden="true"
-            >
-              {icon}
-            </span>
-          ) : null}
-          {title}
-        </h2>
-        <span className={RULE} aria-hidden="true" />
-      </div>
+    <div className={`${contained ? LANDING_CONTAINER : ""} mb-6 ${className}`}>
+      {eyebrow ? <p className={`${LANDING_EYEBROW} mb-2`}>{eyebrow}</p> : null}
+      <h2 id={id} className={HEADING}>
+        {title}
+      </h2>
       {description ? (
-        <p className="mt-3 text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
+        <p className="mt-2 max-w-2xl text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
           {description}
         </p>
       ) : null}

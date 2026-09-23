@@ -17,7 +17,7 @@ export default async function ProvidersPage() {
       <BackLink href="/collections" label="Back to Collections" />
       <h1 className="text-3xl font-bold mb-6">Institutions</h1>
 
-      <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
+      <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
         Every holding institution behind the collection, with the number of
         images sourced from each. &quot;Unknown&quot; covers images with no
         institution on record — either they were not sourced from GBIF, or

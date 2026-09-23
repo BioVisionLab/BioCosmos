@@ -1,6 +1,7 @@
-import LandingSectionHeading from "@/components/LandingSection";
+import LandingSectionHeading, {
+  LANDING_CONTAINER,
+} from "@/components/LandingSection";
 import CountryDiversityPanel from "@/components/CountryDiversityPanel";
-import { GlobeIcon } from "@/components/ui/icons";
 import type { CountryDiversity } from "@/lib/countryDiversity";
 
 /**
@@ -15,14 +16,14 @@ export default function CountryDiversitySection({
   pending?: boolean;
 }) {
   return (
-    <section className="w-full mt-16" aria-labelledby="country-diversity-heading">
+    <section className="w-full mt-20" aria-labelledby="country-diversity-heading">
       <LandingSectionHeading
         id="country-diversity-heading"
-        icon={<GlobeIcon size="sm" />}
-        title="Species Diversity by Country"
+        eyebrow="Distribution"
+        title="Species diversity by country"
         description="Distinct species recorded in each country, from validated coordinates."
       />
-      <div className="mx-auto max-w-5xl px-4">
+      <div className={LANDING_CONTAINER}>
         <CountryDiversityPanel data={data} pending={pending} />
       </div>
     </section>

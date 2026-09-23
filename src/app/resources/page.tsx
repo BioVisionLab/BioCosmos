@@ -47,10 +47,9 @@ export default function ResourcesPage() {
   return (
     // Not a <main>: Layout already renders one, and this was nested inside it
     // — invalid, and its `p-8` sat on top of the shell's own `px-4`, which left
-    // a 375px phone about 279px of content to read in. `max-w-4xl` rather than
-    // 7xl because this page is almost entirely prose, and 7xl on a wide
-    // monitor is a 1200px measure.
-    <div className="max-w-4xl mx-auto py-4">
+    // a 375px phone about 279px of content to read in. Same width as the
+    // Collections page so the content pages line up.
+    <div className="w-full max-w-7xl 2xl:max-w-[88rem] mx-auto py-4">
       <BackLink />
       <h1 className="text-3xl font-bold mb-4">
         Resources and Data Usage Attribution

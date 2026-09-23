@@ -58,6 +58,32 @@ def populated_duckdb():
         ('img5', 'Coenonympha pamphilus', 'Nymphalidae', 'Small Heath', 'male', 'adult', 'ventral', 51.5075, -0.1279, 'GBIF', 'Animalia', 'Arthropoda', 'Insecta', 'Lepidoptera', 'species', 'accepted'),
         ('img6', 'Coenonympha pamphilus', 'Nymphalidae', 'Small Heath', 'male', 'pupa', 'dorsal', 51.5076, -0.1280, 'GBIF', 'Animalia', 'Arthropoda', 'Insecta', 'Lepidoptera', 'species', 'accepted')
     """)
+    # Provenance for two of the occurrences: img1 held by a resolved
+    # institution, img4 by a code instharmonize could not name. The rest have
+    # no row, as for an occurrence with no GBIF record.
+    client.conn.execute("""
+        CREATE TABLE image_meta_provenance (
+            img_id VARCHAR, occurrence_id VARCHAR,
+            institution_code VARCHAR, catalog_number VARCHAR
+        )
+    """)
+    client.conn.execute("""
+        INSERT INTO image_meta_provenance VALUES
+        ('img1', 'occ1', 'NHMUK', 'BMNH(E) 1234567'),
+        ('img4', 'occ4', 'XYZ', 'XYZ-42')
+    """)
+    client.conn.execute("""
+        CREATE TABLE institution_directory (
+            code VARCHAR PRIMARY KEY, name VARCHAR, homepage VARCHAR,
+            country VARCHAR, grscicoll_key VARCHAR, source VARCHAR,
+            resolved_at TIMESTAMP
+        )
+    """)
+    client.conn.execute("""
+        INSERT INTO institution_directory VALUES
+        ('NHMUK', 'Natural History Museum, London', 'https://www.nhm.ac.uk',
+         'GB', NULL, 'grscicoll', NULL)
+    """)
     yield client
     client.close()
 
@@ -83,6 +109,37 @@ def test_db_search_binomial_normalization(mock_request):
     # Should get all 3 specimens
     assert len(res["specimens"]) == 3
     assert res["total_specimens"] == 3
+
+
+def test_db_search_carries_specimen_provenance(mock_request):
+    """Catalog number and holder travel per row, named when resolved."""
+    res = TextToDbSearch(
+        request=mock_request, query="danaus plexippus", field="all"
+    ).search()
+    by_id = {s["img_id"]: s for s in res["specimens"]}
+    assert by_id["img1"]["catalog_number"] == "BMNH(E) 1234567"
+    assert by_id["img1"]["institution_code"] == "NHMUK"
+    assert by_id["img1"]["institution_name"] == "Natural History Museum, London"
+    assert by_id["img1"]["institution_homepage"] == "https://www.nhm.ac.uk"
+    # No provenance row: every field present, and None.
+    for key in (
+        "catalog_number",
+        "institution_code",
+        "institution_name",
+        "institution_homepage",
+    ):
+        assert by_id["img2"][key] is None, key
+
+
+def test_db_search_unresolved_institution_keeps_its_code(mock_request):
+    res = TextToDbSearch(
+        request=mock_request, query="coenonympha pamphilus", field="all"
+    ).search()
+    by_id = {s["img_id"]: s for s in res["specimens"]}
+    assert by_id["img4"]["catalog_number"] == "XYZ-42"
+    assert by_id["img4"]["institution_code"] == "XYZ"
+    assert by_id["img4"]["institution_name"] is None
+    assert by_id["img4"]["institution_homepage"] is None
 
 
 def test_db_search_field_filtering(mock_request):

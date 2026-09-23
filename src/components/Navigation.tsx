@@ -37,7 +37,7 @@ export default function Navigation() {
   }, [pathname]);
 
   const baseBtn =
-    "inline-flex items-center justify-center px-8 py-1 rounded-full text-1xl font-semibold transition-all";
+    "inline-flex h-9 items-center justify-center px-5 lg:px-6 rounded-full text-sm lg:text-base font-semibold transition-all";
 
   // The gradient the mobile hamburger and the mobile theme toggle share.
   const mobileSurface =
@@ -45,14 +45,17 @@ export default function Navigation() {
     "dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800";
 
   const pillClasses =
-    `flex items-center gap-4 p-2 rounded-full backdrop-blur-lg ` +
+    `flex items-center gap-1 p-1.5 rounded-full backdrop-blur-lg ` +
     `bg-gradient-to-r from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 text-black border-transparent ` +
     `dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 dark:text-white`;
 
   return (
-    <div className="flex flex-col items-end w-full relative z-[1000]">
+    // The same 1600px shell and gutter as <main> in Layout, so the nav's
+    // right edge lines up with the page column at every width instead of
+    // sitting a fixed distance from the screen edge.
+    <div className="relative z-[1000] mx-auto flex w-full max-w-[1600px] flex-col items-end px-4 pt-4 sm:px-6 lg:px-8">
       {/* Mobile: hamburger button */}
-      <div className="md:hidden flex items-center gap-2 mt-4 mr-4">
+      <div className="md:hidden flex items-center gap-2">
         {/* Reachable without opening the menu: the theme is page chrome,
             not a destination. */}
         <div className={`flex h-11 w-11 items-center justify-center rounded-lg backdrop-blur-lg [&>button]:h-full [&>button]:w-full [&>button]:rounded-lg ${mobileSurface}`}>
@@ -75,7 +78,7 @@ export default function Navigation() {
 
       {/* Mobile: vertical dropdown */}
       {menuOpen && (
-        <div className="md:hidden absolute top-full right-0 w-full px-4 mt-2 py-2">
+        <div className="md:hidden absolute top-full right-0 w-full px-4 sm:px-6 mt-2 py-2">
           <div
             className={
               `flex flex-col gap-2 p-3 rounded-2xl backdrop-blur-lg ` +
@@ -108,7 +111,7 @@ export default function Navigation() {
       )}
 
       {/* Desktop: horizontal pill nav */}
-      <nav aria-label="Main" className="hidden md:flex items-center mt-4 mr-8">
+      <nav aria-label="Main" className="hidden md:flex items-center">
         {/* These are links to routes, not tabs: no tablist/tab roles, and
             the current page is marked with aria-current instead. That also
             leaves room for the theme toggle, which is not a destination and
@@ -117,7 +120,7 @@ export default function Navigation() {
           {navItems.map((tab) => {
             const isActive = activeTab === tab.id;
             const textColor = "text-black dark:text-white";
-            const outerClasses = `${baseBtn} ${textColor} relative first:ml-1`;
+            const outerClasses = `${baseBtn} ${textColor} relative`;
             const showOval =
               hoveredTab !== null ? hoveredTab === tab.id : isActive;
             const bgSpanClasses = `absolute inset-0 rounded-full transition-opacity pointer-events-none ${
@@ -146,11 +149,9 @@ export default function Navigation() {
               fifth, oddly-shaped tab. */}
           <span
             aria-hidden
-            className="h-6 w-px bg-black/15 dark:bg-white/20"
+            className="mx-1.5 h-5 w-px bg-black/15 dark:bg-white/20"
           />
-          <span className="mr-1 flex items-center">
-            <ThemeToggle />
-          </span>
+          <ThemeToggle />
         </div>
       </nav>
     </div>
