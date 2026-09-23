@@ -192,7 +192,10 @@ function TaxonomyBlock({ update }: { update: TaxonUpdate }) {
         </div>
       ) : null}
 
-      <AlternativeCandidates candidates={update.candidates} />
+      {/* An exact hit on an accepted name settles it; the runner-ups are noise. */}
+      {update.matchMethod !== "EXACT_ACCEPTED" ? (
+        <AlternativeCandidates candidates={update.candidates} />
+      ) : null}
     </div>
   );
 }
