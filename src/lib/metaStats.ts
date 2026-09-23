@@ -1,5 +1,14 @@
 import { API_HOST } from "@/lib/config";
 
+/** The resolved name behind an institution code, from public GBIF registry
+ *  records (GRSciColl and dataset publishers). */
+export interface InstitutionInfo {
+    name: string;
+    homepage: string | null;
+    country: string | null;
+    source: string;
+}
+
 export interface TaxonStats {
     gbifEntries: number;
     lepTraitsEntries: number;
@@ -17,6 +26,9 @@ export interface TaxonStats {
     /** Image counts per holding institution; "Unknown" covers records with
      *  no institution on record. */
     institutionCounts: Record<string, number> | null;
+    /** Full name and website per institutionCounts key. Codes that could not
+     *  be resolved are absent and are shown as the bare code. */
+    institutionDirectory?: Record<string, InstitutionInfo> | null;
     topTenSpecies: Record<string, number> | null;
 }
 

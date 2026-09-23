@@ -5,6 +5,7 @@ from fastapi import Request
 
 from ..configs.config import ImageConfig
 from ..services.images import ImagePersistData
+from ..services.institution import InstitutionDirectory
 from ..services.locality import OccurrenceCoordinates, OccurrenceLocality
 from ..services.metadata import ImageMetaService
 from ..services.provenance import OccurrenceProvenance
@@ -96,6 +97,15 @@ class ImageMetaRetrieval:
                 clean_id
             )
             if provenance:
+                # The holder's full name and website, when instharmonize could
+                # resolve its code. The code itself stays, so a reader can
+                # still cite what the record says.
+                holder = InstitutionDirectory(self.duckdb).get(
+                    provenance.get("institutionCode")
+                )
+                if holder:
+                    provenance["institutionName"] = holder["name"]
+                    provenance["institutionHomepage"] = holder["homepage"]
                 filtered["provenance"] = provenance
             return filtered
         except Exception as e:

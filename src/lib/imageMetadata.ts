@@ -40,6 +40,10 @@ export interface SpecimenImageMeta {
 export interface SpecimenProvenance {
   institutionCode: string | null;
   catalogNumber: string | null;
+  /** The code's full name, when instharmonize resolved it. */
+  institutionName: string | null;
+  /** The institution's website, already checked to be http(s). */
+  institutionHomepage: string | null;
 }
 
 /**
@@ -114,7 +118,19 @@ export function provenanceOf(
   const catalogNumber =
     typeof obj.catalogNumber === "string" ? obj.catalogNumber : null;
   if (!institutionCode && !catalogNumber) return null;
-  return { institutionCode, catalogNumber };
+  const institutionName =
+    typeof obj.institutionName === "string" && obj.institutionName.trim()
+      ? obj.institutionName
+      : null;
+  return {
+    institutionCode,
+    catalogNumber,
+    institutionName,
+    // A website without a name would have nothing to hang on.
+    institutionHomepage: institutionName
+      ? safeWebUrl(obj.institutionHomepage)
+      : null,
+  };
 }
 
 /**
@@ -130,24 +146,35 @@ export function sourceDbHref(
   rawUrl: unknown,
   fallback = "https://www.gbif.org",
 ): string {
-  if (typeof rawUrl !== "string") return fallback;
+  return safeWebUrl(rawUrl) ?? fallback;
+}
+
+/**
+ * An http(s) URL safe to put in an href, or null.
+ *
+ * A bare `www.` host is given https. The protocol is checked after parsing,
+ * not just matched at the front, so a crafted value cannot smuggle another
+ * scheme through.
+ */
+export function safeWebUrl(rawUrl: unknown): string | null {
+  if (typeof rawUrl !== "string") return null;
   const trimmed = rawUrl.trim();
-  if (!trimmed) return fallback;
+  if (!trimmed) return null;
 
   const normalized = /^https?:\/\//i.test(trimmed)
     ? trimmed
     : /^www\./i.test(trimmed)
       ? `https://${trimmed}`
       : "";
-  if (!normalized) return fallback;
+  if (!normalized) return null;
 
   try {
     const parsed = new URL(normalized);
     if (parsed.protocol === "http:" || parsed.protocol === "https:") {
       return parsed.toString();
     }
-    return fallback;
+    return null;
   } catch {
-    return fallback;
+    return null;
   }
 }

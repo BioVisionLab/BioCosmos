@@ -13,6 +13,8 @@ dependencies = [
     "fastapi[standard]>=0.115.12",
     # The GADM -> ISO country lookup the analysis notebooks also use.
     "harmonize-core",
+    # Resolves institution codes to names and websites for the provider table.
+    "instharmonize",
     "lancedb>=0.24.1",
     "openai>=2.0.0",
     "pillow>=11.2.1",

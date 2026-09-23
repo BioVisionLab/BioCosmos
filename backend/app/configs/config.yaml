@@ -60,6 +60,18 @@ locality:
 provenance:
   skip: false
   table: "image_meta_provenance"
+# Institution code -> full name and website, resolved by instharmonize against
+# the public GBIF registries (GRSciColl and dataset publishers). Only codes not
+# yet in the table are looked up, so the network is used once per new code; a
+# changed resolver version or overrides file re-resolves them all. Offline, the
+# build logs and leaves the provider table showing bare codes.
+#
+# `overrides` optionally points at a TOML file layered over the curated
+# entries bundled with instharmonize, relative to this file.
+institutions:
+  skip: false
+  table: "institution_directory"
+  overrides: null
 # Catalogue of Life taxonomy backbone, ingested from a ColDP release directory
 # pointed at by COL_DIR. Replaces GBIF as the source of classification data.
 col:
