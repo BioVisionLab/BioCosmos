@@ -6,6 +6,12 @@
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "biocosmos-api",
+      "runtimeExecutable": "./scripts/run_backend.sh",
+      "runtimeArgs": [],
+      "port": 8000
     }
   ]
 }
