@@ -51,7 +51,7 @@ function SearchContent() {
 
   switch (mode) {
     case "semantic":
-      return <SemanticSearchResults query={query} />;
+      return <SemanticSearchResults key={query} query={query} />;
     case "text":
       return <DbSearch query={query} initialField={field} />;
     case "image":
