@@ -28,10 +28,24 @@ class PrecomputedSpeciesSimilarity:
         # One lookup for both sides; it caches its own table probe.
         self.taxonomy = OccurrenceTaxonomy(duckdb_client=self.duck_db)
 
-    def find_similar_species(self, species_name: str) -> dict | None:
+    def find_similar_species(
+        self, species_name: str, side: str | None = None
+    ) -> dict | None:
         """
         Find precomputed similar species. Returns dict matching
         VisuallySimilarSpeciesPayload shape, or None if unavailable.
+
+        With `side` given, only that side is queried and the other comes back
+        empty. The panel asks for the two sides separately so whichever
+        resolves first can paint, and querying only what was asked for is what
+        makes that worth doing.
+
+        Note what "unavailable" then means: with a side given, None is returned
+        when *that* side has nothing, so the caller falls back to a runtime
+        vector search for it. Unscoped, it takes both sides being empty. A
+        species with dorsal rows but no ventral ones therefore now gets a
+        runtime search for ventral where the combined call served an empty
+        list -- which is the more correct answer, not an accident.
         """
         normalized = species_name.strip().lower().replace(" ", "_")
 
@@ -45,8 +59,16 @@ class PrecomputedSpeciesSimilarity:
             # means a new harmonization run changes what the panel says
             # without the offline script having to be run again.
             exclude_keys = self.taxonomy.accepted_keys_for_species(normalized)
-            dorsal = self._query_side(normalized, "dorsal", exclude_keys)
-            ventral = self._query_side(normalized, "ventral", exclude_keys)
+            dorsal = (
+                self._query_side(normalized, "dorsal", exclude_keys)
+                if side in (None, "dorsal")
+                else []
+            )
+            ventral = (
+                self._query_side(normalized, "ventral", exclude_keys)
+                if side in (None, "ventral")
+                else []
+            )
 
             if not dorsal and not ventral:
                 return None

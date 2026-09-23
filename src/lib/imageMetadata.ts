@@ -31,7 +31,15 @@ export interface SpecimenImageMeta {
   locality?: unknown;
   /** Absent until `geoharmonize integrate` has been run. */
   coordinates?: unknown;
+  /** Absent until the provenance table has been built. */
+  provenance?: unknown;
   [key: string]: unknown;
+}
+
+/** The holding institution and the specimen's own catalog number. */
+export interface SpecimenProvenance {
+  institutionCode: string | null;
+  catalogNumber: string | null;
 }
 
 /**
@@ -87,6 +95,26 @@ export function coordinatesOf(
 ): CoordinateValidation | null {
   if (!meta) return null;
   return normalizeCoordinateValidation(meta.coordinates);
+}
+
+/**
+ * Read the institution and specimen identifier off a metadata payload.
+ *
+ * Returns null when neither field was recorded, so callers can omit the
+ * block rather than render two empty rows.
+ */
+export function provenanceOf(
+  meta: SpecimenImageMeta | null | undefined,
+): SpecimenProvenance | null {
+  const raw = meta?.provenance;
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const institutionCode =
+    typeof obj.institutionCode === "string" ? obj.institutionCode : null;
+  const catalogNumber =
+    typeof obj.catalogNumber === "string" ? obj.catalogNumber : null;
+  if (!institutionCode && !catalogNumber) return null;
+  return { institutionCode, catalogNumber };
 }
 
 /**

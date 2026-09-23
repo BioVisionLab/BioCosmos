@@ -34,6 +34,23 @@ const SECONDARY_RATIO = 0.8;
 const DETAIL_RATIO = 0.62;
 
 /**
+ * The dash pattern, derived from the stroke rather than written per path.
+ *
+ * `strokeLinecap="round"` extends every dash by half a stroke at *each* end,
+ * which the hand-written `strokeDasharray="1.6 1.5"` these replace did not
+ * account for: at stroke 1.75 each dash rendered 3.35 long on a 3.10 period,
+ * so the dashes overlapped and every dashed path in the set drew as a solid
+ * line. The "not established" signal it was carrying had been invisible for as
+ * long as it has existed.
+ *
+ * Deriving both numbers from the stroke is what keeps that from coming back
+ * the next time the weight moves: the gap is 1.75 - 1 = 0.75 of a stroke wide
+ * whatever the stroke is.
+ */
+const DASH_ON_RATIO = 0.75;
+const DASH_OFF_RATIO = 1.75;
+
+/**
  * Every domain icon in the app.
  *
  * One 24-grid, one stroke weight, one palette. Icons supply nothing but their
@@ -50,7 +67,7 @@ const DETAIL_RATIO = 0.62;
  */
 export function IconBase({
   className,
-  strokeWidth = 1.75,
+  strokeWidth = 1.5,
   title,
   secondary,
   children,
@@ -75,6 +92,7 @@ export function IconBase({
         {
           "--bc-sw-detail": strokeWidth * DETAIL_RATIO,
           "--bc-sw-secondary": strokeWidth * SECONDARY_RATIO,
+          "--bc-dash": `${strokeWidth * DASH_ON_RATIO} ${strokeWidth * DASH_OFF_RATIO}`,
         } as CSSProperties
       }
     >
@@ -108,6 +126,16 @@ export function Detail({ children }: { children: ReactNode }) {
     </g>
   );
 }
+
+/**
+ * Spread onto a path that means "not established" or "no data".
+ *
+ * A style object rather than a `strokeDasharray` attribute, and that is not
+ * cosmetic: `var()` does not resolve inside an SVG presentation attribute, so
+ * `strokeDasharray="var(--bc-dash)"` silently renders solid -- which looks
+ * exactly like the bug this replaces. It has to go through the CSS property.
+ */
+export const DASHED: CSSProperties = { strokeDasharray: "var(--bc-dash)" };
 
 /** A filled marker — a club, an eye, a hub. Rare, and always the subject. */
 export function Dot({ cx, cy, r = 0.8 }: { cx: number; cy: number; r?: number }) {

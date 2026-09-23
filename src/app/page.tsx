@@ -24,8 +24,10 @@ export default function MainPage() {
 }
 
 /**
- * The same `fetchTaxonStats` the collections page calls, reading the same
- * three fields, so the two pages cannot report different numbers.
+ * The same `fetchTaxonStats` the collections page calls. Families is the
+ * validated count -- distinct families the taxonomy harmonization resolved
+ * with confidence -- rather than the raw recorded count the collections page
+ * shows, so the two pages can legitimately disagree on that one number.
  */
 async function CollectionSummarySection() {
   const stats = await fetchTaxonStats();
@@ -35,7 +37,7 @@ async function CollectionSummarySection() {
         stats
           ? {
               images: stats.imageEntries,
-              families: stats.familyCount,
+              families: stats.familyCountValidated,
               species: stats.speciesCount,
             }
           : null

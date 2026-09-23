@@ -491,6 +491,41 @@ class TestRecordedColumns:
         assert service.ensure() is True
 
 
+class TestTaxonomyValidationStats:
+    """Family counts scoped to occurrences colharmonize resolved with confidence.
+
+    Of the six OCCURRENCES, four are MATCHED (img1, img2, img3, img4) and all
+    four resolve into Nymphalidae -- img3 as a synonym, img4 by cascading to
+    the genus. The AMBIGUOUS and UNMATCHED rows (img6, img5) must not count.
+    """
+
+    @pytest.fixture
+    def validation(self, harmonized):
+        from app.services.taxonomy_update import TaxonomyValidationStats
+
+        client, _ = harmonized
+        service = TaxonomyValidationStats.__new__(TaxonomyValidationStats)
+        service.status_table = "image_meta_taxonomy"
+        service.db_client = client
+        return service
+
+    def test_counts_only_the_resolved_family(self, validation):
+        assert validation.get_validated_family_count() == 1
+
+    def test_excludes_ambiguous_and_unmatched_occurrences(self, validation):
+        # Four MATCHED rows out of six total occurrences.
+        assert validation.count_images_per_validated_family()["Nymphalidae"] == 4
+
+    def test_missing_status_table_returns_none(self, memory_duckdb):
+        from app.services.taxonomy_update import TaxonomyValidationStats
+
+        service = TaxonomyValidationStats.__new__(TaxonomyValidationStats)
+        service.status_table = "image_meta_taxonomy"
+        service.db_client = memory_duckdb
+        assert service.get_validated_family_count() is None
+        assert service.count_images_per_validated_family() is None
+
+
 class TestBatchLookup:
     """The one place a set of occurrences is mapped to its updated taxonomy."""
 

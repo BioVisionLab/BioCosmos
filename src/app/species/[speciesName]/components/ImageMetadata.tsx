@@ -13,6 +13,7 @@ import {
   coordinatesOf,
   localityOf,
   nameWasUpdated,
+  provenanceOf,
   taxonomyOf,
 } from "@/lib/imageMetadata";
 import { SpecimenLocality } from "@/lib/geoValidation";
@@ -22,6 +23,7 @@ import {
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
+  ProvenanceBlock,
 } from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
 
@@ -270,6 +272,7 @@ export default function ImageMetadata({
   const taxonomy = taxonomyOf(meta);
   const locality = localityOf(meta);
   const coordinates = coordinatesOf(meta);
+  const provenance = provenanceOf(meta);
 
   return (
     <div className="p-5 bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl text-sm text-deep-mocha-700 dark:text-deep-mocha-400 leading-3.5">
@@ -286,7 +289,6 @@ export default function ImageMetadata({
         ) : (
           <>
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
-              {/* Left column: View, Source DB, Coordinates */}
               <div className="flex items-center min-w-0">
                 <span className={METADATA_LABEL}>
                   View:
@@ -295,18 +297,6 @@ export default function ImageMetadata({
                   {typeof meta.class_dv === "string"
                     ? meta.class_dv.toLowerCase()
                     : "—"}
-                </span>
-              </div>
-              <div className="flex items-center min-w-0">
-                <span className={METADATA_LABEL}>
-                  Source DB:
-                </span>
-                {/* The name of the database, not a link: the link to this
-                    record lives with the other two at the bottom. */}
-                <span className={`ml-1 truncate uppercase ${METADATA_VALUE}`}>
-                  {typeof meta.source_db === "string" && meta.source_db
-                    ? meta.source_db
-                    : "GBIF"}
                 </span>
               </div>
 
@@ -341,7 +331,15 @@ export default function ImageMetadata({
                   rather than shown as a row of placeholders. */}
               {taxonomy ? <TaxonomyBlock update={taxonomy} /> : null}
 
-              <MetadataLinks meta={meta} className="col-span-2" />
+              {/* The specimen's catalog number, when recorded. Its holding
+                  institution is in the footer with the source database. */}
+              <ProvenanceBlock provenance={provenance} />
+
+              <MetadataLinks
+                meta={meta}
+                provenance={provenance}
+                className="col-span-2"
+              />
             </div>
           </>
         )}

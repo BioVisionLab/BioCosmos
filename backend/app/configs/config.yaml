@@ -54,6 +54,12 @@ locality:
   # Written by `geoharmonize integrate`, never by the backend. Absent until
   # that has been run once with the backend stopped; readers degrade to null.
   coordinates_table: "image_meta_coordinates"
+# Per-occurrence institution and catalog number, joined out of gbif_meta the
+# same way as locality above, but keyed on who holds the specimen rather than
+# where it was found.
+provenance:
+  skip: false
+  table: "image_meta_provenance"
 # Catalogue of Life taxonomy backbone, ingested from a ColDP release directory
 # pointed at by COL_DIR. Replaces GBIF as the source of classification data.
 col:
@@ -97,6 +103,19 @@ embedder:
   batch_size: 150
   # Reset the inserted images, set to true to re-insert all images
   reset: false
+# Startup maintenance for the search index. Off: a normal start builds nothing,
+# and the build costs real time on a full database.
+#
+# It is not required for correctness -- without an index LanceDB scans every
+# row instead of probing partitions. Turning it on is a deliberate, occasional
+# act.
+search_index:
+  # Build the LanceDB IVF-PQ indexes on unicom_embeddings and clip_embeddings.
+  # Training one is minutes of work and only goes stale when the embeddings
+  # themselves change, so this is once per dataset, not once per boot. The
+  # build itself is idempotent: with this on and an index already present, it
+  # is a no-op.
+  build_vector: false
 openai:
   # OpenAI model to use for text summarization and other multi-modal tasks
   # Available models:

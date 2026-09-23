@@ -9,6 +9,7 @@ import {
   coordinatesOf,
   localityOf,
   nameWasUpdated,
+  provenanceOf,
   taxonomyOf,
 } from "@/lib/imageMetadata";
 import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
@@ -17,6 +18,7 @@ import {
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
+  ProvenanceBlock,
 } from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
 
@@ -339,14 +341,6 @@ function SpecimenImageModal({
                           </span>
                         </div>
                       )}
-                      <div>
-                        <span className={METADATA_LABEL}>Source DB: </span>
-                        <span className={`uppercase ${METADATA_VALUE}`}>
-                          {typeof meta?.source_db === "string" && meta.source_db
-                            ? meta.source_db
-                            : "GBIF"}
-                        </span>
-                      </div>
                       {/* The written locality, then the coordinate and the
                           verdict on it. Both rows are rendered even when
                           empty, and in this order, so this panel and the one
@@ -440,7 +434,17 @@ function SpecimenImageModal({
                         );
                       })()}
 
-                      {meta ? <MetadataLinks meta={meta} /> : null}
+                      {/* The specimen's catalog number, when recorded. Its
+                          holding institution is in the footer, with the
+                          source database. */}
+                      <ProvenanceBlock provenance={provenanceOf(meta)} />
+
+                      {meta ? (
+                        <MetadataLinks
+                          meta={meta}
+                          provenance={provenanceOf(meta)}
+                        />
+                      ) : null}
                     </>
                   )}
                 </div>

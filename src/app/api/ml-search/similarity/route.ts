@@ -19,6 +19,7 @@ const UPSTREAM_TIMEOUT_MS = 15_000;
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const species = searchParams.get("species");
+  const side = searchParams.get("side");
 
   if (!species) {
     return NextResponse.json(
@@ -27,9 +28,22 @@ export async function GET(request: Request) {
     );
   }
 
+  if (side && side !== "dorsal" && side !== "ventral") {
+    return NextResponse.json(
+      { error: "Query parameter 'side' must be 'dorsal' or 'ventral'" },
+      { status: 400 }
+    );
+  }
+
+  // The panel fetches one view per request so each section paints as soon as
+  // its own search lands, rather than both waiting on the slower one.
+  const upstream = side
+    ? `${SIMILARITY_SERVICE_URL}/${encodeURIComponent(species)}/similar?side=${side}`
+    : `${SIMILARITY_SERVICE_URL}/${encodeURIComponent(species)}/similar`;
+
   try {
     const response = await fetch(
-      `${SIMILARITY_SERVICE_URL}/${encodeURIComponent(species)}/similar`,
+      upstream,
       {
         method: "GET",
         headers: {

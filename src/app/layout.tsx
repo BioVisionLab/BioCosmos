@@ -8,14 +8,14 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import "@fontsource/poppins/400.css"; // Regular weight
 import "@fontsource/poppins/700.css"; // Bold weight
 
-const inter = Inter({ 
-  subsets: ["latin"], 
-  variable: '--font-inter' // Assign the CSS variable
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter", // Assign the CSS variable
 });
 
 export const metadata: Metadata = {
   title: "Lepiverse",
-  description: "A personalized, museum-quality biodiversity image platform",
+  description: "A modernize, museum-quality butterfly image platform",
 };
 
 export default function RootLayout({

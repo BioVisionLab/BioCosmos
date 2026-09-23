@@ -5,7 +5,6 @@ from types import SimpleNamespace
 
 import polars as pl
 import pytest
-
 from app.routers import agent_search as router_module
 from app.services.agent import (
     AgentConfigurationError,
@@ -74,7 +73,6 @@ async def test_router_preserves_results_and_adds_partial_warnings(monkeypatch):
         {
             "imgId": "image-a",
             "species": "Species a",
-            "score": 0.8123,
             "tool_names": ["search_by_color"],
         }
     ]

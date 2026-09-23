@@ -40,14 +40,14 @@ accept = [{ search_by_image_similarity = { reference_species = "Danaus plexippus
 [[cases]]
 id = "similar-common-name"
 query = "monarch look-alikes"
-note = "Common name must become the scientific name."
-accept = [{ search_by_image_similarity = { reference_species = "Danaus plexippus" } }]
+note = "Preserve the common name for database resolution."
+accept = [{ search_by_image_similarity = { reference_species = "monarch" } }]
 
 [[cases]]
 id = "similar-common-name-morpho"
 query = "species that resemble the blue morpho"
 accept = [
-  { search_by_image_similarity = { reference_species = ["Morpho menelaus", "Morpho peleides", "Morpho helenor", "Morpho"] } },
+  { search_by_image_similarity = { reference_species = "blue morpho" } },
 ]
 
 [[cases]]
@@ -91,10 +91,9 @@ accept = [
 [[cases]]
 id = "descriptive"
 query = "owl-like butterfly"
-note = "Eyespot description, or a Caligo reference."
+note = "Appearance description; do not invent a taxon."
 accept = [
   { search_by_color = {} },
-  { search_by_image_similarity = { reference_species = ["Caligo", "Caligo eurilochus", "Caligo memnon", "Caligo idomeneus", "Caligo atreus"] } },
 ]
 
 [[cases]]
@@ -102,16 +101,12 @@ id = "descriptive-country"
 query = "owl-like butterfly from brazil"
 accept = [
   { search_by_color = {}, search_by_location = { location = "BR" } },
-  { search_by_image_similarity = { reference_species = ["Caligo", "Caligo eurilochus", "Caligo memnon", "Caligo idomeneus", "Caligo atreus", "Caligo brasiliensis"] }, search_by_location = { location = "BR" } },
 ]
 
 [[cases]]
 id = "descriptive-glasswing"
 query = "glasswing butterfly"
-accept = [
-  { search_by_color = {} },
-  { search_by_image_similarity = { reference_species = ["Greta oto", "Greta"] } },
-]
+accept = [{ search_by_common_name = { common_name = "glasswing butterfly" } }]
 
 # --- Restraint ---------------------------------------------------------------
 
@@ -120,3 +115,13 @@ id = "ignore-generic-terms"
 query = "show me red butterfly species"
 note = "Generic words must not add tools."
 accept = [{ search_by_color = {} }]
+
+[[cases]]
+id = "common-name"
+query = "show me monarch"
+accept = [{ search_by_common_name = { common_name = "monarch" } }]
+
+[[cases]]
+id = "common-name-country"
+query = "monarch in Brazil"
+accept = [{ search_by_common_name = { common_name = "monarch" }, search_by_location = { location = "BR" } }]

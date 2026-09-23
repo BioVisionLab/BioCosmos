@@ -5,9 +5,18 @@ export interface TaxonStats {
     lepTraitsEntries: number;
     imageEntries: number;
     familyCount: number;
+    /** Distinct families resolved with confidence by taxonomy harmonization,
+     *  excluding unresolved (ambiguous or unmatched) occurrences. */
+    familyCountValidated: number;
     speciesCount: number;
     sourceDbCount: Record<string, number> | null;
     entriesByFamily: Record<string, number> | null;
+    /** Image counts per family, after validation -- same scope as
+     *  familyCountValidated. */
+    entriesByFamilyValidated: Record<string, number> | null;
+    /** Image counts per holding institution; "Unknown" covers records with
+     *  no institution on record. */
+    institutionCounts: Record<string, number> | null;
     topTenSpecies: Record<string, number> | null;
 }
 

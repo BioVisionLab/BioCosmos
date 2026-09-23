@@ -575,7 +575,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       {showImageCount && (
         <div className="flex items-center gap-4 mb-8">
           <IconContainer>
-            <SpecimenIcon className="w-16 h-16" strokeWidth={1.4} />
+            <SpecimenIcon className="w-16 h-16" strokeWidth={1.2} />
           </IconContainer>
           <div className="my-2">
             {specimenLoading ? (

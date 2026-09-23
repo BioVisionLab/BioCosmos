@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -106,6 +107,7 @@ def _similar_species_response(result: dict) -> JSONResponse:
 )
 async def fetch_visually_similar_species(
     scientific_name: str,
+    side: Literal["dorsal", "ventral"] | None = None,
     precomputed: PrecomputedSpeciesSimilarity = Depends(get_precomputed_similarity),
     runtime: SpeciesSimilarity = Depends(get_species_similarity),
 ):
@@ -113,6 +115,11 @@ async def fetch_visually_similar_species(
     Fetch visually similar species based on image similarity analyses.
     Uses precomputed results when available, falls back to runtime vector search.
     Returns 404 if no similar species are found.
+
+    `side` narrows the search to one view, leaving the other list empty. The
+    panel asks for dorsal and ventral separately so each can paint as soon as
+    it lands rather than both waiting on the slower one; omitted, the response
+    is exactly what it has always been.
 
     Both lookups are synchronous DuckDB and LanceDB work, so they are handed to
     a worker thread. Called inline from this `async def` they held uvicorn's
@@ -128,7 +135,7 @@ async def fetch_visually_similar_species(
     try:
         # Try precomputed first
         result = await asyncio.to_thread(
-            precomputed.find_similar_species, scientific_name
+            precomputed.find_similar_species, scientific_name, side
         )
         if result is not None:
             logger.info(
@@ -143,7 +150,7 @@ async def fetch_visually_similar_species(
             scientific_name,
         )
         similar_species = await asyncio.to_thread(
-            runtime.find_similar_species, scientific_name
+            runtime.find_similar_species, scientific_name, side
         )
         if similar_species is None:
             logger.warning(

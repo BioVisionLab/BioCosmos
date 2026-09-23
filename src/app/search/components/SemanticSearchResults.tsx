@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ImageLoading } from "@/components/Loadings";
-import { searchSemantic, MlResultItems } from "@/lib/ml_search";
-import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
+import { searchSemantic, SemanticSearchResult } from "@/lib/ml_search";
+import { MLSearchResultCard } from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
 import { FlaskConical } from "lucide-react";
+import { SemanticSearchDescription } from "@/components/SemanticSearchFunctions";
 import Tips from "@/components/Tips";
 
 function SemanticSearchResults({ query }: { query: string }) {
-  const [results, setResults] = useState<MlResultItems[]>([]);
+  const [results, setResults] = useState<SemanticSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,11 +61,12 @@ function SemanticSearchResults({ query }: { query: string }) {
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
       <div className="mb-4">
-        <a href="/" className="text-blue-600 hover:underline">
+        <Link href="/" className="text-blue-600 hover:underline">
           &larr; Back to Home
-        </a>
+        </Link>
       </div>
-      <div id="search-query" className="mb-12 mt-8 text-center">
+      <div id="search-query" className="mb-8 mt-8 text-center space-y-4">
+        <SemanticSearchDescription />
         <SearchForm
           mode="semantic"
           icon={FlaskConical}
@@ -93,7 +96,7 @@ function MlSearchResults({
   query,
   loading,
 }: {
-  results: MlResultItems[];
+  results: SemanticSearchResult[];
   query: string;
   loading: boolean;
 }) {
@@ -102,7 +105,7 @@ function MlSearchResults({
   }
 
   if (results.length === 0 && !loading) {
-    return <p>No results found for "{query}". Please try a different query.</p>;
+    return <p>No results found for &quot;{query}&quot;. Please try a different query.</p>;
   }
 
   return (
@@ -113,36 +116,18 @@ function MlSearchResults({
         </div>
       ) : (
         <div className="mt-8">
-          <div id="top-results" className="mb-6">
-            <Suspense fallback={<div>Loading top species...</div>}>
-              <TopResultCard data={results[0]} />
-            </Suspense>
+          <div className="mb-4">
+            <h2 className="text-lg break-words text-deep-mocha-700 dark:text-deep-mocha-200">
+              Found {results.length} {results.length === 1 ? "result" : "results"} for &quot;{query}&quot;
+            </h2>
+            <Tips message="Click on an image to view species page" />
           </div>
-          <div>
-            {results.length > 1 && (
-              <>
-                <div className="mb-4">
-                  <h2
-                    id="other-results"
-                    className="text-lg text-deep-mocha-700 dark:text-deep-mocha-200"
-                  >
-                    Found {results.length - 1} other results for "{query}"
-                  </h2>
-                  <Tips message="Click on an image to view species page" />
-                </div>
-                <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
-                  {/* Render remaining results */}
-                  {results.slice(1).map((item) => (
-                    <Suspense
-                      key={item.imgId}
-                      fallback={<div>Loading species...</div>}
-                    >
-                      <MLSearchResultCard data={item} />
-                    </Suspense>
-                  ))}
-                </div>
-              </>
-            )}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-4">
+            {results.map((item) => (
+              <Suspense key={item.imgId} fallback={<div>Loading species...</div>}>
+                <MLSearchResultCard data={item} toolNames={item.tool_names} />
+              </Suspense>
+            ))}
           </div>
         </div>
       )}

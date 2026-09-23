@@ -6,11 +6,13 @@ from dataclasses import replace
 import duckdb
 import matplotlib.pyplot as plt
 import nbformat
+import pandas as pd
 import pytest
 import seaborn as sns
-from analyses.publication import (
+from analyses.helpers.publication import (
     DEFAULT_PALETTE,
     AnalysisError,
+    align_panel_titles,
     bar_plot,
     benchmark_data,
     category_plot,
@@ -20,7 +22,10 @@ from analyses.publication import (
     load_settings,
     project_root,
     taxonomy_summaries,
+    top_share,
 )
+from matplotlib.colors import to_hex
+from matplotlib.text import Text
 from nbclient import NotebookClient
 
 
@@ -45,6 +50,15 @@ def test_dataset_counts_harmonized_taxonomy_and_duplicate_gbif(settings):
         "B": 2,
         "Conflicting attribution": 1,
         "Unattributed": 3,
+    }
+    # Recorded aggregator keys print in their published form; a record carried by
+    # two aggregators keeps its combined key instead of counting under each one.
+    assert as_counts(summaries["sources"]) == {
+        "GBIF": 4,
+        "GBIF / SCAN": 1,
+        "SCAN": 1,
+        "Ecdysis": 1,
+        "Unknown": 1,
     }
     assert as_counts(summaries["views"]) == {
         "dorsal": 3,
@@ -150,7 +164,7 @@ def test_ranking_ties_and_denominator(settings):
     frame = dataset_summaries(settings)["institutions"]
     fig, ax = plt.subplots()
     bar_plot(ax, frame, "Institutions", top=2, exclude=("Unattributed", "Conflicting attribution"))
-    assert [label.get_text() for label in ax.get_yticklabels()] == ["B", "MUSEUM"]
+    assert [label.get_text() for label in ax.get_yticklabels()] == ["B", "Museum"]
     assert [bar.get_width() for bar in ax.patches] == [25, 25]
     plt.close(fig)
 
@@ -175,10 +189,86 @@ def test_two_class_summaries_become_pies(settings):
     assert {type(patch).__name__ for patch in wedges[0]} == {"Wedge"}
     # More than two classes, and an explicit override, stay bars.
     assert {type(patch).__name__ for patch in wedges[1] + list(bars)} == {"Rectangle"}
-    assert [text.get_text() for text in axes[0].texts] == [
-        "With coordinate pair\n5 (62.5%)",
-        "Missing or unparseable pair\n3 (37.5%)",
+    # Pie shares live in a legend, so adjacent small wedges cannot overlap labels.
+    assert not any(text.get_text() for text in axes[0].texts)
+    assert [text.get_text() for text in axes[0].get_legend().get_texts()] == [
+        "With coordinate pair: 5 (62.5%)",
+        "Missing or unparseable pair: 3 (37.5%)",
     ]
+    assert [label.get_text() for label in axes[1].get_yticklabels()] == [
+        "Missing coordinate",
+        "Valid",
+        "Coordinate out of range",
+        "Not evaluated",
+        "Zero coordinate",
+    ]
+    plt.close(fig)
+
+
+def test_italic_pie_styles_its_legend(settings):
+    frame = taxonomy_summaries(settings)["images_status"]
+    fig, ax = plt.subplots()
+    category_plot(ax, frame, "Status", kind="pie", italic=True)
+    assert {text.get_fontstyle() for text in ax.get_legend().get_texts()} == {"italic"}
+    plt.close(fig)
+
+
+def test_top_share_pie_keeps_the_whole_and_recorded_case(settings):
+    frame = dataset_summaries(settings)["institutions"]
+    shares = top_share(
+        frame,
+        1,
+        exclude=("Unattributed", "Conflicting attribution"),
+        other="Other institutions",
+        excluded="Unattributed or conflicting",
+    )
+    # Ties rank alphabetically: B before MUSEUM; unattributed and conflicting pool.
+    assert as_counts(shares) == {
+        "B": 2,
+        "Other institutions": 2,
+        "Unattributed or conflicting": 4,
+    }
+    assert shares["count"].sum() == shares["denominator"].iloc[0] == 8
+    assert shares["percentage"].sum() == pytest.approx(100)
+    fig, ax = plt.subplots()
+    category_plot(ax, shares, "Institutions", kind="pie", keep_case=True)
+    assert [text.get_text() for text in ax.get_legend().get_texts()] == [
+        "B: 2 (25.0%)",
+        "Other institutions: 2 (25.0%)",
+        "Unattributed or conflicting: 4 (50.0%)",
+    ]
+    # Residual groups follow the ranked share in gray, whatever their size.
+    colors = [to_hex(wedge.get_facecolor()) for wedge in ax.patches]
+    assert colors == [to_hex(sns.color_palette(DEFAULT_PALETTE)[0]), "#999999", "#cccccc"]
+    plt.close(fig)
+
+
+def left_title(ax):
+    """The artist holding a loc="left" title, which is not ``ax.title``."""
+    text = ax.get_title(loc="left")
+    return next(
+        child for child in ax.get_children() if isinstance(child, Text) and child.get_text() == text
+    )
+
+
+def test_panel_titles_share_one_heading_line(settings):
+    summaries = dataset_summaries(settings)
+    fig, axes = plt.subplots(1, 2, figsize=(8, 3), layout="constrained")
+    category_plot(axes[0], summaries["views"], "A) Views")
+    category_plot(axes[1], summaries["species"], "B) Species", top=2, exclude=("Unresolved",))
+    # One panel carries a subtitle line and the other does not, as in the notebook,
+    # where the shared "N =" line moves to the figure title.
+    axes[0].set_title("A) Views", loc="left")
+    axes[1].set_title("B) Species\nunresolved excluded: 4", loc="left")
+    fig.canvas.draw()
+    fig.set_layout_engine(None)
+    align_panel_titles(axes)
+    fig.canvas.draw()
+    # The shorter title is padded, so both headings sit on the same line.
+    assert [len(ax.get_title(loc="left").split("\n")) for ax in axes] == [2, 2]
+    tops = [left_title(ax).get_window_extent().y1 for ax in axes]
+    # Within a pixel: the tops differ only by the tallest glyph on each line.
+    assert tops[0] == pytest.approx(tops[1], abs=2)
     plt.close(fig)
 
 
@@ -232,9 +322,7 @@ def test_benchmark_preserves_existing_exclusion():
     assert "No Index (baseline)" in set(frame["index"])
 
 
-@pytest.mark.parametrize(
-    "name", ["data_summary", "georeference", "taxonomy_harmonization", "index_perf"]
-)
+@pytest.mark.parametrize("name", ["data_summary", "harmonization", "index_perf"])
 def test_notebook_executes_with_fixture_data(settings, monkeypatch, name):
     root = project_root()
     output = root / "analyses/results/fixture-validation"
@@ -258,4 +346,13 @@ def test_notebook_executes_with_fixture_data(settings, monkeypatch, name):
     ).execute()
     nbformat.write(notebook, output / f"{name}.ipynb")
     assert notebook_path.read_bytes() == before
-    assert all(not cell.get("outputs") for cell in nbformat.read(notebook_path, as_version=4).cells)
+
+    if name == "data_summary":
+        richness = pd.read_csv(
+            output / "dataset_overview_country_species.csv", keep_default_na=False
+        )
+        # Only VALID coordinates map, by their GADM country; the fixture's raw
+        # locality countries (including CA for i3) are ignored.
+        assert dict(zip(richness.country_code, richness.species_count)) == {"US": 1}
+        assert dict(zip(richness.country_code, richness.image_count)) == {"US": 2}
+        assert set(richness.loc[richness.mapped, "country_code"]) == {"US"}

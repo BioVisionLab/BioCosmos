@@ -1,4 +1,4 @@
-import { Detail, IconBase, type IconProps } from "./IconBase";
+import { DASHED, Detail, IconBase, type IconProps } from "./IconBase";
 
 // ---------------------------------------------------------------------------
 // Three of these are drawn as molecules and one — the pseudogene — as an
@@ -31,6 +31,13 @@ function GenomeRail() {
  * Front turns are the subject; the stretches passing behind the axis carry the
  * supporting tone, which is what gives the coil depth without an opaque
  * knockout stroke — the same trick the DNA glyph uses at its crossings.
+ *
+ * Three turns on a 4.4 pitch, not four on 3.2. At the tighter spacing a front
+ * turn's apex passed 0.8 from the back turn behind it — half the width of the
+ * two strokes put together — so the aperture filled in and the helix read as a
+ * solid ribbon, which is the one thing it cannot be: the gaps between turns are
+ * what say "coil" rather than "tube". Each front apex now clears the strand
+ * behind it by 1.9.
  */
 export function ProteinCodingIcon(props: IconProps) {
   return (
@@ -38,18 +45,17 @@ export function ProteinCodingIcon(props: IconProps) {
       {...props}
       secondary={
         <>
-          <path d="M16 6.6Q12 6 8 9.8" />
-          <path d="M16 9.8Q12 9.2 8 13" />
-          <path d="M16 13Q12 12.4 8 16.2" />
-          <path d="M8 17.4C6.4 19 4.6 20 2.8 20.6" />
-          <path d="M16 6.6C17.6 4.8 19.4 3.8 21.2 3.4" />
+          <path d="M16 5.6Q12 4 8 10" />
+          <path d="M16 10Q12 8.4 8 14.4" />
+          <path d="M16 14.4Q12 12.8 8 18.8" />
+          <path d="M8 18.8C6.4 19.6 4.6 20.2 2.8 20.6" />
+          <path d="M16 5.6C17.6 4 19.4 3.2 21.2 2.8" />
         </>
       }
     >
-      <path d="M8 6.6Q12 9.2 16 6.6" />
-      <path d="M8 9.8Q12 12.4 16 9.8" />
-      <path d="M8 13Q12 15.6 16 13" />
-      <path d="M8 16.2Q12 18.8 16 16.2" />
+      <path d="M8 5.6Q12 10 16 5.6" />
+      <path d="M8 10Q12 14.4 16 10" />
+      <path d="M8 14.4Q12 18.8 16 14.4" />
     </IconBase>
   );
 }
@@ -99,8 +105,8 @@ export function PseudoGeneIcon(props: IconProps) {
       secondary={
         <>
           <GenomeRail />
-          <path d="M6.6 11.6V8.6H10.2" strokeDasharray="1.5 1.4" />
-          <path d="M8.8 7.4L10.4 8.6L8.8 9.8" strokeDasharray="1.5 1.4" />
+          <path d="M6.6 11.6V8.6H10.2" style={DASHED} />
+          <path d="M8.8 7.4L10.4 8.6L8.8 9.8" style={DASHED} />
         </>
       }
     >

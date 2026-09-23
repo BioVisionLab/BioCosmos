@@ -58,6 +58,7 @@ class SpeciesImage(BaseModel):
             "imageIds": self.imageIds,
         }
 
+
 class ImagePersistData:
     """Class to handle image persistence operations."""
 
@@ -102,9 +103,9 @@ class ImagePersistData:
         Looks up image IDs for the species via metadata, then returns
         the disk path for the first image found in LanceDB.
         """
-        image_ids = ImageMetaService(
-            duckdb=self.meta_table
-        ).get_image_ids_by_species(species_name)
+        image_ids = ImageMetaService(duckdb=self.meta_table).get_image_ids_by_species(
+            species_name
+        )
         if not image_ids:
             return None
         return self.get_img_path_by_id(image_ids[0])
@@ -294,7 +295,7 @@ class ImagePersistData:
         limit: int = 20,
         filter_img_ids: list[str] | None = None,
         *,
-        exclude_species: str | None = None,
+        exclude_species: str | list[str] | None = None,
         min_species: int = 0,
         raise_on_error: bool = False,
     ) -> pl.DataFrame | None:
@@ -325,7 +326,11 @@ class ImagePersistData:
                 return None
             # Perform similarity search based on the centroid
             centroid: np.ndarray = np.mean(embeddings, axis=0)
-            excluded = self._species_key(exclude_species) if exclude_species else None
+            excluded = (
+                [exclude_species]
+                if isinstance(exclude_species, str)
+                else (exclude_species or [])
+            )
 
             # A well-photographed reference species can fill the whole first
             # pool with its own images (the nearest 500 to the monarch
@@ -346,12 +351,15 @@ class ImagePersistData:
                 if results.is_empty():
                     break
                 merged_results = self._merge_result_with_metadata(results)
-                if excluded is not None and "species" in merged_results.columns:
+                if excluded and "species" in merged_results.columns:
                     # A subspecies of the reference is the same species.
                     key = self._species_key_expr(pl.col("species"))
-                    merged_results = merged_results.filter(
-                        (key != excluded) & ~key.str.starts_with(f"{excluded} ")
-                    )
+                    for species in excluded:
+                        excluded_key = self._species_key(species)
+                        merged_results = merged_results.filter(
+                            (key != excluded_key)
+                            & ~key.str.starts_with(f"{excluded_key} ")
+                        )
                 similar_images = self._filter_by_species(merged_results)
                 if similar_images.height >= min_species or results.height < pool_size:
                     break
@@ -602,9 +610,8 @@ class ImagePersistData:
             # Keep the first occurrence of each species (most similar).
             # `keep="first"` is load-bearing: polars defaults to "any", which
             # would discard the sort above and pick an arbitrary image.
-            filtered_results = (
-                results.sort("distance", descending=False)
-                .unique(subset=["species"], keep="first", maintain_order=True)
+            filtered_results = results.sort("distance", descending=False).unique(
+                subset=["species"], keep="first", maintain_order=True
             )
 
             return filtered_results
