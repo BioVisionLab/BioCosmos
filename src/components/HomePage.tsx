@@ -31,7 +31,10 @@ export default function HomePage({ dataSummary, countryDiversity }: HomeSlots) {
   return (
     <div className="flex flex-col items-center min-h-screen">
       <Hero />
-      <HomeContent dataSummary={dataSummary} countryDiversity={countryDiversity} />
+      <HomeContent
+        dataSummary={dataSummary}
+        countryDiversity={countryDiversity}
+      />
       {/* spacer between homepage content and the site footer */}
       <div className="h-8 md:h-14 lg:h-16" aria-hidden="true" />
     </div>
@@ -122,7 +125,7 @@ function Hero() {
           className="bc-rise mt-4 max-w-4xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
           style={{ animationDelay: "180ms" }}
         >
-          The BioCosmos engine pairs curated biodiversity records with modern
+          The BioCosmos engine pairs curated natural history records with modern
           machine learning, revealing patterns in taxonomy, geography, and
           coloration. We develop data validation and harmonization methods and
           bring together disparate research-grade resources in on place, making
