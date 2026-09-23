@@ -49,6 +49,22 @@ const CREDENTIALS = [
 ] as const;
 
 /**
+ * A hyphenated compound, kept on one line.
+ *
+ * `text-balance` is free to break at a hyphen that is already in the text, and
+ * it did: the lead used to end a line on "image-" and open the next with
+ * "based discovery". Which words land where still depends on the measure and
+ * the loaded font, so this is marked on the compounds themselves rather than
+ * dodged by picking a width that happens to break elsewhere today.
+ *
+ * Renders exactly the characters it is given; only the break opportunity
+ * inside them is removed.
+ */
+function Compound({ children }: { children: string }) {
+  return <span className="whitespace-nowrap">{children}</span>;
+}
+
+/**
  * The top of the landing page: the mark, one promise, one explanation.
  *
  * The copy used to be two paragraphs of the same weight, so neither led. Now
@@ -77,26 +93,37 @@ function Hero() {
           <Logo className="w-64 sm:w-80 md:w-96" />
         </h1>
 
+        {/* 36rem, not the section's full width: 30 words at 2xl across 3xl
+            filled three lines edge to edge, which reads as a paragraph set in
+            headline size rather than as a headline. At this measure the three
+            balanced lines come out nearly equal. */}
         <p
-          className="bc-rise mt-6 text-balance text-lg leading-snug text-deep-mocha-800 sm:text-2xl dark:text-deep-mocha-100"
+          className="bc-rise mt-7 max-w-3xl text-balance text-lg leading-snug tracking-tight text-deep-mocha-800 sm:text-xl dark:text-deep-mocha-100"
           style={{ animationDelay: "90ms" }}
         >
-          Bringing together structured biodiversity data and image-based
-          discovery. Explore butterfly diversity and their fascinating
-          coloration with a modern, museum-quality image platform.
+          Explore butterfly diversity and their fascinating coloration with a
+          modern, museum-quality image platform.
         </p>
 
+        {/* Narrower than the lead by one step. Sharing the lead's 36rem
+            measure let this settle into two long lines whose widest ran 545px
+            against the lead's 472px — the muted supporting sentence ended up
+            visibly wider than the sentence it supports, which inverts the
+            hierarchy. At 32rem it breaks into three short lines that sit well
+            inside the block above. */}
         <p
           className="bc-rise mt-4 max-w-2xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
           style={{ animationDelay: "180ms" }}
         >
           The BioCosmos engine pairs curated biodiversity records with modern
           machine learning, revealing patterns in taxonomy, geography, and
-          coloration.
+          coloration. We develop data validation and harmonization methods and
+          bring together disparate research-grade resources in on place, making
+          them accessible to researchers, educators, and enthusiasts alike.
         </p>
 
         <ul
-          className="bc-rise mt-7 flex flex-wrap justify-center gap-2"
+          className="bc-rise mt-8 flex flex-wrap justify-center gap-2"
           style={{ animationDelay: "270ms" }}
         >
           {CREDENTIALS.map(({ label, dot }) => (

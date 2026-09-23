@@ -8,13 +8,18 @@ import { searchSemantic, SemanticSearchResult } from "@/lib/ml_search";
 import { MLSearchResultCard } from "./MlResultCard";
 import SearchForm from "@/components/SearchForm";
 import { FlaskConical } from "lucide-react";
-import { SemanticSearchDescription } from "@/components/SemanticSearchFunctions";
+import {
+  SemanticSearchDescription,
+  SemanticSearchLegend,
+} from "@/components/SemanticSearchFunctions";
 import Tips from "@/components/Tips";
 
 function SemanticSearchResults({ query }: { query: string }) {
   const [results, setResults] = useState<SemanticSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!query) return;
@@ -28,7 +33,7 @@ function SemanticSearchResults({ query }: { query: string }) {
       setError(null);
       try {
         const data = await searchSemantic(query, controller.signal);
-        setResults(data);
+        if (!controller.signal.aborted) setResults(data);
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
         setResults([]);
@@ -44,7 +49,7 @@ function SemanticSearchResults({ query }: { query: string }) {
 
     fetchResults();
     return () => controller.abort();
-  }, [query]);
+  }, [query, attempt]);
 
   const router = useRouter();
 
@@ -53,6 +58,11 @@ function SemanticSearchResults({ query }: { query: string }) {
     setError(null);
     setLoading(true);
     setResults([]);
+
+    if (newQuery === query) {
+      setAttempt((previous) => previous + 1);
+      return;
+    }
 
     const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${mode}`;
     router.push(newUrl);
@@ -105,7 +115,11 @@ function MlSearchResults({
   }
 
   if (results.length === 0 && !loading) {
-    return <p>No results found for &quot;{query}&quot;. Please try a different query.</p>;
+    return (
+      <p>
+        No results found for &quot;{query}&quot;. Please try a different query.
+      </p>
+    );
   }
 
   return (
@@ -116,15 +130,21 @@ function MlSearchResults({
         </div>
       ) : (
         <div className="mt-8">
-          <div className="mb-4">
-            <h2 className="text-lg break-words text-deep-mocha-700 dark:text-deep-mocha-200">
-              Found {results.length} {results.length === 1 ? "result" : "results"} for &quot;{query}&quot;
+          <SemanticSearchLegend />
+          <div className="mb-4 mt-8">
+            <h2 className="text-lg wrap-break-word text-deep-mocha-700 dark:text-deep-mocha-200">
+              Found {results.length}{" "}
+              {results.length === 1 ? "result" : "results"} for &quot;{query}
+              &quot;
             </h2>
             <Tips message="Click on an image to view species page" />
           </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-4">
+          <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-4">
             {results.map((item) => (
-              <Suspense key={item.imgId} fallback={<div>Loading species...</div>}>
+              <Suspense
+                key={item.imgId}
+                fallback={<div>Loading species...</div>}
+              >
                 <MLSearchResultCard data={item} toolNames={item.tool_names} />
               </Suspense>
             ))}

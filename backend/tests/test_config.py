@@ -240,11 +240,28 @@ class TestEmbedderConfig:
 
 class TestOpenAIConfig:
     @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
-    def test_model(self, _mock):
+    def test_model(self, _mock, monkeypatch):
+        monkeypatch.delenv("LLM_MODEL", raising=False)
         from app.configs.config import OpenAIConfig
 
         cfg = OpenAIConfig()
         assert cfg.model == "mistral-small-3.1"
+
+    @pytest.mark.parametrize("override", ["custom-model", "  custom-model  "])
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_model_env_override(self, _mock, monkeypatch, override):
+        from app.configs.config import OpenAIConfig
+
+        monkeypatch.setenv("LLM_MODEL", override)
+        assert OpenAIConfig().model == "custom-model"
+
+    @pytest.mark.parametrize("override", ["", "   "])
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_blank_model_override_uses_yaml(self, _mock, monkeypatch, override):
+        from app.configs.config import OpenAIConfig
+
+        monkeypatch.setenv("LLM_MODEL", override)
+        assert OpenAIConfig().model == "mistral-small-3.1"
 
     @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
     def test_api_url_from_env(self, _mock):

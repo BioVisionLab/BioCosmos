@@ -54,13 +54,13 @@ export default function Navigation() {
       <div className="md:hidden flex items-center gap-2 mt-4 mr-4">
         {/* Reachable without opening the menu: the theme is page chrome,
             not a destination. */}
-        <div className={`p-1 rounded-lg backdrop-blur-lg ${mobileSurface}`}>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-lg backdrop-blur-lg [&>button]:h-full [&>button]:w-full [&>button]:rounded-lg ${mobileSurface}`}>
           <ThemeToggle />
         </div>
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          className={`p-2 rounded-lg backdrop-blur-lg ${mobileSurface}`}
+          className={`flex h-11 w-11 items-center justify-center rounded-lg backdrop-blur-lg ${mobileSurface}`}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
         >

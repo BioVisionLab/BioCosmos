@@ -913,14 +913,16 @@ function DbResultCard({ data }: { data: DbResultItems }) {
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
-            <Image
+            <div className="relative aspect-square w-full max-w-32">
+              <Image
               src={imageUrl || `/api/image/${data.species}`}
               alt={`Image of ${data.species}`}
-              width={IMAGE_SIZE}
-              height={IMAGE_SIZE}
-              className="mx-auto object-contain"
+              fill
+              sizes={`${IMAGE_SIZE}px`}
+              className="object-contain"
               unoptimized
-            />
+              />
+            </div>
           </div>
 
           <h2 className="text-sm truncate text-center text-deep-mocha-400 italic w-full">

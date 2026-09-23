@@ -62,7 +62,10 @@ async def agent_search(request: Request, q: str | None = None):
     except AgentConfigurationError:
         logger.error("Agent search is not configured.", exc_info=True)
         return JSONResponse(
-            content={"error": "Agent search is temporarily unavailable."},
+            content={
+                "error": "Agent search is unavailable. Check the provider credentials "
+                "and configured model access."
+            },
             status_code=503,
         )
     except AgentPlannerTimeoutError:
