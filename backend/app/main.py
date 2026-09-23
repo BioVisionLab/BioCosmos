@@ -26,6 +26,7 @@ from .configs.config import (
 )
 from .services.col import ColBackboneService
 from .services.locality import LocalityService
+from .services.institution import InstitutionService
 from .services.provenance import ProvenanceService
 from .services.taxonomy_update import TaxonomyUpdateService
 from .services.leptraits import LepTraits
@@ -269,6 +270,10 @@ def run_data_ingestion(app: FastAPI):
     # Institution and specimen identifier, from the same gbif_meta join.
     ProvenanceService(app.state.duck_db).ensure()
     report_provenance_readiness(app.state.duck_db)
+
+    # Institution names and websites for the provider table. Needs the network
+    # only for codes it has not resolved before; offline, it logs and moves on.
+    InstitutionService(app.state.duck_db).ensure()
 
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,

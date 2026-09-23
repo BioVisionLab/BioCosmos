@@ -4,6 +4,8 @@ import uuid
 
 from typing import List
 
+from instharmonize.sources import holder_code_sql
+
 from ..configs.config import ColConfig, GbifConfig, ImageMetaConfig, LocalityConfig
 from ..database.duckdb import DuckDBClient
 
@@ -152,35 +154,40 @@ class ImageMetaStats:
         """Get the count of images per holding institution.
 
         image_meta carries no institution field; it comes from
-        gbif_meta.institutionCode, matched on occurrenceID the same way
+        gbif_meta.institutionCode (or a name written in institutionID when
+        the code is empty; see holder_code_sql), matched on occurrenceID the same way
         LocalityService joins locality fields. gbif_meta has duplicate
         occurrenceID values, so the join is deduplicated the same way: the
         most complete row wins, tie-broken by gbifID for a stable result.
 
-        Records with no GBIF match, or a match with no institution code
-        (roughly 7% and 18% of the collection respectively), are grouped
-        under 'Unknown' rather than dropped, so the proportions account for
-        every image.
+        Records with no GBIF match, or a match with no institution at all,
+        are grouped under 'Unknown' rather than dropped, so the proportions
+        account for every image.
         """
         if not self.db_client.table_exists(self.gbif_table):
             logger.warning(
                 f"No '{self.gbif_table}' table; institution counts are unavailable."
             )
             return None
+        holder = holder_code_sql(
+            '"institutionCode"',
+            '"institutionID"'
+            if self.db_client.column_exists(self.gbif_table, "institutionID")
+            else None,
+        )
         result = self.db_client.execute(
             f"""
             WITH deduped AS (
                 SELECT "occurrenceID" AS occurrence_id,
-                       "institutionCode" AS institution_code
+                       {holder} AS institution_code
                 FROM {self.gbif_table}
                 WHERE nullif(trim("occurrenceID"), '') IS NOT NULL
                 QUALIFY row_number() OVER (
                     PARTITION BY "occurrenceID"
-                    ORDER BY ("institutionCode" IS NULL), "gbifID"
+                    ORDER BY (institution_code IS NULL), "gbifID"
                 ) = 1
             )
-            SELECT coalesce(nullif(trim(d.institution_code), ''), 'Unknown')
-                       AS institution,
+            SELECT coalesce(d.institution_code, 'Unknown') AS institution,
                    COUNT(*) AS count
             FROM {self.table} im
             LEFT JOIN deduped d ON d.occurrence_id = nullif(trim(im.uuid), '')

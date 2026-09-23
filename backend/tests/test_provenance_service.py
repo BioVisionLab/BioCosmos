@@ -10,6 +10,7 @@ import duckdb
 import pytest
 
 from app.database.duckdb import DuckDBClient
+from app.services import provenance
 from app.services.provenance import OccurrenceProvenance, ProvenanceService
 
 OCCURRENCE_DDL = """
@@ -128,7 +129,10 @@ class TestEnsure:
     def test_rebuilds_when_the_schema_version_moves(self, client, monkeypatch):
         service = build_service(client)
         assert service.ensure() is True
-        monkeypatch.setattr("app.services.provenance.PROVENANCE_SCHEMA_VERSION", 2)
+        monkeypatch.setattr(
+            "app.services.provenance.PROVENANCE_SCHEMA_VERSION",
+            provenance.PROVENANCE_SCHEMA_VERSION + 1,
+        )
         assert service.ensure() is True
 
     def test_skip_flag(self, client):

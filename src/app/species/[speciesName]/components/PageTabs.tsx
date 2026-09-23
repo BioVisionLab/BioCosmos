@@ -14,7 +14,7 @@ import { SpeciesData } from "@/lib/speciesData";
 import { ImageLoading } from "@/components/Loadings";
 
 // Every tab except the default one is code-split and only mounted once the
-// user actually opens it. Previously all five panels were constructed on
+// user actually opens it. Previously every panel were constructed on
 // mount and merely hidden with CSS, so a single page load fired the
 // Wikipedia, CrossRef, GenBank, UMAP and specimen requests at once.
 const tabLoading = (msg: string) => {
@@ -30,6 +30,11 @@ const tabLoading = (msg: string) => {
 const BiologyPage = dynamic(() => import("./BiologyPage"), {
   ssr: false,
   loading: tabLoading("Loading biology"),
+});
+
+const TaxonomyPage = dynamic(() => import("./TaxonomyPage"), {
+  ssr: false,
+  loading: tabLoading("Loading taxonomy"),
 });
 
 const SpecimensTab = dynamic(() => import("./SpecimensTab"), {
@@ -60,6 +65,7 @@ interface TabsComponentProps {
 const TAB_IDS = [
   "overview",
   "biology",
+  "taxonomy",
   "specimens",
   "wikipedia",
   "literature",
@@ -67,16 +73,18 @@ const TAB_IDS = [
 
 type TabId = (typeof TAB_IDS)[number];
 
-// Five pills do not fit a phone, and the row used to scroll sideways to reach
-// the last two. When the full row does not fit, the three a reader actually
-// comes for stay in the bar and the external-source tabs move behind a menu
-// button. Wherever all five fit, they are all shown and there is no menu.
+// Six pills do not fit a phone, and the row used to scroll sideways to reach
+// the last ones. When the full row does not fit, the three a reader actually
+// comes for stay in the bar and the reference tabs — taxonomy and the
+// external sources — move behind a menu button. Wherever the full row fits,
+// every tab is shown in TAB_IDS order and there is no menu.
 const PRIMARY_TABS: readonly TabId[] = ["overview", "biology", "specimens"];
-const MORE_TABS: readonly TabId[] = ["wikipedia", "literature"];
+const MORE_TABS: readonly TabId[] = ["taxonomy", "wikipedia", "literature"];
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: "Overview",
   biology: "Biology",
+  taxonomy: "Taxonomy",
   specimens: "Specimens",
   wikipedia: "Wikipedia",
   literature: "Literature",
@@ -123,6 +131,13 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
             traits={speciesData?.traits ?? null}
           />
         );
+      case "taxonomy":
+        return (
+          <TaxonomyPage
+            taxonomy={speciesData?.taxonomy ?? null}
+            speciesName={speciesSlug ?? speciesName}
+          />
+        );
       case "specimens":
         return (
           // prefer the route slug when available so gallery links use correct folder name
@@ -165,7 +180,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
 
   // Before the bar has been measured (server render, and the frames before
   // hydration) the `sm` breakpoint stands in for the measurement, so a phone
-  // never flashes an overflowing five-pill row.
+  // never flashes an overflowing six-pill row.
   const moreTabClass = layoutMode === "auto" ? "hidden sm:inline-block" : "";
   const menuClass = layoutMode === "auto" ? "sm:hidden" : "";
 
@@ -173,7 +188,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     <div ref={containerRef} className="flex flex-col items-center w-full">
       {/* The full row, drawn invisibly at its natural width. Measuring this
           rather than the visible bar is what lets the bar switch back to all
-          five tabs when the viewport widens again. `w-max` keeps it from
+          the tabs when the viewport widens again. `w-max` keeps it from
           shrinking to its container, and the clipping wrapper keeps it from
           widening the page on a phone. */}
       <div aria-hidden="true" className="relative h-0 w-full overflow-hidden">
@@ -195,10 +210,13 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
           role="tablist"
           aria-label="Species sections"
         >
-          {PRIMARY_TABS.map((id) => tabButton(id))}
-          {layoutMode !== "collapsed"
-            ? MORE_TABS.map((id) => tabButton(id, moreTabClass))
-            : null}
+          {/* Taxonomy sits between Biology and Specimens, so the full row is
+              drawn in TAB_IDS order rather than primary tabs then the rest. */}
+          {layoutMode === "collapsed"
+            ? PRIMARY_TABS.map((id) => tabButton(id))
+            : TAB_IDS.map((id) =>
+                tabButton(id, MORE_TABS.includes(id) ? moreTabClass : ""),
+              )}
         </div>
         {layoutMode !== "expanded" ? (
           <div className={menuClass}>
@@ -237,7 +255,7 @@ type TabLayoutMode = "auto" | "expanded" | "collapsed";
 /**
  * Whether the full row of tabs fits the width available to it.
  *
- * "auto" until the first measurement, then "expanded" when all five fit and
+ * "auto" until the first measurement, then "expanded" when every tab fits and
  * "collapsed" when they do not. Both the container and the hidden full row are
  * observed: the row changes width when the web font finishes loading, and the
  * container whenever the viewport does.

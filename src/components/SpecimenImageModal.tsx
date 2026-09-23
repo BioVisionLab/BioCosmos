@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import { imageUrlById } from "@/lib/images";
 import {
   SpecimenImageMeta,
@@ -70,11 +71,15 @@ async function fetchSpecimenMeta(
 // it. `/api/images/id` serves images with a one-year immutable
 // Cache-Control header, so once this resolves the same URL paints instantly
 // from disk cache when it's actually shown.
-function preloadImageBytes(url: string, onDone: () => void) {
+function preloadImageBytes(
+  url: string,
+  onDone: () => void,
+  onFail: () => void,
+) {
   if (typeof window === "undefined") return;
   const img = new window.Image();
   img.onload = onDone;
-  img.onerror = onDone; // don't get stuck retrying a broken image forever
+  img.onerror = onFail; // don't get stuck retrying a broken image forever
   img.src = url;
 }
 
@@ -105,16 +110,23 @@ function SpecimenImageModal({
   const [meta, setMeta] = useState<SpecimenImageMeta | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [loadedIds, setLoadedIds] = useState<Set<string>>(new Set());
+  // Ids whose full image failed to load. Kept apart from `loadedIds` so a
+  // failure shows the no-image placeholder, not the browser's broken image.
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const preloadingRef = useRef<Set<string>>(new Set());
 
-  const markLoaded = (id: string) => {
-    setLoadedIds((prev) => {
-      if (prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
-  };
+  const addTo =
+    (setIds: React.Dispatch<React.SetStateAction<Set<string>>>) =>
+    (id: string) => {
+      setIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    };
+  const markLoaded = addTo(setLoadedIds);
+  const markFailed = addTo(setFailedIds);
 
   // Find the next index in `direction` (+1/-1) whose id is usable, skipping
   // over empty slots and stopping at the ends (no wraparound).
@@ -150,9 +162,17 @@ function SpecimenImageModal({
       if (idx == null) return;
       const id = ids[idx];
       if (!id) return;
-      if (!loadedIds.has(id) && !preloadingRef.current.has(id)) {
+      if (
+        !loadedIds.has(id) &&
+        !failedIds.has(id) &&
+        !preloadingRef.current.has(id)
+      ) {
         preloadingRef.current.add(id);
-        preloadImageBytes(imageUrlById(id, "full"), () => markLoaded(id));
+        preloadImageBytes(
+          imageUrlById(id, "full"),
+          () => markLoaded(id),
+          () => markFailed(id),
+        );
       }
       void fetchSpecimenMeta(id); // warm the metadata cache too
     });
@@ -197,6 +217,7 @@ function SpecimenImageModal({
   const prevIdx = findNavigableIndex(openIndex, -1);
   const nextIdx = findNavigableIndex(openIndex, 1);
   const imageLoaded = loadedIds.has(currentId);
+  const imageFailed = failedIds.has(currentId);
   const imageUrl = imageUrlById(currentId, "full");
 
   return (
@@ -241,25 +262,39 @@ function SpecimenImageModal({
             </button>
 
             <div className="relative w-full h-full flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                key={currentId}
-                src={imageUrl}
-                alt="Full size specimen"
-                onLoad={() => markLoaded(currentId)}
-                onError={() => markLoaded(currentId)}
-                className="max-h-full max-w-full object-contain rounded-xl"
-              />
-              {/* Loading placeholder overlays the image until it (or a
-                  preload for it) has finished loading, so already-preloaded
-                  neighbors never show this at all. */}
-              <div
-                className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-900 rounded-xl transition-opacity ${
-                  imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
-                }`}
-              >
-                <ImageLoading size={250} />
-              </div>
+              {imageFailed ? (
+                // Give the box the size a loaded image would roughly have,
+                // since there is no image to size it.
+                <div className="relative w-full aspect-[4/3]">
+                  <NoImage className="text-sm [&>svg]:h-10 [&>svg]:w-10" />
+                </div>
+              ) : (
+                <>
+                  {/* Hidden until loaded: while in flight the browser paints
+                      its broken-image icon and alt text. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    key={currentId}
+                    src={imageUrl}
+                    alt="Full size specimen"
+                    onLoad={() => markLoaded(currentId)}
+                    onError={() => markFailed(currentId)}
+                    className={`max-h-full max-w-full object-contain rounded-xl ${
+                      imageLoaded ? "" : "invisible"
+                    }`}
+                  />
+                  {/* Loading placeholder overlays the image until it (or a
+                      preload for it) has finished loading, so already-preloaded
+                      neighbors never show this at all. */}
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-900 rounded-xl transition-opacity ${
+                      imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
+                  >
+                    <ImageLoading size={250} />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* right nav (aligned to image) */}
@@ -283,7 +318,7 @@ function SpecimenImageModal({
               inside separate the metadata's own groups. Type scale and field
               order still match the panel under the species gallery. */}
           {(meta || metaLoading) && (
-            <div className="mt-4 w-[30vw] border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-300">
+            <div className="mt-4 w-full border-t border-deep-mocha-300 dark:border-deep-mocha-700 pt-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-300">
               <div>
                 <div className="flex flex-col gap-1">
                   {metaLoading ? (

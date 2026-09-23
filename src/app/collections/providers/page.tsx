@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function ProvidersPage() {
   const data = await fetchTaxonStats();
   const institutionCounts = data?.institutionCounts ?? null;
+  const institutionDirectory = data?.institutionDirectory ?? null;
   const statsUnavailable = data === null;
 
   return (
@@ -20,7 +21,18 @@ export default async function ProvidersPage() {
         Every holding institution behind the collection, with the number of
         images sourced from each. &quot;Unknown&quot; covers images with no
         institution on record — either they were not sourced from GBIF, or
-        the record itself carries no institution code.
+        the record itself carries no institution code. Full names and websites
+        are matched from public records in the{" "}
+        <a
+          href="https://scientific-collections.gbif.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
+        >
+          GBIF Registry of Scientific Collections
+        </a>{" "}
+        and GBIF dataset publishers; a code that could not be matched with
+        confidence is shown as recorded.
       </p>
 
       {statsUnavailable && (
@@ -29,7 +41,10 @@ export default async function ProvidersPage() {
         </div>
       )}
 
-      <ProvidersTable institutionCounts={institutionCounts} />
+      <ProvidersTable
+        institutionCounts={institutionCounts}
+        institutionDirectory={institutionDirectory}
+      />
     </main>
   );
 }

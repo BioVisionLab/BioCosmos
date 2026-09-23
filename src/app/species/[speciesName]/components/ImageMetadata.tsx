@@ -305,27 +305,28 @@ export default function ImageMetadata({
                   modal shows the same two in the same order. */}
               <LocalityBlock locality={locality} />
 
-              <div className="flex items-center min-w-0">
+              {/* Full width below `sm`: half the card is too narrow for a
+                  full-precision pair, and a truncated coordinate is a wrong
+                  one. It wraps at the comma rather than being cut off. */}
+              <div className="col-span-2 sm:col-span-1 flex flex-wrap items-baseline gap-x-1 min-w-0 leading-normal">
                 <span className={METADATA_LABEL}>
                   Coordinates:
                 </span>
-                <span className={`ml-1 truncate ${METADATA_VALUE}`}>
+                <span className={`min-w-0 break-words ${METADATA_VALUE}`}>
                   {meta.lat || meta.lon
                     ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}`
                     : "—"}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 min-w-0">
-                {coordinates ? (
-                  <>
-                    <CoordinateStatusBadge validation={coordinates} />
-                    <MatchingHelpLink
-                      section="coordinate-matching"
-                      label="How coordinate matching works"
-                    />
-                  </>
-                ) : null}
-              </div>
+              {coordinates ? (
+                <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5 min-w-0">
+                  <CoordinateStatusBadge validation={coordinates} />
+                  <MatchingHelpLink
+                    section="coordinate-matching"
+                    label="How coordinate matching works"
+                  />
+                </div>
+              ) : null}
 
               {/* Omitted entirely when no harmonization run has been loaded,
                   rather than shown as a row of placeholders. */}

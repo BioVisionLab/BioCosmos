@@ -3,6 +3,7 @@ import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchTaxonStats } from "@/lib/metaStats";
 import CollectionCharts from "./CollectionCharts";
 import BackLink from "@/components/BackLink";
+import { SOURCE_DB_HOMEPAGES } from "@/lib/imageMetadata";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
 export const dynamic = "force-dynamic";
@@ -29,17 +30,17 @@ export default async function CollectionsPage() {
     {
       label: "GBIF",
       value: data?.sourceDbCount?.["gbif"] ?? 0,
-      href: "https://www.gbif.org/",
+      href: SOURCE_DB_HOMEPAGES.gbif,
     },
     {
       label: "Ecdysis",
       value: data?.sourceDbCount?.["ecdysis"] ?? 0,
-      href: "https://github.com/RiesLabGU/LepTraits",
+      href: SOURCE_DB_HOMEPAGES.ecdysis,
     },
     {
       label: "SCANBUGS",
       value: data?.sourceDbCount?.["scanbugs"] ?? 0,
-      href: "https://scan-all-bugs.org/",
+      href: SOURCE_DB_HOMEPAGES.scanbugs,
     },
     {
       label: "Multiple Sources",

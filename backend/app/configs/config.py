@@ -215,8 +215,28 @@ class ColConfig:
         )
 
     @property
+    def type_material_path(self) -> str:
+        """Path to TypeMaterial.tsv, the CoL type specimen table."""
+        return self._resolve(
+            self._col_config.get("type_material_file", "TypeMaterial.tsv")
+        )
+
+    @property
+    def reference_path(self) -> str:
+        """Path to Reference.tsv, the CoL bibliography."""
+        return self._resolve(self._col_config.get("reference_file", "Reference.tsv"))
+
+    @property
     def table(self) -> str:
         return self._col_config.get("table", "col_taxonomy")
+
+    @property
+    def type_material_table(self) -> str:
+        return self._col_config.get("type_material_table", "col_type_material")
+
+    @property
+    def reference_table(self) -> str:
+        return self._col_config.get("reference_table", "col_reference")
 
     @property
     def vernacular_table(self) -> str:
@@ -331,6 +351,37 @@ class ProvenanceConfig:
     @property
     def table(self) -> str:
         return self._provenance_config.get("table", "image_meta_provenance")
+
+
+class InstitutionConfig:
+    """
+    Configuration for the institution directory: code -> name and website.
+
+    Resolved by instharmonize from the public GBIF registries, for the codes
+    behind the collection's images.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._institution_config = config.get("institutions", {}) or {}
+
+    @property
+    def skip(self) -> bool:
+        return _as_bool(
+            self._institution_config.get("skip", False), "Institutions skip config"
+        )
+
+    @property
+    def table(self) -> str:
+        return self._institution_config.get("table", "institution_directory")
+
+    @property
+    def overrides_path(self) -> str | None:
+        """An extra overrides TOML, resolved relative to config.yaml."""
+        path = self._institution_config.get("overrides")
+        if not path:
+            return None
+        return os.path.join(script_dir, os.path.expanduser(path))
 
 
 class LepTraitConfig:

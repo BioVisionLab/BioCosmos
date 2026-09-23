@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import { IconContainer } from "@/components/IconContainer";
 import { SpecimenIcon } from "@/components/ui/icons";
 import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
@@ -35,6 +36,64 @@ type ThumbItem = {
   id: string;
   thumbUrl?: string;
 };
+
+// Add `id` to a Set state without re-rendering when it is already there.
+function markThumb(
+  setIds: React.Dispatch<React.SetStateAction<Set<string>>>,
+  id: string,
+) {
+  setIds((s) => {
+    if (s.has(id)) return s;
+    const n = new Set(s);
+    n.add(id);
+    return n;
+  });
+}
+
+interface SpecimenThumbProps {
+  src: string;
+  id?: string;
+  isLoaded: boolean;
+  failed: boolean;
+  onLoad: () => void;
+  onError: () => void;
+}
+
+// A gallery tile's image. The <img> stays invisible until it has loaded:
+// while a request is in flight the browser paints its broken-image icon and
+// the alt text (the specimen UUID), which bled through the loading overlay.
+function SpecimenThumb({
+  src,
+  id,
+  isLoaded,
+  failed,
+  onLoad,
+  onError,
+}: SpecimenThumbProps) {
+  if (failed) {
+    return <NoImage />;
+  }
+  return (
+    <>
+      <img
+        src={src}
+        alt={id ? `Specimen ${id}` : ""}
+        loading="lazy"
+        decoding="async"
+        className={`object-contain object-center w-full h-full transition-opacity ${
+          isLoaded ? "opacity-100" : "opacity-0"
+        }`}
+        onLoad={onLoad}
+        onError={onError}
+      />
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-800">
+          <ImageLoading size={110} msg={"Image loading"} />
+        </div>
+      )}
+    </>
+  );
+}
 
 const SpecimensTab: React.FC<SpecimensTabProps> = ({
   specimens,
@@ -77,6 +136,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   const showImageCount = propsShowImageCount ?? true;
   // track which thumbnails have finished loading (by id)
   const [loadedThumbIds, setLoadedThumbIds] = useState<Set<string>>(new Set());
+  // thumbnails whose request failed, so the tile can say so instead of
+  // spinning forever over a broken image
+  const [failedThumbIds, setFailedThumbIds] = useState<Set<string>>(new Set());
   // index into `modalPageIds` (below) of the specimen open in the full-image
   // modal; `null` means the modal is closed. The modal itself owns all
   // full-image/metadata fetching, caching and neighbor preloading.
@@ -647,33 +709,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                     className="relative w-full aspect-square rounded-xl overflow-hidden border border-deep-mocha-200 dark:border-deep-mocha-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-pacific-blue-600"
                   >
                     {cached ? (
-                      <>
-                        <img
-                          src={cached}
-                          alt={id ? `Specimen ${id}` : "Loading..."}
-                          loading="lazy"
-                          decoding="async"
-                          className="object-contain object-center w-full h-full"
-                          onLoad={() => {
-                            if (!id) return;
-                            setLoadedThumbIds((s) => {
-                              if (s.has(id)) return s;
-                              const n = new Set(s);
-                              n.add(id);
-                              return n;
-                            });
-                          }}
-                        />
-                        <div
-                          className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100/70 dark:bg-deep-mocha-800/70 transition-opacity ${
-                            isLoaded
-                              ? "opacity-0 pointer-events-none"
-                              : "opacity-100"
-                          }`}
-                        >
-                          <ImageLoading size={110} msg={"Image loading"} />
-                        </div>
-                      </>
+                      <SpecimenThumb
+                        src={cached}
+                        id={id}
+                        isLoaded={isLoaded}
+                        failed={id ? failedThumbIds.has(id) : false}
+                        onLoad={() => id && markThumb(setLoadedThumbIds, id)}
+                        onError={() => id && markThumb(setFailedThumbIds, id)}
+                      />
                     ) : (
                       <div className="flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-800 text-sm text-deep-mocha-400 h-full">
                         <ImageLoading size={110} msg={"Images loading"} />
@@ -720,35 +763,14 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                   className="relative w-full aspect-square rounded-xl overflow-hidden border border-deep-mocha-200 dark:border-deep-mocha-700 transition-all hover:shadow-lg hover:ring-1 hover:ring-pacific-blue-600"
                 >
                   {cached ? (
-                    // render the image but keep a placeholder overlay until it loads
-                    <>
-                      <img
-                        src={cached}
-                        alt={id ? `Specimen ${id}` : "Loading..."}
-                        loading="lazy"
-                        decoding="async"
-                        className="object-contain object-center w-full h-full"
-                        onLoad={() => {
-                          if (!id) return;
-                          setLoadedThumbIds((s) => {
-                            if (s.has(id)) return s;
-                            const n = new Set(s);
-                            n.add(id);
-                            return n;
-                          });
-                        }}
-                      />
-
-                      <div
-                        className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100/70 dark:bg-deep-mocha-800/70 transition-opacity ${
-                          isLoaded
-                            ? "opacity-0 pointer-events-none"
-                            : "opacity-100"
-                        }`}
-                      >
-                        <ImageLoading size={110} msg={"Images loading"} />
-                      </div>
-                    </>
+                    <SpecimenThumb
+                      src={cached}
+                      id={id}
+                      isLoaded={isLoaded}
+                      failed={id ? failedThumbIds.has(id) : false}
+                      onLoad={() => id && markThumb(setLoadedThumbIds, id)}
+                      onError={() => id && markThumb(setFailedThumbIds, id)}
+                    />
                   ) : (
                     <div className="flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-800 text-sm text-deep-mocha-400 h-full">
                       <ImageLoading size={110} msg={"Images loading"} />

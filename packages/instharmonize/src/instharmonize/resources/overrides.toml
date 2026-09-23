@@ -1,0 +1,68 @@
+# Curated institution codes, checked by hand.
+#
+# Add a code here only when the registries cannot settle it: GRSciColl has no
+# entry, or several institutions share the code and the GBIF publisher's name
+# does not spell it out. Keys are the code exactly as it appears in the
+# occurrence data's institutionCode, after trimming.
+#
+#   [institutions.CODE]
+#   name = "Full name"               # shown instead of the code
+#   homepage = "https://..."         # optional; must be http(s)
+#   country = "US"                   # optional ISO 3166-1 alpha-2
+#   use_publisher = true             # take name/homepage from the GBIF publisher
+#
+# `name` and `homepage` win over the publisher's when both are given.
+
+[institutions]
+
+# Publishers that are the holding institution, under a name that does not
+# spell out the code.
+
+[institutions.TU]
+use_publisher = true   # University of Tartu, Natural History Museum
+
+[institutions.MSU]
+name = "A.J. Cook Arthropod Research Collection, Michigan State University"
+use_publisher = true
+
+[institutions.VPI]
+use_publisher = true   # Virginia Tech Insect Collection
+
+[institutions.MISSA]
+use_publisher = true   # Mississippi Entomological Museum
+
+[institutions.PU]
+use_publisher = true   # Purdue Entomological Research Collection
+
+[institutions.tesri]
+use_publisher = true   # Endemic Species Research Institute, since renamed
+
+[institutions.UCSC]
+use_publisher = true   # Kenneth S. Norris Center, UC Santa Cruz
+
+[institutions.UGR]
+use_publisher = true   # University of Granada
+
+[institutions.UDEC]
+use_publisher = true   # Universidad de Concepción
+
+[institutions.GMNH]
+use_publisher = true   # Georgia Museum of Natural History's arthropod collection
+
+[institutions.LI]
+use_publisher = true   # Biologiezentrum Linz
+
+[institutions.ZFMK]
+use_publisher = true   # Museum Koenig, now part of LIB
+
+[institutions.BAYLU]
+use_publisher = true   # Baylor University, Mayborn Museum
+
+# Published through an umbrella organization.
+
+[institutions.ANIC]
+name = "Australian National Insect Collection, CSIRO"
+use_publisher = true
+
+[institutions.MZB]
+name = "Museum Zoologicum Bogoriense"

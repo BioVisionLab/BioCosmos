@@ -10,11 +10,21 @@ from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.col import ColTaxonSearch
 from ..services.gbif import GbifPersistData
+from ..services.institution import InstitutionDirectory
 from ..services.openai import AiSummary
 from ..services.taxonomy_update import TaxonomyValidationStats
 
 
 logger = logging.getLogger(__name__)
+
+
+class InstitutionInfo(BaseModel):
+    """The resolved name behind an institutionCodes key; see instharmonize."""
+
+    name: str
+    homepage: str | None = None
+    country: str | None = None
+    source: str
 
 
 class TaxonStatPayload(BaseModel):
@@ -32,6 +42,7 @@ class TaxonStatPayload(BaseModel):
     entriesByFamily: dict | None
     entriesByFamilyValidated: dict | None
     institutionCounts: dict[str, int] | None
+    institutionDirectory: dict[str, InstitutionInfo] = {}
     topTenSpecies: dict | None
 
     @classmethod
@@ -48,6 +59,7 @@ class TaxonStatPayload(BaseModel):
         entries_by_family_validated: dict | None,
         institution_counts: dict[str, int] | None,
         top_ten_species: dict | None,
+        institution_directory: dict[str, dict] | None = None,
     ):
         """
         Create a TaxonStatPayload instance from the provided data.
@@ -62,6 +74,8 @@ class TaxonStatPayload(BaseModel):
                 excluding unresolved (ambiguous or unmatched) occurrences.
             gbif_species_count (int): The number of unique GBIF species in the occurrence
             institution_counts (dict): Image counts per holding institution.
+            institution_directory (dict): Full name and website per
+                institution code, for the codes that could be resolved.
 
         Returns:
             TaxonStatPayload: An instance of TaxonStatPayload.
@@ -85,6 +99,10 @@ class TaxonStatPayload(BaseModel):
             institutionCounts=institution_counts
             if institution_counts is not None
             else {},
+            institutionDirectory={
+                code: InstitutionInfo(**info)
+                for code, info in (institution_directory or {}).items()
+            },
             topTenSpecies=top_ten_species if top_ten_species is not None else [],
         )
 
@@ -270,6 +288,9 @@ class TaxonSearch:
                 img_meta_stats.get_institution_counts()
             )
             top_ten_species: list[str] | None = img_meta_stats.get_top_ten_species()
+            institution_directory = InstitutionDirectory(
+                self.request.app.state.duck_db
+            ).get_all()
 
             payload = TaxonStatPayload.from_data(
                 gbif_entries=counts_gbif,
@@ -283,6 +304,7 @@ class TaxonSearch:
                 entries_by_family_validated=entries_by_family_validated,
                 institution_counts=institution_counts,
                 top_ten_species=top_ten_species,
+                institution_directory=institution_directory,
             )
             return payload.model_dump()
         except Exception as e:

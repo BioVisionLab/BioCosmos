@@ -19,7 +19,16 @@ import duckdb
 from ..configs.config import ColConfig
 from ..database.duckdb import DuckDBClient
 from ..database.ingestion_state import IngestionState, file_fingerprint
-from ..database.model import ColTaxonomy, binomial_name
+from ..database.model import (
+    ColNameUsage,
+    ColNomenclature,
+    ColReference,
+    ColTaxonomy,
+    ColTaxonomyDetail,
+    ColTypeSpecimen,
+    binomial_name,
+    year_from,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +60,49 @@ COL_SOURCE_COLUMNS: dict[str, str] = {
     "extinct": "col:extinct",
     "environment": "col:environment",
     "col_link": "col:link",
+    # Nomenclature, for the taxonomy tab: where a name was published and which
+    # usage is its original combination.
+    "basionym_id": "col:basionymID",
+    "name_reference_id": "col:nameReferenceID",
+    "name_published_in_page": "col:namePublishedInPage",
+    "name_status": "col:nameStatus",
+}
+
+# TypeMaterial.tsv, logical name -> ColDP column. `nameID` is a NameUsage ID in
+# a merged release, so it joins straight onto `col_taxonomy.usage_id`.
+TYPE_MATERIAL_COLUMNS: dict[str, str] = {
+    "name_id": "col:nameID",
+    "status": "col:status",
+    "citation": "col:citation",
+    "reference_id": "col:referenceID",
+    "page": "col:page",
+    "country": "col:country",
+    "locality": "col:locality",
+    "latitude": "col:latitude",
+    "longitude": "col:longitude",
+    "altitude": "col:altitude",
+    "sex": "col:sex",
+    "host": "col:host",
+    "collection_date": "col:date",
+    "collector": "col:collector",
+    "institution_code": "col:institutionCode",
+    "catalog_number": "col:catalogNumber",
+    "link": "col:link",
+    "remarks": "col:remarks",
+}
+
+# Reference.tsv, logical name -> ColDP column.
+REFERENCE_COLUMNS: dict[str, str] = {
+    "reference_id": "col:ID",
+    "citation": "col:citation",
+    "author": "col:author",
+    "title": "col:title",
+    "container_title": "col:containerTitle",
+    "issued": "col:issued",
+    "volume": "col:volume",
+    "page": "col:page",
+    "doi": "col:doi",
+    "link": "col:link",
 }
 
 # Ranks worth keeping. Everything else in a release is unplaced or
@@ -74,6 +126,19 @@ ACCEPTED_STATUSES = ("accepted", "provisionally accepted")
 # Congeners are only used to label genus-level literature hits, so a large
 # genus does not need every member; this keeps the payload bounded.
 MAX_CONGENERS = 200
+
+# Type statuses in the order a reader looks for them: the name-bearing type
+# first, then the rest of the type series. Anything unlisted sorts last.
+TYPE_STATUS_ORDER = (
+    "holotype",
+    "neotype",
+    "lectotype",
+    "syntype",
+    "allotype",
+    "paratype",
+    "paralectotype",
+    "paraneotype",
+)
 
 # CoL is read once per release; these are the lookups the API actually makes.
 COL_INDEXES = {
@@ -134,6 +199,10 @@ class ColBackboneService:
         self.vernacular_path = config.vernacular_path
         self.table = config.table
         self.vernacular_table = config.vernacular_table
+        self.type_material_path = config.type_material_path
+        self.type_material_table = config.type_material_table
+        self.reference_path = config.reference_path
+        self.reference_table = config.reference_table
         self.clade_rank = config.clade_rank
         self.clade_value = config.clade_value
         self.skip_ingestion = config.skip
@@ -152,9 +221,10 @@ class ColBackboneService:
                 f"CoL name usage file not found at '{self.path}'; skipping ingestion."
             )
             return
-        if state.is_current(
-            BACKBONE_SOURCE_KEY, fingerprint
-        ) and self.db_client.table_exists(self.table):
+        if (
+            state.is_current(BACKBONE_SOURCE_KEY, fingerprint)
+            and self._schema_current()
+        ):
             logger.info("CoL backbone is already current; skipping ingestion.")
             return
 
@@ -162,6 +232,8 @@ class ColBackboneService:
             self._ingest_name_usage()
             self._create_indexes()
             self._ingest_vernacular_names()
+            self._ingest_type_material()
+            self._ingest_references()
             state.mark(BACKBONE_SOURCE_KEY, fingerprint)
             logger.info(
                 f"CoL backbone ingested: {self.count_entries()} usages "
@@ -170,6 +242,17 @@ class ColBackboneService:
         except Exception as error:
             logger.error(f"Failed to ingest CoL data from '{self.path}': {error}")
             raise
+
+    def _schema_current(self) -> bool:
+        """Whether the database holds everything this code reads.
+
+        The fingerprint only tracks NameUsage.tsv, so a database built before
+        the nomenclature columns and the type-material and reference tables
+        existed would otherwise never gain them.
+        """
+        return not self.db_client.missing_tables(
+            [self.table, self.type_material_table, self.reference_table]
+        ) and self.db_client.column_exists(self.table, "basionym_id")
 
     def _ingest_name_usage(self) -> None:
         projection = ",\n            ".join(
@@ -320,6 +403,79 @@ class ColBackboneService:
             f"ON {self.vernacular_table} (usage_id)"
         )
 
+    def _ingest_scoped(
+        self,
+        path: str,
+        table: str,
+        columns: dict[str, str],
+        scope: str,
+        label: str,
+    ) -> None:
+        """Load a ColDP table, keeping only the rows `scope` selects.
+
+        A missing file yields an empty table with the same columns, so lookups
+        degrade to "nothing recorded" rather than a catalog error.
+        """
+        if file_fingerprint(path) is None:
+            logger.info(f"No CoL {label} file at '{path}'; '{table}' will be empty.")
+            definition = ", ".join(f"{_quoted(name)} VARCHAR" for name in columns)
+            self.db_client.execute(f"CREATE OR REPLACE TABLE {table} ({definition})")
+            return
+
+        projection = ",\n                ".join(
+            f"nullif(trim({_quoted(source)}), '') AS {_quoted(logical)}"
+            for logical, source in columns.items()
+        )
+        self.db_client.execute_prepared(
+            f"""
+            CREATE OR REPLACE TABLE {table} AS
+            SELECT
+                {projection}
+            FROM {_read_csv_expr()}
+            WHERE {scope}
+            """,
+            [path],
+        )
+
+    def _ingest_type_material(self) -> None:
+        """Load the type specimens of the ingested names."""
+        self._ingest_scoped(
+            self.type_material_path,
+            self.type_material_table,
+            TYPE_MATERIAL_COLUMNS,
+            f'"col:nameID" IN (SELECT usage_id FROM {self.table})',
+            "type material",
+        )
+        self.db_client.execute(
+            f"CREATE INDEX IF NOT EXISTS col_type_material_name_idx "
+            f"ON {self.type_material_table} (name_id)"
+        )
+
+    def _ingest_references(self) -> None:
+        """Load the references the ingested names and type specimens cite.
+
+        Reference.tsv covers all of life and is several hundred megabytes, so
+        only the cited rows are kept. Runs after the type material, whose
+        citations are part of the scope.
+        """
+        self._ingest_scoped(
+            self.reference_path,
+            self.reference_table,
+            REFERENCE_COLUMNS,
+            f""""col:ID" IN (
+                SELECT name_reference_id FROM {self.table}
+                WHERE name_reference_id IS NOT NULL
+                UNION
+                SELECT reference_id FROM {self.type_material_table}
+                WHERE reference_id IS NOT NULL
+            )""",
+            "reference",
+        )
+        self.db_client.execute(
+            f"CREATE INDEX IF NOT EXISTS col_reference_id_idx "
+            f"ON {self.reference_table} (reference_id)"
+        )
+
     def count_entries(self) -> int | None:
         """Count the usages in the ingested backbone."""
         try:
@@ -381,12 +537,17 @@ class ColTaxonSearch:
     # Class-level default so the field is always readable, including on
     # instances built without __init__. Only ever rebound, never mutated.
     _backbone_present: bool | None = None
+    # Defaults for instances built without __init__, as the tests do.
+    type_material_table = "col_type_material"
+    reference_table = "col_reference"
 
     def __init__(self, duckdb: DuckDBClient):
         config = ColConfig()
         self.table = config.table
         self.vernacular_table = config.vernacular_table
         self.matches_table = config.matches_table
+        self.type_material_table = config.type_material_table
+        self.reference_table = config.reference_table
         self.db_client = duckdb
         # Resolved on first use and cached for this instance, which lives for
         # one request.
@@ -642,6 +803,208 @@ class ColTaxonSearch:
             "synonyms": synonyms,
             "congeners": congeners,
         }
+
+    def _detail_available(self) -> bool:
+        """Whether the nomenclature columns and their tables were ingested."""
+        return not self.db_client.missing_tables(
+            [self.type_material_table, self.reference_table]
+        ) and self.db_client.column_exists(self.table, "basionym_id")
+
+    def _reference_columns(self, alias: str, prefix: str) -> str:
+        return ", ".join(
+            f"{alias}.{_quoted(column)} AS {_quoted(prefix + column)}"
+            for column in REFERENCE_COLUMNS
+            if column != "reference_id"
+        )
+
+    async def taxonomy_detail(self, query: str) -> dict | None:
+        """Classification, nomenclature, name usages and type material.
+
+        Types are attached to the name they were designated for, which for a
+        recombined species is its original combination rather than the
+        accepted name, so they are gathered across every usage of the taxon.
+
+        Returns None when the name does not resolve to a species.
+        """
+        taxon = await self.search(query)
+        if not taxon or not taxon.get("species") or not taxon.get("colId"):
+            return None
+        accepted_id = taxon["colId"]
+        detail = self._detail_available()
+
+        try:
+            usages = self._usage_rows(accepted_id, detail)
+            usage_ids = [row["usage_id"] for row in usages]
+            types = self._type_rows(usage_ids) if detail and usage_ids else []
+        except duckdb.Error as error:
+            logger.error(f"CoL taxonomy detail lookup failed for '{query}': {error}")
+            usages, types = [], []
+
+        name_usages = [self._name_usage(row, accepted_id) for row in usages]
+        # Accepted name, then the original combination, then the rest by date.
+        name_usages.sort(
+            key=lambda usage: (
+                not usage.isAccepted,
+                not usage.isBasionym,
+                usage.year or 9999,
+                usage.name.lower(),
+            )
+        )
+        input_name = taxon.get("inputName")
+        if input_name:
+            recorded = binomial_name(input_name.replace("_", " ")).capitalize()
+            known = {binomial_name(usage.name).lower() for usage in name_usages}
+            if recorded and recorded.lower() not in known:
+                name_usages.append(
+                    ColNameUsage(name=recorded, status="recorded", isRecorded=True)
+                )
+
+        detail_payload = ColTaxonomyDetail(
+            classification=ColTaxonomy.model_validate(taxon),
+            nomenclature=self._nomenclature(taxon, usages, accepted_id),
+            nameUsages=name_usages,
+            typeMaterial=[
+                ColTypeSpecimen.from_row(row)
+                for row in sorted(types, key=self._type_sort_key)
+            ],
+            detailAvailable=detail,
+        )
+        return detail_payload.model_dump(by_alias=True)
+
+    def _usage_rows(self, accepted_id: str, detail: bool) -> list[dict]:
+        """The accepted usage, its synonyms, and its basionym if elsewhere."""
+        if detail:
+            extra = f"""
+                u.name_status, u.name_published_in_page,
+                coalesce(u.usage_id = acc.basionym_id, false) AS is_basionym,
+                {self._reference_columns("r", "ref_")}
+            """
+            basionym_clause = "OR u.usage_id = acc.basionym_id"
+            reference_join = (
+                f"LEFT JOIN {self.reference_table} AS r "
+                "ON r.reference_id = u.name_reference_id"
+            )
+        else:
+            extra = """
+                NULL AS name_status, NULL AS name_published_in_page,
+                false AS is_basionym
+            """
+            basionym_clause = ""
+            reference_join = ""
+        rows = self.db_client.execute_prepared_to_pl(
+            f"""
+            SELECT u.usage_id, u.scientific_name, u.authorship, u.status,
+                   u.taxon_rank, {extra}
+            FROM {self.table} AS u
+            JOIN {self.table} AS acc ON acc.usage_id = ?
+            {reference_join}
+            WHERE (u.usage_id = acc.usage_id
+                   OR (u.accepted_id = acc.usage_id AND NOT u.is_accepted)
+                   {basionym_clause})
+              AND u.taxon_rank IN ('species', 'subspecies')
+            """,
+            [accepted_id],
+        )
+        return [] if rows is None else rows.to_dicts()
+
+    def _type_rows(self, usage_ids: list[str]) -> list[dict]:
+        placeholders = ", ".join("?" for _ in usage_ids)
+        rows = self.db_client.execute_prepared_to_pl(
+            f"""
+            SELECT t.*, u.scientific_name AS typified_name,
+                   {self._reference_columns("r", "ref_")}
+            FROM {self.type_material_table} AS t
+            JOIN {self.table} AS u ON u.usage_id = t.name_id
+            LEFT JOIN {self.reference_table} AS r
+                   ON r.reference_id = t.reference_id
+            WHERE t.name_id IN ({placeholders})
+            """,
+            usage_ids,
+        )
+        return [] if rows is None else rows.to_dicts()
+
+    @staticmethod
+    def _type_sort_key(row: dict) -> tuple:
+        status = (row.get("status") or "").strip().lower()
+        order = (
+            TYPE_STATUS_ORDER.index(status)
+            if status in TYPE_STATUS_ORDER
+            else len(TYPE_STATUS_ORDER)
+        )
+        return (
+            order,
+            row.get("typified_name") or "",
+            row.get("catalog_number") or "",
+        )
+
+    @staticmethod
+    def _name_usage(row: dict, accepted_id: str) -> ColNameUsage:
+        authorship = (row.get("authorship") or "").strip() or None
+        reference = ColReference.from_row(row, "ref_")
+        return ColNameUsage(
+            colId=row.get("usage_id"),
+            name=(row.get("scientific_name") or "").strip(),
+            authorship=authorship,
+            rank=row.get("taxon_rank"),
+            status=(row.get("status") or "synonym").strip(),
+            isAccepted=row.get("usage_id") == accepted_id,
+            isBasionym=bool(row.get("is_basionym"))
+            and row.get("usage_id") != accepted_id,
+            nameStatus=(row.get("name_status") or "").strip() or None,
+            publishedIn=reference,
+            publishedInPage=(row.get("name_published_in_page") or "").strip() or None,
+            year=year_from(authorship) or (reference.year if reference else None),
+        )
+
+    @staticmethod
+    def _nomenclature(
+        taxon: dict, usages: list[dict], accepted_id: str
+    ) -> ColNomenclature:
+        accepted = next((row for row in usages if row["usage_id"] == accepted_id), {})
+        basionym = next(
+            (
+                row
+                for row in usages
+                if row.get("is_basionym") and row["usage_id"] != accepted_id
+            ),
+            None,
+        )
+        authorship = (
+            accepted.get("authorship") or taxon.get("authorship") or ""
+        ).strip() or None
+        source = basionym or accepted
+        reference = ColReference.from_row(source, "ref_") if source else None
+
+        if basionym:
+            is_original = False
+        elif authorship and authorship.startswith("("):
+            # Parenthesized authorship means the species was described in
+            # another genus, but CoL does not link which combination.
+            is_original = None
+        else:
+            is_original = True
+
+        original_authorship = (
+            (basionym.get("authorship") or "").strip() or None if basionym else None
+        )
+        return ColNomenclature(
+            acceptedName=accepted.get("scientific_name")
+            or taxon.get("scientificName")
+            or taxon.get("species"),
+            authorship=authorship,
+            nameStatus=(accepted.get("name_status") or "").strip() or None,
+            originalCombination=basionym.get("scientific_name") if basionym else None,
+            originalAuthorship=original_authorship,
+            isOriginalCombination=is_original,
+            originalPublication=reference,
+            originalPublicationPage=(
+                (source.get("name_published_in_page") or "").strip() or None
+                if source
+                else None
+            ),
+            year=year_from(original_authorship or authorship)
+            or (reference.year if reference else None),
+        )
 
     async def close(self) -> None:
         """No-op kept for symmetry with the HTTP client this replaced."""

@@ -131,3 +131,73 @@ export function GlobeIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/**
+ * Harmonized taxonomy.
+ *
+ * A cladogram rather than an org-chart tree: one root splitting into three
+ * tips, with the tips as the subject — the names the harmonization resolves —
+ * and the branches behind them in the supporting tone.
+ */
+export function TaxonomyIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M4 12H8" />
+          <path d="M8 5.6V18.4" />
+          <path d="M8 5.6H15.4" />
+          <path d="M8 12H15.4" />
+          <path d="M8 18.4H15.4" />
+        </>
+      }
+    >
+      <circle cx="17.8" cy="5.6" r="2.2" />
+      <circle cx="17.8" cy="12" r="2.2" />
+      <circle cx="17.8" cy="18.4" r="2.2" />
+    </IconBase>
+  );
+}
+
+const NET_R = 1.6;
+const NET_INPUTS: Array<[number, number]> = [
+  [4.6, 8.2],
+  [4.6, 15.8],
+];
+const NET_HIDDEN: Array<[number, number]> = [
+  [12, 4.6],
+  [12, 12],
+  [12, 19.4],
+];
+const NET_OUTPUT: [number, number] = [19.4, 12];
+
+/** A connection between two units, trimmed to their rims so no edge shows inside a unit. */
+function netEdge([x1, y1]: [number, number], [x2, y2]: [number, number]) {
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  const dx = ((x2 - x1) / len) * NET_R;
+  const dy = ((y2 - y1) / len) * NET_R;
+  const f = (n: number) => n.toFixed(2);
+  return `M${f(x1 + dx)} ${f(y1 + dy)}L${f(x2 - dx)} ${f(y2 - dy)}`;
+}
+
+/**
+ * Machine learning.
+ *
+ * A three-layer network, two inputs to three hidden units to one output. The
+ * connections are the context and the units the subject; fewer units than the
+ * obvious 3-4-2 so the edges stay countable at the 16px the hero pills use.
+ */
+export function NetworkIcon(props: IconProps) {
+  const edges = [
+    ...NET_INPUTS.flatMap((a) => NET_HIDDEN.map((b) => netEdge(a, b))),
+    ...NET_HIDDEN.map((a) => netEdge(a, NET_OUTPUT)),
+  ];
+  return (
+    <IconBase {...props} secondary={<path d={edges.join("")} />}>
+      {[...NET_INPUTS, ...NET_HIDDEN, NET_OUTPUT].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={NET_R} />
+      ))}
+    </IconBase>
+  );
+}
