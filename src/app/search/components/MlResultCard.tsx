@@ -114,14 +114,16 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
-            <Image
+            <div className="relative aspect-square w-full max-w-32">
+              <Image
               src={imageUrl || `/api/image/${data.imgId}`}
               alt={`Image of ${data.species}`}
-              width={IMAGE_SIZE}
-              height={IMAGE_SIZE}
-              className="mx-auto object-contain"
+              fill
+              sizes={`${IMAGE_SIZE}px`}
+              className="object-contain"
               unoptimized
-            />
+              />
+            </div>
           </div>
 
           <h2 className={`text-sm text-center italic w-full ${toolNames ? "break-words text-deep-mocha-800 dark:text-deep-mocha-100" : "truncate text-deep-mocha-400"}`}>
@@ -232,14 +234,16 @@ function TopResultCard({ data }: { data: MlResultItems }) {
           <div className="flex gap-12 items-start m-4 p-3">
             <div className="flex flex-col items-start">
               {speciesImageUrl && (
-                <Image
-                  src={speciesImageUrl}
-                  alt={`Matched image of ${data.species}`}
-                  width={260}
-                  height={260}
-                  className="rounded-lg object-contain"
-                  unoptimized
-                />
+                <div className="relative aspect-square w-[260px] max-w-full">
+                  <Image
+                    src={speciesImageUrl}
+                    alt={`Matched image of ${data.species}`}
+                    fill
+                    sizes="260px"
+                    className="rounded-lg object-contain"
+                    unoptimized
+                  />
+                </div>
               )}
             </div>
 
@@ -252,14 +256,16 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                       key={index}
                       className="p-3 border border-deep-mocha-500 rounded-lg bg-deep-mocha-100 dark:bg-deep-mocha-700"
                     >
-                      <Image
-                        src={url}
-                        alt={`Other image ${index + 1} of ${data.species}`}
-                        width={70}
-                        height={70}
-                        className="rounded-lg object-contain"
-                        unoptimized
-                      />
+                      <div className="relative h-[70px] w-[70px]">
+                        <Image
+                          src={url}
+                          alt={`Other image ${index + 1} of ${data.species}`}
+                          fill
+                          sizes="70px"
+                          className="rounded-lg object-contain"
+                          unoptimized
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
