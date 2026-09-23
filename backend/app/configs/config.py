@@ -616,7 +616,9 @@ class OpenAIConfig:
 
     @property
     def model(self) -> str | None:
-        return self._openai_config.get("model", "gpt-4")
+        return (os.getenv("LLM_MODEL") or "").strip() or self._openai_config.get(
+            "model", "gpt-4"
+        )
 
 
 class PromptsConfig:

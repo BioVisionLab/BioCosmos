@@ -33,9 +33,16 @@ export function SemanticSearchDescription() {
     <div className="space-y-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-200">
       <p>
         Search by common name, appearance, location, or habitat, or find species
-        similar to a named species. Circles show which search functions matched
-        each result.
+        similar to a named species.
       </p>
+    </div>
+  );
+}
+
+export function SemanticSearchLegend() {
+  return (
+    <div className="space-y-3 text-center text-sm text-deep-mocha-700 dark:text-deep-mocha-200">
+      <p>Circles show which search functions matched each result.</p>
       <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2" aria-label="Search function legend">
         {SEARCH_FUNCTIONS.map((definition) => (
           <li key={definition.name} className="flex items-center gap-2">

@@ -3,13 +3,19 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import polars as pl
 import pytest
 from app.configs.config import PromptsConfig
-from app.services.agent import AgentSearchService, AgentToolFailureError
+from app.services.agent import (
+    AgentConfigurationError,
+    AgentSearchService,
+    AgentToolFailureError,
+)
 from app.services.agent_tools import build_tool_registry
 from app.services.gbif import GbifPersistData
 from app.services.images import ImagePersistData
+from openai import AuthenticationError, PermissionDeniedError
 
 
 def tool_call(name: str, arguments: str):
@@ -475,3 +481,38 @@ async def test_unmatched_similarity_reference_returns_no_matches():
     service = _similarity_service(species_ids=[], genus_ids=[])
     assert await service._search_by_image_similarity("unknown butterfly", None) == []
     service.image_service.find_similar_images.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error_type", "status"),
+    [(AuthenticationError, 401), (PermissionDeniedError, 403)],
+)
+async def test_planner_access_failure_returns_safe_configuration_error(
+    error_type, status
+):
+    import json
+    from unittest.mock import patch
+
+    from app.routers import agent_search as router_module
+
+    response = httpx.Response(
+        status, request=httpx.Request("POST", "https://provider.test")
+    )
+    provider_error = error_type("private provider detail", response=response, body=None)
+    service = AgentSearchService.__new__(AgentSearchService)
+    service.client = MagicMock()
+    service.client.chat.completions.create.side_effect = provider_error
+    service.model = "configured-model"
+    service.system_prompt = "Search species"
+    service.tool_definitions = []
+
+    with pytest.raises(AgentConfigurationError):
+        await service._plan("blue butterfly")
+
+    with patch.object(router_module, "AgentSearchService", return_value=service):
+        result = await router_module.agent_search(SimpleNamespace(), "blue butterfly")
+    assert result.status_code == 503
+    error = json.loads(result.body)["error"]
+    assert "configured model access" in error
+    assert "private provider detail" not in error

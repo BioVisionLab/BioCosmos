@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 import polars as pl
 from fastapi import Request
-from openai import APITimeoutError, OpenAI
+from openai import APITimeoutError, AuthenticationError, OpenAI, PermissionDeniedError
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -251,6 +251,10 @@ class AgentSearchService:
                 max_tokens=PLANNER_MAX_TOKENS,
                 timeout=PLANNER_TIMEOUT_SECONDS,
             )
+        except (AuthenticationError, PermissionDeniedError) as exc:
+            raise AgentConfigurationError(
+                "The planner provider denied access to the configured model."
+            ) from exc
         except APITimeoutError as exc:
             logger.exception("Planner request timed out.")
             raise AgentPlannerTimeoutError("The planner request timed out.") from exc
