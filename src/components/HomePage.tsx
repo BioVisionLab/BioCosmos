@@ -16,15 +16,22 @@ import Logo from "./Logo";
 import ColorSearch from "./ColorSearch";
 import { ButterflyIcon } from "./ui/icons";
 
+interface HomeSlots {
+  dataSummary?: ReactNode;
+  countryDiversity?: ReactNode;
+}
+
 /**
  * @param dataSummary The collection summary, rendered on the server and
  *   passed in as a slot so this client component does not have to fetch it.
+ * @param countryDiversity The species-by-country map section, a slot for the
+ *   same reason.
  */
-export default function HomePage({ dataSummary }: { dataSummary?: ReactNode }) {
+export default function HomePage({ dataSummary, countryDiversity }: HomeSlots) {
   return (
     <div className="flex flex-col items-center min-h-screen">
       <Hero />
-      <HomeContent dataSummary={dataSummary} />
+      <HomeContent dataSummary={dataSummary} countryDiversity={countryDiversity} />
       {/* spacer between homepage content and the site footer */}
       <div className="h-8 md:h-14 lg:h-16" aria-hidden="true" />
     </div>
@@ -144,7 +151,7 @@ function Hero() {
   );
 }
 
-function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
+function HomeContent({ dataSummary, countryDiversity }: HomeSlots) {
   const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
 
   // Chosen once per mount. `getSpeciesList()` shuffles, so calling it from
@@ -169,7 +176,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
   if (backendAlive === null) {
     return (
       <div className="mt-12">
-        <ImageLoading size={240} msg="Connecting to backend" />
+        <ImageLoading size={240} msg="Connecting to BioCosmos" />
       </div>
     );
   }
@@ -178,7 +185,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
     return (
       <div className="mt-12 text-center flex flex-col items-center px-4">
         <p className="text-burnt-peach-600 dark:text-burnt-peach-400 mb-2">
-          Unable to connect to the backend service.
+          Unable to connect to BioCosmos.
         </p>
         <p className="text-deep-mocha-600 dark:text-deep-mocha-400 text-sm max-w-md">
           This usually occurs during website updates (approx. 3-15 minutes
@@ -216,6 +223,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
 
       <ColorSearch />
       {dataSummary}
+      {countryDiversity}
     </div>
   );
 }

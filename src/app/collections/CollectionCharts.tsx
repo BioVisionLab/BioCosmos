@@ -15,7 +15,9 @@ import {
   CartesianGrid,
 } from "recharts";
 
+import CountryDiversityPanel from "@/components/CountryDiversityPanel";
 import { NoData } from "@/components/NoData";
+import type { CountryDiversity } from "@/lib/countryDiversity";
 import { fetchEmbeddingStats, type EmbeddingSummary } from "@/lib/metaStats";
 import { toSentenceCase, toSpeciesName } from "@/lib/textUtils";
 
@@ -690,11 +692,13 @@ export default function CollectionCharts({
   entriesByFamilyValidated,
   topTenSpecies,
   institutionCounts,
+  countryDiversity,
 }: {
   entriesByFamily: Record<string, number> | null;
   entriesByFamilyValidated: Record<string, number> | null;
   topTenSpecies: Record<string, number> | null;
   institutionCounts: Record<string, number> | null;
+  countryDiversity: CountryDiversity | null;
 }) {
   // min-w-0: a grid item defaults to the width of its content, so without
   // this the charts would widen their own column instead of scrolling.
@@ -767,6 +771,21 @@ export default function CollectionCharts({
           </p>
         </div>
       )}
+
+      {/* Full width, under the Top 10 / Institutions row: a world map is
+          unreadable at half the page. */}
+      <div className={`${cardClasses} xl:col-span-2`}>
+        <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
+          Species Diversity by Country
+        </h3>
+        <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
+          Distinct accepted species per country. Countries come from the
+          coordinate validation against GADM, not from recorded locality
+          text; where no country was recorded it is imputed from the
+          coordinate.
+        </p>
+        <CountryDiversityPanel data={countryDiversity} />
+      </div>
 
       <div className={`${cardClasses} xl:col-span-2`}>
         <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">

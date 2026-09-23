@@ -1,4 +1,5 @@
 
+import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchTaxonStats } from "@/lib/metaStats";
 import CollectionCharts from "./CollectionCharts";
 import BackLink from "@/components/BackLink";
@@ -7,7 +8,10 @@ import BackLink from "@/components/BackLink";
 export const dynamic = "force-dynamic";
 
 export default async function CollectionsPage() {
-  const data = await fetchTaxonStats();
+  const [data, countryDiversity] = await Promise.all([
+    fetchTaxonStats(),
+    fetchCountryDiversity(),
+  ]);
   const statsUnavailable = data === null;
 
   const summaryStats = [
@@ -92,7 +96,8 @@ export default async function CollectionsPage() {
         <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
           Proportion of image entries across butterfly families before and
           after taxonomy validation, the top ten most-represented species in
-          the collection, the holding institutions behind the collection, and
+          the collection, the holding institutions behind the collection,
+          species diversity by validated country, and
           how the CLIP and UNICOM embedding spaces behind image search are
           distributed.
         </p>
@@ -101,6 +106,7 @@ export default async function CollectionsPage() {
           entriesByFamilyValidated={data?.entriesByFamilyValidated ?? null}
           topTenSpecies={data?.topTenSpecies ?? null}
           institutionCounts={data?.institutionCounts ?? null}
+          countryDiversity={countryDiversity}
         />
       </section>
     </main>

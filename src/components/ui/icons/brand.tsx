@@ -95,3 +95,30 @@ export function SummaryIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/**
+ * Species diversity by country.
+ *
+ * A globe with its meridian and parallels in the supporting tone, and one
+ * continent-like patch as the subject: the section is about where species
+ * were recorded, not about navigation, so no pin.
+ */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M3.4 12H20.6" />
+          <path d="M12 3.4C9.6 6 8.6 9 8.6 12C8.6 15 9.6 18 12 20.6" />
+          <path d="M12 3.4C14.4 6 15.4 9 15.4 12C15.4 15 14.4 18 12 20.6" />
+        </>
+      }
+    >
+      <circle cx="12" cy="12" r="8.6" />
+      <Detail>
+        <path d="M6.2 8.2C7.6 7.4 9.2 7.8 9.8 9C10.2 10.2 9.2 11 8.2 11.4C7.2 11.8 6.4 11.2 6 10.2" />
+      </Detail>
+    </IconBase>
+  );
+}
