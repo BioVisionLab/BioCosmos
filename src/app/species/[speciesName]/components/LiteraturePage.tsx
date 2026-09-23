@@ -88,18 +88,8 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
         <Info>
           <p>
             This literature list is automatically fetched from <CrossRefLink />{" "}
-            and kept only when the title or abstract names the taxon; it may
-            still contain irrelevant publications.
-            {synonymsSearched.length > 0 ? (
-              <>
-                {" "}
-                Searched under the accepted name <em>{acceptedName}</em> and{" "}
-                {synonymsSearched.length === 1
-                  ? "an earlier name"
-                  : `${synonymsSearched.length} earlier names`}
-                : <NameList names={synonymsSearched} />.
-              </>
-            ) : null}
+            and kept only when the title or abstract matches the taxon name. It
+            may still contain irrelevant publications.
           </p>
         </Info>
         {partial ? <PartialNotice /> : null}
@@ -114,8 +104,19 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
             </span>
           </h2>
           <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400 mb-2">
-            Publications naming this species, newest first, from about the past
-            30 years.
+            Publications found for this species from about the past 30 years.
+            {synonymsSearched.length > 0 ? (
+              <>
+                {" "}
+                Searched under the accepted name <em>
+                  {acceptedName}
+                </em> and{" "}
+                {synonymsSearched.length === 1
+                  ? "an earlier name"
+                  : `${synonymsSearched.length} earlier names`}
+                : <NameList names={synonymsSearched} />.
+              </>
+            ) : null}
           </p>
           <PublicationsList publications={species} />
         </section>
@@ -141,8 +142,8 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
 function PartialNotice() {
   return (
     <p className="text-sm text-amber-700 dark:text-amber-400 mt-2">
-      CrossRef did not answer every search, so this list may be incomplete.
-      Try again in a few minutes.
+      CrossRef did not answer every search, so this list may be incomplete. Try
+      again in a few minutes.
     </p>
   );
 }

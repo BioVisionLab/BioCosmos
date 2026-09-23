@@ -134,6 +134,35 @@ export function provenanceOf(
 }
 
 /**
+ * The homepage of each aggregator a record can come from, keyed by the
+ * lowercase `source_db` value. Shared with the collections page so the two
+ * never disagree about where a source lives.
+ */
+export const SOURCE_DB_HOMEPAGES: Record<string, string> = {
+  gbif: "https://www.gbif.org/",
+  ecdysis: "https://ecdysis.org/",
+  scanbugs: "https://scan-all-bugs.org/",
+};
+
+/**
+ * A `source_db` value split into its aggregators, each with its homepage when
+ * known. A record published to more than one carries a slash-joined value
+ * (e.g. `gbif/scanbugs`), and each part links on its own.
+ */
+export function sourceDbParts(
+  sourceDb: string,
+): { name: string; homepage: string | null }[] {
+  return sourceDb
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((name) => ({
+      name,
+      homepage: SOURCE_DB_HOMEPAGES[name.toLowerCase()] ?? null,
+    }));
+}
+
+/**
  * Where "Source Link" points: the occurrence record in its own database.
  *
  * `uuid` holds a full URL for most sources and a bare identifier for others,

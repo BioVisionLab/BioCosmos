@@ -17,6 +17,7 @@ import {
   SpecimenImageMeta,
   SpecimenProvenance,
   sourceDbHref,
+  sourceDbParts,
 } from "@/lib/imageMetadata";
 
 export const METADATA_LABEL = "font-medium whitespace-nowrap";
@@ -178,10 +179,27 @@ export function MetadataLinks({
       <div className="flex items-baseline gap-1 min-w-0">
         <span className={METADATA_LABEL}>Source DB:</span>
         {/* The aggregator that published the record, not the institution that
-            holds the specimen, and not a link: the link to this record is one
-            of the three below. */}
-        <span className={`truncate uppercase ${METADATA_VALUE}`}>
-          {sourceDb}
+            holds the specimen. It links to the aggregator's homepage; the
+            link to this record itself is "Source Link" below. */}
+        <span className="truncate">
+          {sourceDbParts(sourceDb).map(({ name, homepage }, i) => (
+            <span key={`${name}-${i}`}>
+              {i > 0 && <span className={METADATA_VALUE}>/</span>}
+              {homepage ? (
+                <a
+                  href={homepage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`uppercase ${METADATA_LINK}`}
+                  aria-label={`${name.toUpperCase()} website`}
+                >
+                  {name}
+                </a>
+              ) : (
+                <span className={`uppercase ${METADATA_VALUE}`}>{name}</span>
+              )}
+            </span>
+          ))}
         </span>
       </div>
 
