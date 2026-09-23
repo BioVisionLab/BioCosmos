@@ -19,7 +19,7 @@ import duckdb
 from ..configs.config import ColConfig
 from ..database.duckdb import DuckDBClient
 from ..database.ingestion_state import IngestionState, file_fingerprint
-from ..database.model import ColTaxonomy
+from ..database.model import ColTaxonomy, binomial_name
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,10 @@ COL_KEPT_RANKS = (
 )
 
 ACCEPTED_STATUSES = ("accepted", "provisionally accepted")
+
+# Congeners are only used to label genus-level literature hits, so a large
+# genus does not need every member; this keeps the payload bounded.
+MAX_CONGENERS = 200
 
 # CoL is read once per release; these are the lookups the API actually makes.
 COL_INDEXES = {
@@ -537,6 +541,107 @@ class ColTaxonSearch:
             [_canonical_name(query) or normalized, rank_norm],
             f"{query} ({rank})",
         )
+
+    async def name_usages(self, query: str) -> dict | None:
+        """Every name a species has been published under, plus its congeners.
+
+        The literature search needs more than the accepted name: papers written
+        before a genus transfer use the old combination, and a species with
+        little literature of its own is best put in context by its genus. Both
+        lists come from the ingested backbone, one query each.
+
+        Returns None when the name does not resolve to a species.
+        """
+        taxon = await self.search(query)
+        if not taxon or not taxon.get("species") or not taxon.get("colId"):
+            return None
+        accepted_id = taxon["colId"]
+        accepted_name = taxon["species"]
+        genus = taxon.get("genus") or accepted_name.split(" ")[0]
+
+        synonyms: list[dict] = []
+        seen = {accepted_name.lower()}
+        try:
+            rows = self.db_client.execute_prepared_to_pl(
+                f"""
+                SELECT scientific_name, authorship, status
+                FROM {self.table}
+                WHERE accepted_id = ? AND NOT is_accepted
+                  AND taxon_rank = 'species'
+                ORDER BY scientific_name
+                """,
+                [accepted_id],
+            )
+            for row in [] if rows is None else rows.to_dicts():
+                name = binomial_name(row["scientific_name"] or "")
+                if name.count(" ") != 1 or name.lower() in seen:
+                    continue
+                seen.add(name.lower())
+                synonyms.append(
+                    {
+                        "name": name,
+                        "authorship": (row.get("authorship") or "").strip() or None,
+                        "status": (row.get("status") or "synonym").strip(),
+                    }
+                )
+
+            # The name the collection recorded counts too: it is what the page
+            # was reached by. Added after CoL's synonyms so a name CoL also
+            # lists keeps its authorship.
+            input_name = taxon.get("inputName")
+            if input_name:
+                recorded = binomial_name(input_name.replace("_", " ")).capitalize()
+                if recorded.count(" ") == 1 and recorded.lower() not in seen:
+                    seen.add(recorded.lower())
+                    synonyms.append(
+                        {"name": recorded, "authorship": None, "status": "recorded"}
+                    )
+                recorded_key = recorded.lower()
+            else:
+                recorded_key = None
+
+            # Most useful first, since a caller may only search a few: the name
+            # the collection recorded, then recombinations of the accepted
+            # epithet (the original combination and earlier genus placements,
+            # which is how older papers name the species), then the rest.
+            epithet = accepted_name.split(" ")[-1].lower()
+            synonyms.sort(
+                key=lambda s: (
+                    s["name"].lower() != recorded_key,
+                    s["name"].split(" ")[-1].lower() != epithet,
+                )
+            )
+
+            rows = self.db_client.execute_prepared_to_pl(
+                f"""
+                SELECT DISTINCT scientific_name
+                FROM {self.table}
+                WHERE genus_norm = ? AND is_accepted
+                  AND taxon_rank = 'species' AND usage_id <> ?
+                ORDER BY scientific_name
+                LIMIT {MAX_CONGENERS}
+                """,
+                [genus.lower(), accepted_id],
+            )
+            congeners = sorted(
+                {
+                    name
+                    for row in ([] if rows is None else rows.to_dicts())
+                    if (name := binomial_name(row["scientific_name"] or ""))
+                    and name.lower() != accepted_name.lower()
+                }
+            )
+        except duckdb.Error as error:
+            logger.error(f"CoL name usage lookup failed for '{query}': {error}")
+            congeners = []
+
+        return {
+            "accepted_name": accepted_name,
+            "genus": genus,
+            "family": taxon.get("family") or None,
+            "synonyms": synonyms,
+            "congeners": congeners,
+        }
 
     async def close(self) -> None:
         """No-op kept for symmetry with the HTTP client this replaced."""
