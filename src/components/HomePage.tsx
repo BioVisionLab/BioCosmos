@@ -1,6 +1,7 @@
 "use client"; // Mark this component as a Client Component
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
+import Link from "next/link";
 import { getSpeciesList } from "@/lib/speciesList";
 import { speciesImageUrl } from "@/lib/images";
 import SearchSwitcher from "./SearchSwitcher";
@@ -125,11 +126,12 @@ function Hero() {
           className="bc-rise mt-4 max-w-4xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
           style={{ animationDelay: "180ms" }}
         >
-          The BioCosmos engine pairs curated natural history records with modern
-          machine learning, revealing patterns in taxonomy, geography, and
-          coloration. We develop data validation and harmonization methods and
-          bring together disparate research-grade resources in on place, making
-          them accessible to researchers, educators, and enthusiasts alike.
+          The BioCosmos engine pairs curated natural history records with
+          emerging machine learning technologies, revealing patterns in
+          taxonomy, geography, and coloration. We develop data validation and
+          harmonization methods and bring together disparate research-grade
+          resources in on place, making them accessible to researchers,
+          educators, and enthusiasts alike.
         </p>
 
         <ul
@@ -227,7 +229,39 @@ function HomeContent({ dataSummary, countryDiversity }: HomeSlots) {
       <ColorSearch />
       {dataSummary}
       {countryDiversity}
+      <Acknowledgments />
     </div>
+  );
+}
+
+/**
+ * The closing note: the collection exists because museums digitized their
+ * drawers and curators keep the names behind them straight. Last on the page
+ * so it reads as a sign-off, and pointed at the collections page, where the
+ * holding institutions and aggregators are credited by name.
+ */
+function Acknowledgments() {
+  return (
+    <section className="w-full mt-16" aria-labelledby="acknowledgments-heading">
+      <LandingSectionHeading id="acknowledgments-heading" title="Thank You" />
+      <div className={LANDING_CONTAINER}>
+        <p className="max-w-3xl text-sm sm:text-base leading-relaxed text-deep-mocha-700 dark:text-deep-mocha-300">
+          This website would not be possible without the natural history
+          museums that care for and digitize their collections, the taxonomic
+          curators whose expertise keeps every name accurate, and all the
+          contributors who share their specimens, images, and records with the
+          world. Thank you.
+        </p>
+        <p className="mt-3 text-sm">
+          <Link
+            href="/collections"
+            className="text-pacific-blue-600 dark:text-pacific-blue-400 hover:underline"
+          >
+            See our data contributors →
+          </Link>
+        </p>
+      </div>
+    </section>
   );
 }
 
