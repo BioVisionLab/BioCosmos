@@ -53,7 +53,7 @@ export default async function CollectionsPage() {
       <BackLink />
       <h1 className="text-3xl font-bold mb-6">Collections</h1>
 
-      <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
+      <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
         Statistics on our current dataset, including the number of images,
         species, LepTrait entries, and entries aggregated by source databases
         (GBIF, Ecdysis, SCANBUGS, and others).
@@ -79,7 +79,7 @@ export default async function CollectionsPage() {
         className="mt-12"
       >
         <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
-        <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
+        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
           Image and metadata are provided by museum institutions and
           aggregated by data aggregators (GBIF, Ecdysis, and SCANBUGS). A
           record published to more than one aggregator is counted under
@@ -94,7 +94,7 @@ export default async function CollectionsPage() {
 
       <section aria-label="Collection visualizations" className="mt-12">
         <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
-        <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
+        <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
           Proportion of image entries across butterfly families before and
           after taxonomy validation, the top ten most-represented species in
           the collection, the holding institutions behind the collection, and

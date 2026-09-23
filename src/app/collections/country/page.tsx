@@ -20,7 +20,7 @@ export default async function CountryDiversityPage() {
       <BackLink href="/collections" label="Back to Collections" />
       <h1 className="text-3xl font-bold mb-6">Species Diversity by Country</h1>
 
-      <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
+      <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
         Distinct accepted species recorded in each country. A record counts
         when its coordinate falls in exactly one GADM region and nothing
         contradicts that region&apos;s country: either the recorded country

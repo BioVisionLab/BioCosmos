@@ -139,7 +139,13 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               in one place.
             </p>
 
-            <div className="bc-rise w-full" style={{ animationDelay: "240ms" }}>
+            {/* relative z-10: bc-rise leaves a transform behind, which makes
+                this a stacking context, and without a z-index the chips
+                below would paint over the open "Search by" list. */}
+            <div
+              className="bc-rise relative z-10 w-full"
+              style={{ animationDelay: "240ms" }}
+            >
               <SearchSwitcher align="start" className="mt-1" />
             </div>
 

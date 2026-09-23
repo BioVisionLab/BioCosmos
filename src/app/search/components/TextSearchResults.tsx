@@ -11,6 +11,7 @@ import {
   searchDatabase,
 } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail, imageUrlById } from "@/lib/images";
+import { safeWebUrl } from "@/lib/imageMetadata";
 import {
   cleanSpeciesName,
   formatSpeciesNameForUrl,
@@ -18,13 +19,53 @@ import {
   speciesUrlFromName,
   toBinomialName,
 } from "@/lib/names";
-import { FlaskConical, ChevronDown } from "lucide-react";
+import { FlaskConical } from "lucide-react";
+import SearchFieldSelect, {
+  type SearchFieldGroup,
+} from "@/components/SearchFieldSelect";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { SpecimenImageModal } from "@/components/SpecimenImageModal";
 import BackLink from "@/components/BackLink";
+
+const FIELD_GROUPS: SearchFieldGroup[] = [
+  { options: [{ value: "all", label: "All Fields" }] },
+  {
+    label: "Taxonomy (Highest to Lowest Rank)",
+    options: [
+      { value: "kingdom", label: "Kingdom" },
+      { value: "phylum", label: "Phylum" },
+      { value: "class", label: "Class" },
+      { value: "order", label: "Order" },
+      { value: "family", label: "Family" },
+      { value: "species", label: "Species" },
+    ],
+  },
+  {
+    label: "Specimen Metadata",
+    options: [
+      { value: "common_name", label: "Common Name" },
+      { value: "class_dv", label: "Dorso/Ventral View" },
+      { value: "sex", label: "Sex" },
+      { value: "life_stage", label: "Life Stage" },
+      { value: "source_db", label: "Source Database" },
+      { value: "update_status", label: "Taxon Status" },
+    ],
+  },
+  {
+    label: "Geography",
+    options: [
+      { value: "country", label: "Country" },
+      { value: "state_province", label: "State / Province" },
+      { value: "county", label: "County" },
+      { value: "locality", label: "Locality" },
+      { value: "coordinate", label: "Coordinate (100m radius)" },
+      { value: "validation_status", label: "Coordinate Status" },
+    ],
+  },
+];
 
 const IMAGE_SIZE = 128;
 const SPECIMEN_THUMB_SIZE = 48;
@@ -227,6 +268,53 @@ function renderCoordinateCell(
   return <span>{text}</span>;
 }
 
+/**
+ * The catalog number, with the holding institution beneath it: its full name
+ * linked to its website when public records give one, else the name or the
+ * recorded code on its own.
+ */
+function renderSpecimenIdCell(specimen: SpecimenMetadata) {
+  const {
+    catalog_number: catalogNumber,
+    institution_code: code,
+    institution_name: name,
+  } = specimen;
+  if (!catalogNumber && !code) {
+    return (
+      <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+    );
+  }
+  const holder = name ?? code;
+  const homepage = name ? safeWebUrl(specimen.institution_homepage) : null;
+  const holderTitle =
+    name && code && code !== name ? `${name} (${code})` : holder;
+  return (
+    <div className="flex flex-col gap-0.5 max-w-48">
+      <span className="whitespace-nowrap">{catalogNumber ?? "—"}</span>
+      {holder &&
+        (homepage ? (
+          <a
+            href={homepage}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={holderTitle ?? undefined}
+            aria-label={`${name} website`}
+            className="truncate text-xs text-pacific-blue-600 dark:text-pacific-blue-400 hover:underline"
+          >
+            {holder}
+          </a>
+        ) : (
+          <span
+            title={holderTitle ?? undefined}
+            className="truncate text-xs text-deep-mocha-500 dark:text-deep-mocha-400"
+          >
+            {holder}
+          </span>
+        ))}
+    </div>
+  );
+}
+
 function SpecimenThumbnail({
   imgId,
   species,
@@ -354,148 +442,18 @@ function DbSearch({
           >
             Search by:
           </label>
-          <div className="relative">
-            <select
-              id="search-field-select"
-              value={field}
-              onChange={(e) => {
-                const newField = e.target.value;
-                setField(newField);
-                setPage(1);
-                const newUrl = `/search?q=${encodeURIComponent(query)}&mode=text&field=${encodeURIComponent(newField)}&page=1`;
-                router.push(newUrl, { scroll: false });
-              }}
-              className="appearance-none bg-white/70 dark:bg-deep-mocha-800/60 backdrop-blur border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-hunter-green-500/60 shadow-xs hover:border-hunter-green-500/50 hover:shadow-sm transition-all text-deep-mocha-800 dark:text-deep-mocha-100 cursor-pointer font-medium"
-            >
-              <option value="all">All Fields</option>
-              <optgroup
-                label="Taxonomy (Highest to Lowest Rank)"
-                className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
-              >
-                <option
-                  value="kingdom"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Kingdom
-                </option>
-                <option
-                  value="phylum"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Phylum
-                </option>
-                <option
-                  value="class"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Class
-                </option>
-                <option
-                  value="order"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Order
-                </option>
-                <option
-                  value="family"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Family
-                </option>
-                <option
-                  value="species"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Species
-                </option>
-              </optgroup>
-              <optgroup
-                label="Specimen Metadata"
-                className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
-              >
-                <option
-                  value="common_name"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Common Name
-                </option>
-                <option
-                  value="class_dv"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Class DV (View)
-                </option>
-                <option
-                  value="sex"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Sex
-                </option>
-                <option
-                  value="life_stage"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Life Stage
-                </option>
-                <option
-                  value="source_db"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Source Database
-                </option>
-                <option
-                  value="update_status"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Taxon Status
-                </option>
-              </optgroup>
-              <optgroup
-                label="Geography"
-                className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
-              >
-                <option
-                  value="country"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Country
-                </option>
-                <option
-                  value="state_province"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  State / Province
-                </option>
-                <option
-                  value="county"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  County
-                </option>
-                <option
-                  value="locality"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Locality
-                </option>
-                <option
-                  value="coordinate"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Coordinate (100m radius)
-                </option>
-                <option
-                  value="validation_status"
-                  className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-                >
-                  Coordinate Status
-                </option>
-              </optgroup>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-deep-mocha-500 dark:text-deep-mocha-400">
-              <ChevronDown className="h-4 w-4" aria-hidden="true" />
-            </div>
-          </div>
+          <SearchFieldSelect
+            id="search-field-select"
+            value={field}
+            onChange={(newField) => {
+              setField(newField);
+              setPage(1);
+              const newUrl = `/search?q=${encodeURIComponent(query)}&mode=text&field=${encodeURIComponent(newField)}&page=1`;
+              router.push(newUrl, { scroll: false });
+            }}
+            groups={FIELD_GROUPS}
+            className="w-56"
+          />
         </div>
       </div>
 
@@ -648,6 +606,9 @@ function DbSearchResults({
                         Family
                       </th>
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                        Specimen ID
+                      </th>
+                      <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Sex
                       </th>
                       <th className="hidden xl:table-cell px-4 py-3 font-semibold whitespace-nowrap">
@@ -726,6 +687,9 @@ function DbSearchResults({
                               highlight={query}
                               isMatched={matched.includes("family")}
                             />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            {renderSpecimenIdCell(specimen)}
                           </td>
                           <td className="px-4 py-3 align-middle capitalize">
                             <HighlightText

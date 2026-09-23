@@ -3,9 +3,41 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ChevronDown } from "lucide-react";
+import { Search } from "lucide-react";
+import SearchFieldSelect, {
+  type SearchFieldGroup,
+} from "./SearchFieldSelect";
 import SearchForm from "./SearchForm";
 import { SEARCH_PANEL } from "./searchPanel";
+
+const FIELD_GROUPS: SearchFieldGroup[] = [
+  { options: [{ value: "all", label: "All Fields" }] },
+  {
+    label: "Taxonomy",
+    options: [
+      { value: "kingdom", label: "Kingdom" },
+      { value: "phylum", label: "Phylum" },
+      { value: "class", label: "Class" },
+      { value: "order", label: "Order" },
+      { value: "family", label: "Family" },
+      { value: "species", label: "Species" },
+    ],
+  },
+  {
+    label: "Specimen Metadata",
+    options: [
+      { value: "common_name", label: "Common Name" },
+      { value: "class_dv", label: "Dorso/Ventral View" },
+      { value: "sex", label: "Sex" },
+      { value: "life_stage", label: "Life Stage" },
+      { value: "source_db", label: "Source Database" },
+    ],
+  },
+  {
+    label: "Geography",
+    options: [{ value: "coordinate", label: "Coordinate (10,000 km² area)" }],
+  },
+];
 
 export default function TextSearch() {
   const router = useRouter();
@@ -33,7 +65,7 @@ export default function TextSearch() {
   };
 
   return (
-    <div className={`${SEARCH_PANEL} flex flex-col items-center`}>
+    <div className={`${SEARCH_PANEL} flex flex-col items-center justify-center`}>
       <div className="mb-4 text-center text-deep-mocha-700 dark:text-deep-mocha-300 text-sm">
         <p>
           Conventional text-based search. Filter results by species, family,
@@ -56,106 +88,13 @@ export default function TextSearch() {
         >
           Search by:
         </label>
-        <div className="relative w-full max-w-[200px]">
-          <select
-            id="home-search-field-select"
-            value={field}
-            onChange={(e) => setField(e.target.value)}
-            className="appearance-none w-full bg-white/70 dark:bg-deep-mocha-800/60 backdrop-blur border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-hunter-green-500/60 shadow-xs hover:border-hunter-green-500/50 hover:shadow-sm transition-all text-deep-mocha-800 dark:text-deep-mocha-100 cursor-pointer font-medium"
-          >
-            <option value="all">All Fields</option>
-            <optgroup
-              label="Taxonomy"
-              className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
-            >
-              <option
-                value="kingdom"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Kingdom
-              </option>
-              <option
-                value="phylum"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Phylum
-              </option>
-              <option
-                value="class"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Class
-              </option>
-              <option
-                value="order"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Order
-              </option>
-              <option
-                value="family"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Family
-              </option>
-              <option
-                value="species"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Species
-              </option>
-            </optgroup>
-            <optgroup
-              label="Specimen Metadata"
-              className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
-            >
-              <option
-                value="common_name"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Common Name
-              </option>
-              <option
-                value="class_dv"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Dorso/Ventral View
-              </option>
-              <option
-                value="sex"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Sex
-              </option>
-              <option
-                value="life_stage"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Life Stage
-              </option>
-              <option
-                value="source_db"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Source Database
-              </option>
-            </optgroup>
-            <optgroup
-              label="Geography"
-              className="bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-500 dark:text-deep-mocha-400 font-semibold text-xs"
-            >
-              <option
-                value="coordinate"
-                className="text-deep-mocha-800 dark:text-deep-mocha-100 font-normal text-sm"
-              >
-                Coordinate (10,000 km² area)
-              </option>
-            </optgroup>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-deep-mocha-500 dark:text-deep-mocha-400">
-            <ChevronDown className="h-4 w-4" aria-hidden="true" />
-          </div>
-        </div>
+        <SearchFieldSelect
+          id="home-search-field-select"
+          value={field}
+          onChange={setField}
+          groups={FIELD_GROUPS}
+          className="w-full max-w-[220px]"
+        />
       </div>
 
       {searchError && (

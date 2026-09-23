@@ -15,6 +15,7 @@ import pytest
 from app.services.metadata import (
     SPECIMEN_COORDINATE_COLUMNS,
     SPECIMEN_LOCALITY_COLUMNS,
+    SPECIMEN_PROVENANCE_COLUMNS,
     ImageMetaService,
 )
 
@@ -153,6 +154,7 @@ def build_service(client) -> ImageMetaService:
     service.taxonomy_table = "image_meta_taxonomy"
     service.locality_table = "image_meta_locality"
     service.coordinates_table = "image_meta_coordinates"
+    service.provenance_table = "image_meta_provenance"
     service.db_client = client
     return service
 
@@ -224,7 +226,11 @@ class TestWithoutGeography:
             "species", "%danaus%", 50, 0
         )
         row = specimens.to_dicts()[0]
-        for column in SPECIMEN_LOCALITY_COLUMNS + SPECIMEN_COORDINATE_COLUMNS:
+        for column in (
+            SPECIMEN_LOCALITY_COLUMNS
+            + SPECIMEN_COORDINATE_COLUMNS
+            + SPECIMEN_PROVENANCE_COLUMNS
+        ):
             assert column in row, column
             assert row[column] is None, column
 
