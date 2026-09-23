@@ -149,6 +149,7 @@ def build_service(client) -> ImageMetaService:
     service.taxonomy_table = "image_meta_taxonomy"
     service.locality_table = "image_meta_locality"
     service.coordinates_table = "image_meta_coordinates"
+    service.provenance_table = "image_meta_provenance"
     service.db_client = client
     return service
 

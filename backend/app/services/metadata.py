@@ -6,7 +6,13 @@ from typing import List
 
 from instharmonize.sources import holder_code_sql
 
-from ..configs.config import ColConfig, GbifConfig, ImageMetaConfig, LocalityConfig
+from ..configs.config import (
+    ColConfig,
+    GbifConfig,
+    ImageMetaConfig,
+    LocalityConfig,
+    ProvenanceConfig,
+)
 from ..database.duckdb import DuckDBClient
 
 logger = logging.getLogger(__name__)
@@ -66,6 +72,14 @@ SPECIMEN_COORDINATE_COLUMNS = (
     "reference_adm1",
 )
 
+# Who holds the specimen and how they number it, from ProvenanceService. The
+# institution's full name and website are not joined here: they are keyed on
+# the code, not the image, and TextToDbSearch adds them per page.
+SPECIMEN_PROVENANCE_COLUMNS = (
+    "institution_code",
+    "catalog_number",
+)
+
 # `geoharmonize integrate` keys its output on the logical field it was told
 # to read, which is `source_id` whatever column fed it. The backend maps that
 # to img_id at the join rather than asking the tool to know our column names.
@@ -75,6 +89,7 @@ _OCCURRENCE_ALIAS = "occurrence"
 _TAXONOMY_ALIAS = "taxonomy"
 _LOCALITY_ALIAS = "locality_meta"
 _COORDINATE_ALIAS = "coordinates_meta"
+_PROVENANCE_ALIAS = "provenance_meta"
 
 # Which joined table owns each searchable column. Anything not listed here
 # belongs to image_meta itself.
@@ -82,6 +97,7 @@ _FIELD_OWNER = {
     **{name: _TAXONOMY_ALIAS for name in SPECIMEN_TAXONOMY_COLUMNS},
     **{name: _LOCALITY_ALIAS for name in SPECIMEN_LOCALITY_COLUMNS},
     **{name: _COORDINATE_ALIAS for name in SPECIMEN_COORDINATE_COLUMNS},
+    **{name: _PROVENANCE_ALIAS for name in SPECIMEN_PROVENANCE_COLUMNS},
 }
 
 
@@ -234,6 +250,7 @@ class ImageMetaService:
     _taxonomy_table_present: bool | None = None
     _locality_table_present: bool | None = None
     _coordinates_table_present: bool | None = None
+    _provenance_table_present: bool | None = None
 
     def __init__(self, duckdb: DuckDBClient):
         config = ImageMetaConfig()
@@ -245,10 +262,12 @@ class ImageMetaService:
         locality_config = LocalityConfig()
         self.locality_table = locality_config.table
         self.coordinates_table = locality_config.coordinates_table
+        self.provenance_table = ProvenanceConfig().table
         # Resolved lazily and cached; the tables appear at ingestion time.
         self._taxonomy_table_present: bool | None = None
         self._locality_table_present: bool | None = None
         self._coordinates_table_present: bool | None = None
+        self._provenance_table_present: bool | None = None
         self.db_client = duckdb
 
     def ingest(self):
@@ -685,6 +704,18 @@ class ImageMetaService:
             )
         return self._coordinates_table_present
 
+    def _provenance_available(self) -> bool:
+        """Whether the provenance table has been built.
+
+        Built at startup by ProvenanceService, and absent on a database whose
+        gbif_meta was never ingested.
+        """
+        if self._provenance_table_present is None:
+            self._provenance_table_present = self.db_client.table_exists(
+                self.provenance_table
+            )
+        return self._provenance_table_present
+
     def _optional_joins(
         self,
     ) -> tuple[tuple[bool, str, str, str, tuple[str, ...]], ...]:
@@ -711,12 +742,19 @@ class ImageMetaService:
                 COORDINATE_KEY_COLUMN,
                 SPECIMEN_COORDINATE_COLUMNS,
             ),
+            (
+                self._provenance_available(),
+                self.provenance_table,
+                _PROVENANCE_ALIAS,
+                "img_id",
+                SPECIMEN_PROVENANCE_COLUMNS,
+            ),
         )
 
     def specimen_source(self) -> str:
         """The FROM clause for a specimen listing.
 
-        Each of the three per-image tables is optional and joined only when it
+        Each of the per-image tables is optional and joined only when it
         exists: joining one that is not there would take the whole search
         endpoint down with a catalog error.
         """
@@ -761,6 +799,7 @@ class ImageMetaService:
             _TAXONOMY_ALIAS: self._taxonomy_available,
             _LOCALITY_ALIAS: self._locality_available,
             _COORDINATE_ALIAS: self._coordinates_available,
+            _PROVENANCE_ALIAS: self._provenance_available,
         }[alias]
         if not available():
             return "CAST(NULL AS VARCHAR)"

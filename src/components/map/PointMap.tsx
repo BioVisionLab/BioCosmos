@@ -7,6 +7,7 @@ import type { GeoJSONSource, MapLayerMouseEvent } from "maplibre-gl";
 import { useTheme } from "next-themes";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getBasemapAttribution, getBasemapStyleUrl } from "@/lib/map";
+import { addProjectionToggle, keepProjection } from "@/lib/mapProjection";
 import { configureMapLibreWorker } from "@/lib/maplibreWorker";
 
 const SOURCE_ID = "points";
@@ -150,6 +151,7 @@ export default function PointMap({
       new NavigationControl({ showCompass: false }),
       "top-right",
     );
+    addProjectionToggle(map);
 
     const popup = new Popup({
       closeButton: interaction === "click",
@@ -251,7 +253,7 @@ export default function PointMap({
     }
 
     styleUrlRef.current = styleUrl;
-    map.setStyle(styleUrl);
+    map.setStyle(styleUrl, keepProjection(map));
   }, [isDarkTheme, resolvedTheme]);
 
   useEffect(() => {

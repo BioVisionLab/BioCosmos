@@ -13,6 +13,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Landing headings, and the mono used for specimen labels and eyebrows. */
+  --font-display: "Poppins", "Segoe UI", system-ui, sans-serif;
+  --font-label: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   --color-frozen-water-50: #e5ffff;
   --color-frozen-water-100: #ccffff;
@@ -240,65 +243,156 @@ body {
   animation: bc-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* The wash behind the wordmark: a wide, heavily blurred ellipse in the brand
- * blues, breathing slowly. Positioned and sized here rather than as a dozen
- * arbitrary-value utilities at the call site, which is the only thing that
- * keeps the hero's JSX readable.
+/* Full-bleed breakout. A landing band runs edge to edge of the screen while
+ * its parent keeps the page's gutter and width. The parent must be an
+ * inline-size container (`@container`), so `cqw` measures the parent and the
+ * difference from `vw` is exactly the distance to the screen edge.
  *
- * Deliberately taller than the space above the logo and pulled well past the
- * hero's top edge, so its upper half runs behind the nav and off the top of
- * the document. The gradient therefore never resolves to a visible boundary:
- * it either fades to transparent or leaves the page. Its host section clips on
- * the x axis only, which is what lets that happen. Nav is z-1000, so it stays
- * in front of a z-0 glow.
- *
- * Light mode carries it at low opacity over white; dark mode needs a
- * saturated mid-tone at even lower opacity, because the same pale tint over
- * near-black reads as fog rather than light. */
-.bc-hero-glow {
+ * `--bc-gutter` is that distance, for content inside the band that has to
+ * line back up with the page column (the featured rail's first card, the
+ * hero's copy). The layout clips on the x axis, so the scrollbar's share of
+ * `100vw` cannot open a horizontal scroll. */
+.bc-bleed {
+  --bc-gutter: calc(50vw - 50cqw);
+  margin-inline: calc(50cqw - 50vw);
+}
+
+/* The hero's ground: millimetre graph paper, a fine 12px grid under a 60px
+ * major grid, in the pacific blue at very low alpha. It fades in from the top
+ * so the band has no hard upper edge under the nav, and out at the bottom
+ * into the page. */
+.bc-graph-paper {
+  position: relative;
+  isolation: isolate;
+}
+
+.bc-graph-paper::before {
+  content: "";
   position: absolute;
-  top: -11rem;
-  left: 50%;
-  z-index: 0;
-  width: min(48rem, 120vw);
-  height: 32rem;
-  transform: translateX(-50%);
+  inset: 0;
+  z-index: -1;
   pointer-events: none;
-  border-radius: 9999px;
-  filter: blur(64px);
-  opacity: 0.55;
-  background: radial-gradient(
-    closest-side,
-    var(--color-frozen-water-200),
-    var(--color-pacific-blue-100),
-    transparent
-  );
-  animation: bc-hero-breathe 14s ease-in-out infinite;
+  --bc-paper-fine: rgb(37 104 116 / 0.07);
+  --bc-paper-major: rgb(37 104 116 / 0.13);
+  background-image:
+    linear-gradient(var(--bc-paper-fine) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bc-paper-fine) 1px, transparent 1px),
+    linear-gradient(var(--bc-paper-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bc-paper-major) 1px, transparent 1px);
+  background-size:
+    12px 12px,
+    12px 12px,
+    60px 60px,
+    60px 60px;
+  mask-image: linear-gradient(transparent, #000 4rem, #000 calc(100% - 5rem), transparent);
 }
 
-.dark .bc-hero-glow {
-  opacity: 0.22;
-  background: radial-gradient(
-    closest-side,
-    var(--color-pacific-blue-600),
-    var(--color-hunter-green-800),
-    transparent
+.dark .bc-graph-paper::before {
+  --bc-paper-fine: rgb(139 206 218 / 0.05);
+  --bc-paper-major: rgb(139 206 218 / 0.1);
+}
+
+/* The hero's key phrases: coloured, with a thick soft underline that sits
+ * just under the baseline like a highlighter stroke. */
+.bc-key {
+  font-style: normal;
+  color: var(--color-hunter-green-700);
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-hunter-green-200);
+  text-decoration-thickness: 0.14em;
+  text-underline-offset: 0.12em;
+  text-decoration-skip-ink: none;
+}
+
+.bc-key-blue {
+  color: var(--color-pacific-blue-700);
+  text-decoration-color: var(--color-pacific-blue-200);
+}
+
+.dark .bc-key {
+  color: var(--color-hunter-green-200);
+  text-decoration-color: rgb(98 173 82 / 0.4);
+}
+
+.dark .bc-key-blue {
+  color: var(--color-pacific-blue-300);
+  text-decoration-color: rgb(62 173 193 / 0.35);
+}
+
+/* The collection figures: set in the brand gradient, green to blue. */
+.bc-gradient-text {
+  background-image: linear-gradient(
+    95deg,
+    var(--color-hunter-green-700) 0%,
+    var(--color-pacific-blue-600) 55%,
+    var(--color-pacific-blue-700) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.dark .bc-gradient-text {
+  background-image: linear-gradient(
+    95deg,
+    var(--color-hunter-green-300) 0%,
+    var(--color-pacific-blue-300) 60%,
+    var(--color-pacific-blue-400) 100%
   );
 }
 
-@keyframes bc-hero-breathe {
-  0%,
-  100% {
-    transform: translateX(-50%) scale(1);
+/* A specimen settling into its tray compartment when its image arrives,
+ * staggered by `--bc-i`. Backwards fill only: a held final frame would pin
+ * `transform` and stop the hover lift from ever applying. */
+@keyframes bc-settle {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
   }
-  50% {
-    transform: translateX(-50%) scale(1.08);
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bc-settle {
+  animation: bc-settle 800ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--bc-i, 0) * 60ms);
+}
+
+/* Scroll-driven entrances for the sections below the hero. Progressive: where
+ * `animation-timeline` is unsupported, or motion is reduced, everything simply
+ * sits at rest, fully visible. The animation only plays while an element
+ * enters the viewport, so nothing is ever parked invisible waiting on it. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .bc-reveal {
+      animation: bc-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+
+    .bc-bar {
+      transform-origin: left;
+      animation: bc-grow linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 40%;
+    }
+  }
+}
+
+@keyframes bc-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bc-rise,
-  .bc-hero-glow {
+  .bc-settle {
     animation: none;
   }
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FlaskConical } from "lucide-react";
 import { SemanticSearchDescription } from "./SemanticSearchFunctions";
 import SearchForm from "./SearchForm";
+import { SEARCH_PANEL } from "./searchPanel";
 
 export default function SemanticSearchBar() {
   const router = useRouter();
@@ -29,26 +30,24 @@ export default function SemanticSearchBar() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-[2px] mb-6 rounded-3xl bg-gradient-to-br from-hunter-green-400 via-pacific-blue-400 to-frozen-water-500 dark:from-hunter-green-600 dark:via-pacific-blue-600 dark:to-frozen-water-700 animate-spin-slow">
-      <div className="bg-hunter-green-50/50 dark:bg-deep-mocha-800/50 p-6 rounded-3xl backdrop-blur-sm">
-        <div className="mb-4 text-center text-deep-mocha-700 dark:text-deep-mocha-300 text-sm">
-          <SemanticSearchDescription />
-        </div>
-        <SearchForm
-          mode="semantic"
-          icon={FlaskConical}
-          onSubmit={handleSearch}
-          placeholder="Orange butterfly with black lines"
-        />
-        {searchError && (
-          <p
-            role="alert"
-            className="text-xs text-burnt-peach-500 mt-2 bg-burnt-peach-50 dark:bg-burnt-peach-900/30 border border-burnt-peach-200 dark:border-burnt-peach-800 rounded-md px-3 py-2"
-          >
-            {searchError}
-          </p>
-        )}
+    <div className={SEARCH_PANEL}>
+      <div className="mb-4 text-center text-deep-mocha-700 dark:text-deep-mocha-300 text-sm">
+        <SemanticSearchDescription />
       </div>
+      <SearchForm
+        mode="semantic"
+        icon={FlaskConical}
+        onSubmit={handleSearch}
+        placeholder="Orange butterfly with black lines"
+      />
+      {searchError && (
+        <p
+          role="alert"
+          className="text-xs text-burnt-peach-500 mt-2 bg-burnt-peach-50 dark:bg-burnt-peach-900/30 border border-burnt-peach-200 dark:border-burnt-peach-800 rounded-md px-3 py-2"
+        >
+          {searchError}
+        </p>
+      )}
     </div>
   );
 }

@@ -333,8 +333,15 @@ function InstitutionBarChart({
     }));
   }, [institutionCounts]);
 
+  // Wide enough for the longest name at 13px (about 7px a character), so a
+  // full name such as "Naturalis Biodiversity Center" is not clipped.
+  const axisWidth = Math.min(
+    240,
+    Math.max(80, Math.max(...data.map((d) => d.name.length)) * 7 + 12),
+  );
+
   return (
-    <ChartScroll minWidth={480}>
+    <ChartScroll minWidth={Math.max(480, axisWidth + 260)}>
       <ResponsiveContainer width="100%" height={Math.max(360, data.length * 40)}>
       <BarChart
         data={data}
@@ -364,9 +371,8 @@ function InstitutionBarChart({
         <YAxis
           type="category"
           dataKey="name"
-          width={150}
-          tick={{ fontSize: 13, fill: "#534646" }}
-          className="dark:fill-deep-mocha-300"
+          width={axisWidth}
+          tick={<InstitutionTick />}
           axisLine={false}
           tickLine={false}
         />
@@ -391,6 +397,31 @@ function InstitutionBarChart({
       </BarChart>
       </ResponsiveContainer>
     </ChartScroll>
+  );
+}
+
+/**
+ * An institution name on the axis. A plain `tick` object sets `fill` as an
+ * attribute Tailwind's `dark:` class cannot reach on the `<text>`, which left
+ * the names dark brown on the dark card.
+ */
+function InstitutionTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+}) {
+  const { x = 0, y = 0, payload } = props;
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={4}
+      textAnchor="end"
+      fontSize={13}
+      className="fill-deep-mocha-700 dark:fill-deep-mocha-300"
+    >
+      {payload?.value}
+    </text>
   );
 }
 

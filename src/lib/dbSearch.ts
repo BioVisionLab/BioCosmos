@@ -57,6 +57,14 @@ export interface SpecimenMetadata {
   /** Null unless exactly one GADM region matched the coordinate. */
   reference_country: string | null;
   reference_adm1: string | null;
+
+  // Who holds the specimen and how they number it. All null for occurrences
+  // with no GBIF record, and until the provenance table has been built. The
+  // name and website only when instharmonize resolved the code.
+  institution_code: string | null;
+  catalog_number: string | null;
+  institution_name: string | null;
+  institution_homepage: string | null;
 }
 
 export interface DbSearchResponse {
@@ -131,6 +139,10 @@ async function searchDatabase(
     adm1_check: item.adm1_check ?? null,
     reference_country: item.reference_country ?? null,
     reference_adm1: item.reference_adm1 ?? null,
+    institution_code: item.institution_code ?? null,
+    catalog_number: item.catalog_number ?? null,
+    institution_name: item.institution_name ?? null,
+    institution_homepage: item.institution_homepage ?? null,
   }));
 
   return {
