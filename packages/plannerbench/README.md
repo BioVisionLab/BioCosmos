@@ -38,7 +38,7 @@ the root `.venv`; activating it then switches your shell to that environment.
 
 ```bash
 # Linux only. On macOS uv sync should work without `env -u VIRTUAL_ENV`.
-env -u VIRTUAL_ENV uv sync --all-packages --locked
+uv sync --all-packages
 
 # Compare models on the UF endpoint
 uv run --env-file backend/.env plannerbench run \
@@ -59,25 +59,33 @@ plannerbench run --help
 
 Keep each line-continuation backslash at the end of its line. Leave the final
 `--repeats` line without a backslash. Run `deactivate` when finished.
-
-| Option             | Default                             | Meaning                                                                |
-| ------------------ | ----------------------------------- | ---------------------------------------------------------------------- |
-| `-m/--model`       | required                            | Model id; repeat to compare several                                    |
-| `--spec`           | `reports/planner/planner_spec.json` | Exported planner spec                                                  |
-| `--cases`          | packaged `cases.toml`               | Case file                                                              |
-| `--case`           | all                                 | Run only these case ids                                                |
-| `-n/--repeats`     | 3                                   | Calls per case and model; needed to measure consistency                |
-| `-j/--concurrency` | 4                                   | Requests in flight. Latency grows with load on a shared endpoint       |
-| `--temperature`    | provider default                    | The backend sets none, so the default matches production               |
-| `--base-url`       | `$LLM_API_URL`                      | OpenAI-compatible endpoint                                             |
-| `--api-key-env`    | `LLM_API_KEY`                       | Variable holding the key. The key is never written out                 |
-| `--max-retries`    | 0                                   | Off, so provider failures count as errors instead of hiding in latency |
-| `--no-write`       |                                     | Print only, do not save the run                                        |
+| Option                 | Default                             | Meaning                                                                |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------- |
+| `-m/--model`           | required                            | Model id; repeat to compare several                                    |
+| `--spec`               | `reports/planner/planner_spec.json` | Exported planner spec                                                  |
+| `--cases`              | packaged `cases.toml`               | Case file                                                              |
+| `--case`               | all                                 | Run only these case ids                                                |
+| `-n/--repeats`         | 5                                   | Calls per case and model; needed to measure consistency                |
+| `-j/--concurrency`     | 4                                   | Requests in flight, at most 10 (the NaviGator parallel limit)          |
+| `--rpm`                | 100                                 | Request budget per minute across all calls; 0 disables pacing          |
+| `--rate-limit-retries` | 3                                   | Retries for an HTTP 429 before it counts as an error                   |
+| `--temperature`        | provider default                    | The backend sets none, so the default matches production               |
+| `--base-url`           | `$LLM_API_URL`                      | OpenAI-compatible endpoint                                             |
+| `--api-key-env`        | `LLM_API_KEY`                       | Variable holding the key. The key is never written out                 |
+| `--max-retries`        | 0                                   | Off, so provider failures count as errors instead of hiding in latency |
+| `--no-write`           |                                     | Print only, do not save the run                                        |
 
 Models are interleaved within each case and repeat, so load changes on the
 shared endpoint affect every model alike. The configured API team must be
 authorized for every requested model; authorization failures are recorded as
 benchmark errors rather than model-quality results.
+
+NaviGator allows 120 requests per minute and 10 parallel requests per key.
+The default `--rpm 100` starts calls evenly (one every 0.6 s) and leaves room
+for the backend when it shares the key. An HTTP 429 that still gets through is
+retried after `Retry-After` (or exponential backoff) instead of being counted
+as a model error; latency covers only the final attempt. The packaged 18 cases
+x 5 repeats x 3 models is 270 calls, so plan on at least 2.7 minutes.
 
 ## Metrics
 
