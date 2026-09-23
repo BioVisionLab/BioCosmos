@@ -129,7 +129,7 @@ export default function ColorSearch() {
     <section className="w-full mt-16" aria-labelledby="visual-search-heading">
       <LandingSectionHeading
         id="visual-search-heading"
-        icon={<AppearanceIcon />}
+        icon={<AppearanceIcon size="sm" />}
         title="Explore by Appearance"
         description="Pick a colour or pattern to preview matching butterflies."
       />

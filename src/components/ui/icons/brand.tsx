@@ -19,10 +19,14 @@ export function ButterflyIcon(props: IconProps) {
         </>
       }
     >
-      <path d="M12 7C8.9 5 5.6 3.7 3.1 4.3C2 6.7 2.9 9.4 5.1 11C7.5 11.2 10 10.8 12 10.6Z" />
-      <path d="M12 7C15.1 5 18.4 3.7 20.9 4.3C22 6.7 21.1 9.4 18.9 11C16.5 11.2 14 10.8 12 10.6Z" />
-      <path d="M12 12.7C9.6 13.2 6.9 13.8 5.5 15.3C4.9 17.1 6.4 18.9 8.7 19.1C10.4 18.1 11.4 16.3 12 14.6Z" />
-      <path d="M12 12.7C14.4 13.2 17.1 13.8 18.5 15.3C19.1 17.1 17.6 18.9 15.3 19.1C13.6 18.1 12.6 16.3 12 14.6Z" />
+      <path d="M12 7C8.9 5 5.6 3.7 3.1 4.3C2 6.7 2.9 9.4 5.1 11C7.5 11.5 10 11.4 12 11.2Z" />
+      <path d="M12 7C15.1 5 18.4 3.7 20.9 4.3C22 6.7 21.1 9.4 18.9 11C16.5 11.5 14 11.4 12 11.2Z" />
+      {/* The hindwings start on the forewings' trailing edge, not below it: a
+          butterfly's wings overlap at the base, and with a gap between them
+          the glyph read as two moths stacked. Each hindwing is open along its
+          costa -- the forewing edge above is that line. */}
+      <path d="M6.5 11.2C5 12.7 4.7 15.4 5.7 17.2C6.5 18.6 7.8 19.2 8.7 19.1C10.4 18.1 11.4 16.3 12 14.6" />
+      <path d="M17.5 11.2C19 12.7 19.3 15.4 18.3 17.2C17.5 18.6 16.2 19.2 15.3 19.1C13.6 18.1 12.6 16.3 12 14.6" />
       <path d="M12 6V18.2" />
       <Detail>
         <path d="M11 8.2C9.2 8 7.2 7.8 5.4 8" />
@@ -110,14 +114,19 @@ export function GlobeIcon(props: IconProps) {
       secondary={
         <>
           <path d="M3.4 12H20.6" />
-          <path d="M12 3.4C9.6 6 8.6 9 8.6 12C8.6 15 9.6 18 12 20.6" />
-          <path d="M12 3.4C14.4 6 15.4 9 15.4 12C15.4 15 14.4 18 12 20.6" />
+          <path d="M12 3.4C10.2 6 9.6 9 9.6 12C9.6 15 10.2 18 12 20.6" />
+          <path d="M12 3.4C13.8 6 14.4 9 14.4 12C14.4 15 13.8 18 12 20.6" />
         </>
       }
     >
       <circle cx="12" cy="12" r="8.6" />
+      {/* Two closed landmasses, each set in a cell of the graticule so no
+          grid line runs through it — which is why the meridians are drawn
+          narrow. The single open stroke this replaces crossed a meridian and
+          read as a question mark. */}
       <Detail>
-        <path d="M6.2 8.2C7.6 7.4 9.2 7.8 9.8 9C10.2 10.2 9.2 11 8.2 11.4C7.2 11.8 6.4 11.2 6 10.2" />
+        <path d="M6.8 7.2C7.9 7.1 8.6 7.8 8.4 8.7C8.2 9.4 7.6 9.6 7.4 10.2C7.2 10.8 6.4 10.9 6 10.4C5.6 9.9 5.3 9.5 5.4 8.7C5.5 7.8 6.1 7.3 6.8 7.2Z" />
+        <path d="M16.6 13.2C17.6 13.1 18.6 13.6 18.6 14.6C18.6 15.6 17.8 16.6 17 16.6C16.4 16.6 16.3 16 16 15.5C15.7 15 15.6 14.4 15.8 13.9C15.9 13.5 16.2 13.3 16.6 13.2Z" />
       </Detail>
     </IconBase>
   );

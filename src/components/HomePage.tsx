@@ -216,7 +216,7 @@ function HomeContent({ dataSummary, countryDiversity }: HomeSlots) {
 
       <LandingSectionHeading
         className="mt-12"
-        icon={<ButterflyIcon />}
+        icon={<ButterflyIcon size="sm" />}
         title="Featured Butterflies"
         description="Get started with a curated list of butterflies."
       />

@@ -1,4 +1,4 @@
-export { IconBase, Dot, type IconProps } from "./IconBase";
+export { IconBase, Dot, type IconProps, type IconSize } from "./IconBase";
 export * from "./traits";
 export * from "./genetics";
 export * from "./brand";

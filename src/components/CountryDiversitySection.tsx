@@ -18,7 +18,7 @@ export default function CountryDiversitySection({
     <section className="w-full mt-16" aria-labelledby="country-diversity-heading">
       <LandingSectionHeading
         id="country-diversity-heading"
-        icon={<GlobeIcon />}
+        icon={<GlobeIcon size="sm" />}
         title="Species Diversity by Country"
         description="Distinct species recorded in each country, from validated coordinates."
       />

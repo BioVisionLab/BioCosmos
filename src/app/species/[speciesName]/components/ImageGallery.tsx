@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageLoading } from "@/components/Loadings";
 import NoImage from "@/components/NoImage";
 import {
@@ -109,20 +110,7 @@ export function SpeciesImageGallery({
                   : "text-white bg-pacific-blue-500 dark:bg-pacific-blue-800 hover:bg-pacific-blue-400 dark:hover:bg-pacific-blue-700 shadow-md"
               }`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
 
             <GalleryFullImage
@@ -144,20 +132,7 @@ export function SpeciesImageGallery({
                   : "text-white bg-pacific-blue-500 dark:bg-pacific-blue-800 hover:bg-pacific-blue-400 dark:hover:bg-pacific-blue-700 shadow-md"
               }`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 

@@ -1,18 +1,36 @@
 import React from "react";
 
+import { ButterflyIcon, type IconSize } from "./ui/icons";
+
+/** The stroke tier for a glyph drawn `px` wide; see `IconSize`. */
+function iconSizeFor(px: number): IconSize {
+  if (px <= 32) return "sm";
+  if (px <= 56) return "md";
+  return "lg";
+}
+
 function ImageLoading({ size, msg }: { size: number; msg?: string }) {
-  // Use a plain <img> here instead of next/image so each placeholder
-  // instance behaves independently and keeps its animation until the
-  // real thumbnail replaces it.
+  // The placeholder keeps the full `size` box so nothing shifts when the image
+  // arrives, but the glyph inside is drawn smaller: a stroked icon at 400px
+  // turns into a stencil. Inline rather than an <img>, so it takes the theme's
+  // icon colours and each instance still pulses on its own.
+  const glyph = Math.round(size * 0.6);
   return (
     <div className="flex flex-col items-center justify-center text-center gap-1">
-      <img
-        src="/icons/butterfly.svg"
-        alt="Loading"
-        width={size}
-        height={size}
-        className="animate-pulse mx-auto opacity-80"
-      />
+      <div
+        role="img"
+        aria-label="Loading"
+        className="mx-auto flex items-center justify-center"
+        style={{ width: size, height: size }}
+      >
+        {/* Sized by a wrapper: `size` is arbitrary, not a Tailwind step. */}
+        <span
+          className="animate-pulse opacity-80 [&>svg]:h-full [&>svg]:w-full"
+          style={{ width: glyph, height: glyph }}
+        >
+          <ButterflyIcon size={iconSizeFor(glyph)} />
+        </span>
+      </div>
       <TextLoading msg={msg || "Loading image"} />
     </div>
   );

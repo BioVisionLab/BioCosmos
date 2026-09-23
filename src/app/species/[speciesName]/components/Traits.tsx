@@ -38,12 +38,6 @@ const labelClass =
   "font-normal text-lg text-deep-mocha-700 dark:text-deep-mocha-200";
 // Colour lives in the icon primitive now, so a call site says only how big.
 const commonIconClass = "w-12 h-12 m-2";
-// A viewBox stroke scales with the icon, so the same value reads heavier the
-// larger the icon is drawn: the 1.5 default is 3.0 device px at 48 and would be
-// 5.0 at 80. This holds the 80px icons near the 48px set's weight -- it does
-// not equalise them, which would need 0.9 and read as a different, thinner
-// family sitting beside them.
-const LARGE_ICON_STROKE = 1.1;
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits || noTraitData(traits)) {
@@ -303,7 +297,7 @@ function WingspanCard({
   return (
     <div className="flex items-center gap-2 px-3 py-1">
       <IconContainer>
-        <WingspanIcon className="w-20 h-20 m-1" strokeWidth={LARGE_ICON_STROKE} />
+        <WingspanIcon className="w-20 h-20 m-1" size="lg" />
       </IconContainer>
       <div className="space-y-1">
         <div>
