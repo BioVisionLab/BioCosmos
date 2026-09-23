@@ -4,34 +4,10 @@ import uuid
 
 from typing import List
 
-from ..configs.config import ColConfig, ImageMetaConfig, LocalityConfig
+from ..configs.config import ColConfig, GbifConfig, ImageMetaConfig, LocalityConfig
 from ..database.duckdb import DuckDBClient
 
 logger = logging.getLogger(__name__)
-
-# The full-text search index definition, in one place: `ingest` builds it after
-# replacing the table and `reindex` rebuilds it on every start, and the two
-# drifting apart would mean a search that behaves differently depending on
-# whether ingestion happened to run.
-IMAGE_META_INDEX_ID = "rowid"
-IMAGE_META_COLUMNS_INDEXED = [
-    "class_dv",
-    "tax_rank",
-    "tax_status",
-    "family",
-    "species",
-    "sex",
-    "life_stage",
-    "lat",
-    "lon",
-    "source_db",
-    "kingdom",
-    "phylum",
-    "class",
-    "order",
-    "common_name",
-]
-
 
 # The occurrence columns every specimen listing returns. Kingdom, phylum,
 # class and order are included for callers that need them; the search table
@@ -113,6 +89,7 @@ class ImageMetaStats:
     def __init__(self, duckdb: DuckDBClient):
         config = ImageMetaConfig()
         self.table = config.table
+        self.gbif_table = GbifConfig().table
         self.db_client = duckdb
 
     def get_entries_count(self) -> int | None:
@@ -149,7 +126,11 @@ class ImageMetaStats:
         """Get the count of images from each source database in the image collection.
 
         The canonical source databases are 'gbif', 'ecdysis', and 'scanbugs'.
-        Any other source_db value is aggregated under the key 'other'.
+        A record published to more than one of them carries a slash-joined
+        value, e.g. 'gbif/scanbugs' -- that is every non-canonical value this
+        table has ever had, so those rows are aggregated under 'multiple'
+        rather than 'other', which would wrongly suggest a fourth, unnamed
+        source.
         """
         result = self.db_client.execute(
             f"SELECT source_db, COUNT(*) AS count FROM {self.table} GROUP BY source_db"
@@ -163,9 +144,54 @@ class ImageMetaStats:
         for source_db, count in zip(
             result["source_db"].to_list(), result["count"].to_list()
         ):
-            key = source_db if source_db in CANONICAL else "other"
+            key = source_db if source_db in CANONICAL else "multiple"
             counts[key] = counts.get(key, 0) + count
         return counts
+
+    def get_institution_counts(self) -> dict | None:
+        """Get the count of images per holding institution.
+
+        image_meta carries no institution field; it comes from
+        gbif_meta.institutionCode, matched on occurrenceID the same way
+        LocalityService joins locality fields. gbif_meta has duplicate
+        occurrenceID values, so the join is deduplicated the same way: the
+        most complete row wins, tie-broken by gbifID for a stable result.
+
+        Records with no GBIF match, or a match with no institution code
+        (roughly 7% and 18% of the collection respectively), are grouped
+        under 'Unknown' rather than dropped, so the proportions account for
+        every image.
+        """
+        if not self.db_client.table_exists(self.gbif_table):
+            logger.warning(
+                f"No '{self.gbif_table}' table; institution counts are unavailable."
+            )
+            return None
+        result = self.db_client.execute(
+            f"""
+            WITH deduped AS (
+                SELECT "occurrenceID" AS occurrence_id,
+                       "institutionCode" AS institution_code
+                FROM {self.gbif_table}
+                WHERE nullif(trim("occurrenceID"), '') IS NOT NULL
+                QUALIFY row_number() OVER (
+                    PARTITION BY "occurrenceID"
+                    ORDER BY ("institutionCode" IS NULL), "gbifID"
+                ) = 1
+            )
+            SELECT coalesce(nullif(trim(d.institution_code), ''), 'Unknown')
+                       AS institution,
+                   COUNT(*) AS count
+            FROM {self.table} im
+            LEFT JOIN deduped d ON d.occurrence_id = nullif(trim(im.uuid), '')
+            GROUP BY institution
+            ORDER BY count DESC
+            """
+        ).pl()
+        if result.is_empty():
+            logger.warning("No institution data found in the image collection.")
+            return None
+        return dict(zip(result["institution"].to_list(), result["count"].to_list()))
 
     def count_images_per_family(self) -> dict | None:
         """Get the count of images for each family in the image collection."""
@@ -236,58 +262,9 @@ class ImageMetaService:
                 )
             else:
                 raise ValueError(f"Unsupported format: {self.format}")
-
-            # Create a full-text search index on relevant metadata columns
-            self._index_columns()
         except Exception as e:
             logger.error(f"Failed to ingest image metadata into '{self.table}': {e}")
             raise e
-
-    def _index_columns(self):
-        """
-        Create a full-text search index on relevant columns of the metadata table.
-        """
-        try:
-            self.db_client.index_table(
-                table_name=self.table,
-                id_column=IMAGE_META_INDEX_ID,
-                columns=IMAGE_META_COLUMNS_INDEXED,
-                overwrite=True,
-            )
-            logger.info("Full-text search index created on image metadata table.")
-        except Exception as e:
-            logger.error(
-                f"Failed to create full-text search index on image metadata table: {e}"
-            )
-            raise
-
-    def reindex(self) -> bool:
-        """Rebuild the full-text index, whether or not ingestion ran.
-
-        `ingest` rebuilds the index as a side effect of replacing the table,
-        but it returns early when ingestion is skipped -- which is the normal
-        production setting, because re-reading the source file on every boot is
-        expensive. The DuckDB file can still have changed underneath that: a
-        `geoharmonize integrate` run, a colharmonize update, a freshly dropped
-        parquet. The index would then be describing rows that no longer exist,
-        and text search would return stale hits with no way to notice.
-
-        Rebuilding it on every start is cheap relative to being wrong. Failure
-        is logged, never raised: a stale index still answers queries, and
-        refusing to boot over one would take the whole site down.
-        """
-        if not self.db_client.table_exists(self.table):
-            logger.info("No '%s' table, so nothing to reindex.", self.table)
-            return False
-        try:
-            self._index_columns()
-            return True
-        except Exception:
-            logger.exception(
-                "Could not rebuild the image metadata search index; the "
-                "existing one is left in place and may be stale."
-            )
-            return False
 
     def get_image_count_by_species(self, scientific_name: str) -> int | None:
         """

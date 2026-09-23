@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import polars as pl
 import pytest
-
 from app.configs.config import PromptsConfig
 from app.services.agent import AgentSearchService, AgentToolFailureError
 from app.services.agent_tools import build_tool_registry
@@ -335,6 +334,8 @@ def test_country_code_search_uses_bound_parameters():
 
 def _similarity_service(species_ids, genus_ids):
     service = AgentSearchService.__new__(AgentSearchService)
+    service.common_name_search = MagicMock()
+    service.common_name_search.search.return_value = []
     service.image_meta_service = MagicMock()
     service.image_meta_service.get_image_ids_by_species.return_value = species_ids
     service.image_meta_service.get_image_ids_by_genus.return_value = genus_ids
@@ -406,3 +407,71 @@ async def test_search_falls_back_to_text_search_without_usable_tools(calls):
         ("search_by_color", {"color_description": "owl-like butterfly"}, None)
     ]
     assert outcome.dataframe["species"].to_list() == ["Species a"]
+
+
+@pytest.mark.asyncio
+async def test_common_name_filter_scopes_ranking_and_reports_both_functions():
+    service = make_service(
+        tool_call("search_by_common_name", '{"common_name": "monarch"}'),
+        tool_call("search_by_color", '{"color_description": "orange"}'),
+    )
+    service.common_name_search = MagicMock()
+    service.common_name_search.search.return_value = ["danaus_plexippus"]
+    service.image_meta_service = MagicMock()
+    service.image_meta_service.get_species_main_image_id_from_list.return_value = (
+        pl.DataFrame({"imgId": ["ref"], "species": ["danaus_plexippus"]})
+    )
+    service._search_by_color = AsyncMock(
+        return_value=[
+            {
+                "imgId": "rank",
+                "species": "danaus_plexippus",
+                "score": 0.8,
+                "tool_names": "search_by_color",
+            }
+        ]
+    )
+    outcome = await service.search("orange monarch")
+    service.common_name_search.search.assert_called_once_with("monarch")
+    service._search_by_color.assert_awaited_once_with("orange", {"danaus_plexippus"})
+    assert outcome.dataframe["tool_names"].to_list() == [
+        ["search_by_color", "search_by_common_name"]
+    ]
+
+
+@pytest.mark.asyncio
+async def test_unmatched_common_name_never_falls_back_to_visual_search():
+    service = make_service(
+        tool_call("search_by_common_name", '{"common_name": "unknown"}'),
+        tool_call("search_by_color", '{"color_description": "blue"}'),
+    )
+    service.common_name_search = MagicMock()
+    service.common_name_search.search.return_value = []
+    service._search_by_color = AsyncMock()
+    outcome = await service.search("blue unknown")
+    assert outcome.dataframe.is_empty()
+    service._search_by_color.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_similarity_resolves_all_common_name_references():
+    service = _similarity_service(species_ids=[], genus_ids=[])
+    service.common_name_search.search.return_value = ["species_a", "species_b"]
+    service.image_meta_service.get_image_ids_by_species.side_effect = [
+        [],
+        ["a", "shared"],
+        ["b", "shared"],
+    ]
+    await service._search_by_image_similarity("shared common name", None)
+    service.common_name_search.search.assert_called_once_with("shared common name")
+    call = service.image_service.find_similar_images.call_args
+    assert call.args[0] == ["a", "b", "shared"]
+    assert call.kwargs["exclude_species"] == ["species_a", "species_b"]
+    service.image_meta_service.get_image_ids_by_genus.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unmatched_similarity_reference_returns_no_matches():
+    service = _similarity_service(species_ids=[], genus_ids=[])
+    assert await service._search_by_image_similarity("unknown butterfly", None) == []
+    service.image_service.find_similar_images.assert_not_called()

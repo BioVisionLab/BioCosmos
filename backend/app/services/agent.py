@@ -10,13 +10,14 @@ from typing import Any, Literal
 import polars as pl
 from fastapi import Request
 from openai import APITimeoutError, OpenAI
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from ..configs.config import OpenAIConfig, PromptsConfig
 from .agent_tools import (
     AgentWarning,
     ColorArgs,
+    CommonNameArgs,
     ImageSimilarityArgs,
     LocationArgs,
     ParsedToolCall,
@@ -25,6 +26,7 @@ from .agent_tools import (
     build_tool_registry,
     parse_tool_calls,
 )
+from .common_names import CommonNameSearch
 from .gbif import GbifPersistData
 from .images import ImagePersistData
 from .leptraits import LepTraits
@@ -49,12 +51,7 @@ class AgentSearchResult(BaseModel):
 
     img_id: str
     species: str
-    score: float = 0.0
     tool_names: list[str] = Field(default_factory=list, alias="tool_names")
-
-    @field_serializer("score")
-    def serialize_score(self, score: float) -> float:
-        return round(score, 4)
 
 
 @dataclass
@@ -131,6 +128,7 @@ class AgentSearchService:
             duckdb=duckdb,
         )
         self.image_meta_service = image_meta_service or ImageMetaService(duckdb=duckdb)
+        self.common_name_search = CommonNameSearch(duckdb)
         self.gbif_service = gbif_service or GbifPersistData(duckdb=duckdb)
         self.leptraits_service = leptraits_service or LepTraits(duckdb=duckdb)
 
@@ -254,10 +252,10 @@ class AgentSearchService:
                 timeout=PLANNER_TIMEOUT_SECONDS,
             )
         except APITimeoutError as exc:
-            logger.error("Planner request timed out.", exc_info=True)
+            logger.exception("Planner request timed out.")
             raise AgentPlannerTimeoutError("The planner request timed out.") from exc
         except Exception as exc:
-            logger.error("Planner request failed.", exc_info=True)
+            logger.exception("Planner request failed.")
             raise AgentPlannerError("The planner request failed.") from exc
 
     async def _execute_safely(
@@ -269,7 +267,7 @@ class AgentSearchService:
             rows = await self._execute_tool(call, allowlist_species)
             return ToolExecution(call=call, status="success", rows=rows)
         except Exception as exc:
-            logger.error("Tool '%s' failed: %s", call.name, exc, exc_info=True)
+            logger.exception("Tool '%s' failed.", call.name)
             return ToolExecution(call=call, status="error", rows=[], error=exc)
 
     @staticmethod
@@ -302,6 +300,13 @@ class AgentSearchService:
         call: ParsedToolCall,
         allowlist_species: set[str] | None,
     ) -> list[dict]:
+        if isinstance(call.args, CommonNameArgs):
+            species = await asyncio.to_thread(
+                self.common_name_search.search, call.args.common_name
+            )
+            return await self._species_to_filter_rows(
+                species, tool_name="search_by_common_name"
+            )
         if isinstance(call.args, ImageSimilarityArgs):
             return await self._search_by_image_similarity(
                 call.args.reference_species,
@@ -330,17 +335,35 @@ class AgentSearchService:
             reference_species,
             raise_on_error=True,
         )
-        exclude_reference = True
+        excluded_species: str | list[str] | None = reference_species
+        if not image_ids:
+            references = await asyncio.to_thread(
+                self.common_name_search.search, reference_species
+            )
+            if references:
+                reference_ids = await asyncio.gather(
+                    *(
+                        asyncio.to_thread(
+                            self.image_meta_service.get_image_ids_by_species,
+                            species,
+                            raise_on_error=True,
+                        )
+                        for species in references
+                    )
+                )
+                image_ids = sorted(
+                    {image_id for ids in reference_ids for image_id in ids}
+                )
+                excluded_species = references
         if not image_ids and len(reference_species.split()) == 1:
-            # The planner often names a genus for a descriptive query
-            # ("owl-like butterfly" -> "Caligo"). Use the genus's images as
-            # the reference and keep its species: they are the answer.
+            # Preserve explicit genus references and their existing behavior:
+            # use the genus's images while keeping its species in the results.
             image_ids = await asyncio.to_thread(
                 self.image_meta_service.get_image_ids_by_genus,
                 reference_species,
                 raise_on_error=True,
             )
-            exclude_reference = False
+            excluded_species = None
         if not image_ids:
             return []
 
@@ -353,7 +376,7 @@ class AgentSearchService:
             image_ids,
             VECTOR_CANDIDATE_LIMIT,
             filter_img_ids,
-            exclude_species=reference_species if exclude_reference else None,
+            exclude_species=excluded_species,
             min_species=RESULT_LIMIT,
             raise_on_error=True,
         )

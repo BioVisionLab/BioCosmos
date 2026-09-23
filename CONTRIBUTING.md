@@ -361,6 +361,10 @@ cd backend
 uv run python scripts/precompute_similarity.py --lance-dir lance_db_lite --duck-dir duck_db
 ```
 
+After rebuilding embeddings, set `search_index.build_vector: true` in
+`backend/app/configs/config.yaml` for the next backend start so the LanceDB
+IVF-PQ indexes are retrained against them, then set it back to `false`.
+
 See [packages/README.md](packages/README.md) and [reports/README.md](reports/README.md)
 for the package details and generated artifact contract.
 
@@ -392,6 +396,7 @@ bun lint
 - **Hot Reload**: Use `--reload` flag with uvicorn or run `fastapi dev` for auto-restart on code changes.
 - **API Docs**: FastAPI automatically generates interactive API documentation at `/docs`.
 - **Logging**: Configure logging levels in `backend/app/configs/config.yaml`.
+- **Search index**: `search_index.build_vector` in `backend/app/configs/config.yaml` is `false`, so an ordinary start builds no vector index and similarity search falls back to a brute-force cosine scan. Set it `true` for one boot after the embeddings are rebuilt, then back to `false` — training the index is minutes of work that a restart does not invalidate. Startup logs which path it took.
 - **Dependencies**: Add new packages with `uv add <package>`.
 - **Environment Variables**: Backend reads from `backend/.env` file for configuration.
 - **Convenience Scripts**: Use `scripts/run_backend.sh` for quick startup.

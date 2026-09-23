@@ -6,11 +6,11 @@ parameters:
     type: string
     required: true
     description: >
-      Scientific name of the reference species (e.g. "Danaus plexippus").
-      Convert common names to scientific names if possible.
+      Common or scientific reference name exactly as supplied by the user.
+      The database resolves common names; never translate them yourself.
 ---
 
-Finds species visually similar to a specific scientific name using image
+Finds species visually similar to a common or scientific reference name using image
 embedding distance.
 
 Use ONLY when the user explicitly asks for species that look like, resemble,
@@ -22,3 +22,8 @@ Examples:
 - "species that look like Morpho menelaus"  → reference_species="Morpho menelaus"
 
 Do NOT call this tool for generic color or location queries.
+
+- "monarch look-alikes" → reference_species="monarch"
+- "species resembling the blue morpho" → reference_species="blue morpho"
+
+If the database cannot resolve the name, this tool returns no matches.

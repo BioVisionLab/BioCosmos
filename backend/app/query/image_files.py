@@ -7,6 +7,7 @@ from ..configs.config import ImageConfig
 from ..services.images import ImagePersistData
 from ..services.locality import OccurrenceCoordinates, OccurrenceLocality
 from ..services.metadata import ImageMetaService
+from ..services.provenance import OccurrenceProvenance
 from ..services.taxonomy_update import OccurrenceTaxonomy
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,9 @@ class ImageMetaRetrieval:
             clean_id = image_id.replace(".png", "")
             # Absent until a colharmonize run has been loaded; the panel omits
             # the taxonomy block entirely rather than rendering empty rows.
-            taxonomy = OccurrenceTaxonomy(duckdb_client=self.duckdb).get_for_image(clean_id)
+            taxonomy = OccurrenceTaxonomy(duckdb_client=self.duckdb).get_for_image(
+                clean_id
+            )
             if taxonomy:
                 filtered["taxonomy"] = taxonomy
             # The written locality, and the coordinate validation beside it.
@@ -77,14 +80,23 @@ class ImageMetaRetrieval:
             # than rendered as empty rows. The locality block carries a
             # precomputed one-line form, so the species panel, the modal and
             # the search table cannot disagree about how the ranks are joined.
-            locality = OccurrenceLocality(duckdb_client=self.duckdb).get_for_image(clean_id)
-            if locality:
-                filtered["locality"] = locality
-            coordinates = OccurrenceCoordinates(duckdb_client=self.duckdb).get_for_image(
+            locality = OccurrenceLocality(duckdb_client=self.duckdb).get_for_image(
                 clean_id
             )
+            if locality:
+                filtered["locality"] = locality
+            coordinates = OccurrenceCoordinates(
+                duckdb_client=self.duckdb
+            ).get_for_image(clean_id)
             if coordinates:
                 filtered["coordinates"] = coordinates
+            # The holding institution and the specimen's catalog number.
+            # Same optional-block contract: omitted, not rendered empty.
+            provenance = OccurrenceProvenance(duckdb_client=self.duckdb).get_for_image(
+                clean_id
+            )
+            if provenance:
+                filtered["provenance"] = provenance
             return filtered
         except Exception as e:
             logger.error(f"Error fetching metadata for image id {image_id}: {e}")

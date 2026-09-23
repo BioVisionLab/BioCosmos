@@ -407,3 +407,47 @@ class TestLocalityConfig:
         assert cfg.skip is True
         assert cfg.table == "custom_locality"
         assert cfg.coordinates_table == "custom_coordinates"
+
+
+class TestSearchIndexConfig:
+    """The vector index build is off unless the YAML asks for it."""
+
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_the_flag_is_off_when_the_stanza_is_absent(self, _mock):
+        """A config.yaml written before this flag existed builds nothing.
+
+        MOCK_CONFIG deliberately has no `search_index` key, which is exactly
+        the state of every deployment's config.yaml the day this ships.
+        """
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().build_vector is False
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"build_vector": True}},
+    )
+    def test_reads_the_flag_from_the_yaml(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().build_vector is True
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"build_vector": "yes"}},
+    )
+    def test_accepts_the_string_spellings(self, _mock):
+        """Matches the coercion the nine `skip` properties already do."""
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().build_vector is True
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"build_vector": 3}},
+    )
+    def test_a_non_boolean_is_treated_as_off(self, _mock):
+        """Fail safe: a typo must not cost a surprise multi-minute build."""
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().build_vector is False

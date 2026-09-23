@@ -5,6 +5,12 @@ export interface MlResultItems {
   distance?: number;
 }
 
+export interface SemanticSearchResult {
+  imgId: string;
+  species: string;
+  tool_names: string[];
+}
+
 export interface ColorSearchResult extends MlResultItems {
   distance: number;
   source_db: string;
@@ -93,7 +99,7 @@ async function searchByColor(
 async function searchSemantic(
   query: string,
   signal?: AbortSignal,
-): Promise<MlResultItems[]> {
+): Promise<SemanticSearchResult[]> {
   const response = await fetch(
     "/api/ml-search/agent?q=" + encodeURIComponent(query),
     {
@@ -121,7 +127,9 @@ async function searchSemantic(
   return json.results.filter(isBaseSearchResult).map((item) => ({
     imgId: item.imgId,
     species: item.species,
-    score: typeof item.score === "number" ? item.score : undefined,
+    tool_names: Array.isArray(item.tool_names)
+      ? item.tool_names.filter((name): name is string => typeof name === "string")
+      : [],
   }));
 }
 

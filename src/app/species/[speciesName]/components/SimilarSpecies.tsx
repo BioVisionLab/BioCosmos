@@ -13,8 +13,8 @@ import {
 } from "@/lib/names";
 import {
   fetchSimilarSpecies,
-  SimilarSpeciesList,
   SimilarSpeciesMeta,
+  SimilarSpeciesSide,
 } from "@/lib/similarSpecies";
 import { useInView } from "@/lib/useInView";
 
@@ -22,56 +22,30 @@ const IMAGE_SIZE = 120;
 
 const labelColor = "text-deep-mocha-500 dark:text-deep-mocha-400";
 
+/**
+ * The visually-similar panel, one section per wing surface.
+ *
+ * Dorsal and ventral are two separate searches on the backend and always were,
+ * so fetching them in one request only meant the faster one waited on the
+ * slower. Behind a single loading flag that turned the whole panel into an
+ * empty tinted box with one spinner in it for as long as the slowest search
+ * took -- up to the proxy's fifteen second deadline.
+ *
+ * Each section now owns its request, so it paints when its own answer lands,
+ * and both headings are on screen from the first frame: the reader can see
+ * what is coming rather than watching one undifferentiated block.
+ *
+ * `useInView` stays on the panel, not on the sections. The two are always in
+ * view together, so one observer says everything two would.
+ */
 function VisuallySimilarSpecies({ species }: { species: string }) {
-  const [similarSpecies, setSimilarSpecies] =
-    useState<SimilarSpeciesList | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [emptySides, setEmptySides] = useState<Record<string, boolean>>({});
   const { ref, inView } = useInView<HTMLDivElement>();
 
-  useEffect(() => {
-    if (!species) {
-      setIsLoading(false);
-      setSimilarSpecies(null);
-      return;
-    }
-    // This embedding search is expensive and the panel sits below the fold, so
-    // hold off until the reader actually scrolls towards it.
-    if (!inView) return;
+  // Only once both sections have finished and found nothing is the panel
+  // genuinely empty. Saying so while one is still searching would be wrong.
+  const isNotFound = emptySides.dorsal === true && emptySides.ventral === true;
 
-    // Aborted on cleanup, and the result dropped on the way back in. This is
-    // the slowest request the species page makes, so without it a response for
-    // the species a reader just navigated away from can land after the next
-    // one and overwrite the panel with the wrong neighbours.
-    const controller = new AbortController();
-    let ignore = false;
-
-    const load = async () => {
-      try {
-        const data = await fetchSimilarSpecies(species, controller.signal);
-        if (ignore) return;
-        setSimilarSpecies(data);
-      } catch (error) {
-        // The only throw the helper lets through is the abort, which means a
-        // newer request has already taken over. Leave the panel alone.
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-        console.error("Error fetching similar species:", error);
-      } finally {
-        if (!ignore) setIsLoading(false);
-      }
-    };
-    load();
-
-    return () => {
-      ignore = true;
-      controller.abort();
-    };
-  }, [species, inView]);
-
-  const isNotFound =
-    !similarSpecies ||
-    (similarSpecies.dorsal.length === 0 && similarSpecies.ventral.length === 0);
   return (
     <div
       ref={ref}
@@ -87,30 +61,29 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
           embedding similarity.
         </p>
       </div>
-      {isLoading ? (
-        <div className="p-4">
-          <ImageLoading
-            size={IMAGE_SIZE}
-            msg="Searching for visually similar species"
-          />
-        </div>
-      ) : isNotFound ? (
+      {isNotFound ? (
         <div className="p-4 text-sm text-center text-deep-mocha-500 dark:text-deep-mocha-400">
           No visually similar species found.
         </div>
       ) : (
         <div>
-          {/* <SimilarSpeciesImageGallery
-            speciesData={similarSpecies.anySides}
-            label="Overall Similarity"
-          /> */}
-          <SimilarSpeciesImageGallery
-            speciesData={similarSpecies.dorsal}
+          <SimilarSpeciesSection
+            species={species}
+            side="dorsal"
             label="Dorsal"
+            inView={inView}
+            onSettled={(isEmpty) =>
+              setEmptySides((prev) => ({ ...prev, dorsal: isEmpty }))
+            }
           />
-          <SimilarSpeciesImageGallery
-            speciesData={similarSpecies.ventral}
+          <SimilarSpeciesSection
+            species={species}
+            side="ventral"
             label="Ventral"
+            inView={inView}
+            onSettled={(isEmpty) =>
+              setEmptySides((prev) => ({ ...prev, ventral: isEmpty }))
+            }
           />
         </div>
       )}
@@ -118,23 +91,107 @@ function VisuallySimilarSpecies({ species }: { species: string }) {
   );
 }
 
-function SimilarSpeciesImageGallery({
-  speciesData,
+/**
+ * One wing surface: its own request, its own loading state.
+ *
+ * The row keeps a fixed height while it loads so the panel does not jump as
+ * each side lands.
+ */
+function SimilarSpeciesSection({
+  species,
+  side,
   label,
+  inView,
+  onSettled,
 }: {
-  speciesData: SimilarSpeciesMeta[];
+  species: string;
+  side: SimilarSpeciesSide;
   label: string;
+  inView: boolean;
+  onSettled: (isEmpty: boolean) => void;
 }) {
-  if (speciesData.length === 0) {
+  const [rows, setRows] = useState<SimilarSpeciesMeta[] | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!species) {
+      setIsLoading(false);
+      setRows(null);
+      return;
+    }
+    // This embedding search is expensive and the panel sits below the fold, so
+    // hold off until the reader actually scrolls towards it.
+    if (!inView) return;
+
+    // Aborted on cleanup, and the result dropped on the way back in. This is
+    // the slowest request the species page makes, so without it a response for
+    // the species a reader just navigated away from can land after the next
+    // one and overwrite the panel with the wrong neighbours. Each section
+    // needs its own controller now that they resolve independently.
+    const controller = new AbortController();
+    let ignore = false;
+
+    setIsLoading(true);
+    const load = async () => {
+      try {
+        const data = await fetchSimilarSpecies(
+          species,
+          side,
+          controller.signal
+        );
+        if (ignore) return;
+        setRows(data ? data[side] : []);
+      } catch (error) {
+        // The only throw the helper lets through is the abort, which means a
+        // newer request has already taken over. Leave the section alone.
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error(`Error fetching ${side} similar species:`, error);
+        if (!ignore) setRows([]);
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    };
+    load();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
+  }, [species, side, inView]);
+
+  // Report upward only once this section has actually settled, so the panel
+  // cannot show "nothing found" while the other side is still searching.
+  useEffect(() => {
+    if (!isLoading && rows !== null) onSettled(rows.length === 0);
+    // `onSettled` is a fresh closure each render; depending on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, rows]);
+
+  if (!isLoading && rows !== null && rows.length === 0) {
     return null;
   }
+
   return (
     <div className="p-2 ml-4">
       <h3 className={`text-md ${labelColor}`}>{label}</h3>
-      <div className="overflow-x-auto flex flex-row gap-4 mt-2">
-        {speciesData.map((item, index) => (
-          <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
-        ))}
+      <div
+        className="overflow-x-auto flex flex-row gap-4 mt-2 items-start"
+        style={{ minHeight: IMAGE_SIZE + 44 }}
+      >
+        {isLoading || rows === null ? (
+          <div className="flex items-center" style={{ height: IMAGE_SIZE }}>
+            <ImageLoading
+              size={IMAGE_SIZE}
+              msg={`Searching ${label.toLowerCase()} matches`}
+            />
+          </div>
+        ) : (
+          rows.map((item, index) => (
+            <SimilarSpeciesImage key={item.imgId} meta={item} index={index} />
+          ))
+        )}
       </div>
     </div>
   );
@@ -148,6 +205,11 @@ function SimilarSpeciesImage({
   index: number;
 }) {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  // `fetchThumbnailById` only builds a URL -- it does no I/O -- so the moment
+  // it resolves the tile has a src and nothing else. Tracking the image's own
+  // load event is what stops the card sitting there as a bare tinted square
+  // for the whole time the bytes are actually in flight.
+  const [isImageReady, setIsImageReady] = useState(false);
 
   useEffect(() => {
     // Up to twenty of these mount at once, one per neighbour, and each one
@@ -187,32 +249,37 @@ function SimilarSpeciesImage({
 
   const card = (
     <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-2">
-      {thumbnailUrl ? (
-        <>
-          <div className="flex w-[120px] h-[120px] relative my-auto bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl p-2 items-center justify-center">
-            <Image
-              src={thumbnailUrl}
-              alt={`Similar species image ${meta.imgId}`}
-              width={IMAGE_SIZE}
-              height={IMAGE_SIZE}
-              className="object-contain"
-              unoptimized
-            />
+      <div className="flex w-[120px] h-[120px] relative my-auto bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl p-2 items-center justify-center">
+        {thumbnailUrl ? (
+          <Image
+            src={thumbnailUrl}
+            alt={`Similar species image ${meta.imgId}`}
+            width={IMAGE_SIZE}
+            height={IMAGE_SIZE}
+            className={`object-contain transition-opacity duration-200 ${
+              isImageReady ? "opacity-100" : "opacity-0"
+            }`}
+            onLoad={() => setIsImageReady(true)}
+            onError={() => setIsImageReady(true)}
+            unoptimized
+          />
+        ) : null}
+        {isImageReady ? null : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <ImageLoading size={IMAGE_SIZE / 2} msg="" />
           </div>
-          <div className="w-[120px] text-center">
-            <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
-              {acceptedName ?? recordedName}
-            </p>
-            {showsSubspecies ? (
-              <p className="text-xs text-deep-mocha-400 dark:text-deep-mocha-500 italic break-words whitespace-normal">
-                as {recordedName}
-              </p>
-            ) : null}
-          </div>
-        </>
-      ) : (
-        <ImageLoading size={IMAGE_SIZE} />
-      )}
+        )}
+      </div>
+      <div className="w-[120px] text-center">
+        <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
+          {acceptedName ?? recordedName}
+        </p>
+        {showsSubspecies ? (
+          <p className="text-xs text-deep-mocha-400 dark:text-deep-mocha-500 italic break-words whitespace-normal">
+            as {recordedName}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 

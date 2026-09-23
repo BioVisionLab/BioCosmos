@@ -37,7 +37,10 @@ export default async function CollectionsPage() {
       value: data?.sourceDbCount?.["scanbugs"] ?? 0,
       href: "https://scan-all-bugs.org/",
     },
-    { label: "Other", value: data?.sourceDbCount?.["other"] ?? 0 },
+    {
+      label: "Multiple Sources",
+      value: data?.sourceDbCount?.["multiple"] ?? 0,
+    },
   ];
 
   return (
@@ -76,9 +79,10 @@ export default async function CollectionsPage() {
       >
         <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
         <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
-          Image and metadata are provided by museum providers and aggregated by
-          data aggregators. Below are counts of image entries sourced from
-          different data aggregators.
+          Image and metadata are provided by museum institutions and
+          aggregated by data aggregators (GBIF, Ecdysis, and SCANBUGS). A
+          record published to more than one aggregator is counted under
+          &quot;Multiple Sources&quot; rather than a single one.
         </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {sourceStats.map((s) => (
@@ -90,13 +94,17 @@ export default async function CollectionsPage() {
       <section aria-label="Collection visualizations" className="mt-12">
         <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
         <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
-          Proportion of image entries across butterfly families, the top ten
-          most-represented species in the collection, and how the CLIP and
-          UNICOM embedding spaces behind image search are distributed.
+          Proportion of image entries across butterfly families before and
+          after taxonomy validation, the top ten most-represented species in
+          the collection, the holding institutions behind the collection, and
+          how the CLIP and UNICOM embedding spaces behind image search are
+          distributed.
         </p>
         <CollectionCharts
           entriesByFamily={data?.entriesByFamily ?? null}
+          entriesByFamilyValidated={data?.entriesByFamilyValidated ?? null}
           topTenSpecies={data?.topTenSpecies ?? null}
+          institutionCounts={data?.institutionCounts ?? null}
         />
       </section>
     </main>

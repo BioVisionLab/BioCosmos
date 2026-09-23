@@ -293,3 +293,57 @@ class TestPrecomputedSpeciesSimilarity:
         assert "LIMIT" not in sql.upper()
         assert params == ["danaus_plexippus", "dorsal"]
 
+
+
+class TestSideScopedLookup:
+    """The panel asks for one view at a time, so the query must honour that."""
+
+    def _make_instance(self, fake_request):
+        from app.query.precomputed_similarity import PrecomputedSpeciesSimilarity
+
+        return PrecomputedSpeciesSimilarity(fake_request)
+
+    def _duck_with(self, fake_request, rows_by_side):
+        duck = fake_request.app.state.duck_db
+        duck.execute = MagicMock(return_value=MagicMock(fetchone=lambda: (1,)))
+        seen = []
+
+        def side_effect(query, params):
+            seen.append(params[1])
+            return rows_by_side.get(params[1], pl.DataFrame())
+
+        duck.execute_prepared_to_pl = side_effect
+        return seen
+
+    def test_only_the_requested_side_is_queried(self, fake_request):
+        rows = pl.DataFrame(
+            {"species": ["vanessa_cardui"], "imgId": ["img-001"], "distance": [0.12]}
+        )
+        seen = self._duck_with(fake_request, {"dorsal": rows})
+
+        result = self._make_instance(fake_request).find_similar_species(
+            "danaus plexippus", "dorsal"
+        )
+
+        assert seen == ["dorsal"]
+        assert len(result["dorsal"]) == 1
+        assert result["ventral"] == []
+
+    def test_an_empty_requested_side_falls_back_even_when_the_other_has_rows(
+        self, fake_request
+    ):
+        """The one semantics change the split makes, pinned deliberately.
+
+        Unscoped, this returns a payload because dorsal has rows. Asked for
+        ventral specifically, "the precomputed table has nothing for you" is
+        the honest answer, and None is what sends the router to the runtime
+        vector search.
+        """
+        rows = pl.DataFrame(
+            {"species": ["vanessa_cardui"], "imgId": ["img-001"], "distance": [0.12]}
+        )
+        self._duck_with(fake_request, {"dorsal": rows})
+
+        sim = self._make_instance(fake_request)
+        assert sim.find_similar_species("danaus plexippus", "ventral") is None
+        assert sim.find_similar_species("danaus plexippus") is not None

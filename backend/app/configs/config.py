@@ -19,6 +19,27 @@ def load_config():
     return config
 
 
+def _as_bool(value, label: str, *, default: bool = False) -> bool:
+    """Coerce a YAML value that is meant to be a flag.
+
+    YAML gives real booleans for `true`/`false`, but a quoted value, an
+    environment-substituted string, or a hand-edited `"yes"` all arrive as
+    text. Anything else is a typo: it is logged and treated as the default
+    rather than silently taken as truthy.
+
+    This reproduces, exactly, the block copy-pasted into every `skip` property
+    below -- including that a string outside the accepted set returns False
+    without logging. Keeping it identical is what makes migrating those onto
+    this helper a pure deletion later.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ["true", "1", "yes"]
+    logger.info(f"{label} is not a valid boolean: {value}. Falling back to {default}.")
+    return default
+
+
 def get_image_path() -> str:
     config = load_config()
     return config["images"]["dir"]
@@ -281,6 +302,37 @@ class LocalityConfig:
         return self._locality_config.get("coordinates_table", "image_meta_coordinates")
 
 
+class ProvenanceConfig:
+    """
+    Configuration for the per-occurrence provenance table.
+
+    The source is `gbif_meta`, joined to `image_meta` on uuid = occurrenceID,
+    the same join LocalityConfig's table uses -- but for who holds the
+    specimen (institutionCode) and how they identify it (catalogNumber)
+    rather than where it was found.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._provenance_config = config.get("provenance", {})
+
+    @property
+    def skip(self) -> bool:
+        skip = self._provenance_config.get("skip", False)
+        if isinstance(skip, bool):
+            return skip
+        if isinstance(skip, str):
+            return skip.lower() in ["true", "1", "yes"]
+        logger.info(
+            f"Provenance skip config is not a valid boolean: {skip}. Falling back to False."
+        )
+        return False
+
+    @property
+    def table(self) -> str:
+        return self._provenance_config.get("table", "image_meta_provenance")
+
+
 class LepTraitConfig:
     def __init__(self):
         config = load_config()
@@ -514,6 +566,35 @@ class EmbedderConfig:
         return False
 
 
+class SearchIndexConfig:
+    """Whether the startup search-index maintenance runs.
+
+    Off by default, which is the opposite polarity to the `skip` flags above.
+    Those name an ingestion source and say "do not read it", so their code
+    default is False and the shipped YAML turns them on. This one names the
+    work itself, so a bare `false` -- or an absent stanza, on a config.yaml
+    written before this existed -- means "do not spend the time".
+
+    The index is not required for the site to work: without one, LanceDB
+    falls back to a brute-force cosine scan, which is correct but slow.
+    Training it is minutes of work that a restart does not invalidate, so
+    paying for it on every boot is the wrong default -- this asks to be turned
+    on for the boot that needs it.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._search_index_config = config.get("search_index", {})
+
+    @property
+    def build_vector(self) -> bool:
+        """Build the LanceDB vector indexes if they are missing."""
+        return _as_bool(
+            self._search_index_config.get("build_vector", False),
+            "search_index.build_vector",
+        )
+
+
 class OpenAIConfig:
     def __init__(self):
         config = load_config()
@@ -545,6 +626,10 @@ class PromptsConfig:
     @property
     def router_agent(self) -> str:
         return self._load_prompt("router_agent.md")
+
+    @property
+    def common_name_search(self) -> str:
+        return self._resolve_path("common_name_search.md")
 
     @property
     def image_similarity(self) -> str:

@@ -4,6 +4,9 @@ export interface SimilarSpeciesList {
   ventral: SimilarSpeciesMeta[];
 }
 
+/** Which wing surface a panel section is showing. */
+export type SimilarSpeciesSide = "dorsal" | "ventral";
+
 export interface SimilarSpeciesMeta {
   imgId: string;
   distance: number;
@@ -36,14 +39,21 @@ export interface SimilarSpeciesMeta {
  * Aborts are rethrown rather than swallowed: the caller has to be able to tell
  * "this request was superseded" from "this species has no neighbours", because
  * only the second one should clear the panel.
+ *
+ * `side` is required rather than optional. The panel always wants one view at
+ * a time -- the two are fetched separately so whichever lands first can paint
+ * -- and an optional side would quietly let a caller pay for both.
  */
 async function fetchSimilarSpecies(
   species: string,
+  side: SimilarSpeciesSide,
   signal?: AbortSignal
 ): Promise<SimilarSpeciesList | null> {
   try {
     const response = await fetch(
-      `/api/ml-search/similarity?species=${encodeURIComponent(species)}`,
+      `/api/ml-search/similarity?species=${encodeURIComponent(
+        species
+      )}&side=${side}`,
       { signal }
     );
     if (!response.ok) {

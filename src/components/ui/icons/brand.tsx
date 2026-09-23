@@ -1,4 +1,4 @@
-import { Detail, IconBase, type IconProps } from "./IconBase";
+import { Detail, Dot, IconBase, type IconProps } from "./IconBase";
 
 // ---------------------------------------------------------------------------
 // The landing-page section marks. Same grid, same two tones as the domain
@@ -14,22 +14,27 @@ export function ButterflyIcon(props: IconProps) {
       {...props}
       secondary={
         <>
-          <path d="M11.6 6.4C10.6 4.6 9.4 3.6 8.2 3.1" />
-          <path d="M12.4 6.4C13.4 4.6 14.6 3.6 15.8 3.1" />
-          <circle cx="7.6" cy="8.6" r="1.1" />
-          <circle cx="16.4" cy="8.6" r="1.1" />
+          <path d="M11.6 6C10.6 4.2 9.4 3.3 8.2 2.9" />
+          <path d="M12.4 6C13.4 4.2 14.6 3.3 15.8 2.9" />
         </>
       }
     >
-      <path d="M12 7.2C8.9 5.2 5.6 3.9 3.1 4.5C2 6.9 2.9 9.9 5.1 11.6C7.5 11.8 10 11.4 12 11.2Z" />
-      <path d="M12 7.2C15.1 5.2 18.4 3.9 20.9 4.5C22 6.9 21.1 9.9 18.9 11.6C16.5 11.8 14 11.4 12 11.2Z" />
-      <path d="M12 11.5C9.6 12 6.9 12.6 5.5 14.2C4.9 16.1 6.4 18 8.7 18.2C10.4 17.2 11.4 15.3 12 13.5Z" />
-      <path d="M12 11.5C14.4 12 17.1 12.6 18.5 14.2C19.1 16.1 17.6 18 15.3 18.2C13.6 17.2 12.6 15.3 12 13.5Z" />
-      <path d="M12 6.4V17.2" />
+      <path d="M12 7C8.9 5 5.6 3.7 3.1 4.3C2 6.7 2.9 9.4 5.1 11C7.5 11.2 10 10.8 12 10.6Z" />
+      <path d="M12 7C15.1 5 18.4 3.7 20.9 4.3C22 6.7 21.1 9.4 18.9 11C16.5 11.2 14 10.8 12 10.6Z" />
+      <path d="M12 12.7C9.6 13.2 6.9 13.8 5.5 15.3C4.9 17.1 6.4 18.9 8.7 19.1C10.4 18.1 11.4 16.3 12 14.6Z" />
+      <path d="M12 12.7C14.4 13.2 17.1 13.8 18.5 15.3C19.1 17.1 17.6 18.9 15.3 19.1C13.6 18.1 12.6 16.3 12 14.6Z" />
+      <path d="M12 6V18.2" />
       <Detail>
-        <path d="M11 8.6C9.2 8.4 7.2 8.2 5.4 8.4" />
-        <path d="M13 8.6C14.8 8.4 16.8 8.2 18.6 8.4" />
+        <path d="M11 8.2C9.2 8 7.2 7.8 5.4 8" />
+        <path d="M13 8.2C14.8 8 16.8 7.8 18.6 8" />
       </Detail>
+      {/* Forewing spots. Previously 1.1-radius circles in the supporting tone
+          with a vein running through their centres, which filled them solid —
+          a stroked circle with a 1.0 hole is what `Dot` exists for. Moved
+          clear of the vein and made the subject, which is what a wing marking
+          is. */}
+      <Dot cx={7.8} cy={9.4} r={0.7} />
+      <Dot cx={16.2} cy={9.4} r={0.7} />
     </IconBase>
   );
 }
@@ -61,7 +66,15 @@ export function AppearanceIcon(props: IconProps) {
   );
 }
 
-/** Collection summary. */
+/**
+ * Collection summary.
+ *
+ * Narrower bars than the obvious ones: at 3.6 wide the 1.0 channels between
+ * them were narrower than the two stroke halves facing across them, so the
+ * three bars welded into one block — and this glyph renders at 24px on the
+ * landing page, where that channel is a single device pixel. 3.0 wide on a
+ * 4.9 pitch opens it to 1.9.
+ */
 export function SummaryIcon(props: IconProps) {
   return (
     <IconBase
@@ -76,9 +89,9 @@ export function SummaryIcon(props: IconProps) {
         </>
       }
     >
-      <rect x="5.8" y="12.4" width="3.6" height="7.2" rx="1" />
-      <rect x="10.4" y="7.6" width="3.6" height="12" rx="1" />
-      <rect x="15" y="10.2" width="3.6" height="9.4" rx="1" />
+      <rect x="5.8" y="12.4" width="3" height="7.2" rx="1" />
+      <rect x="10.7" y="7.6" width="3" height="12" rx="1" />
+      <rect x="15.6" y="10.2" width="3" height="9.4" rx="1" />
     </IconBase>
   );
 }

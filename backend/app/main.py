@@ -16,9 +16,17 @@ from .services.embedder import ImageEmbedder
 from .services.umap import SpeciesImageUmap
 from .services.metadata import ImageMetaService
 from .services.gbif import GbifPersistData
-from .configs.config import ColConfig, GbifConfig, ImageConfig, LocalityConfig
+from .configs.config import (
+    ColConfig,
+    GbifConfig,
+    ImageConfig,
+    LocalityConfig,
+    ProvenanceConfig,
+    SearchIndexConfig,
+)
 from .services.col import ColBackboneService
 from .services.locality import LocalityService
+from .services.provenance import ProvenanceService
 from .services.taxonomy_update import TaxonomyUpdateService
 from .services.leptraits import LepTraits
 from .routers import (
@@ -109,9 +117,7 @@ def get_app_settings() -> AppSettings:
     try:
         return AppSettings()
     except ValidationError as e:
-        missing_vars = [
-            err["loc"][0] for err in e.errors() if "loc" in err
-        ]
+        missing_vars = [err["loc"][0] for err in e.errors() if "loc" in err]
         error_message = f"Missing or invalid required environment variables: {', '.join(missing_vars)}"
         logger.error(error_message)
         raise EnvironmentError(error_message) from e
@@ -121,9 +127,7 @@ def initialize_models(app: FastAPI):
     """Initializes and attaches machine learning models to the app state."""
     logger.info("Initializing CLIP model...")
     clip_model, clip_processor = ClipModel.load_model()
-    app.state.clip_embedder = ClipModel(
-        model=clip_model, processor=clip_processor
-    )
+    app.state.clip_embedder = ClipModel(model=clip_model, processor=clip_processor)
     logger.info("CLIP model initialized successfully.")
 
     logger.info("Initializing UNICOM model...")
@@ -195,7 +199,9 @@ def report_locality_readiness(duck_db) -> None:
         if config.skip:
             reason = "locality.skip is true in backend/app/configs/config.yaml"
         elif not duck_db.table_exists(GbifConfig().table):
-            reason = "there is no gbif_meta table, which is where the locality fields live"
+            reason = (
+                "there is no gbif_meta table, which is where the locality fields live"
+            )
         else:
             # The inputs are there, so the build itself failed; its own error
             # was logged when it did.
@@ -215,6 +221,27 @@ def report_locality_readiness(duck_db) -> None:
         )
     else:
         logger.info("Coordinate validation ready.")
+
+
+def report_provenance_readiness(duck_db) -> None:
+    """Say at startup whether the per-occurrence provenance join is available."""
+    config = ProvenanceConfig()
+    if not duck_db.table_exists(config.table):
+        if config.skip:
+            reason = "provenance.skip is true in backend/app/configs/config.yaml"
+        elif not duck_db.table_exists(GbifConfig().table):
+            reason = (
+                "there is no gbif_meta table, which is where the institution "
+                "and catalog fields live"
+            )
+        else:
+            reason = "the build did not complete, see the errors above"
+        logger.warning(
+            f"No occurrence provenance: {reason}. Specimens will render "
+            "without an institution or specimen ID."
+        )
+    else:
+        logger.info("Occurrence provenance ready.")
 
 
 def run_data_ingestion(app: FastAPI):
@@ -239,6 +266,10 @@ def run_data_ingestion(app: FastAPI):
     LocalityService(app.state.duck_db).ensure()
     report_locality_readiness(app.state.duck_db)
 
+    # Institution and specimen identifier, from the same gbif_meta join.
+    ProvenanceService(app.state.duck_db).ensure()
+    report_provenance_readiness(app.state.duck_db)
+
     image_embedder = ImageEmbedder(
         clip_model=app.state.clip_embedder.model,
         clip_processor=app.state.clip_embedder.processor,
@@ -249,44 +280,51 @@ def run_data_ingestion(app: FastAPI):
     image_embedder.ingest()
     logger.info("Image embeddings ingested.")
 
-    rebuild_search_indexes(app)
+    build_search_indexes(app)
 
-    logger.info(
-        "All data ingestion processes completed successfully."
-    )
+    logger.info("All data ingestion processes completed successfully.")
 
 
-def rebuild_search_indexes(app: FastAPI):
-    """Refresh every search index so it describes the data as it is now.
+def build_search_indexes(app: FastAPI):
+    """Build the LanceDB vector indexes, if configuration asks for them.
 
-    Two different kinds of index, with two different policies:
+    Off by default, via `search_index.build_vector` in
+    backend/app/configs/config.yaml. Training an IVF-PQ index is minutes of
+    work and only goes stale when the embeddings change, so this is once per
+    dataset rather than once per boot. The build is idempotent, so leaving it
+    on costs a cheap check rather than a rebuild -- but off is the default
+    because a fresh deployment should decide to spend those minutes rather
+    than discover them.
 
-    * The DuckDB full-text indexes are rebuilt on **every** start. Ingestion is
-      normally skipped in production, so without this the index is whatever the
-      last ingest left behind -- and the database changes underneath it through
-      routes that never touch ingestion, such as a `geoharmonize integrate` run
-      or a colharmonize update. Rebuilding is cheap next to serving stale hits.
-
-    * The LanceDB vector indexes are built **once** and then left alone.
-      Training an IVF-PQ index is minutes of work and only becomes stale when
-      the embeddings themselves change, which a restart does not do.
-
-    Neither is allowed to fail startup: an index that is missing or stale makes
-    search slower or slightly out of date, and neither is worth taking the site
-    down for.
+    Not allowed to fail startup: a missing index makes similarity search slow,
+    not wrong, and that is not worth taking the site down for. Both branches
+    log, so the reason search is slow is always in the startup log.
     """
-    logger.info("Refreshing search indexes...")
+    if not SearchIndexConfig().build_vector:
+        logger.info(
+            "Skipping the vector index build: search_index.build_vector is "
+            "false in backend/app/configs/config.yaml. If the collection has no "
+            "index yet, similarity search falls back to a brute-force cosine "
+            "scan over every row -- correct, but seconds rather than "
+            "milliseconds at this collection size. Set it true once after the "
+            "embeddings are rebuilt."
+        )
+        return
 
-    if ImageMetaService(app.state.duck_db).reindex():
-        logger.info("Image metadata full-text index rebuilt.")
-    if GbifPersistData(app.state.duck_db).reindex():
-        logger.info("GBIF full-text index rebuilt.")
-
-    image_config = ImageConfig()
-    for column in ("unicom_embeddings", "clip_embeddings"):
-        app.state.lance_db.ensure_vector_index(image_config.table, column)
-
-    logger.info("Search indexes refreshed.")
+    logger.info("Building vector search indexes...")
+    try:
+        image_config = ImageConfig()
+        for column in ("unicom_embeddings", "clip_embeddings"):
+            app.state.lance_db.ensure_vector_index(image_config.table, column)
+    except Exception:
+        # `ensure_vector_index` already swallows its own failures, so reaching
+        # here means the config or the collection handle is broken rather than
+        # the training. Still not worth refusing to boot over: an unindexed
+        # column is slow, not wrong.
+        logger.exception(
+            "Could not build the vector search indexes; similarity search will "
+            "fall back to a brute-force scan."
+        )
 
 
 @asynccontextmanager
@@ -314,9 +352,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("Application startup completed successfully.")
     except Exception as e:
-        logger.critical(
-            f"A critical error occurred during application startup: {e}"
-        )
+        logger.critical(f"A critical error occurred during application startup: {e}")
         raise
 
     # Yield control - application is now running
@@ -325,10 +361,7 @@ async def lifespan(app: FastAPI):
     # Shutdown logic (only runs if startup succeeded)
     logger.info("Application shutting down...")
     try:
-        if (
-            hasattr(app.state, "duck_db")
-            and app.state.duck_db is not None
-        ):
+        if hasattr(app.state, "duck_db") and app.state.duck_db is not None:
             app.state.duck_db.close()
         app.state.lance_db = None
         app.state.clip_embedder = None
