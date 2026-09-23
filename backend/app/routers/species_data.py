@@ -2,10 +2,15 @@ import asyncio
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from ..database.ingestion_state import IngestionState
+from ..query.featured_species import (
+    MAX_LIMIT,
+    FeaturedSpecies,
+    seconds_until_rotation,
+)
 from ..query.higher_taxa import FamilyOverview, GenusOverview
 from ..query.specimen_data import SpecimenData
 from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
@@ -27,6 +32,49 @@ from .http_cache import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def get_featured_species(request: Request) -> FeaturedSpecies:
+    """One instance per process, so species are scored once, not per request."""
+    service = getattr(request.app.state, "featured_species", None)
+    if service is None:
+        service = FeaturedSpecies(request.app.state.duck_db)
+        request.app.state.featured_species = service
+    return service
+
+
+@router.get("/species/featured", tags=["Species Data"])
+async def get_featured(
+    limit: int = Query(6, ge=1, le=MAX_LIMIT),
+    service: FeaturedSpecies = Depends(get_featured_species),
+):
+    """
+    A daily random sample of the species with the most complete records.
+
+    The sample is seeded by the UTC date, so it holds for the whole day, and
+    the response is cacheable until it changes, at most twenty-four hours.
+    """
+    try:
+        # The first call scores every species; keep it off the event loop.
+        data = await asyncio.to_thread(service.sample, limit)
+    except Exception as e:
+        logger.error(f"Error sampling featured species: {e}", exc_info=True)
+        return JSONResponse(
+            content={"message": "An error occurred while sampling featured species."},
+            status_code=500,
+            headers={"Cache-Control": NO_STORE},
+        )
+    if data is None:
+        return JSONResponse(
+            content={"message": "No species records are available."},
+            status_code=404,
+            headers={"Cache-Control": NO_STORE},
+        )
+    max_age = seconds_until_rotation()
+    return cached_json(
+        data,
+        cache_control=f"public, max-age={max_age}, s-maxage={max_age}",
+    )
 
 
 @router.get(

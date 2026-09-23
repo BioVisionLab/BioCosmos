@@ -7,7 +7,9 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
   return (
-    <div className="relative flex flex-col min-h-screen bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-900 dark:text-deep-mocha-100">
+    // Clipped on x so a full-bleed landing band, which is 100vw and so wider
+    // than the page by the scrollbar, cannot open a horizontal scroll.
+    <div className="relative flex flex-col min-h-screen overflow-x-clip bg-deep-mocha-100 dark:bg-deep-mocha-900 text-deep-mocha-900 dark:text-deep-mocha-100">
       {/* Use the HeaderClient component */}
       {/* <HeaderClient /> */}
 
