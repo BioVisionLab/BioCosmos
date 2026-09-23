@@ -74,3 +74,4 @@ reports/*
 
 # manuscript directory
 results/
+.claude
