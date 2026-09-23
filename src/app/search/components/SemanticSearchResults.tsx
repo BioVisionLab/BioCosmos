@@ -132,7 +132,7 @@ function MlSearchResults({
         <div className="mt-8">
           <SemanticSearchLegend />
           <div className="mb-4 mt-8">
-            <h2 className="text-lg break-words text-deep-mocha-700 dark:text-deep-mocha-200">
+            <h2 className="text-lg wrap-break-word text-deep-mocha-700 dark:text-deep-mocha-200">
               Found {results.length}{" "}
               {results.length === 1 ? "result" : "results"} for &quot;{query}
               &quot;
