@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ..services.agent import (
+    PAGE_SIZE,
     AgentConfigurationError,
     AgentPlannerError,
     AgentPlannerTimeoutError,
@@ -13,7 +14,7 @@ from ..services.agent import (
     AgentSearchService,
     AgentToolFailureError,
 )
-
+from ..services.agent_cache import CachedSearch, agent_search_cache, paginate
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -21,9 +22,52 @@ logger = logging.getLogger(__name__)
 MAX_QUERY_CHARACTERS = 500
 
 
+def _page_content(entry: CachedSearch, offset: int, limit: int) -> dict:
+    results, has_more = paginate(entry.rows, offset, limit)
+    content: dict = {
+        "query": entry.query,
+        "searchId": entry.search_id,
+        "total": len(entry.rows),
+        "offset": offset,
+        "limit": limit,
+        "hasMore": has_more,
+        "results": results,
+    }
+    if not entry.rows:
+        content["message"] = "No species found matching the criteria."
+    if entry.warnings:
+        content["warnings"] = entry.warnings
+    return content
+
+
 @router.get("/search/agent", tags=["ML Search"])
-async def agent_search(request: Request, q: str | None = None):
-    """Route a natural-language species search through typed search tools."""
+async def agent_search(
+    request: Request,
+    q: str | None = None,
+    search_id: str | None = None,
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    refresh: bool = False,
+):
+    """Route a natural-language species search through typed search tools.
+
+    The first request runs the planner and caches the full ranked list; it
+    returns one page plus a `searchId`. Later pages pass `search_id` and an
+    `offset` and are sliced from the cache without re-running the search.
+    A repeated query reuses the cached list unless `refresh` is set.
+    """
+    offset = max(offset, 0)
+    limit = min(max(limit, 1), PAGE_SIZE)
+
+    if search_id:
+        entry = agent_search_cache.get(search_id)
+        if entry is None:
+            return JSONResponse(
+                content={"error": "Search expired. Please search again."},
+                status_code=410,
+            )
+        return JSONResponse(content=_page_content(entry, offset, limit))
+
     query = (q or "").strip()
     if not query:
         return JSONResponse(
@@ -41,24 +85,21 @@ async def agent_search(request: Request, q: str | None = None):
             status_code=400,
         )
 
+    entry = None if refresh else agent_search_cache.get_by_query(query)
+    if entry is not None:
+        return JSONResponse(content=_page_content(entry, offset, limit))
+
     try:
         outcome = await AgentSearchService(request=request).search(query)
         results = [
             AgentSearchResult.model_validate(row).model_dump(by_alias=True)
             for row in outcome.dataframe.to_dicts()
         ]
-        content: dict = {
-            "query": query,
-            "total": len(results),
-            "results": results,
-        }
-        if not results:
-            content["message"] = "No species found matching the criteria."
-        if outcome.warnings:
-            content["warnings"] = [
-                warning.model_dump(exclude_none=True) for warning in outcome.warnings
-            ]
-        return JSONResponse(content=content, status_code=200)
+        warnings = [
+            warning.model_dump(exclude_none=True) for warning in outcome.warnings
+        ]
+        entry = agent_search_cache.put(query, results, warnings)
+        return JSONResponse(content=_page_content(entry, offset, limit))
     except AgentConfigurationError:
         logger.error("Agent search is not configured.", exc_info=True)
         return JSONResponse(

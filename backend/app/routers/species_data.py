@@ -14,7 +14,16 @@ from ..query.species_similarity import (
     VisuallySimilarSpeciesPayload,
 )
 from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
-from .http_cache import NO_STORE, SIMILARITY_CACHE_CONTROL, cached_json
+from ..services.col import ColTaxonSearch
+from ..services.crossref import CrossrefClient, get_crossref_client
+from ..services.literature import LiteratureSearch
+from .http_cache import (
+    LITERATURE_CACHE_CONTROL,
+    LITERATURE_PARTIAL_CACHE_CONTROL,
+    NO_STORE,
+    SIMILARITY_CACHE_CONTROL,
+    cached_json,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -72,6 +81,89 @@ async def fetch_species_biology(
             },
             status_code=500,
         )
+
+
+def get_literature_search(
+    request: Request, crossref: CrossrefClient = Depends(get_crossref_client)
+) -> LiteratureSearch:
+    return LiteratureSearch(ColTaxonSearch(request.app.state.duck_db), crossref)
+
+
+@router.get("/species/{scientific_name}/literature", tags=["Species Data"])
+async def fetch_species_literature(
+    scientific_name: str,
+    search: LiteratureSearch = Depends(get_literature_search),
+):
+    """
+    Publications on a species from CrossRef.
+
+    Searches the accepted name and its Catalogue of Life synonyms. When fewer
+    than ten papers name the species, `genusRelated` adds papers on other
+    species of its genus; it is null when that search was not needed.
+    `partial` is true when a CrossRef request failed, and the response is then
+    cached only briefly.
+    """
+    try:
+        payload = await search.search(scientific_name)
+    except Exception:
+        logger.exception(f"Error searching literature for {scientific_name}")
+        return JSONResponse(
+            content={"message": "An error occurred while searching literature."},
+            status_code=500,
+            headers={"Cache-Control": NO_STORE},
+        )
+    if payload is None:
+        return JSONResponse(
+            content={"message": f"Not a species name: {scientific_name}"},
+            status_code=404,
+            headers={"Cache-Control": NO_STORE},
+        )
+    return cached_json(
+        payload.model_dump(mode="json", by_alias=True),
+        cache_control=(
+            LITERATURE_PARTIAL_CACHE_CONTROL
+            if payload.partial
+            else LITERATURE_CACHE_CONTROL
+        ),
+    )
+
+
+def get_col_search(request: Request) -> ColTaxonSearch:
+    return ColTaxonSearch(request.app.state.duck_db)
+
+
+@router.get("/species/{scientific_name}/taxonomy", tags=["Species Data"])
+async def fetch_species_taxonomy(
+    request: Request,
+    scientific_name: str,
+    search: ColTaxonSearch = Depends(get_col_search),
+):
+    """
+    Classification, nomenclature, name usages and type material of a species.
+
+    Everything comes from the ingested Catalogue of Life release, so the
+    response changes only when the backbone is re-ingested and carries the
+    same fingerprint-based ETag as the higher-taxon overviews.
+    """
+    try:
+        detail = await search.taxonomy_detail(scientific_name)
+    except Exception:
+        logger.exception(f"Error fetching taxonomy for {scientific_name}")
+        return JSONResponse(
+            content={"message": "An error occurred while fetching taxonomy."},
+            status_code=500,
+            headers={"Cache-Control": NO_STORE},
+        )
+    if detail is None:
+        return JSONResponse(
+            content={"message": f"No taxonomy found for: {scientific_name}"},
+            status_code=404,
+            headers={"Cache-Control": NO_STORE},
+        )
+    return cached_json(
+        detail,
+        etag=_overview_etag(request, "species", scientific_name.strip().lower()),
+    )
 
 
 def get_species_similarity(request: Request) -> SpeciesSimilarity:

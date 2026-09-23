@@ -99,3 +99,27 @@ class TestInstitutionCounts:
         memory_duckdb.execute(IMAGE_META_DDL)
         stats = ImageMetaStats(duckdb=memory_duckdb)
         assert stats.get_institution_counts() is None
+
+    def test_institution_id_names_a_holder_with_no_code(self, memory_duckdb):
+        """Naturalis leaves institutionCode empty and writes its name in
+        institutionID; a URI there is not a name and stays Unknown."""
+        memory_duckdb.execute(IMAGE_META_DDL)
+        memory_duckdb.execute(
+            """
+            CREATE TABLE gbif_meta AS SELECT * FROM (VALUES
+                (1, 'occ-1', NULL, 'Naturalis Biodiversity Center'),
+                (2, 'occ-2', '', 'Naturalis Biodiversity Center'),
+                (3, 'occ-3', NULL, 'https://ror.org/05natt857'),
+                (4, 'occ-4', 'MCZ', 'Naturalis Biodiversity Center')
+            ) AS t("gbifID", "occurrenceID", "institutionCode", "institutionID")
+            """
+        )
+        for n in range(1, 5):
+            memory_duckdb.execute_prepared(
+                "INSERT INTO image_meta VALUES (?, ?, ?, ?, ?)",
+                [f"img{n}", f"occ-{n}", "nymphalidae", "danaus_plexippus", "gbif"],
+            )
+
+        counts = ImageMetaStats(duckdb=memory_duckdb).get_institution_counts()
+
+        assert counts == {"Naturalis Biodiversity Center": 2, "Unknown": 1, "MCZ": 1}

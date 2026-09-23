@@ -750,6 +750,7 @@ version = "0.1.0"
 source = { directory = "../packages/harmonize-core" }
 dependencies = [
     { name = "duckdb" },
+    { name = "pycountry" },
     { name = "pydantic" },
     { name = "typer" },
 ]
@@ -757,6 +758,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.4,<2" },
+    { name = "pycountry", specifier = ">=24.6,<25" },
     { name = "pydantic", specifier = ">=2.10,<3" },
     { name = "typer", specifier = ">=0.15,<1" },
 ]

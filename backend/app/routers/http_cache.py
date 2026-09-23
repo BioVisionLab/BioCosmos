@@ -30,6 +30,17 @@ SIMILARITY_CACHE_CONTROL = (
     f"s-maxage={SIMILARITY_MAX_AGE}, stale-while-revalidate=3600"
 )
 
+# One day for a complete literature list: CrossRef itself is cached for a week
+# in the backend, so this only bounds how long a browser or CDN holds the
+# assembled page. A list missing some results because CrossRef failed is held
+# for five minutes, long enough to absorb a burst but not to outlive an outage.
+LITERATURE_MAX_AGE = 60 * 60 * 24
+LITERATURE_CACHE_CONTROL = (
+    f"public, max-age={LITERATURE_MAX_AGE}, "
+    f"s-maxage={LITERATURE_MAX_AGE}, stale-while-revalidate=86400"
+)
+LITERATURE_PARTIAL_CACHE_CONTROL = "public, max-age=300, s-maxage=300"
+
 # Errors are not cached at all. A month-long cache entry for a typo'd family
 # name would outlive several ingestions and there would be no way to clear it
 # from the browser that holds it.

@@ -22,6 +22,9 @@ from plannerbench.spec import DEFAULT_SPEC_PATH, load_spec
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
+# The NaviGator gateway rejects more parallel requests than this.
+MAX_CONCURRENCY = 10
+
 
 def _fail(exc: Exception) -> typer.Exit:
     typer.echo(f"Error: {exc}", err=True)
@@ -123,8 +126,30 @@ def run_command(
     case_ids: Annotated[
         list[str] | None, typer.Option("--case", help="Run only this case id; repeatable.")
     ] = None,
-    repeats: Annotated[int, typer.Option("--repeats", "-n", min=1)] = 3,
-    concurrency: Annotated[int, typer.Option("--concurrency", "-j", min=1)] = 4,
+    repeats: Annotated[int, typer.Option("--repeats", "-n", min=1)] = 5,
+    concurrency: Annotated[
+        int,
+        typer.Option(
+            "--concurrency",
+            "-j",
+            min=1,
+            max=MAX_CONCURRENCY,
+            help="Requests in flight; NaviGator allows 10.",
+        ),
+    ] = 4,
+    rpm: Annotated[
+        float,
+        typer.Option(
+            "--rpm",
+            min=0,
+            help="Request budget per minute across all concurrent calls; 0 disables pacing. "
+            "NaviGator allows 120.",
+        ),
+    ] = runner.DEFAULT_REQUESTS_PER_MINUTE,
+    rate_limit_retries: Annotated[
+        int,
+        typer.Option("--rate-limit-retries", min=0, help="Retries for each HTTP 429."),
+    ] = runner.DEFAULT_RATE_LIMIT_RETRIES,
     temperature: Annotated[
         float | None,
         typer.Option(help="Override the provider default the backend relies on."),
@@ -158,9 +183,11 @@ def run_command(
         raise _fail(exc) from exc
 
     total = len(cases) * len(models) * repeats
+    pacing = f", >= {total / rpm:.1f} min at {rpm:g} RPM" if rpm else ""
     typer.echo(
         f"Planner spec {spec.fingerprint[:12]} (production model: {spec.production_model}); "
         f"{len(cases)} cases x {len(models)} models x {repeats} repeats = {total} calls"
+        f"{pacing}"
     )
 
     done = 0
@@ -182,6 +209,8 @@ def run_command(
             repeats=repeats,
             concurrency=concurrency,
             temperature=temperature,
+            requests_per_minute=rpm or None,
+            rate_limit_retries=rate_limit_retries,
             on_trial=progress,
         )
     )
@@ -191,6 +220,9 @@ def run_command(
     if show_misses:
         _echo_misses(trials, cases)
     _echo_summary(summaries, cases, repeats)
+    retried = sum(trial.rate_limit_retries for trial in trials)
+    if retried:
+        typer.echo(f"\nRate-limited: {retried} retries (lower --rpm if this keeps happening)")
 
     if write:
         manifest = RunManifest(
@@ -207,6 +239,8 @@ def run_command(
             models=models,
             repeats=repeats,
             concurrency=concurrency,
+            requests_per_minute=rpm or None,
+            rate_limit_retries=rate_limit_retries,
             temperature=temperature,
             base_url=base_url,
             summaries=summaries,

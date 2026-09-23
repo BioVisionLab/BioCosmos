@@ -2,109 +2,36 @@
 
 from __future__ import annotations
 
-import unicodedata
 from pathlib import Path
 
 import pandas as pd
-import pycountry
+from harmonize_core.countries import CountryLookup as SharedCountryLookup
+from harmonize_core.countries import clean, name_key  # noqa: F401 -- re-exported
 
 from analyses.helpers.publication import (
     AnalysisError,
     Settings,
     connect,
     image_table,
-    project_root,
     table,
     text,
     unique_key,
 )
 
 VALIDATION_SOURCE = "geoharmonize coordinate validation (GADM GID_0)"
-# Basemap polygons that carry no ISO code of their own and whose territory GADM
-# records under another country. The polygon is then drawn with that country's
-# total, because its records are already counted there; it has no separate total
-# of its own. Keyed by the basemap's feature name. N. Cyprus stays unmapped: no
-# eligible record resolves to it, so nothing would be drawn either way.
-FEATURE_PARENTS = {"somaliland": "SO"}
 ISO_SOURCE = "pycountry 24.6.1 / ISO 3166-1"
 MAP_SOURCE = "analyses/data/ne_110m_admin_0_countries.geojson"
 
 
-def clean(value) -> str:
-    return "" if pd.isna(value) else str(value).strip()
-
-
-def name_key(value) -> str:
-    return " ".join(unicodedata.normalize("NFKC", clean(value)).casefold().split())
-
-
-class CountryLookup:
-    """Exact identifiers and unique names only; no fuzzy matching."""
+class CountryLookup(SharedCountryLookup):
+    """The shared harmonize-core lookup, with its locations as a DataFrame for audit joins."""
 
     def __init__(self, root: Path | None = None):
-        path = (root or project_root()) / "analyses/data/country_locations.csv"
-        self.locations = pd.read_csv(path, keep_default_na=False).set_index("country_code")
-        if not self.locations.index.is_unique:
-            raise AnalysisError("Country marker lookup contains duplicate codes.")
-        self.aliases = {"UK": "GB", "EL": "GR"}
-        names: dict[str, set[str]] = {}
-        for country in pycountry.countries:
-            for field in ("name", "official_name", "common_name"):
-                value = getattr(country, field, None)
-                if value:
-                    names.setdefault(name_key(value), set()).add(country.alpha_2)
-        for code, row in self.locations.iterrows():
-            names.setdefault(name_key(row.country_name), set()).add(code)
-            for alias in row.aliases.split(";"):
-                if alias:
-                    self.aliases[alias] = code
-        # Common unambiguous English variants not present in the ISO names.
-        for name, code in {
-            "UK": "GB",
-            "USA": "US",
-            "South Korea": "KR",
-            "North Korea": "KP",
-            "Russia": "RU",
-            "Vietnam": "VN",
-            "Laos": "LA",
-            "Ivory Coast": "CI",
-        }.items():
-            names.setdefault(name_key(name), set()).add(code)
-        self.names = {name: next(iter(codes)) for name, codes in names.items() if len(codes) == 1}
-
-    def code(self, value) -> tuple[str | None, str]:
-        code = clean(value).upper()
-        if code in self.locations.index:
-            return code, "normalized code"
-        if code in self.aliases:
-            return self.aliases[code], "alias"
-        country = pycountry.countries.get(alpha_3=code) if len(code) == 3 else None
-        if country:
-            return country.alpha_2, "normalized code"
-        return None, "unresolved"
-
-    def resolve(self, code, name) -> tuple[str | None, str]:
-        normalized, method = self.code(code)
-        if normalized is not None:
-            return normalized, method
-        normalized = self.names.get(name_key(name))
-        return (normalized, "country-name fallback") if normalized else (None, "unresolved")
-
-    def feature_code(self, feature) -> str | None:
-        properties = feature["properties"]
-        # Prefer an actual ISO alpha-2 field to a subdivision-style alias.
-        for key in ("ISO_A2", "ISO_A2_EH"):
-            code = clean(properties.get(key)).upper()
-            if code in self.locations.index:
-                return code
-        for key in ("ISO_A2", "ISO_A2_EH"):
-            code, _ = self.code(properties.get(key))
-            if code:
-                return code
-        # A polygon with no ISO code of its own takes the country GADM files its
-        # territory under, so it is shaded with the total that already holds its
-        # records instead of reading as having none.
-        return FEATURE_PARENTS.get(name_key(properties.get("NAME")))
+        # `root` is accepted for compatibility; the table ships with harmonize-core.
+        super().__init__()
+        self.locations = pd.DataFrame(
+            [vars(location) for location in self.by_code.values()]
+        ).set_index("country_code")
 
 
 def eligible_country_records(settings: Settings) -> pd.DataFrame:
@@ -200,7 +127,7 @@ def country_summaries(records: pd.DataFrame, features: list, lookup: CountryLook
                     else VALIDATION_SOURCE
                     + "; "
                     + ISO_SOURCE
-                    + "; analyses/helpers/country_mapping.py; country_locations.csv"
+                    + "; harmonize_core/countries.py; harmonize_core/data/country_locations.csv"
                 ),
                 "location_source": (
                     MAP_SOURCE

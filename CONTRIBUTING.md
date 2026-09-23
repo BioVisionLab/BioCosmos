@@ -192,6 +192,10 @@ If you prefer to run the services manually without Docker, follow these steps:
     # This directory must contain an extracted ColDP NameUsage.tsv.
     COL_DIR=/absolute/path/to/catalogue-of-life-col-dp
 
+    # Recommended: contact address sent to CrossRef for the Literature tab.
+    # Without it, requests use CrossRef's slower anonymous public pool.
+    # CROSSREF_MAILTO=you@example.org
+
     # Optional: Custom LLM service
     # LLM_API_URL=your_llm_endpoint
     # LLM_API_KEY=your_api_key

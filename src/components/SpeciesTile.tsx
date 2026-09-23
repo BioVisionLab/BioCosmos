@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 
 const PLACEHOLDER_SIZE = 60;
 
@@ -25,16 +26,17 @@ export interface SpeciesTileProps {
 }
 
 /**
- * A square species tile: the image in a rounded panel, the name beneath it.
+ * A species card: the image and, beneath it, the name, both inside one
+ * rounded panel.
  *
- * Shared by the featured butterflies and the visual-search results, so the
- * two grids on the landing page are the same object rather than two cards
- * that merely started out looking alike.
+ * Shared by the featured butterflies, the visual-search results and the
+ * higher-taxon strips, and laid out like the ML search result card — the
+ * name sits inside the panel under a square image well, rather than hanging
+ * below the panel as a loose caption — so every grid of species on the site
+ * reads as the same object.
  *
  * Loaded and unloaded states are one element tree with one background and
- * one height. They used to be two different trees — a bare `div` without a
- * caption, and a `Link` with one, in two different shades — so every tile
- * changed colour and grew taller the moment its image arrived.
+ * one height, so nothing changes colour or grows when the image arrives.
  */
 export function SpeciesTile({
   href,
@@ -47,28 +49,26 @@ export function SpeciesTile({
   // their `src` in place, and a boolean would report the outgoing image as
   // loaded while the incoming one was still on the wire.
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const ready = imageUrl !== null && loadedUrl === imageUrl;
+  const failed = imageUrl !== null && failedUrl === imageUrl;
+  // An untouched visual-search slot is a faint bed rather than a solid panel,
+  // so six of them do not read as six missing images.
+  const resting = !imageUrl && placeholder === "empty";
 
   return (
     <Link
       href={href}
       aria-disabled={imageUrl ? undefined : true}
       tabIndex={imageUrl ? undefined : -1}
-      className={`w-full flex flex-col justify-center items-center text-center group ${
-        imageUrl ? "" : "pointer-events-none"
-      }`}
+      className={`group w-full min-w-0 flex flex-col items-center gap-2 rounded-2xl p-4 text-center transition-[background-color,box-shadow] ${
+        resting
+          ? "bg-deep-mocha-200/40 dark:bg-deep-mocha-700/30"
+          : "bg-deep-mocha-200 dark:bg-deep-mocha-700 shadow-sm hover:shadow-md"
+      } ${imageUrl ? "" : "pointer-events-none"}`}
     >
-      {/* One box, one size, in every state. Only the fill changes: an
-          untouched visual-search slot is a faint bed rather than a solid
-          panel, so six of them do not read as six missing images. */}
-      <div
-        className={`relative w-full aspect-square rounded-2xl p-4 overflow-hidden transition-[background-color,box-shadow] ${
-          imageUrl || placeholder === "spinner"
-            ? "bg-deep-mocha-200 dark:bg-deep-mocha-700 shadow-sm group-hover:shadow-md"
-            : "bg-deep-mocha-200/40 dark:bg-deep-mocha-700/30"
-        }`}
-      >
-        {imageUrl ? (
+      <div className="relative w-full aspect-square">
+        {imageUrl && !failed ? (
           <Image
             src={imageUrl}
             alt={alt}
@@ -77,13 +77,17 @@ export function SpeciesTile({
             className={`object-contain transition-opacity duration-200 ${
               ready ? "opacity-100" : "opacity-0"
             }`}
-            // A failed thumbnail resolves the slot too: otherwise the
-            // spinner beneath it would run forever.
             onLoad={() => setLoadedUrl(imageUrl)}
-            onError={() => setLoadedUrl(imageUrl)}
+            // A failed thumbnail resolves the slot too: otherwise the
+            // spinner would run forever.
+            onError={() => {
+              setLoadedUrl(imageUrl);
+              setFailedUrl(imageUrl);
+            }}
             unoptimized
           />
         ) : null}
+        {failed ? <NoImage /> : null}
         {!ready && placeholder === "spinner" ? (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <ImageLoading size={PLACEHOLDER_SIZE} />
@@ -91,15 +95,17 @@ export function SpeciesTile({
         ) : null}
       </div>
       {/* A caption, not a heading: a grid of these used to emit one <h2> per
-          thumbnail, which reads as a page full of top-level sections. It is
-          rendered even when empty, because the line is part of the tile's
-          height and a caption that appears late is a jump. */}
-      <p
-        className="w-full text-sm truncate italic text-center text-deep-mocha-600 dark:text-deep-mocha-400 mt-2 px-1"
-        title={label || undefined}
-      >
-        {label || " "}
-      </p>
+          thumbnail. The slot is always two lines tall, even when empty, so a
+          long binomial can wrap without a row of cards changing height and a
+          caption that appears late is not a jump. */}
+      <div className="flex min-h-10 w-full items-center justify-center">
+        <p
+          className="line-clamp-2 break-words text-sm leading-5 italic text-deep-mocha-800 dark:text-deep-mocha-100"
+          title={label || undefined}
+        >
+          {label}
+        </p>
+      </div>
     </Link>
   );
 }

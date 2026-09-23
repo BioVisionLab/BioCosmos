@@ -1,8 +1,9 @@
 "use client"; // Mark this component as a Client Component
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
+import Link from "next/link";
 import { getSpeciesList } from "@/lib/speciesList";
-import { speciesThumbnailUrl } from "@/lib/images";
+import { speciesImageUrl } from "@/lib/images";
 import SearchSwitcher from "./SearchSwitcher";
 import { ImageLoading } from "./Loadings";
 import SpeciesTile from "./SpeciesTile";
@@ -14,17 +15,27 @@ import { cleanSpeciesName, speciesUrlFromName } from "@/lib/names";
 import { isBackendAlive } from "@/lib/backend";
 import Logo from "./Logo";
 import ColorSearch from "./ColorSearch";
-import { ButterflyIcon } from "./ui/icons";
+import { ButterflyIcon, NetworkIcon, TaxonomyIcon } from "./ui/icons";
+
+interface HomeSlots {
+  dataSummary?: ReactNode;
+  countryDiversity?: ReactNode;
+}
 
 /**
  * @param dataSummary The collection summary, rendered on the server and
  *   passed in as a slot so this client component does not have to fetch it.
+ * @param countryDiversity The species-by-country map section, a slot for the
+ *   same reason.
  */
-export default function HomePage({ dataSummary }: { dataSummary?: ReactNode }) {
+export default function HomePage({ dataSummary, countryDiversity }: HomeSlots) {
   return (
     <div className="flex flex-col items-center min-h-screen">
       <Hero />
-      <HomeContent dataSummary={dataSummary} />
+      <HomeContent
+        dataSummary={dataSummary}
+        countryDiversity={countryDiversity}
+      />
       {/* spacer between homepage content and the site footer */}
       <div className="h-8 md:h-14 lg:h-16" aria-hidden="true" />
     </div>
@@ -39,13 +50,15 @@ export default function HomePage({ dataSummary }: { dataSummary?: ReactNode }) {
  * anything. These are the claims nothing else above the fold makes, and they
  * are what "museum-quality" means in practice.
  *
- * Outlined, with one small coloured dot each. The three saturated pills they
- * replace put more colour above the fold than the butterflies underneath it.
+ * Outlined, each with a small line icon from the shared set. The three
+ * saturated pills they replace put more colour above the fold than the
+ * butterflies underneath it, and the coloured dots that followed said nothing
+ * about the claim they sat beside.
  */
 const CREDENTIALS = [
-  { label: "Every butterfly family", dot: "bg-hunter-green-500" },
-  { label: "Harmonized taxonomy", dot: "bg-pacific-blue-500" },
-  { label: "Open, citable records", dot: "bg-frozen-water-600" },
+  { label: "Every butterfly family", Icon: ButterflyIcon },
+  { label: "Harmonized taxonomy", Icon: TaxonomyIcon },
+  { label: "Advanced machine learning", Icon: NetworkIcon },
 ] as const;
 
 /**
@@ -87,7 +100,7 @@ function Hero() {
     <section className="relative w-full overflow-x-clip px-4 pt-12 pb-2 sm:pt-16">
       <span className="bc-hero-glow" aria-hidden="true" />
 
-      <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+      <div className="relative mx-auto flex max-w-6xl flex-col items-center text-center">
         <h1 className="bc-rise flex w-full justify-center">
           <span className="sr-only">Lepiverse</span>
           <Logo className="w-64 sm:w-80 md:w-96" />
@@ -98,11 +111,11 @@ function Hero() {
             headline size rather than as a headline. At this measure the three
             balanced lines come out nearly equal. */}
         <p
-          className="bc-rise mt-7 max-w-3xl text-balance text-lg leading-snug tracking-tight text-deep-mocha-800 sm:text-xl dark:text-deep-mocha-100"
+          className="bc-rise mt-7 max-w-4xl text-balance text-lg leading-snug tracking-wide text-deep-mocha-800 sm:text-xl dark:text-deep-mocha-100"
           style={{ animationDelay: "90ms" }}
         >
-          Explore butterfly diversity and their fascinating coloration with a
-          modern, museum-quality image platform.
+          Explore butterfly diversity and their fascinating coloration through a
+          combined approach of curated records and modern machine learning
         </p>
 
         {/* Narrower than the lead by one step. Sharing the lead's 36rem
@@ -112,29 +125,27 @@ function Hero() {
             hierarchy. At 32rem it breaks into three short lines that sit well
             inside the block above. */}
         <p
-          className="bc-rise mt-4 max-w-2xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
+          className="bc-rise mt-4 max-w-4xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
           style={{ animationDelay: "180ms" }}
         >
-          The BioCosmos engine pairs curated biodiversity records with modern
-          machine learning, revealing patterns in taxonomy, geography, and
-          coloration. We develop data validation and harmonization methods and
-          bring together disparate research-grade resources in on place, making
-          them accessible to researchers, educators, and enthusiasts alike.
+          The BioCosmos engine pairs curated natural history records with
+          emerging machine learning technologies, revealing patterns in
+          taxonomy, geography, and coloration. We develop data validation and
+          harmonization methods and bring together disparate research-grade
+          resources in on place, making them accessible to researchers,
+          educators, and enthusiasts alike.
         </p>
 
         <ul
           className="bc-rise mt-8 flex flex-wrap justify-center gap-2"
           style={{ animationDelay: "270ms" }}
         >
-          {CREDENTIALS.map(({ label, dot }) => (
+          {CREDENTIALS.map(({ label, Icon }) => (
             <li
               key={label}
               className="inline-flex items-center gap-2 rounded-full border border-deep-mocha-200 bg-white/60 px-3 py-1 text-xs text-deep-mocha-700 backdrop-blur sm:text-sm dark:border-deep-mocha-700 dark:bg-deep-mocha-900/40 dark:text-deep-mocha-300"
             >
-              <span
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
-                aria-hidden="true"
-              />
+              <Icon size="sm" className="h-4 w-4 shrink-0" />
               {label}
             </li>
           ))}
@@ -144,7 +155,7 @@ function Hero() {
   );
 }
 
-function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
+function HomeContent({ dataSummary, countryDiversity }: HomeSlots) {
   const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
 
   // Chosen once per mount. `getSpeciesList()` shuffles, so calling it from
@@ -169,7 +180,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
   if (backendAlive === null) {
     return (
       <div className="mt-12">
-        <ImageLoading size={240} msg="Connecting to backend" />
+        <ImageLoading size={240} msg="Connecting to BioCosmos" />
       </div>
     );
   }
@@ -178,7 +189,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
     return (
       <div className="mt-12 text-center flex flex-col items-center px-4">
         <p className="text-burnt-peach-600 dark:text-burnt-peach-400 mb-2">
-          Unable to connect to the backend service.
+          Unable to connect to BioCosmos.
         </p>
         <p className="text-deep-mocha-600 dark:text-deep-mocha-400 text-sm max-w-md">
           This usually occurs during website updates (approx. 3-15 minutes
@@ -204,7 +215,7 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
 
       <LandingSectionHeading
         className="mt-12"
-        icon={<ButterflyIcon />}
+        icon={<ButterflyIcon size="sm" />}
         title="Featured Butterflies"
         description="Get started with a curated list of butterflies."
       />
@@ -216,7 +227,40 @@ function HomeContent({ dataSummary }: { dataSummary?: ReactNode }) {
 
       <ColorSearch />
       {dataSummary}
+      {countryDiversity}
+      <Acknowledgments />
     </div>
+  );
+}
+
+/**
+ * The closing note: the collection exists because museums digitized their
+ * drawers and curators keep the names behind them straight. Last on the page
+ * so it reads as a sign-off, and pointed at the collections page, where the
+ * holding institutions and aggregators are credited by name.
+ */
+function Acknowledgments() {
+  return (
+    <section className="w-full mt-16" aria-labelledby="acknowledgments-heading">
+      <LandingSectionHeading id="acknowledgments-heading" title="Thank You" />
+      <div className={LANDING_CONTAINER}>
+        <p className="max-w-3xl text-sm sm:text-base leading-relaxed text-deep-mocha-700 dark:text-deep-mocha-300">
+          This website would not be possible without the natural history
+          museums that care for and digitize their collections, the taxonomic
+          curators whose expertise keeps every name accurate, and all the
+          contributors who share their specimens, images, and records with the
+          world. Thank you.
+        </p>
+        <p className="mt-3 text-sm">
+          <Link
+            href="/collections"
+            className="text-pacific-blue-600 dark:text-pacific-blue-400 hover:underline"
+          >
+            See our data contributors →
+          </Link>
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -227,13 +271,13 @@ function SpeciesThumbnail({
   species: string;
   index: number;
 }) {
-  // No state and no effect: the thumbnail URL is a pure function of the
+  // No state and no effect: the image URL is a pure function of the
   // name, so fetching it asynchronously only bought a guaranteed first
   // render with no image — six of them, every visit.
   return (
     <SpeciesTile
       href={`/species/${speciesUrlFromName(species)}`}
-      imageUrl={speciesThumbnailUrl(species)}
+      imageUrl={speciesImageUrl(species)}
       label={cleanSpeciesName(species)}
       alt={`Species Thumbnail ${index + 1}`}
     />

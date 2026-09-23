@@ -1,0 +1,5 @@
+col:ID	col:nameID	col:sourceID	col:citation	col:status	col:referenceID	col:page	col:country	col:locality	col:latitude	col:longitude	col:altitude	col:sex	col:host	col:associatedSequences	col:date	col:collector	col:institutionCode	col:catalogNumber	col:link	col:remarks	col:modified	col:modifiedBy	clb:merged
+TM1	SYN1		Paralectotype, LSL	paralectotype													LSL	LSL-2					
+TM2	SYN1		Lectotype ♂, LSL	lectotype	REF3	88	SE	Sweden, Uppsala	+59.86	+17.64		male					LSL	LSL-1					
+TM3	BBB1		Holotype ♀, NHMUK	holotype					n/a								NHMUK						
+TM4	BEE1		Holotype, beetle	holotype																			

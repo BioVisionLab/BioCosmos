@@ -1,7 +1,7 @@
 # plannerbench
 
 Benchmark language models as the planner behind BioCosmos agent search
-(`GET /search/agent`). The planner turns a query such as *"blue from brazil"*
+(`GET /search/agent`). The planner turns a query such as _"blue from brazil"_
 into tool calls (`search_by_color` + `search_by_location(BR)`). The backend
 runs those tools, so a wrong or missing call gives wrong results, and a
 different plan for the same query gives inconsistent ones.
@@ -20,7 +20,7 @@ Unknown tools, undecodable or schema-invalid arguments, and repeat calls to a
 tool all count as invalid.
 
 ```bash
-cd backend && uv run python scripts/export_planner_spec.py
+cd backend && env -u VIRTUAL_ENV uv run python scripts/export_planner_spec.py
 # -> reports/planner/planner_spec.json
 ```
 
@@ -30,10 +30,17 @@ comparable only when their fingerprints match.
 
 ## Running
 
+From the repository root, install every workspace package into the root
+`.venv`, activate it, and load `backend/.env` into the current bash shell.
+This makes `plannerbench` a normal executable in that environment. If another
+virtual environment is active, `env -u VIRTUAL_ENV` keeps the sync targeted at
+the root `.venv`; activating it then switches your shell to that environment.
+
 ```bash
+# Linux only. On macOS uv sync should work without `env -u VIRTUAL_ENV`.
 uv sync --all-packages
 
-# Compare models on the UF endpoint (credentials from backend/.env)
+# Compare models on the UF endpoint
 uv run --env-file backend/.env plannerbench run \
     -m mistral-small-3.1 \
     -m gemma-4-31b-it \
@@ -43,43 +50,54 @@ uv run --env-file backend/.env plannerbench run \
     --repeats 5
 
 # A subset of cases, one repeat, greedy decoding
-uv run --env-file backend/.env plannerbench run -m gemma-4-31b-it \
+plannerbench run -m gemma-4-31b-it \
     --case color-country --case similar-common-name -n 1 --temperature 0
 
-uv run plannerbench cases        # list the packaged cases
-uv run plannerbench run --help
+plannerbench cases        # list the packaged cases
+plannerbench run --help
 ```
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `-m/--model` | required | Model id; repeat to compare several |
-| `--spec` | `reports/planner/planner_spec.json` | Exported planner spec |
-| `--cases` | packaged `cases.toml` | Case file |
-| `--case` | all | Run only these case ids |
-| `-n/--repeats` | 3 | Calls per case and model; needed to measure consistency |
-| `-j/--concurrency` | 4 | Requests in flight. Latency grows with load on a shared endpoint |
-| `--temperature` | provider default | The backend sets none, so the default matches production |
-| `--base-url` | `$LLM_API_URL` | OpenAI-compatible endpoint |
-| `--api-key-env` | `LLM_API_KEY` | Variable holding the key. The key is never written out |
-| `--max-retries` | 0 | Off, so provider failures count as errors instead of hiding in latency |
-| `--no-write` | | Print only, do not save the run |
+Keep each line-continuation backslash at the end of its line. Leave the final
+`--repeats` line without a backslash. Run `deactivate` when finished.
+| Option                 | Default                             | Meaning                                                                |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------- |
+| `-m/--model`           | required                            | Model id; repeat to compare several                                    |
+| `--spec`               | `reports/planner/planner_spec.json` | Exported planner spec                                                  |
+| `--cases`              | packaged `cases.toml`               | Case file                                                              |
+| `--case`               | all                                 | Run only these case ids                                                |
+| `-n/--repeats`         | 5                                   | Calls per case and model; needed to measure consistency                |
+| `-j/--concurrency`     | 4                                   | Requests in flight, at most 10 (the NaviGator parallel limit)          |
+| `--rpm`                | 100                                 | Request budget per minute across all calls; 0 disables pacing          |
+| `--rate-limit-retries` | 3                                   | Retries for an HTTP 429 before it counts as an error                   |
+| `--temperature`        | provider default                    | The backend sets none, so the default matches production               |
+| `--base-url`           | `$LLM_API_URL`                      | OpenAI-compatible endpoint                                             |
+| `--api-key-env`        | `LLM_API_KEY`                       | Variable holding the key. The key is never written out                 |
+| `--max-retries`        | 0                                   | Off, so provider failures count as errors instead of hiding in latency |
+| `--no-write`           |                                     | Print only, do not save the run                                        |
 
 Models are interleaved within each case and repeat, so load changes on the
 shared endpoint affect every model alike. The configured API team must be
 authorized for every requested model; authorization failures are recorded as
 benchmark errors rather than model-quality results.
 
+NaviGator allows 120 requests per minute and 10 parallel requests per key.
+The default `--rpm 100` starts calls evenly (one every 0.6 s) and leaves room
+for the backend when it shares the key. An HTTP 429 that still gets through is
+retried after `Retry-After` (or exponential backoff) instead of being counted
+as a model error; latency covers only the final attempt. The packaged 18 cases
+x 5 repeats x 3 models is 270 calls, so plan on at least 2.7 minutes.
+
 ## Metrics
 
-| Metric | Meaning |
-| --- | --- |
-| accuracy | Correct trials over all trials. An API error counts as a miss |
-| consistent | Cases where every repeat succeeded with the same accepted plan |
-| no-tool | Successful responses with no valid tool call. The backend then falls back to a plain text search |
-| invalid | Share of returned tool calls the backend would reject |
-| errors | Failed requests: timeouts, HTTP errors, empty responses |
-| p50 / p95 / max | Planner latency of successful calls |
-| prompt / completion / total | Tokens consumed by successful calls, as reported by the provider |
+| Metric                      | Meaning                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| accuracy                    | Correct trials over all trials. An API error counts as a miss                                    |
+| consistent                  | Cases where every repeat succeeded with the same accepted plan                                   |
+| no-tool                     | Successful responses with no valid tool call. The backend then falls back to a plain text search |
+| invalid                     | Share of returned tool calls the backend would reject                                            |
+| errors                      | Failed requests: timeouts, HTTP errors, empty responses                                          |
+| p50 / p95 / max             | Planner latency of successful calls                                                              |
+| prompt / completion / total | Tokens consumed by successful calls, as reported by the provider                                 |
 
 A per-case table follows, and `--misses` (on by default) prints every wrong
 plan, invalid argument, and error.

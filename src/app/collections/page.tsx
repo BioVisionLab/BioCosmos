@@ -1,13 +1,18 @@
-import Link from "next/link";
 
+import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchTaxonStats } from "@/lib/metaStats";
 import CollectionCharts from "./CollectionCharts";
+import BackLink from "@/components/BackLink";
+import { SOURCE_DB_HOMEPAGES } from "@/lib/imageMetadata";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
 export const dynamic = "force-dynamic";
 
 export default async function CollectionsPage() {
-  const data = await fetchTaxonStats();
+  const [data, countryDiversity] = await Promise.all([
+    fetchTaxonStats(),
+    fetchCountryDiversity(),
+  ]);
   const statsUnavailable = data === null;
 
   const summaryStats = [
@@ -25,17 +30,17 @@ export default async function CollectionsPage() {
     {
       label: "GBIF",
       value: data?.sourceDbCount?.["gbif"] ?? 0,
-      href: "https://www.gbif.org/",
+      href: SOURCE_DB_HOMEPAGES.gbif,
     },
     {
       label: "Ecdysis",
       value: data?.sourceDbCount?.["ecdysis"] ?? 0,
-      href: "https://github.com/RiesLabGU/LepTraits",
+      href: SOURCE_DB_HOMEPAGES.ecdysis,
     },
     {
       label: "SCANBUGS",
       value: data?.sourceDbCount?.["scanbugs"] ?? 0,
-      href: "https://scan-all-bugs.org/",
+      href: SOURCE_DB_HOMEPAGES.scanbugs,
     },
     {
       label: "Multiple Sources",
@@ -45,12 +50,8 @@ export default async function CollectionsPage() {
 
   return (
     <main className="w-full max-w-7xl 2xl:max-w-[88rem] mx-auto py-8">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-bold">Collections</h1>
-        <Link href="/" className="text-pacific-blue-600 hover:underline">
-          ← Back to Home
-        </Link>
-      </div>
+      <BackLink />
+      <h1 className="text-3xl font-bold mb-6">Collections</h1>
 
       <p className="mb-6 max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300">
         Statistics on our current dataset, including the number of images,
@@ -97,14 +98,14 @@ export default async function CollectionsPage() {
           Proportion of image entries across butterfly families before and
           after taxonomy validation, the top ten most-represented species in
           the collection, the holding institutions behind the collection, and
-          how the CLIP and UNICOM embedding spaces behind image search are
-          distributed.
+          the ten countries with the most species recorded.
         </p>
         <CollectionCharts
           entriesByFamily={data?.entriesByFamily ?? null}
           entriesByFamilyValidated={data?.entriesByFamilyValidated ?? null}
           topTenSpecies={data?.topTenSpecies ?? null}
           institutionCounts={data?.institutionCounts ?? null}
+          countryDiversity={countryDiversity}
         />
       </section>
     </main>

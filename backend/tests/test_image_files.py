@@ -84,6 +84,47 @@ class TestImageMetaRetrieval:
         assert "internal_field" not in meta
         assert meta["source_db"] == "MCZ"
 
+    def _meta_with_provenance(self, fake_request, holder):
+        meta_df = pl.DataFrame({"uuid": ["abc-123"], "source_db": ["gbif"]})
+        with patch("app.query.image_files.ImageMetaService") as MockMeta, patch(
+            "app.query.image_files.OccurrenceProvenance"
+        ) as MockProvenance, patch(
+            "app.query.image_files.InstitutionDirectory"
+        ) as MockDirectory:
+            MockMeta.return_value.get_meta_by_image_id.return_value = meta_df
+            MockProvenance.return_value.get_for_image.return_value = {
+                "institutionCode": "MCZ",
+                "catalogNumber": "100018",
+            }
+            MockDirectory.return_value.get.return_value = holder
+            meta = ImageMetaRetrieval(request=fake_request).get_meta_by_id("img-001")
+            MockDirectory.return_value.get.assert_called_once_with("MCZ")
+        return meta
+
+    def test_holder_carries_its_resolved_name_and_website(self, fake_request):
+        meta = self._meta_with_provenance(
+            fake_request,
+            {
+                "name": "Harvard University, Museum of Comparative Zoology",
+                "homepage": "http://www.mcz.harvard.edu/",
+                "country": "US",
+                "source": "grscicoll_verified",
+            },
+        )
+        assert meta["provenance"] == {
+            "institutionCode": "MCZ",
+            "catalogNumber": "100018",
+            "institutionName": "Harvard University, Museum of Comparative Zoology",
+            "institutionHomepage": "http://www.mcz.harvard.edu/",
+        }
+
+    def test_unresolved_holder_keeps_only_its_code(self, fake_request):
+        meta = self._meta_with_provenance(fake_request, None)
+        assert meta["provenance"] == {
+            "institutionCode": "MCZ",
+            "catalogNumber": "100018",
+        }
+
     def test_get_meta_by_id_returns_none_when_empty(self, fake_request):
         with patch(
             "app.query.image_files.ImageMetaService"

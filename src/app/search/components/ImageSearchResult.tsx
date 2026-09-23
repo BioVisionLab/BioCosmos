@@ -4,6 +4,7 @@ import { ImageLoading } from "@/components/Loadings";
 import { MLSearchResultCard, TopResultCard } from "./MlResultCard";
 import Tips from "@/components/Tips";
 import { getSearchImage, clearSearchImage } from "@/lib/imageSearchStore";
+import BackLink from "@/components/BackLink";
 
 export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   const [results, setResults] = useState<MlResultItems[]>([]);
@@ -76,11 +77,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
 
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
-      <div className="mb-4">
-        <a href="/" className="text-blue-600 hover:underline">
-          &larr; Back to Home
-        </a>
-      </div>
+      <BackLink />
       <div className="mt-8 mb-6 text-center">
         <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
           Image Similarity Search

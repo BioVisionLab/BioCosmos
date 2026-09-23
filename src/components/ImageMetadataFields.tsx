@@ -17,6 +17,7 @@ import {
   SpecimenImageMeta,
   SpecimenProvenance,
   sourceDbHref,
+  sourceDbParts,
 } from "@/lib/imageMetadata";
 
 export const METADATA_LABEL = "font-medium whitespace-nowrap";
@@ -84,6 +85,46 @@ export function ProvenanceBlock({
 }
 
 /**
+ * The holding institution: its full name, linked to its website when public
+ * records give one, with the recorded code beside it.
+ *
+ * The code stays visible because it is what the record says and what a
+ * citation uses; the name only explains it. A long name truncates and keeps
+ * the full text in its tooltip, while the code never shrinks. A code that
+ * could not be resolved is shown on its own, as before.
+ */
+function SpecimenHolder({ provenance }: { provenance: SpecimenProvenance }) {
+  const { institutionCode: code, institutionName: name } = provenance;
+  const homepage = provenance.institutionHomepage;
+  if (!name) {
+    return <span className={`truncate ${METADATA_VALUE}`}>{code}</span>;
+  }
+  return (
+    <span className="flex items-baseline gap-1 min-w-0">
+      {homepage ? (
+        <a
+          href={homepage}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={name}
+          className={`truncate ${METADATA_LINK}`}
+          aria-label={`${name} website`}
+        >
+          {name}
+        </a>
+      ) : (
+        <span title={name} className={`truncate ${METADATA_VALUE}`}>
+          {name}
+        </span>
+      )}
+      {code && code !== name && (
+        <span className={`shrink-0 ${METADATA_EMPTY}`}>({code})</span>
+      )}
+    </span>
+  );
+}
+
+/**
  * The footer of both panels: where the record came from, then where to go.
  *
  * Below the rule rather than above it, because provenance is not another
@@ -132,18 +173,33 @@ export function MetadataLinks({
       {provenance?.institutionCode ? (
         <div className="flex items-baseline gap-1 min-w-0">
           <span className={METADATA_LABEL}>Specimen Holder:</span>
-          <span className={`truncate ${METADATA_VALUE}`}>
-            {provenance.institutionCode}
-          </span>
+          <SpecimenHolder provenance={provenance} />
         </div>
       ) : null}
       <div className="flex items-baseline gap-1 min-w-0">
         <span className={METADATA_LABEL}>Source DB:</span>
         {/* The aggregator that published the record, not the institution that
-            holds the specimen, and not a link: the link to this record is one
-            of the three below. */}
-        <span className={`truncate uppercase ${METADATA_VALUE}`}>
-          {sourceDb}
+            holds the specimen. It links to the aggregator's homepage; the
+            link to this record itself is "Source Link" below. */}
+        <span className="truncate">
+          {sourceDbParts(sourceDb).map(({ name, homepage }, i) => (
+            <span key={`${name}-${i}`}>
+              {i > 0 && <span className={METADATA_VALUE}>/</span>}
+              {homepage ? (
+                <a
+                  href={homepage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`uppercase ${METADATA_LINK}`}
+                  aria-label={`${name.toUpperCase()} website`}
+                >
+                  {name}
+                </a>
+              ) : (
+                <span className={`uppercase ${METADATA_VALUE}`}>{name}</span>
+              )}
+            </span>
+          ))}
         </span>
       </div>
 

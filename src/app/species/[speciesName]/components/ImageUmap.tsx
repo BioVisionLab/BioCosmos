@@ -1,4 +1,5 @@
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import Tips from "@/components/Tips";
 import { fetchThumbnailById } from "@/lib/images";
 import { fetchSpeciesImageUmap, SpeciesImageUmap } from "@/lib/speciesData";
@@ -349,7 +350,14 @@ function UmapTooltipImage({
   }
 
   if (!imgUrl) {
-    return <div>No image available.</div>;
+    return (
+      <div
+        className="relative rounded-xl bg-deep-mocha-200 dark:bg-deep-mocha-700"
+        style={{ width: TOOLTIP_IMAGE_SIZE, height: TOOLTIP_IMAGE_SIZE }}
+      >
+        <NoImage />
+      </div>
+    );
   }
 
   return (

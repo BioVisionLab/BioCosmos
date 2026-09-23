@@ -4,6 +4,8 @@ import uuid
 
 from typing import List
 
+from instharmonize.sources import holder_code_sql
+
 from ..configs.config import ColConfig, GbifConfig, ImageMetaConfig, LocalityConfig
 from ..database.duckdb import DuckDBClient
 
@@ -152,35 +154,40 @@ class ImageMetaStats:
         """Get the count of images per holding institution.
 
         image_meta carries no institution field; it comes from
-        gbif_meta.institutionCode, matched on occurrenceID the same way
+        gbif_meta.institutionCode (or a name written in institutionID when
+        the code is empty; see holder_code_sql), matched on occurrenceID the same way
         LocalityService joins locality fields. gbif_meta has duplicate
         occurrenceID values, so the join is deduplicated the same way: the
         most complete row wins, tie-broken by gbifID for a stable result.
 
-        Records with no GBIF match, or a match with no institution code
-        (roughly 7% and 18% of the collection respectively), are grouped
-        under 'Unknown' rather than dropped, so the proportions account for
-        every image.
+        Records with no GBIF match, or a match with no institution at all,
+        are grouped under 'Unknown' rather than dropped, so the proportions
+        account for every image.
         """
         if not self.db_client.table_exists(self.gbif_table):
             logger.warning(
                 f"No '{self.gbif_table}' table; institution counts are unavailable."
             )
             return None
+        holder = holder_code_sql(
+            '"institutionCode"',
+            '"institutionID"'
+            if self.db_client.column_exists(self.gbif_table, "institutionID")
+            else None,
+        )
         result = self.db_client.execute(
             f"""
             WITH deduped AS (
                 SELECT "occurrenceID" AS occurrence_id,
-                       "institutionCode" AS institution_code
+                       {holder} AS institution_code
                 FROM {self.gbif_table}
                 WHERE nullif(trim("occurrenceID"), '') IS NOT NULL
                 QUALIFY row_number() OVER (
                     PARTITION BY "occurrenceID"
-                    ORDER BY ("institutionCode" IS NULL), "gbifID"
+                    ORDER BY (institution_code IS NULL), "gbifID"
                 ) = 1
             )
-            SELECT coalesce(nullif(trim(d.institution_code), ''), 'Unknown')
-                       AS institution,
+            SELECT coalesce(d.institution_code, 'Unknown') AS institution,
                    COUNT(*) AS count
             FROM {self.table} im
             LEFT JOIN deduped d ON d.occurrence_id = nullif(trim(im.uuid), '')
@@ -297,7 +304,7 @@ class ImageMetaService:
         """
         Return all image IDs belonging to any species in the provided list.
 
-        Uses a temporary table join (consistent with get_species_main_image_id_from_list)
+        Uses a temporary table join (consistent with get_species_first_image_ids)
         to avoid SQL injection and handle large species lists safely.
 
         Args:
@@ -344,30 +351,32 @@ class ImageMetaService:
                 raise
             return []
 
-    def get_species_main_image_id_from_list(
+    def get_species_first_image_ids(
         self, scientific_names: list[str], *, raise_on_error: bool = False
     ) -> pl.DataFrame | None:
         """
-        Retrieve the main image IDs for a list of species.
+        Retrieve one image ID (the lowest) per species for a list of species.
+
+        Aggregating in DuckDB keeps the result to one row per species; a
+        location filter can match thousands of species with many images each.
 
         :param scientific_names: A list of scientific names of the species.
-        :return: A dictionary mapping species names to their main image IDs or None if not found.
+        :return: A DataFrame with `imgId` and `species` columns, or None on failure.
         """
-        # We use duck directly to handle multiple species in one query
         try:
-            # Create a temporary table with the species names using unique identifier
             temp_name = f"temp_species_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": scientific_names})
 
             with self.db_client.lock:
                 self.db_client.register(temp_name, names_df)
                 query = f"""
-                    SELECT 
-                        m.img_id AS imgId,
+                    SELECT
+                        MIN(m.img_id) AS imgId,
                         m.species
                     FROM {self.table} m
-                    INNER JOIN {temp_name} t 
+                    INNER JOIN {temp_name} t
                     ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+                    GROUP BY m.species
                 """
                 try:
                     results = self.db_client.execute(query).pl()
@@ -377,7 +386,7 @@ class ImageMetaService:
             return results
         except Exception as e:
             logger.error(
-                f"Error retrieving main image IDs for species list '{scientific_names}': {e}"
+                f"Error retrieving first image IDs for {len(scientific_names)} species: {e}"
             )
             if raise_on_error:
                 raise

@@ -75,10 +75,12 @@ export function WingspanIcon(props: IconProps) {
         </>
       }
     >
-      <path d="M12 7.2C9 5.4 6 4.2 3.6 4.7C2.6 6.9 3.4 9.4 5.4 10.9C7.6 11.1 10 10.8 12 10.6Z" />
-      <path d="M12 7.2C15 5.4 18 4.2 20.4 4.7C21.4 6.9 20.6 9.4 18.6 10.9C16.4 11.1 14 10.8 12 10.6Z" />
-      <path d="M12 12.6C9.8 13 7.2 13.6 5.9 14.9C5.3 16.5 6.7 18 8.8 18.2C10.3 17.4 11.4 15.8 12 14.3Z" />
-      <path d="M12 12.6C14.2 13 16.8 13.6 18.1 14.9C18.7 16.5 17.3 18 15.2 18.2C13.7 17.4 12.6 15.8 12 14.3Z" />
+      <path d="M12 7.2C9 5.4 6 4.2 3.6 4.7C2.6 6.9 3.4 9.4 5.4 10.9C7.6 11.3 10 11.2 12 11Z" />
+      <path d="M12 7.2C15 5.4 18 4.2 20.4 4.7C21.4 6.9 20.6 9.4 18.6 10.9C16.4 11.3 14 11.2 12 11Z" />
+      {/* Hindwings open along the costa and start on the forewing edge, so
+          the wings meet the way they do on a spread specimen. */}
+      <path d="M6.8 11.1C5.4 12.4 5.1 14.8 6 16.4C6.7 17.6 7.9 18.3 8.8 18.2C10.3 17.4 11.4 15.8 12 14.3" />
+      <path d="M17.2 11.1C18.6 12.4 18.9 14.8 18 16.4C17.3 17.6 16.1 18.3 15.2 18.2C13.7 17.4 12.6 15.8 12 14.3" />
       <path d="M12 6.2V17.2" />
       <Detail>
         <path d="M11.7 6.2C10.7 4.6 9.5 3.7 8.3 3.2" />
@@ -254,8 +256,8 @@ function diapauseSubject(variant: DiapauseCode): ReactNode {
         <>
           <path d="M12 8.2C10 6.8 7.6 6 6 6.4C5.2 8.2 5.9 10.2 7.5 11.3C9.3 11.5 10.6 11.2 12 11Z" />
           <path d="M12 8.2C14 6.8 16.4 6 18 6.4C18.8 8.2 18.1 10.2 16.5 11.3C14.7 11.5 13.4 11.2 12 11Z" />
-          <path d="M12 12.9C10.2 13.3 8.4 13.8 7.5 14.8C7.1 16.1 8.2 17.4 9.8 17.6C11 16.8 11.6 15.6 12 14.3Z" />
-          <path d="M12 12.9C13.8 13.3 15.6 13.8 16.5 14.8C16.9 16.1 15.8 17.4 14.2 17.6C13 16.8 12.4 15.6 12 14.3Z" />
+          <path d="M8.5 11.4C7.4 12.4 7.1 14.4 7.7 15.8C8.3 17 9.2 17.6 9.8 17.6C11 16.8 11.6 15.6 12 14.3" />
+          <path d="M15.5 11.4C16.6 12.4 16.9 14.4 16.3 15.8C15.7 17 14.8 17.6 14.2 17.6C13 16.8 12.4 15.6 12 14.3" />
           <path d="M12 7.6V17" />
           <Detail>
             <path d="M11.7 7.6C11 6.2 10.1 5.4 9.2 5" />
@@ -624,29 +626,32 @@ export function HostPlantFamiliesIcon(props: IconProps) {
 }
 
 /**
- * A count of host plant accounts.
+ * A count of host plant accounts: independent published sources reporting
+ * what the species feeds on.
  *
- * Record cards, not plants. The field counts published accounts of host plant
- * use; the glyph this replaces showed a clump of vegetation, so a reader saw
- * "12 plants" where the data said "12 records".
+ * An open book with a leaf on its right page. The record cards this replaces
+ * carried their only plant cue as a sprig in the supporting tone, outside the
+ * cards and under 5 units wide, so at 48px it read as "two documents" and said
+ * nothing about host plants. Here the leaf is the subject and sits on the page:
+ * a published source, about a plant. The page stack behind is the supporting
+ * tone and says there is more than one.
  */
 export function HostPlantAccountsIcon(props: IconProps) {
   return (
     <IconBase
       {...props}
       secondary={
-        <>
-          <rect x="7" y="4.6" width="13.4" height="11" rx="1.6" />
-          <path d="M2.6 8.2C4 6.8 5.6 6.2 7 6.2" />
-          <path d="M4.6 7.2C4.2 5.7 5 4.6 6.3 4.8C6.4 6.2 5.7 7.1 4.6 7.2Z" />
-        </>
+        <path d="M2 7.4V20.2C6.2 19.8 9.4 20.2 12 21.6C14.6 20.2 17.8 19.8 22 20.2V7.4" />
       }
     >
-      <rect x="3.6" y="8.4" width="13.4" height="11" rx="1.6" />
+      <path d="M12 6.2C9.8 4.8 6.8 4.4 3.6 4.8V18.4C6.8 18 9.8 18.4 12 19.8C14.2 18.4 17.2 18 20.4 18.4V4.8C17.2 4.4 14.2 4.8 12 6.2Z" />
+      <path d="M12 6.2V19.8" />
+      <path d="M14.4 15.6C14.2 12 15.8 9.2 18.6 8.4C18.8 12 17.4 14.8 14.4 15.6Z" />
       <Detail>
-        <path d="M6.4 12.2H14.2" />
-        <path d="M6.4 14.6H14.2" />
-        <path d="M6.4 17H11.4" />
+        <path d="M14.4 15.6L17.6 10.4" />
+        <path d="M5.8 8.4C7.2 8.3 8.6 8.5 9.8 9" />
+        <path d="M5.8 11.2C7.2 11.1 8.6 11.3 9.8 11.8" />
+        <path d="M5.8 14C7.2 13.9 8.6 14.1 9.8 14.6" />
       </Detail>
     </IconBase>
   );

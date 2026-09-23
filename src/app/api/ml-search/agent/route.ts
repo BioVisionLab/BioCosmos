@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { API_HOST } from "@/lib/config";
 
 const AGENT_SEARCH = `${API_HOST}/search/agent`;
+const MAX_PAGE_SIZE = 35;
+
+function parseNonNegativeInt(raw: string | null, max?: number): number | null {
+  if (raw === null || raw.trim() === "") return null;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) return null;
+  return max === undefined ? value : Math.min(value, max);
+}
 
 async function readBackendError(response: Response): Promise<string> {
   const fallback = `Agent search failed with status ${response.status}`;
@@ -26,19 +34,35 @@ async function readBackendError(response: Response): Promise<string> {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
+  const searchId = searchParams.get("search_id")?.trim();
 
-  if (!query) {
+  if (!query && !searchId) {
     return NextResponse.json(
       { error: "Query parameter 'q' is required" },
       { status: 400 },
     );
   }
 
-  console.log(`Forwarding agent search query "${query}" to ${AGENT_SEARCH}`);
+  // Later pages are sliced from the backend's cached search by `search_id`,
+  // so they never re-run the planner.
+  const backendParams = new URLSearchParams();
+  if (query) backendParams.set("q", query);
+  if (searchId) backendParams.set("search_id", searchId);
+  const offset = parseNonNegativeInt(searchParams.get("offset"));
+  if (offset !== null) backendParams.set("offset", String(offset));
+  const limit = parseNonNegativeInt(searchParams.get("limit"), MAX_PAGE_SIZE);
+  if (limit) backendParams.set("limit", String(limit));
+  if (searchParams.get("refresh") === "true") {
+    backendParams.set("refresh", "true");
+  }
+
+  console.log(
+    `Forwarding agent search ${searchId ? `page ${searchId}@${offset ?? 0}` : `query "${query}"`} to ${AGENT_SEARCH}`,
+  );
 
   try {
     const response = await fetch(
-      `${AGENT_SEARCH}?${new URLSearchParams({ q: query })}`,
+      `${AGENT_SEARCH}?${backendParams}`,
       {
         method: "GET",
         headers: { Accept: "application/json" },
@@ -62,7 +86,8 @@ export async function GET(request: Request) {
 
     const data: unknown = await response.json();
 
-    // Backend returns { query, total, results, message?, warnings? }
+    // Backend returns { query, searchId, total, offset, limit, hasMore,
+    // results, message?, warnings? }
     if (
       typeof data !== "object" ||
       data === null ||
