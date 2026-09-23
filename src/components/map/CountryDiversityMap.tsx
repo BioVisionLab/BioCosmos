@@ -11,6 +11,7 @@ import type {
 import { useTheme } from "next-themes";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { getBasemapAttribution, loadLightBasemapStyle } from "@/lib/map";
+import { addProjectionToggle, keepProjection } from "@/lib/mapProjection";
 import { configureMapLibreWorker } from "@/lib/maplibreWorker";
 import {
   countryHref,
@@ -236,6 +237,7 @@ export default function CountryDiversityMap({
         mapRef.current = map;
         map.touchZoomRotate.disableRotation();
         map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+        addProjectionToggle(map);
 
         const popup = new Popup({
           closeButton: false,
@@ -345,7 +347,10 @@ export default function CountryDiversityMap({
     let cancelled = false;
     loadLightBasemapStyle(isDark)
       .then((style) => {
-        if (!cancelled) mapRef.current?.setStyle(style, { diff: false });
+        const map = mapRef.current;
+        if (!cancelled && map) {
+          map.setStyle(style, { diff: false, ...keepProjection(map) });
+        }
       })
       .catch(() => undefined);
     return () => {

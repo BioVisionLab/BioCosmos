@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 
 import CollectionSummary, {
-  countryBars,
   familyBars,
+  institutionBars,
 } from "@/components/CollectionSummary";
 import CountryDiversitySection from "@/components/CountryDiversitySection";
 import FeaturedRail from "@/components/FeaturedRail";
@@ -83,7 +83,7 @@ async function FeaturedRailSection() {
  * with confidence -- rather than the raw recorded count the collections page
  * shows, so the two pages can legitimately disagree on that one number.
  *
- * The country figures come from the same `/stats/country` request the map
+ * The country count comes from the same `/stats/country` request the map
  * section below makes, deduplicated in the same way.
  */
 async function CollectionSummarySection() {
@@ -104,7 +104,10 @@ async function CollectionSummarySection() {
           : null
       }
       families={familyBars(stats?.entriesByFamilyValidated)}
-      countries={countryBars(countries?.countries)}
+      institutions={institutionBars(
+        stats?.institutionCounts,
+        stats?.institutionDirectory,
+      )}
     />
   );
 }

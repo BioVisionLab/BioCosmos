@@ -1,10 +1,11 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 import LandingSectionHeading, {
   LANDING_CONTAINER,
   LANDING_EYEBROW,
 } from "@/components/LandingSection";
-import { countryHref, type CountryDiversityRow } from "@/lib/countryDiversity";
+import type { InstitutionInfo } from "@/lib/metaStats";
 import { familyHref } from "@/lib/taxonSlug";
 
 export interface CollectionCounts {
@@ -24,7 +25,10 @@ export interface SummaryBar {
 
 /** Rows kept in each breakdown; the rest fold into one "Other" row. */
 const FAMILY_ROWS = 6;
-const COUNTRY_ROWS = 7;
+const INSTITUTION_ROWS = 7;
+
+/** The bucket for records with no institution on record; not a provider. */
+const UNKNOWN_INSTITUTION = "Unknown";
 
 /**
  * Formatted with an explicit locale: this renders on the server, and an
@@ -61,15 +65,25 @@ export function familyBars(
   return bars;
 }
 
-/** The richest countries by distinct species, linked to their species lists. */
-export function countryBars(
-  countries: CountryDiversityRow[] | null | undefined,
+/**
+ * The institutions holding the most imaged specimens, by their resolved full
+ * name where the registry lookup found one and by their code otherwise.
+ *
+ * Records with no institution on record are left out: "Unknown" is the
+ * absence of a provider, not one, and would otherwise sit fourth.
+ */
+export function institutionBars(
+  counts: Record<string, number> | null | undefined,
+  directory: Record<string, InstitutionInfo> | null | undefined,
 ): SummaryBar[] {
-  return (countries ?? []).slice(0, COUNTRY_ROWS).map((row) => ({
-    label: row.countryName,
-    value: row.speciesCount,
-    href: countryHref(row.countryCode),
-  }));
+  return Object.entries(counts ?? {})
+    .filter(([code, value]) => code !== UNKNOWN_INSTITUTION && value > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, INSTITUTION_ROWS)
+    .map(([code, value]) => ({
+      label: directory?.[code]?.name ?? code,
+      value,
+    }));
 }
 
 function Bars({
@@ -78,6 +92,8 @@ function Bars({
   bars,
   tone,
   rows,
+  labelWidth = "9rem",
+  more,
 }: {
   title: string;
   unit: string;
@@ -85,6 +101,10 @@ function Bars({
   tone: "green" | "blue";
   /** Reserved row count, so the block is its full height before data. */
   rows: number;
+  /** The label column's widest; long names truncate, with a tooltip. */
+  labelWidth?: string;
+  /** A link under the rows, to the full list. */
+  more?: { href: string; label: string };
 }) {
   const max = bars.reduce((top, bar) => Math.max(top, bar.value), 0);
   const fill =
@@ -121,7 +141,8 @@ function Bars({
           return (
             <li
               key={bar.label}
-              className="grid h-5 grid-cols-[minmax(0,9rem)_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-300"
+              className="grid h-5 grid-cols-[minmax(0,var(--bc-label))_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-300"
+              style={{ "--bc-label": labelWidth } as CSSProperties}
             >
               {label}
               <span className="h-2.5 overflow-hidden rounded-full bg-deep-mocha-200 dark:bg-deep-mocha-700">
@@ -137,20 +158,33 @@ function Bars({
           );
         })}
       </ol>
+      {more ? (
+        <p className="mt-4 text-sm">
+          <Link
+            href={more.href}
+            className="text-pacific-blue-600 hover:underline dark:text-pacific-blue-400"
+          >
+            {more.label} →
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }
 
 /**
  * The size of the collection: four figures in the brand gradient, then what
- * they are made of — images by family and species by country.
+ * they are made of — images by family, and the institutions that hold the
+ * specimens. Species by country used to sit where the institutions are, but
+ * it repeated the map directly below.
  *
  * A full-width tinted band, the one place below the hero that breaks out of
  * the page column, so the numbers read as a pause between the browsing
  * sections above and the map below.
  *
- * Reads the same `/stats/taxon` fields as the collections page, and the
- * same `/stats/country` rows as the map, so none of them can disagree.
+ * Reads the same `/stats/taxon` fields as the collections and providers
+ * pages, and counts countries from the same `/stats/country` rows as the map,
+ * so none of them can disagree.
  *
  * Every state — pending, available, unavailable — renders the same DOM, so
  * the band is its full height from first paint and the numbers fill in
@@ -159,12 +193,12 @@ function Bars({
 export default function CollectionSummary({
   counts,
   families = [],
-  countries = [],
+  institutions = [],
   pending = false,
 }: {
   counts: CollectionCounts | null;
   families?: SummaryBar[];
-  countries?: SummaryBar[];
+  institutions?: SummaryBar[];
   pending?: boolean;
 }) {
   const cells = [
@@ -213,11 +247,16 @@ export default function CollectionSummary({
               rows={FAMILY_ROWS + 1}
             />
             <Bars
-              title="Species by country"
-              unit="Distinct species, validated coordinates"
-              bars={countries}
+              title="Top holding institutions"
+              unit="Imaged specimens per institution"
+              bars={institutions}
               tone="blue"
-              rows={COUNTRY_ROWS}
+              rows={INSTITUTION_ROWS}
+              labelWidth="15rem"
+              more={{
+                href: "/collections/providers",
+                label: "See all data providers",
+              }}
             />
           </div>
 

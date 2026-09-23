@@ -3,8 +3,12 @@ import type { CountryDiversityRow } from "@/lib/countryDiversity";
 /**
  * The stepped colour scale for species per country.
  *
- * One hue (the site's hunter green), light to dark in light mode and flipped
- * in dark mode so "more" always reads as "more contrast with the surface".
+ * One hue (the site's hunter green), always lighter for fewer species and
+ * darker for more, in both themes. Dark mode used to flip the ramp so "more"
+ * meant "more contrast with the surface", but then the same country changed
+ * shade with the theme and the legend read backwards from the light one; one
+ * direction everywhere is what a reader learns once.
+ *
  * Steps are 1-2-5 log breaks: a handful of countries hold hundreds of species
  * and most hold a few, so a linear scale would paint nearly every country the
  * lightest step, which is what the notebook's linear viridis does at print
@@ -17,7 +21,7 @@ export interface SpeciesScale {
   noData: string;
 }
 
-const LIGHT_RAMP = [
+const RAMP = [
   "#c0deba", // hunter-green-200
   "#a1ce97", // 300
   "#82be74", // 400
@@ -25,17 +29,9 @@ const LIGHT_RAMP = [
   "#3b6831", // 700
   "#274521", // 800
 ];
-const DARK_RAMP = [
-  "#3b6831", // hunter-green-700
-  "#4f8b41", // 600
-  "#62ad52", // 500
-  "#82be74", // 400
-  "#a1ce97", // 300
-  "#d0e7cb", // between 100 and 200
-];
 const NO_DATA_LIGHT = "#e7e5e4";
 const NO_DATA_DARK = "#44403c";
-const MAX_STEPS = LIGHT_RAMP.length;
+const MAX_STEPS = RAMP.length;
 
 function niceBreaks(max: number): number[] {
   const candidates: number[] = [];
@@ -61,11 +57,11 @@ export function speciesScale(
 ): SpeciesScale {
   const max = rows.reduce((top, row) => Math.max(top, row.speciesCount), 1);
   const breaks = niceBreaks(max);
-  const ramp = isDark ? DARK_RAMP : LIGHT_RAMP;
   // Fewer steps than colours: take them from the dark end, so the richest
-  // country always wears the strongest colour.
+  // country always wears the darkest colour. Only the no-data fill follows
+  // the theme.
   const colors = breaks.map(
-    (_, index) => ramp[ramp.length - breaks.length + index],
+    (_, index) => RAMP[RAMP.length - breaks.length + index],
   );
   return { breaks, colors, noData: isDark ? NO_DATA_DARK : NO_DATA_LIGHT };
 }
