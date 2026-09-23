@@ -45,7 +45,7 @@ export default function HomePage({ dataSummary }: { dataSummary?: ReactNode }) {
 const CREDENTIALS = [
   { label: "Every butterfly family", dot: "bg-hunter-green-500" },
   { label: "Harmonized taxonomy", dot: "bg-pacific-blue-500" },
-  { label: "Open, citable records", dot: "bg-frozen-water-600" },
+  { label: "Advanced machine learning", dot: "bg-frozen-water-600" },
 ] as const;
 
 /**
@@ -87,7 +87,7 @@ function Hero() {
     <section className="relative w-full overflow-x-clip px-4 pt-12 pb-2 sm:pt-16">
       <span className="bc-hero-glow" aria-hidden="true" />
 
-      <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+      <div className="relative mx-auto flex max-w-6xl flex-col items-center text-center">
         <h1 className="bc-rise flex w-full justify-center">
           <span className="sr-only">Lepiverse</span>
           <Logo className="w-64 sm:w-80 md:w-96" />
@@ -98,11 +98,11 @@ function Hero() {
             headline size rather than as a headline. At this measure the three
             balanced lines come out nearly equal. */}
         <p
-          className="bc-rise mt-7 max-w-3xl text-balance text-lg leading-snug tracking-tight text-deep-mocha-800 sm:text-xl dark:text-deep-mocha-100"
+          className="bc-rise mt-7 max-w-4xl text-balance text-lg leading-snug tracking-wide text-deep-mocha-800 sm:text-xl dark:text-deep-mocha-100"
           style={{ animationDelay: "90ms" }}
         >
-          Explore butterfly diversity and their fascinating coloration with a
-          modern, museum-quality image platform.
+          Explore butterfly diversity and their fascinating coloration through a
+          combined approach of curated records and modern machine learning
         </p>
 
         {/* Narrower than the lead by one step. Sharing the lead's 36rem
@@ -112,7 +112,7 @@ function Hero() {
             hierarchy. At 32rem it breaks into three short lines that sit well
             inside the block above. */}
         <p
-          className="bc-rise mt-4 max-w-2xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
+          className="bc-rise mt-4 max-w-4xl text-balance text-sm leading-relaxed text-deep-mocha-600 sm:text-base dark:text-deep-mocha-400"
           style={{ animationDelay: "180ms" }}
         >
           The BioCosmos engine pairs curated biodiversity records with modern
