@@ -138,6 +138,31 @@ def test_verbatim_name_skips_the_registry(registry) -> None:
     assert registry.calls == []
 
 
+def test_verbatim_name_borrows_the_homepage_of_the_same_publisher(registry) -> None:
+    registry.publishers["d1"] = Publisher(
+        key="p", name="Naturalis Biodiversity Center", country="NL", homepage="https://nl.example/"
+    )
+    registry.publishers["d2"] = Publisher(
+        key="q", name="PlutoF", homepage="https://plutof.example/"
+    )
+
+    same = resolver(registry).resolve(record("Naturalis Biodiversity Center", dataset_key="d1"))
+    other = resolver(registry).resolve(record("Hartland Nature Club", dataset_key="d2"))
+
+    assert same.name == "Naturalis Biodiversity Center"
+    assert (same.homepage, same.country) == ("https://nl.example/", "NL")
+    assert same.source is MatchSource.VERBATIM
+    assert other.name == "Hartland Nature Club"
+    assert other.homepage is None
+
+
+def test_verbatim_name_survives_a_registry_failure(registry) -> None:
+    registry.failing = True
+    result = resolver(registry).resolve(record("Hartland Nature Club", dataset_key="d1"))
+    assert result.name == "Hartland Nature Club"
+    assert not result.retry
+
+
 def test_curated_name_wins_and_can_borrow_publisher_homepage(registry) -> None:
     registry.publishers["d1"] = Publisher(
         key="p", name="A.J. Cook Arthropod Research Collection", homepage="https://msu.example/"

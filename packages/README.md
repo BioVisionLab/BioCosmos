@@ -37,9 +37,7 @@ uv run ruff check packages/ && uv run ruff format --check packages/
 Both tools write their run artifacts to [`reports/`](../reports), which
 documents the manifest contract the backend will consume.
 
-`plannerbench` is not a harmonization tool. It replays the agent-search
-planner prompt against different LLMs to compare tool-call accuracy,
-consistency, and latency. It reads a spec the backend exports
+`plannerbench` is not used in the backend. It reads a spec the backend exports
 (`backend/scripts/export_planner_spec.py`) instead of importing the backend.
 See [`plannerbench/README.md`](plannerbench/README.md).
 

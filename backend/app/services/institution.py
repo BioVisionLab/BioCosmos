@@ -23,7 +23,7 @@ import duckdb
 from harmonize_core.errors import HarmonizeError
 from instharmonize import Institution, InstitutionResolver
 from instharmonize.overrides import load_overrides
-from instharmonize.sources import GBIF_COLUMNS, read_records
+from instharmonize.sources import GBIF_COLUMNS, holder_code_sql, read_records
 
 from ..configs.config import GbifConfig, ImageMetaConfig, InstitutionConfig
 from ..database.duckdb import DuckDBClient
@@ -155,13 +155,17 @@ class InstitutionService:
             if self.db_client.column_exists(self.gbif_table, column)
         ]
         selected = ", ".join(f'd."{column}"' for column in columns)
+        holder = holder_code_sql(
+            '"institutionCode"',
+            '"institutionID"' if "institutionID" in columns else None,
+        )
         relation = f"""(
             WITH deduped AS (
                 SELECT * FROM {self.gbif_table}
                 WHERE nullif(trim("occurrenceID"), '') IS NOT NULL
                 QUALIFY row_number() OVER (
                     PARTITION BY "occurrenceID"
-                    ORDER BY ("institutionCode" IS NULL), "gbifID"
+                    ORDER BY ({holder} IS NULL), "gbifID"
                 ) = 1
             )
             SELECT {selected}

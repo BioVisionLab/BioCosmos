@@ -58,3 +58,25 @@ def test_invalid_override_is_a_configuration_error(tmp_path: Path, entry: str) -
     extra.write_text(f"[institutions.X]\n{entry}\n", encoding="utf-8")
     with pytest.raises(ConfigurationError):
         load_overrides(extra, bundled=False)
+
+
+def test_institution_id_name_stands_in_for_a_missing_code() -> None:
+    with duckdb.connect() as connection:
+        connection.execute(
+            """
+            CREATE TABLE occurrences AS SELECT * FROM (VALUES
+                (NULL, 'Naturalis Biodiversity Center', 'd1'),
+                ('', 'Naturalis Biodiversity Center', 'd1'),
+                (NULL, 'https://ror.org/05natt857', 'd2'),
+                (NULL, 'urn:lsid:biocol.org:col:1234', 'd3'),
+                (NULL, 'RMNH', 'd4'),
+                ('MCZ', 'Naturalis Biodiversity Center', 'd5')
+            ) AS t("institutionCode", "institutionID", "datasetKey")
+            """
+        )
+        records = read_records(
+            connection, "occurrences", ["institutionCode", "institutionID", "datasetKey"]
+        )
+
+    counts = {(r.institution_code, r.dataset_key): r.occurrences for r in records}
+    assert counts == {("Naturalis Biodiversity Center", "d1"): 2, ("MCZ", "d5"): 1}

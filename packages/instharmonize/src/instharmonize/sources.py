@@ -21,8 +21,37 @@ GBIF_COLUMNS = {
 }
 
 
+# An institutionID that is written out as a name -- two or more words with some
+# lowercase, as in split_verbatim_name -- rather than a URI such as a ROR or a
+# urn:lsid, which has a scheme and no spaces.
+_NAME_LIKE_ID = r"^[^\s:]+\s+\S.*$"
+
+
 class _Executes(Protocol):
     def execute(self, query: str) -> Any: ...
+
+
+def holder_code_sql(code_column: str, id_column: str | None = None) -> str:
+    """SQL for the code a record's holder is known by.
+
+    `institutionCode` when the record has one. Otherwise `institutionID`, when
+    it holds a name rather than an identifier: Naturalis publishes its RMNH
+    specimens with an empty institutionCode and "Naturalis Biodiversity Center"
+    as the institutionID, and without this they read as having no holder. The
+    name then resolves as a verbatim code. A URI there is left alone, since it
+    means nothing to a reader shown in place of a code.
+
+    `code_column` and `id_column` are SQL column references, quoted as needed.
+    """
+    code = f"nullif(trim(CAST({code_column} AS VARCHAR)), '')"
+    if id_column is None:
+        return code
+    identifier = f"trim(CAST({id_column} AS VARCHAR))"
+    named = (
+        f"CASE WHEN regexp_matches({identifier}, '{_NAME_LIKE_ID}') "
+        f"AND regexp_matches({identifier}, '[a-z]') THEN {identifier} END"
+    )
+    return f"coalesce({code}, {named})"
 
 
 def record_query(relation: str, columns: Iterable[str]) -> str:
@@ -34,8 +63,14 @@ def record_query(relation: str, columns: Iterable[str]) -> str:
     present = set(columns)
     if GBIF_COLUMNS["institution_code"] not in present:
         raise SourceValidationError(f"{relation} has no institutionCode column")
+    id_column = GBIF_COLUMNS["institution_id"]
+    holder = holder_code_sql(
+        '"institutionCode"', f'"{id_column}"' if id_column in present else None
+    )
     selects = [
-        f"nullif(trim(CAST(\"{column}\" AS VARCHAR)), '') AS {field}"
+        f"{holder} AS {field}"
+        if field == "institution_code"
+        else f"nullif(trim(CAST(\"{column}\" AS VARCHAR)), '') AS {field}"
         if column in present
         else f"CAST(NULL AS VARCHAR) AS {field}"
         for field, column in GBIF_COLUMNS.items()
@@ -43,7 +78,7 @@ def record_query(relation: str, columns: Iterable[str]) -> str:
     return f"""
         SELECT {", ".join(selects)}, count(*) AS occurrences
         FROM {relation}
-        WHERE nullif(trim(CAST("institutionCode" AS VARCHAR)), '') IS NOT NULL
+        WHERE {holder} IS NOT NULL
         GROUP BY ALL
     """
 

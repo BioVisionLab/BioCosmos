@@ -41,9 +41,13 @@ function InstitutionCell({
       ) : (
         <span className="font-medium">{info.name}</span>
       )}
-      <span className="font-mono text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
-        {code}
-      </span>
+      {/* A record with no code is keyed on its written-out name; repeating
+          it adds nothing. */}
+      {code !== info.name && (
+        <span className="font-mono text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
+          {code}
+        </span>
+      )}
     </div>
   );
 }

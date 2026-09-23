@@ -11,6 +11,7 @@ found) and a reader should be able to omit one without the other.
 import logging
 
 import duckdb
+from instharmonize.sources import holder_code_sql
 
 from ..configs.config import GbifConfig, ImageMetaConfig, ProvenanceConfig
 from ..database.duckdb import DuckDBClient
@@ -24,7 +25,7 @@ UPDATE_SOURCE_KEY = "image_meta_provenance"
 # Bumped whenever the shape of the provenance table changes, for the same
 # reason STATUS_SCHEMA_VERSION and LOCALITY_SCHEMA_VERSION exist: a
 # fingerprint describes the *inputs*, not the shape of the output.
-PROVENANCE_SCHEMA_VERSION = 1
+PROVENANCE_SCHEMA_VERSION = 2
 
 REQUIRED_PROVENANCE_COLUMNS = ("institution_code", "catalog_number")
 
@@ -118,6 +119,14 @@ class ProvenanceService:
         return True
 
     def _build(self) -> None:
+        # The same holder the provider table counts, so a panel's code always
+        # has a row in the institution directory.
+        holder = holder_code_sql(
+            'gbif."institutionCode"',
+            'gbif."institutionID"'
+            if self.db_client.column_exists(self.gbif_table, "institutionID")
+            else None,
+        )
         self.db_client.execute(
             f"""
             CREATE OR REPLACE TABLE {self.table} AS
@@ -125,7 +134,7 @@ class ProvenanceService:
                 SELECT
                     nullif(trim(gbif."occurrenceID"), '') AS occurrence_id,
                     gbif."gbifID" AS gbif_id,
-                    nullif(trim(gbif."institutionCode"), '') AS institution_code,
+                    {holder} AS institution_code,
                     nullif(trim(gbif."catalogNumber"), '') AS catalog_number
                 FROM {self.gbif_table} AS gbif
                 WHERE nullif(trim(gbif."occurrenceID"), '') IS NOT NULL

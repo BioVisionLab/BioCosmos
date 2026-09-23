@@ -30,7 +30,7 @@ appears in. The strongest evidence wins:
 | `source`             | Evidence                                                                                                    |
 | -------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `curated`            | An entry in the overrides file                                                                              |
-| `verbatim`           | The code field already holds a name ("Hartland Nature Club")                                                |
+| `verbatim`           | The code field, or an `institutionID` standing in for a blank code, holds a name ("Naturalis Biodiversity Center") |
 | `grscicoll_exact`    | GRSciColl's dataset-aware lookup matched exactly, e.g. on a ROR or GRSciColl `institutionID`                |
 | `grscicoll_verified` | A GRSciColl institution with that code whose name agrees with the dataset's publisher                       |
 | `gbif_publisher`     | The dataset's GBIF publisher, when its name spells out the code ("Kansas State University …" for `KSU`)     |

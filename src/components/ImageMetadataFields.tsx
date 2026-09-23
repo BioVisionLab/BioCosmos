@@ -116,7 +116,9 @@ function SpecimenHolder({ provenance }: { provenance: SpecimenProvenance }) {
           {name}
         </span>
       )}
-      <span className={`shrink-0 ${METADATA_EMPTY}`}>({code})</span>
+      {code && code !== name && (
+        <span className={`shrink-0 ${METADATA_EMPTY}`}>({code})</span>
+      )}
     </span>
   );
 }
