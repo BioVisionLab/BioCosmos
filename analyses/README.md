@@ -16,9 +16,14 @@ Neither workflow changes a backend source database.
 `benchmarks/image_indexing.ipynb` is to test the performance of the backend vector-index on an isolated copy of the database.
 Its implementation lives in `benchmarks/lance_indexing.py`.
 
+From the repository root, use these complete shell commands. `env -u VIRTUAL_ENV`
+removes an active backend environment for that command only; uv then uses
+`analyses/.venv`. The environment-mismatch warning does not mean the install
+failed. Do not add `--active`, which would target the backend environment.
+
 ```bash
-uv sync --project analyses --extra indexing --locked
-uv run --project analyses --extra indexing jupyter lab analyses/benchmarks/image_indexing.ipynb
+env -u VIRTUAL_ENV uv sync --project analyses --extra indexing --locked
+env -u VIRTUAL_ENV uv run --project analyses --extra indexing jupyter lab analyses/benchmarks/image_indexing.ipynb
 ```
 
 The optional indexing dependencies pin LanceDB to `0.39.0`, matching the backend's
@@ -74,20 +79,31 @@ After the per-case section, a combined publication figure places accuracy versus
 and token usage above the per-case accuracy heatmap. Every planner figure is exported as
 PDF, SVG, and 300-dpi PNG, with its source CSV data, under `analyses/results/`.
 
-Generate a run before opening the notebook:
+Generate a run before opening the notebook. From the repository root,
+install the workspace packages into the root `.venv`, activate it, and load
+the provider settings from `backend/.env` into the current bash shell.
+The last line of the `plannerbench` command has no trailing backslash.
 
 ```bash
-cd backend && uv run python scripts/export_planner_spec.py
+env -u VIRTUAL_ENV uv sync --all-packages --locked
+source .venv/bin/activate
+set -a
+source backend/.env
+set +a
+cd backend && python scripts/export_planner_spec.py
 cd ..
-uv run --env-file backend/.env plannerbench run \
+plannerbench run \
     -m mistral-small-3.1 \
     -m gemma-4-31b-it \
     -m llama-3.1-nemotron-nano-8B-v1 \
     -m ministral-8b-instruct \
     -m magistral-small \
     --repeats 3
-uv run --project analyses jupyter lab analyses/benchmarks/planner_model_performance.ipynb
+env -u VIRTUAL_ENV uv run --project analyses jupyter lab analyses/benchmarks/planner_model_performance.ipynb
 ```
+
+The activated root `.venv` supplies `plannerbench`; the separate
+`analyses/.venv` supplies Jupyter. Run `deactivate` when finished.
 
 Models are compared only within the selected run, where the prompt fingerprint,
 cases, repeats, concurrency, and endpoint conditions are shared. The notebook is
@@ -107,8 +123,8 @@ This directory is a standalone uv project so its dependencies, lockfile, and env
 do not change the backend or root workspace. From the repository root:
 
 ```bash
-uv sync --project analyses --locked
-uv run --project analyses jupyter lab analyses/notebooks
+env -u VIRTUAL_ENV uv sync --project analyses --locked
+env -u VIRTUAL_ENV uv run --project analyses jupyter lab analyses/notebooks
 ```
 
 Select the Python kernel from `analyses/.venv` and run a notebook from top to bottom.
