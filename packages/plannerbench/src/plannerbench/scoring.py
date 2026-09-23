@@ -43,6 +43,7 @@ class Trial(BaseModel):
     total_tokens: int | None = None
     signature: str | None = None
     correct: bool = False
+    rate_limit_retries: int = 0
 
 
 class ModelSummary(BaseModel):
@@ -62,6 +63,7 @@ class ModelSummary(BaseModel):
     completion_tokens: int
     total_tokens: int
     per_case_correct: dict[str, int]
+    rate_limit_retries: int = 0
 
 
 def validate_calls(raw_calls: Iterable[RawToolCall], spec: PlannerSpec) -> list[ToolCallRecord]:
@@ -221,6 +223,7 @@ def summarize(trials: list[Trial], models: list[str], cases: list[Case]) -> list
                 per_case_correct={
                     case.id: sum(trial.correct for trial in per_case[case.id]) for case in cases
                 },
+                rate_limit_retries=sum(trial.rate_limit_retries for trial in model_trials),
             )
         )
     return summaries

@@ -1,5 +1,5 @@
 import React from "react";
-import Link from "next/link";
+import BackLink from "@/components/BackLink";
 
 const coreTeam = [
   {
@@ -91,12 +91,10 @@ const haagCollaborators = [
 export default function AboutPage() {
   return (
     <main className="max-w-7xl mx-auto p-8">
-      <Link href="/" className="text-pacific-blue-600 hover:underline text-sm">
-        &larr; Back to Home
-      </Link>
+      <BackLink />
 
       {/* Header */}
-      <h1 className="text-4xl font-bold mt-6 mb-4">About LepiVerse</h1>
+      <h1 className="text-4xl font-bold mb-4">About LepiVerse</h1>
       <p className="text-lg text-deep-mocha-700 dark:text-deep-mocha-300 mb-8">
         LepiVerse is the Lepidoptera-focused interface powered by{" "}
         <span className="font-semibold">BioCosmos</span>, an AI engine for

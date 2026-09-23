@@ -1,6 +1,8 @@
 # Country marker reference
 
-`country_locations.csv` provides one label location for each of the 249 ISO 3166-1
+[`country_locations.csv`](../../packages/harmonize-core/src/harmonize_core/data/country_locations.csv)
+(shipped with `harmonize-core`, so the notebooks, the `/stats/country` API and the site's
+country map share one table) provides one label location for each of the 249 ISO 3166-1
 countries/territories and Kosovo (`XK`). It is used only when a reporting unit lacks
 a separate polygon in the supplied 110m basemap. All marker locations are checked in;
 notebook execution does not download data.
@@ -18,7 +20,7 @@ ties. ISO names come from pycountry 24.6.1 (`common_name` where present, otherwi
 `name`); Kosovo is the explicit supplement. `aliases` records subdivision-form codes
 from the matching features, separated by semicolons. Runtime normalization additionally
 accepts `UK` → `GB`, `EL` → `GR`, ISO alpha-3 codes, and the exact unique names defined
-in `analyses/helpers/country_mapping.py`.
+in `packages/harmonize-core/src/harmonize_core/countries.py`.
 
 The United States Minor Outlying Islands (`UM`) use the country dataset's representative
 label at Wake Atoll. This identifies the reporting unit, not the island on which any

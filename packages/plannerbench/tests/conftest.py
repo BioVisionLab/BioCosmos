@@ -104,7 +104,10 @@ def response(*calls: tuple[str, str], content: str | None = None) -> SimpleNames
 
 
 class FakeClient:
-    """Serves scripted responses keyed by (model, user query)."""
+    """Serves scripted responses keyed by (model, user query).
+
+    A list outcome is served one item per call, e.g. a 429 and then a response.
+    """
 
     def __init__(self, script: dict[tuple[str, str], Any]):
         self.script = script
@@ -114,6 +117,8 @@ class FakeClient:
     async def _create(self, **request: Any) -> Any:
         self.requests.append(request)
         outcome = self.script[(request["model"], request["messages"][-1]["content"])]
+        if isinstance(outcome, list):
+            outcome = outcome.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
         return outcome

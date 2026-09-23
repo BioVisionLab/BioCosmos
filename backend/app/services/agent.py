@@ -34,7 +34,10 @@ from .metadata import ImageMetaService
 
 logger = logging.getLogger(__name__)
 
-RESULT_LIMIT = 50
+# Results are served a page at a time; the ranked list behind them is kept
+# (up to MAX_RANKED_RESULTS) so "show more" never re-runs the planner.
+PAGE_SIZE = 35
+MAX_RANKED_RESULTS = 500
 VECTOR_CANDIDATE_LIMIT = 500
 FILTER_SPECIES_LIMIT = 10_000
 PLANNER_MAX_TOKENS = 512
@@ -381,7 +384,7 @@ class AgentSearchService:
             VECTOR_CANDIDATE_LIMIT,
             filter_img_ids,
             exclude_species=excluded_species,
-            min_species=RESULT_LIMIT,
+            min_species=PAGE_SIZE,
             raise_on_error=True,
         )
         if similar is None or similar.is_empty():
@@ -491,7 +494,7 @@ class AgentSearchService:
             return []
 
         dataframe = await asyncio.to_thread(
-            self.image_meta_service.get_species_main_image_id_from_list,
+            self.image_meta_service.get_species_first_image_ids,
             unique_species,
             raise_on_error=True,
         )
@@ -616,7 +619,7 @@ class AgentSearchService:
             for species, item in grouped.items()
         ]
         results.sort(key=lambda row: (-row["score"], row["species"], row["imgId"]))
-        return pl.DataFrame(results[:RESULT_LIMIT])
+        return pl.DataFrame(results[:MAX_RANKED_RESULTS])
 
     @staticmethod
     def _build_filter_results(
@@ -643,7 +646,7 @@ class AgentSearchService:
         ]
         results.sort(key=lambda row: (row["species"], row["imgId"]))
         return (
-            pl.DataFrame(results[:RESULT_LIMIT])
+            pl.DataFrame(results[:MAX_RANKED_RESULTS])
             if results
             else AgentSearchService._empty_results()
         )

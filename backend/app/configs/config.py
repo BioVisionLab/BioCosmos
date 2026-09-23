@@ -621,6 +621,20 @@ class OpenAIConfig:
         )
 
 
+class CrossrefConfig:
+    """Contact details for the CrossRef REST API.
+
+    CrossRef routes requests that identify a contact (``mailto``) to its
+    "polite" pool, which has higher limits and more reliable service than the
+    anonymous public pool. The address is deployment-specific, so it comes
+    from the environment rather than config.yaml.
+    """
+
+    @property
+    def mailto(self) -> str | None:
+        return (os.getenv("CROSSREF_MAILTO") or "").strip() or None
+
+
 class PromptsConfig:
     def __init__(self):
         self._prompt_dir = _PROMPT_DIR

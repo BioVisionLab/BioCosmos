@@ -12,6 +12,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Haryo Handika" }]
 dependencies = [
     "duckdb>=1.4,<2",
+    "pycountry>=24.6,<25",
     "pydantic>=2.10,<3",
     "typer>=0.15,<1",
 ]

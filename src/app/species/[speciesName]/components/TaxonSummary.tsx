@@ -43,12 +43,9 @@ function SpeciesDescriptionText({
   const showCanopy =
     typeof traits.canopy_affinity === "string" &&
     traits.canopy_affinity.trim() !== "";
-  // Colour comes from the icon primitive. The thinner stroke brings these 80px
-  // icons close to the weight of the 48px set on the Biology tab -- a viewBox
-  // stroke scales with the icon, so the default would render two thirds heavier
-  // here than it does there.
+  // Colour and stroke come from the icon primitive; these 80px glyphs are its
+  // large tier.
   const keyTraitIconClass = "w-20 h-20 m-1";
-  const keyTraitStroke = 1.1;
 
   return (
     <section
@@ -79,7 +76,7 @@ function SpeciesDescriptionText({
             icon={
               <CanopyIcon
                 className={keyTraitIconClass}
-                strokeWidth={keyTraitStroke}
+                size="lg"
               />
             }
           />
@@ -96,7 +93,7 @@ function SpeciesDescriptionText({
               icon={
                 <FlightDurationIcon
                   className={keyTraitIconClass}
-                  strokeWidth={keyTraitStroke}
+                  size="lg"
                 />
               }
             />

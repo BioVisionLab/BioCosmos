@@ -18,12 +18,13 @@ import {
   speciesUrlFromName,
   toBinomialName,
 } from "@/lib/names";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { SpecimenImageModal } from "@/components/SpecimenImageModal";
+import BackLink from "@/components/BackLink";
 
 const IMAGE_SIZE = 128;
 const SPECIMEN_THUMB_SIZE = 48;
@@ -331,11 +332,7 @@ function DbSearch({
 
   return (
     <div className="items-center max-w-7xl w-full px-4 mx-auto">
-      <div className="mb-4">
-        <a href="/" className="text-blue-600 hover:underline">
-          &larr; Back to Home
-        </a>
-      </div>
+      <BackLink />
       <div
         id="search-query"
         className="mb-12 mt-8 text-center flex flex-col items-center gap-4"
@@ -496,13 +493,7 @@ function DbSearch({
               </optgroup>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-deep-mocha-500 dark:text-deep-mocha-400">
-              <svg
-                className="fill-current h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-              </svg>
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
             </div>
           </div>
         </div>

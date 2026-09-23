@@ -297,7 +297,7 @@ class ImageMetaService:
         """
         Return all image IDs belonging to any species in the provided list.
 
-        Uses a temporary table join (consistent with get_species_main_image_id_from_list)
+        Uses a temporary table join (consistent with get_species_first_image_ids)
         to avoid SQL injection and handle large species lists safely.
 
         Args:
@@ -344,30 +344,32 @@ class ImageMetaService:
                 raise
             return []
 
-    def get_species_main_image_id_from_list(
+    def get_species_first_image_ids(
         self, scientific_names: list[str], *, raise_on_error: bool = False
     ) -> pl.DataFrame | None:
         """
-        Retrieve the main image IDs for a list of species.
+        Retrieve one image ID (the lowest) per species for a list of species.
+
+        Aggregating in DuckDB keeps the result to one row per species; a
+        location filter can match thousands of species with many images each.
 
         :param scientific_names: A list of scientific names of the species.
-        :return: A dictionary mapping species names to their main image IDs or None if not found.
+        :return: A DataFrame with `imgId` and `species` columns, or None on failure.
         """
-        # We use duck directly to handle multiple species in one query
         try:
-            # Create a temporary table with the species names using unique identifier
             temp_name = f"temp_species_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": scientific_names})
 
             with self.db_client.lock:
                 self.db_client.register(temp_name, names_df)
                 query = f"""
-                    SELECT 
-                        m.img_id AS imgId,
+                    SELECT
+                        MIN(m.img_id) AS imgId,
                         m.species
                     FROM {self.table} m
-                    INNER JOIN {temp_name} t 
+                    INNER JOIN {temp_name} t
                     ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+                    GROUP BY m.species
                 """
                 try:
                     results = self.db_client.execute(query).pl()
@@ -377,7 +379,7 @@ class ImageMetaService:
             return results
         except Exception as e:
             logger.error(
-                f"Error retrieving main image IDs for species list '{scientific_names}': {e}"
+                f"Error retrieving first image IDs for {len(scientific_names)} species: {e}"
             )
             if raise_on_error:
                 raise

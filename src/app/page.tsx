@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 
 import CollectionSummary from "@/components/CollectionSummary";
+import CountryDiversitySection from "@/components/CountryDiversitySection";
 import HomePage from "@/components/HomePage";
+import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchTaxonStats } from "@/lib/metaStats";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
@@ -17,6 +19,12 @@ export default function MainPage() {
         // identical by construction rather than by a matching guess.
         <Suspense fallback={<CollectionSummary counts={null} pending />}>
           <CollectionSummarySection />
+        </Suspense>
+      }
+      countryDiversity={
+        // Its own boundary, so the summary numbers never wait on the map data.
+        <Suspense fallback={<CountryDiversitySection data={null} pending />}>
+          <CountryDiversityResolved />
         </Suspense>
       }
     />
@@ -44,4 +52,8 @@ async function CollectionSummarySection() {
       }
     />
   );
+}
+
+async function CountryDiversityResolved() {
+  return <CountryDiversitySection data={await fetchCountryDiversity()} />;
 }

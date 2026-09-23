@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 export interface Crumb {
   label: string;
@@ -25,30 +26,41 @@ export default function TaxonBreadcrumb({ items }: { items: Crumb[] }) {
       // mt-2: clearance under the navigation, which sits in normal flow
       // directly above. Carried by the component rather than by each page, so
       // the species, family and genus trails cannot drift apart again.
-      className="text-sm mt-2 mb-8 text-deep-mocha-600 dark:text-deep-mocha-400 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur py-1 px-3 w-fit max-w-full rounded-full"
+      //
+      // rounded-2xl rather than rounded-full: on one line the 16px radius of
+      // a 32px-tall bar is already a pill, but when a long species name wraps
+      // the trail onto a second line, a full radius pinched the corners in
+      // towards the text and the side padding visibly collapsed. A fixed
+      // radius keeps the same inset on every line.
+      className="text-sm mt-2 mb-8 text-deep-mocha-600 dark:text-deep-mocha-400 border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur py-1.5 px-4 w-fit max-w-full rounded-2xl"
     >
-      <ol className="flex flex-wrap items-center gap-2">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 leading-5">
         {items.map((item, index) => (
           <li
             key={`${item.label}-${index}`}
-            className="flex items-center gap-2"
+            // min-w-0 so a single crumb longer than the bar (a trinomial on a
+            // phone) wraps inside itself instead of overflowing the pill.
+            className="flex min-w-0 items-center gap-1.5"
           >
             {index > 0 ? (
-              <span aria-hidden="true" className="text-deep-mocha-400">
-                &gt;
-              </span>
+              <ChevronRight
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0 text-deep-mocha-400 dark:text-deep-mocha-500"
+              />
             ) : null}
             {item.href ? (
               <Link
                 href={item.href}
-                className={`hover:underline ${item.italic ? "italic" : ""}`}
+                className={`min-w-0 break-words hover:text-pacific-blue-700 hover:underline dark:hover:text-pacific-blue-400 ${
+                  item.italic ? "italic" : ""
+                }`}
               >
                 {item.label}
               </Link>
             ) : (
               <span
                 aria-current="page"
-                className={`text-deep-mocha-800 dark:text-deep-mocha-200 ${
+                className={`min-w-0 break-words font-medium text-deep-mocha-800 dark:text-deep-mocha-200 ${
                   item.italic ? "italic" : ""
                 }`}
               >

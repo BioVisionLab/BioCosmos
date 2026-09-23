@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
 import { imageUrlById } from "@/lib/images";
@@ -218,18 +219,7 @@ function SpecimenImageModal({
             text-gray border border-white/50 shadow-md hover:shadow-lg
             transition-all duration-200"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-white"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 8.586l4.95-4.95a1 1 0 111.414 1.414L11.414 10l4.95 4.95a1 1 0 01-1.414 1.414L10 11.414l-4.95 4.95a1 1 0 01-1.414-1.414L8.586 10 3.636 5.05A1 1 0 015.05 3.636L10 8.586z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <X className="h-5 w-5 text-white" aria-hidden="true" />
         </button>
 
         {/* Combined image and metadata box */}
@@ -247,20 +237,7 @@ function SpecimenImageModal({
                   : "text-white bg-black/30 hover:bg-white/10"
               }`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <ChevronLeft className="h-6 w-6" aria-hidden="true" />
             </button>
 
             <div className="relative w-full h-full flex items-center justify-center">
@@ -296,20 +273,7 @@ function SpecimenImageModal({
                   : "text-white bg-black/30 hover:bg-white/10"
               }`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <ChevronRight className="h-6 w-6" aria-hidden="true" />
             </button>
           </div>
 

@@ -6,6 +6,7 @@ import {
   fetchImgById,
   fetchSpeciesImageIds,
   fetchThumbnailById,
+  imageUrlById,
 } from "@/lib/images";
 import {
   cleanSpeciesName,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/names";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import { SemanticFunctionBadges } from "@/components/SemanticSearchFunctions";
 import { MlResultItems } from "@/lib/ml_search";
 
@@ -68,25 +70,11 @@ function computeDistancePercent(distance: number) {
 }
 
 function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolNames?: string[] }) {
-  const [thumbnail, setThumbnail] = useState<{ id: string; url: string | null } | null>(null);
-  const loading = thumbnail?.id !== data.imgId;
-  const imageUrl = thumbnail?.id === data.imgId ? thumbnail.url : null;
-
-  useEffect(() => {
-    let active = true;
-    const fetchImage = async () => {
-      let url: string | null = null;
-      try {
-        url = await fetchThumbnailById(data.imgId);
-      } catch (error) {
-        console.error("Error fetching similar species image:", error);
-      } finally {
-        if (active) setThumbnail({ id: data.imgId, url });
-      }
-    };
-    fetchImage();
-    return () => { active = false; };
-  }, [data.imgId]);
+  // Building the URL needs no I/O. Resolving it synchronously lets a grid
+  // restored from cache paint straight from the browser's immutable image
+  // cache instead of flashing a spinner per card.
+  const imageUrl = imageUrlById(data.imgId, "thumbnail");
+  const [imageFailed, setImageFailed] = useState(false);
 
   const speciesName = toBinomialName(cleanSpeciesName(data.species));
 
@@ -106,23 +94,25 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
 
   return (
     <div className={`bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center min-h-[200px] ${toolNames ? "w-full min-w-0" : "w-[160px]"}`}>
-      {loading ? (
-        <ImageLoading size={IMAGE_SIZE} />
-      ) : (
-        <MaybeSpeciesLink
+      <MaybeSpeciesLink
           species={data.species}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
             <div className="relative aspect-square w-full max-w-32">
-              <Image
-              src={imageUrl || `/api/image/${data.imgId}`}
-              alt={`Image of ${data.species}`}
-              fill
-              sizes={`${IMAGE_SIZE}px`}
-              className="object-contain"
-              unoptimized
-              />
+              {imageFailed ? (
+                <NoImage />
+              ) : (
+                <Image
+                  src={imageUrl}
+                  alt={`Image of ${data.species}`}
+                  fill
+                  sizes={`${IMAGE_SIZE}px`}
+                  className="object-contain"
+                  onError={() => setImageFailed(true)}
+                  unoptimized
+                />
+              )}
             </div>
           </div>
 
@@ -150,7 +140,6 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
             )}
           </div>
         </MaybeSpeciesLink>
-      )}
     </div>
   );
 }

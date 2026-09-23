@@ -76,12 +76,24 @@ async function fetchSpeciesThumbnail(speciesName: string): Promise<string> {
   return speciesThumbnailUrl(speciesName);
 }
 
-async function fetchSpeciesImage(speciesName: string): Promise<string> {
+/**
+ * The full-resolution image endpoint for a species. Like
+ * `speciesThumbnailUrl`, a plain string so a grid can render it on first
+ * paint.
+ *
+ * "Full" is the backend's processed copy, capped at 800px — not the original
+ * scan — so it is what a grid tile wider than about 64 CSS pixels should use:
+ * the 128px thumbnail is upscaled and soft on a high-density screen.
+ */
+function speciesImageUrl(speciesName: string): string {
   const cleanName = cleanSpeciesName(speciesName);
-  // Construct the API endpoint URL
   return `${IMAGE_API_BASE}/species?scientificName=${encodeURIComponent(
     cleanName
   )}&type=full`;
+}
+
+async function fetchSpeciesImage(speciesName: string): Promise<string> {
+  return speciesImageUrl(speciesName);
 }
 
 
@@ -103,6 +115,7 @@ async function fetchThumbnailById(imageId: string): Promise<string> {
 export {
   fetchSpeciesImageIds,
   speciesThumbnailUrl,
+  speciesImageUrl,
   fetchSpeciesImage,
   fetchSpeciesThumbnail,
   fetchImgById,
