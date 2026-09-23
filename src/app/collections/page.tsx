@@ -96,10 +96,8 @@ export default async function CollectionsPage() {
         <p className="max-w-3xl text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
           Proportion of image entries across butterfly families before and
           after taxonomy validation, the top ten most-represented species in
-          the collection, the holding institutions behind the collection,
-          species diversity by validated country, and
-          how the CLIP and UNICOM embedding spaces behind image search are
-          distributed.
+          the collection, the holding institutions behind the collection, and
+          the ten countries with the most species recorded.
         </p>
         <CollectionCharts
           entriesByFamily={data?.entriesByFamily ?? null}
