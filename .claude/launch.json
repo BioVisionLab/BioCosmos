@@ -4,18 +4,13 @@
     {
       "name": "biocosmos-web",
       "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     },
     {
       "name": "biocosmos-api",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": [
-        "scripts/run_backend.sh"
-      ],
+      "runtimeExecutable": "./scripts/run_backend.sh",
+      "runtimeArgs": [],
       "port": 8000
     }
   ]

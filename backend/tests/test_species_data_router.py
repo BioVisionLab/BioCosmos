@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.routers.species_data import (
     router,
+    get_col_search,
     get_precomputed_similarity,
     get_species_similarity,
 )
@@ -59,6 +60,43 @@ class TestFetchSpeciesBiology:
         instance.search = AsyncMock(side_effect=Exception("GBIF down"))
         response = client.get("/species/danaus_plexippus/biology")
         assert response.status_code == 500
+
+
+# =========================================================================
+# GET /species/{scientific_name}/taxonomy
+# =========================================================================
+
+
+class TestFetchSpeciesTaxonomy:
+    def _get(self, url, **lookup):
+        search = MagicMock()
+        search.taxonomy_detail = AsyncMock(**lookup)
+        app.dependency_overrides[get_col_search] = lambda: search
+        try:
+            return client.get(url)
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_success_is_cacheable(self):
+        response = self._get(
+            "/species/danaus_plexippus/taxonomy",
+            return_value={"nameUsages": [], "typeMaterial": []},
+        )
+        assert response.status_code == 200
+        assert response.json()["typeMaterial"] == []
+        assert "max-age" in response.headers["cache-control"]
+
+    def test_not_found_is_not_cached(self):
+        response = self._get("/species/unknown_species/taxonomy", return_value=None)
+        assert response.status_code == 404
+        assert response.headers["cache-control"] == "no-store"
+
+    def test_error_returns_500(self):
+        response = self._get(
+            "/species/danaus_plexippus/taxonomy", side_effect=Exception("boom")
+        )
+        assert response.status_code == 500
+        assert response.headers["cache-control"] == "no-store"
 
 
 # =========================================================================

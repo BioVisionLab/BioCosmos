@@ -129,7 +129,7 @@ export default function ColorSearch() {
     <section className="w-full mt-16" aria-labelledby="visual-search-heading">
       <LandingSectionHeading
         id="visual-search-heading"
-        icon={<AppearanceIcon />}
+        icon={<AppearanceIcon size="sm" />}
         title="Explore by Appearance"
         description="Pick a colour or pattern to preview matching butterflies."
       />
@@ -199,7 +199,7 @@ export default function ColorSearch() {
                   ? `/species/${speciesUrlFromName(result.species)}`
                   : "#"
               }
-              imageUrl={result ? imageUrlById(result.imgId, "thumbnail") : null}
+              imageUrl={result ? imageUrlById(result.imgId, "full") : null}
               label={
                 result ? toBinomialName(cleanSpeciesName(result.species)) : ""
               }

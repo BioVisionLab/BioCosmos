@@ -96,21 +96,55 @@ async function searchByColor(
   return results;
 }
 
+export interface SemanticSearchPage {
+  query: string;
+  searchId: string | null;
+  total: number;
+  offset: number;
+  hasMore: boolean;
+  results: SemanticSearchResult[];
+}
+
+/** The backend no longer holds the cached search a page was requested from. */
+class SearchExpiredError extends Error {}
+
+/**
+ * Fetch one page of agent search results.
+ *
+ * The first call (no `searchId`) runs the search; pass the returned
+ * `searchId` with a later `offset` to page through it without re-running
+ * the planner. `refresh` bypasses the backend's cache of repeated queries.
+ */
 async function searchSemantic(
   query: string,
-  signal?: AbortSignal,
-): Promise<SemanticSearchResult[]> {
-  const response = await fetch(
-    "/api/ml-search/agent?q=" + encodeURIComponent(query),
-    {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal,
-    }
-  );
+  options: {
+    searchId?: string | null;
+    offset?: number;
+    refresh?: boolean;
+    signal?: AbortSignal;
+  } = {},
+): Promise<SemanticSearchPage> {
+  const { searchId, offset = 0, refresh = false, signal } = options;
+  const params = new URLSearchParams();
+  if (searchId) {
+    params.set("search_id", searchId);
+  } else {
+    params.set("q", query);
+  }
+  if (offset > 0) params.set("offset", String(offset));
+  if (refresh) params.set("refresh", "true");
+
+  const response = await fetch(`/api/ml-search/agent?${params}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    signal,
+  });
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "Agent search"));
+    const message = await readErrorMessage(response, "Agent search");
+    throw response.status === 410
+      ? new SearchExpiredError(message)
+      : new Error(message);
   }
 
   const json: unknown = await response.json();
@@ -121,16 +155,33 @@ async function searchSemantic(
     !("results" in json) ||
     !Array.isArray(json.results)
   ) {
-    return [];
+    return {
+      query,
+      searchId: null,
+      total: 0,
+      offset,
+      hasMore: false,
+      results: [],
+    };
   }
 
-  return json.results.filter(isBaseSearchResult).map((item) => ({
+  const body = json as Record<string, unknown> & { results: unknown[] };
+  const results = body.results.filter(isBaseSearchResult).map((item) => ({
     imgId: item.imgId,
     species: item.species,
     tool_names: Array.isArray(item.tool_names)
       ? item.tool_names.filter((name): name is string => typeof name === "string")
       : [],
   }));
+
+  return {
+    query: typeof body.query === "string" ? body.query : query,
+    searchId: typeof body.searchId === "string" ? body.searchId : null,
+    total: typeof body.total === "number" ? body.total : results.length,
+    offset: typeof body.offset === "number" ? body.offset : offset,
+    hasMore: body.hasMore === true,
+    results,
+  };
 }
 
 async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
@@ -162,4 +213,4 @@ async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
   }
 }
 
-export { searchSemantic, searchFromImage, searchByColor };
+export { searchSemantic, searchFromImage, searchByColor, SearchExpiredError };

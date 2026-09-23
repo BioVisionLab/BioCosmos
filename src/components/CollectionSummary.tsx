@@ -49,7 +49,7 @@ export default function CollectionSummary({
     <section className="w-full mt-16" aria-labelledby="collection-summary-heading">
       <LandingSectionHeading
         id="collection-summary-heading"
-        icon={<SummaryIcon />}
+        icon={<SummaryIcon size="sm" />}
         title="Collection Summary"
         description="What the collection holds right now."
       />

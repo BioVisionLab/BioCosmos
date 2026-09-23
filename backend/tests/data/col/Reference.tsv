@@ -1,0 +1,5 @@
+col:ID	col:alternativeID	col:sourceID	col:citation	col:type	col:author	col:authorID	col:editor	col:editorID	col:title	col:titleShort	col:containerAuthor	col:containerAuthorID	col:containerTitle	col:containerTitleShort	col:issued	col:accessed	col:collectionTitle	col:collectionEditor	col:collectionEditorID	col:volume	col:issue	col:edition	col:page	col:publisher	col:publisherPlace	col:version	col:isbn	col:issn	col:doi	col:link	col:remarks	col:modified	col:modifiedBy	clb:merged
+REF1			Linnaeus, C. (1758). Systema Naturae. Ed. 10.												1758																			
+REF2					Author, A.				A new Zzzonympha				Journal of Tests		1900-05-01														10.1234/zzz					
+REF3			Honey, M. R. & Scoble, M. J. (2001). Linnaeus's butterflies.												2001																			
+REF9			Uncited reference (1999).												1999																			

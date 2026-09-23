@@ -19,10 +19,14 @@ export function ButterflyIcon(props: IconProps) {
         </>
       }
     >
-      <path d="M12 7C8.9 5 5.6 3.7 3.1 4.3C2 6.7 2.9 9.4 5.1 11C7.5 11.2 10 10.8 12 10.6Z" />
-      <path d="M12 7C15.1 5 18.4 3.7 20.9 4.3C22 6.7 21.1 9.4 18.9 11C16.5 11.2 14 10.8 12 10.6Z" />
-      <path d="M12 12.7C9.6 13.2 6.9 13.8 5.5 15.3C4.9 17.1 6.4 18.9 8.7 19.1C10.4 18.1 11.4 16.3 12 14.6Z" />
-      <path d="M12 12.7C14.4 13.2 17.1 13.8 18.5 15.3C19.1 17.1 17.6 18.9 15.3 19.1C13.6 18.1 12.6 16.3 12 14.6Z" />
+      <path d="M12 7C8.9 5 5.6 3.7 3.1 4.3C2 6.7 2.9 9.4 5.1 11C7.5 11.5 10 11.4 12 11.2Z" />
+      <path d="M12 7C15.1 5 18.4 3.7 20.9 4.3C22 6.7 21.1 9.4 18.9 11C16.5 11.5 14 11.4 12 11.2Z" />
+      {/* The hindwings start on the forewings' trailing edge, not below it: a
+          butterfly's wings overlap at the base, and with a gap between them
+          the glyph read as two moths stacked. Each hindwing is open along its
+          costa -- the forewing edge above is that line. */}
+      <path d="M6.5 11.2C5 12.7 4.7 15.4 5.7 17.2C6.5 18.6 7.8 19.2 8.7 19.1C10.4 18.1 11.4 16.3 12 14.6" />
+      <path d="M17.5 11.2C19 12.7 19.3 15.4 18.3 17.2C17.5 18.6 16.2 19.2 15.3 19.1C13.6 18.1 12.6 16.3 12 14.6" />
       <path d="M12 6V18.2" />
       <Detail>
         <path d="M11 8.2C9.2 8 7.2 7.8 5.4 8" />
@@ -92,6 +96,108 @@ export function SummaryIcon(props: IconProps) {
       <rect x="5.8" y="12.4" width="3" height="7.2" rx="1" />
       <rect x="10.7" y="7.6" width="3" height="12" rx="1" />
       <rect x="15.6" y="10.2" width="3" height="9.4" rx="1" />
+    </IconBase>
+  );
+}
+
+/**
+ * Species diversity by country.
+ *
+ * A globe with its meridian and parallels in the supporting tone, and one
+ * continent-like patch as the subject: the section is about where species
+ * were recorded, not about navigation, so no pin.
+ */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M3.4 12H20.6" />
+          <path d="M12 3.4C10.2 6 9.6 9 9.6 12C9.6 15 10.2 18 12 20.6" />
+          <path d="M12 3.4C13.8 6 14.4 9 14.4 12C14.4 15 13.8 18 12 20.6" />
+        </>
+      }
+    >
+      <circle cx="12" cy="12" r="8.6" />
+      {/* Two closed landmasses, each set in a cell of the graticule so no
+          grid line runs through it — which is why the meridians are drawn
+          narrow. The single open stroke this replaces crossed a meridian and
+          read as a question mark. */}
+      <Detail>
+        <path d="M6.8 7.2C7.9 7.1 8.6 7.8 8.4 8.7C8.2 9.4 7.6 9.6 7.4 10.2C7.2 10.8 6.4 10.9 6 10.4C5.6 9.9 5.3 9.5 5.4 8.7C5.5 7.8 6.1 7.3 6.8 7.2Z" />
+        <path d="M16.6 13.2C17.6 13.1 18.6 13.6 18.6 14.6C18.6 15.6 17.8 16.6 17 16.6C16.4 16.6 16.3 16 16 15.5C15.7 15 15.6 14.4 15.8 13.9C15.9 13.5 16.2 13.3 16.6 13.2Z" />
+      </Detail>
+    </IconBase>
+  );
+}
+
+/**
+ * Harmonized taxonomy.
+ *
+ * A cladogram rather than an org-chart tree: one root splitting into three
+ * tips, with the tips as the subject — the names the harmonization resolves —
+ * and the branches behind them in the supporting tone.
+ */
+export function TaxonomyIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M4 12H8" />
+          <path d="M8 5.6V18.4" />
+          <path d="M8 5.6H15.4" />
+          <path d="M8 12H15.4" />
+          <path d="M8 18.4H15.4" />
+        </>
+      }
+    >
+      <circle cx="17.8" cy="5.6" r="2.2" />
+      <circle cx="17.8" cy="12" r="2.2" />
+      <circle cx="17.8" cy="18.4" r="2.2" />
+    </IconBase>
+  );
+}
+
+const NET_R = 1.6;
+const NET_INPUTS: Array<[number, number]> = [
+  [4.6, 8.2],
+  [4.6, 15.8],
+];
+const NET_HIDDEN: Array<[number, number]> = [
+  [12, 4.6],
+  [12, 12],
+  [12, 19.4],
+];
+const NET_OUTPUT: [number, number] = [19.4, 12];
+
+/** A connection between two units, trimmed to their rims so no edge shows inside a unit. */
+function netEdge([x1, y1]: [number, number], [x2, y2]: [number, number]) {
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  const dx = ((x2 - x1) / len) * NET_R;
+  const dy = ((y2 - y1) / len) * NET_R;
+  const f = (n: number) => n.toFixed(2);
+  return `M${f(x1 + dx)} ${f(y1 + dy)}L${f(x2 - dx)} ${f(y2 - dy)}`;
+}
+
+/**
+ * Machine learning.
+ *
+ * A three-layer network, two inputs to three hidden units to one output. The
+ * connections are the context and the units the subject; fewer units than the
+ * obvious 3-4-2 so the edges stay countable at the 16px the hero pills use.
+ */
+export function NetworkIcon(props: IconProps) {
+  const edges = [
+    ...NET_INPUTS.flatMap((a) => NET_HIDDEN.map((b) => netEdge(a, b))),
+    ...NET_HIDDEN.map((a) => netEdge(a, NET_OUTPUT)),
+  ];
+  return (
+    <IconBase {...props} secondary={<path d={edges.join("")} />}>
+      {[...NET_INPUTS, ...NET_HIDDEN, NET_OUTPUT].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={NET_R} />
+      ))}
     </IconBase>
   );
 }

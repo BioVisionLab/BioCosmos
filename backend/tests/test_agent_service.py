@@ -8,6 +8,8 @@ import polars as pl
 import pytest
 from app.configs.config import PromptsConfig
 from app.services.agent import (
+    MAX_RANKED_RESULTS,
+    PAGE_SIZE,
     AgentConfigurationError,
     AgentSearchService,
     AgentToolFailureError,
@@ -212,6 +214,26 @@ def test_ranking_scores_stay_high_for_uniform_distances():
     assert [row["score"] for row in rows] == pytest.approx([1.0, 1.0])
 
 
+def test_aggregation_keeps_ranked_list_beyond_one_page():
+    rows = [
+        {
+            "imgId": f"img-{index:04d}",
+            "species": f"Species {index:04d}",
+            "score": 1.0 - index / 10_000,
+            "tool_names": "search_by_color",
+        }
+        for index in range(MAX_RANKED_RESULTS + 20)
+    ]
+
+    dataframe = AgentSearchService._aggregate_ranking_results(
+        rows, filter_tool_names=[]
+    )
+
+    # Later pages are served from this list, so it must not stop at one page.
+    assert dataframe.height == MAX_RANKED_RESULTS
+    assert dataframe["species"][0] == "Species 0000"
+
+
 def test_single_ranking_tool_match_keeps_full_score():
     dataframe = AgentSearchService._aggregate_ranking_results(
         [
@@ -382,7 +404,7 @@ async def test_image_similarity_excludes_exact_reference_species():
     service.image_meta_service.get_image_ids_by_genus.assert_not_called()
     kwargs = service.image_service.find_similar_images.call_args.kwargs
     assert kwargs["exclude_species"] == "Caligo eurilochus"
-    assert kwargs["min_species"] > 0
+    assert kwargs["min_species"] == PAGE_SIZE
 
 
 @pytest.mark.asyncio
@@ -424,8 +446,8 @@ async def test_common_name_filter_scopes_ranking_and_reports_both_functions():
     service.common_name_search = MagicMock()
     service.common_name_search.search.return_value = ["danaus_plexippus"]
     service.image_meta_service = MagicMock()
-    service.image_meta_service.get_species_main_image_id_from_list.return_value = (
-        pl.DataFrame({"imgId": ["ref"], "species": ["danaus_plexippus"]})
+    service.image_meta_service.get_species_first_image_ids.return_value = pl.DataFrame(
+        {"imgId": ["ref"], "species": ["danaus_plexippus"]}
     )
     service._search_by_color = AsyncMock(
         return_value=[

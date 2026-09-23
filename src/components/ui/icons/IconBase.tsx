@@ -1,24 +1,46 @@
 import type { CSSProperties, ReactNode } from "react";
 
+/**
+ * How large the icon is drawn, which sets its stroke.
+ *
+ * - `sm`: inline with text, 16–32px — the landing-page section marks.
+ * - `md`: a trait or data card, around 48px. The default.
+ * - `lg`: a hero glyph, 64–96px — the key-trait and specimen panels.
+ */
+export type IconSize = "sm" | "md" | "lg";
+
+/**
+ * Three stroke weights, one per size tier, in viewBox units on the 24-grid.
+ *
+ * A viewBox stroke scales with the icon, so one value reads hairline at 24px
+ * and heavy at 80px. Before these tiers every large call site picked its own
+ * number (1.1, 1.2) and the set drifted; now a call site says only which tier
+ * it is, and the weights are set once, here. Rendered, they come out at about
+ * 1.75px at 24, 3px at 48 and 3.5px at 80: heavier as the icon grows, but
+ * slower than the icon does, which is what keeps a small mark legible and a
+ * large one from turning into a stencil.
+ *
+ * Do not reach for `vector-effect="non-scaling-stroke"` instead: it pins the
+ * stroke to device pixels and makes the large icons look unrelated to the
+ * small ones.
+ */
+const STROKE_BY_SIZE: Record<IconSize, number> = {
+  sm: 1.75,
+  md: 1.5,
+  lg: 1.05,
+};
+
 export interface IconProps {
   /** Sizing and spacing only — colour is the primitive's job. */
   className?: string;
-  /**
-   * Stroke width in viewBox units on the 24-grid.
-   *
-   * A viewBox stroke scales with the icon, so the same value reads heavier the
-   * larger the icon is drawn. Pass a thinner one at the 80px call sites; do
-   * not reach for `vector-effect="non-scaling-stroke"`, which pins the stroke
-   * to device pixels and makes the large icons look unrelated to the small
-   * ones.
-   */
-  strokeWidth?: number;
+  /** The size tier the icon is drawn at. Picks the stroke; see `IconSize`. */
+  size?: IconSize;
   /** Accessible name. Omitted, the icon is decorative and hidden. */
   title?: string;
 }
 
 /**
- * Three stroke weights, not one.
+ * Inside each tier, three stroke weights by role, not one.
  *
  * The outline of a subject, the detail drawn inside it, and the context behind
  * it are three different kinds of line, and drawing all three at one weight is
@@ -53,7 +75,7 @@ const DASH_OFF_RATIO = 1.75;
 /**
  * Every domain icon in the app.
  *
- * One 24-grid, one stroke weight, one palette. Icons supply nothing but their
+ * One 24-grid, three stroke tiers, one palette. Icons supply nothing but their
  * geometry, which is what keeps each of them a few hundred bytes instead of
  * the 1–12 KB the stock silhouettes they replaced carried.
  *
@@ -67,11 +89,12 @@ const DASH_OFF_RATIO = 1.75;
  */
 export function IconBase({
   className,
-  strokeWidth = 1.5,
+  size = "md",
   title,
   secondary,
   children,
 }: IconProps & { secondary?: ReactNode; children: ReactNode }) {
+  const strokeWidth = STROKE_BY_SIZE[size];
   return (
     <svg
       viewBox="0 0 24 24"

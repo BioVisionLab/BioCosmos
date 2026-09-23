@@ -32,7 +32,7 @@ export default function TaxonImageStrip({
         <li key={image.imageId}>
           <SpeciesTile
             href={speciesHref(image.species)}
-            imageUrl={imageUrlById(image.imageId, "thumbnail")}
+            imageUrl={imageUrlById(image.imageId, "full")}
             label={image.displayName}
             alt={`Specimen of ${image.displayName}`}
           />

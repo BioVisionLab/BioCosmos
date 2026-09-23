@@ -33,6 +33,8 @@ class RunManifest(BaseModel):
     models: list[str]
     repeats: int
     concurrency: int
+    requests_per_minute: float | None = None
+    rate_limit_retries: int = 0
     temperature: float | None
     base_url: str
     summaries: list[ModelSummary]

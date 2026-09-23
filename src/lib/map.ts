@@ -1,3 +1,4 @@
+import type { StyleSpecification } from "maplibre-gl";
 import { SpeciesImageUmap } from "./speciesData";
 
 // OpenFreeMap serves MapLibre vector styles for free, without an API key.
@@ -69,6 +70,70 @@ export interface UmapOccurrence {
 
 function getBasemapStyleUrl(isDark: boolean): string {
   return isDark ? BASEMAP_STYLE_DARK : BASEMAP_STYLE_LIGHT;
+}
+
+/**
+ * Layers a thematic world map keeps from the OpenFreeMap style: the sea, the
+ * ice caps and the country borders. Everything else — roads, buildings,
+ * land use, and every label — is detail that competes with the data and
+ * costs requests, so it goes.
+ */
+const LIGHT_BASEMAP_LAYERS = new Set([
+  "background",
+  "water",
+  "landcover_ice_shelf",
+  "landcover_glacier",
+]);
+// Sub-national lines: state borders are noise at a country scale.
+const DROPPED_BOUNDARY_LAYERS = new Set(["boundary_3", "boundary_state"]);
+
+const lightBasemapCache = new Map<boolean, Promise<StyleSpecification>>();
+
+/**
+ * The OpenFreeMap style reduced to a light world basemap.
+ *
+ * Dropping every symbol layer is what lets `glyphs` and `sprite` go too, so
+ * the map makes no font or sprite requests at all. Only the vector source the
+ * kept layers read survives; the shaded-relief raster source is removed.
+ * Fetched once per theme and shared by every map on the page.
+ */
+function loadLightBasemapStyle(isDark: boolean): Promise<StyleSpecification> {
+  const cached = lightBasemapCache.get(isDark);
+  if (cached) return cached;
+
+  const promise = fetch(getBasemapStyleUrl(isDark))
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Basemap style request failed: ${response.status}`);
+      }
+      return response.json() as Promise<StyleSpecification>;
+    })
+    .then((style) => {
+      const layers = style.layers.filter(
+        (layer) =>
+          LIGHT_BASEMAP_LAYERS.has(layer.id) ||
+          ("source-layer" in layer &&
+            layer["source-layer"] === "boundary" &&
+            !DROPPED_BOUNDARY_LAYERS.has(layer.id)),
+      );
+      const used = new Set(
+        layers.flatMap((layer) => ("source" in layer ? [layer.source] : [])),
+      );
+      const sources = Object.fromEntries(
+        Object.entries(style.sources).filter(([id]) => used.has(id)),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { glyphs, sprite, ...rest } = style;
+      return { ...rest, sources, layers } as StyleSpecification;
+    })
+    .catch((error) => {
+      // Let a later mount retry instead of caching the failure.
+      lightBasemapCache.delete(isDark);
+      throw error;
+    });
+
+  lightBasemapCache.set(isDark, promise);
+  return promise;
 }
 
 function getBasemapAttribution(): string {
@@ -176,6 +241,7 @@ export {
   fetchGbifOccurrences,
   getBasemapStyleUrl,
   getBasemapAttribution,
+  loadLightBasemapStyle,
   parseUmapCoordinates,
   getClusterColor,
 };

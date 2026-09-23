@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import {
   cleanSpeciesName,
   isSpeciesName,
@@ -177,8 +178,8 @@ function SimilarSpeciesSection({
     <div className="p-2 ml-4">
       <h3 className={`text-md ${labelColor}`}>{label}</h3>
       <div
-        className="overflow-x-auto flex flex-row gap-4 mt-2 items-start"
-        style={{ minHeight: IMAGE_SIZE + 44 }}
+        className="overflow-x-auto flex flex-row gap-4 mt-2 pb-2 items-stretch"
+        style={{ minHeight: IMAGE_SIZE + 76 }}
       >
         {isLoading || rows === null ? (
           <div className="flex items-center" style={{ height: IMAGE_SIZE }}>
@@ -210,6 +211,7 @@ function SimilarSpeciesImage({
   // load event is what stops the card sitting there as a bare tinted square
   // for the whole time the bytes are actually in flight.
   const [isImageReady, setIsImageReady] = useState(false);
+  const [isImageFailed, setIsImageFailed] = useState(false);
 
   useEffect(() => {
     // Up to twenty of these mount at once, one per neighbour, and each one
@@ -222,6 +224,10 @@ function SimilarSpeciesImage({
         if (!ignore) setThumbnailUrl(response);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
+        if (!ignore) {
+          setIsImageReady(true);
+          setIsImageFailed(true);
+        }
       }
     };
     fetchImage();
@@ -247,35 +253,41 @@ function SimilarSpeciesImage({
     !!acceptedName &&
     acceptedName.toLowerCase() !== recordedName.toLowerCase();
 
+  // Laid out like the ML search result card: one panel holding the image
+  // well and, under it, the name.
   const card = (
-    <div className="h-full rounded-xl items-center justify-center flex-shrink-0 mb-2">
-      <div className="flex w-[120px] h-[120px] relative my-auto bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl p-2 items-center justify-center">
-        {thumbnailUrl ? (
+    <div className="flex w-[152px] flex-shrink-0 flex-col items-center gap-2 rounded-2xl bg-deep-mocha-200 dark:bg-deep-mocha-700 p-4 text-center shadow-sm transition-shadow hover:shadow-md">
+      <div className="relative w-full aspect-square">
+        {thumbnailUrl && !isImageFailed ? (
           <Image
             src={thumbnailUrl}
             alt={`Similar species image ${meta.imgId}`}
-            width={IMAGE_SIZE}
-            height={IMAGE_SIZE}
+            fill
+            sizes={`${IMAGE_SIZE}px`}
             className={`object-contain transition-opacity duration-200 ${
               isImageReady ? "opacity-100" : "opacity-0"
             }`}
             onLoad={() => setIsImageReady(true)}
-            onError={() => setIsImageReady(true)}
+            onError={() => {
+              setIsImageReady(true);
+              setIsImageFailed(true);
+            }}
             unoptimized
           />
         ) : null}
+        {isImageFailed ? <NoImage /> : null}
         {isImageReady ? null : (
           <div className="absolute inset-0 flex items-center justify-center">
             <ImageLoading size={IMAGE_SIZE / 2} msg="" />
           </div>
         )}
       </div>
-      <div className="w-[120px] text-center">
-        <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 italic break-words whitespace-normal">
+      <div className="w-full">
+        <p className="text-sm italic break-words text-deep-mocha-800 dark:text-deep-mocha-100">
           {acceptedName ?? recordedName}
         </p>
         {showsSubspecies ? (
-          <p className="text-xs text-deep-mocha-400 dark:text-deep-mocha-500 italic break-words whitespace-normal">
+          <p className="text-xs italic break-words text-deep-mocha-500 dark:text-deep-mocha-400">
             as {recordedName}
           </p>
         ) : null}
@@ -290,7 +302,11 @@ function SimilarSpeciesImage({
   if (!isSpeciesName(meta.species)) return card;
 
   return (
-    <Link key={index} href={`/species/${speciesUrlFromName(meta.species)}`}>
+    <Link
+      key={index}
+      href={`/species/${speciesUrlFromName(meta.species)}`}
+      className="flex"
+    >
       {card}
     </Link>
   );

@@ -79,6 +79,7 @@ class TestTaxonStatPayloadDefaults:
         assert payload.familyCountValidated == 0
         assert payload.entriesByFamilyValidated == {}
         assert payload.institutionCounts == {}
+        assert payload.model_dump()["institutionDirectory"] == {}
 
     def test_present_validation_data_survives_untouched(self):
         payload = TaxonStatPayload.from_data(
@@ -97,3 +98,32 @@ class TestTaxonStatPayloadDefaults:
         assert payload.familyCountValidated == 9
         assert payload.entriesByFamilyValidated == {"Nymphalidae": 58}
         assert payload.institutionCounts == {"NHMUK": 40, "Unknown": 60}
+
+    def test_institution_directory_serializes_by_code(self):
+        payload = TaxonStatPayload.from_data(
+            gbif_entries=1,
+            lep_traits_entries=1,
+            image_entries=1,
+            family_count=1,
+            family_count_validated=1,
+            species_count=1,
+            source_db_count=None,
+            entries_by_family=None,
+            entries_by_family_validated=None,
+            institution_counts={"NHMUK": 1},
+            top_ten_species={},
+            institution_directory={
+                "NHMUK": {
+                    "name": "Natural History Museum, London",
+                    "homepage": "http://www.nhm.ac.uk/",
+                    "country": "GB",
+                    "source": "grscicoll_verified",
+                }
+            },
+        )
+        assert payload.model_dump()["institutionDirectory"]["NHMUK"] == {
+            "name": "Natural History Museum, London",
+            "homepage": "http://www.nhm.ac.uk/",
+            "country": "GB",
+            "source": "grscicoll_verified",
+        }
