@@ -32,8 +32,8 @@ export function SemanticSearchDescription() {
   return (
     <div className="space-y-3 text-sm text-deep-mocha-700 dark:text-deep-mocha-200">
       <p>
-        Search by common name, appearance, location, or habitat, or find species
-        similar to a named species.
+        Search by common name, appearance, location, and habitat, or combine all
+        four in one query. You can also find species similar to a named species.
       </p>
     </div>
   );

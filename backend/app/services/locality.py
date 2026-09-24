@@ -50,7 +50,8 @@ GBIF_COLUMN_FOR_FIELD = {
     "verbatim_locality": "verbatimLocality",
 }
 
-# The order the one-line form is assembled in, coarsest rank first.
+# The ranks coarsest first: the order repeats are resolved in. The one-line
+# form is written the other way round, finest rank first.
 LOCALITY_RANK_ORDER = ("country", "stateProvince", "county", "municipality", "locality")
 
 # Codes pycountry does not carry. XK is the user-assigned code for Kosovo,
@@ -113,14 +114,16 @@ def _normalize_place(value: str | None) -> str:
 
 
 def locality_display(row: Mapping[str, object]) -> str | None:
-    """The locality as one line, coarsest rank first.
+    """The locality as one line, finest rank first, the way an address is written.
 
-    country, stateProvince, county, municipality, then locality — falling back
-    to verbatimLocality when locality itself is empty, because 165,046
-    occurrences carry only the verbatim form. Empty ranks are skipped, and a
-    rank repeating one already written is dropped: publishers routinely set
-    municipality and locality to the same string, and "Ouro Preto, Ouro Preto"
-    reads as a bug rather than as a place.
+    locality, municipality, county, stateProvince, then country — the locality
+    falling back to verbatimLocality when it is empty, because 165,046
+    occurrences carry only the verbatim form. Every locality the site shows,
+    from this panel to the map cards, runs from the lowest rank to the highest.
+    Empty ranks are skipped, and a rank repeating a coarser one is dropped:
+    publishers routinely set municipality and locality to the same string, and
+    "Ouro Preto, Ouro Preto" reads as a bug rather than as a place. Repeats are
+    resolved coarsest first, so the coarser rank's spelling is the one kept.
 
     None when nothing survives, so a caller can omit the row entirely.
     """
@@ -137,7 +140,7 @@ def locality_display(row: Mapping[str, object]) -> str | None:
             continue
         seen.add(key)
         parts.append(value.strip())
-    return ", ".join(parts) if parts else None
+    return ", ".join(reversed(parts)) if parts else None
 
 
 class LocalityService:

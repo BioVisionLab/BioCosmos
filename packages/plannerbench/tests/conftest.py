@@ -26,8 +26,16 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "search_by_location": {
         "additionalProperties": False,
-        "properties": {"location": {"pattern": "^[A-Za-z]{2}$", "type": "string"}},
-        "required": ["location"],
+        "properties": {
+            "country": {"pattern": "^[A-Za-z]{2}$", "type": "string"},
+            "state_province": {
+                "anyOf": [
+                    {"maxLength": 100, "minLength": 1, "type": "string"},
+                    {"type": "null"},
+                ]
+            },
+        },
+        "required": ["country"],
         "type": "object",
     },
     "search_by_image_similarity": {

@@ -3,6 +3,8 @@
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from app.configs.config import PromptsConfig
 from app.services.agent_tools import (
     LocationArgs,
@@ -35,14 +37,52 @@ def test_parse_tool_calls_validates_and_normalizes_location():
     registry = build_tool_registry(prompts)
 
     calls, warnings = parse_tool_calls(
-        [tool_call("search_by_location", '{"location": "br"}')],
+        [tool_call("search_by_location", '{"country": "br"}')],
         registry,
     )
 
     assert warnings == []
     assert len(calls) == 1
     assert isinstance(calls[0].args, LocationArgs)
-    assert calls[0].args.normalized_location() == "BR"
+    assert calls[0].args.normalized_country() == "BR"
+    assert calls[0].args.state_province is None
+
+
+def test_parse_tool_calls_accepts_state_province():
+    registry = build_tool_registry(PromptsConfig())
+
+    calls, warnings = parse_tool_calls(
+        [
+            tool_call(
+                "search_by_location",
+                '{"country": "MY", "state_province": "  Sabah "}',
+            )
+        ],
+        registry,
+    )
+
+    assert warnings == []
+    assert calls[0].args.normalized_country() == "MY"
+    assert calls[0].args.state_province == "Sabah"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        '{"location": "BR"}',
+        '{"country": "BR", "state_province": ""}',
+        '{"country": "BR", "county": "Manaus"}',
+    ],
+)
+def test_parse_tool_calls_rejects_invalid_location_arguments(arguments):
+    registry = build_tool_registry(PromptsConfig())
+
+    calls, warnings = parse_tool_calls(
+        [tool_call("search_by_location", arguments)], registry
+    )
+
+    assert calls == []
+    assert [warning.code for warning in warnings] == ["invalid_tool_arguments"]
 
 
 def test_parse_tool_calls_rejects_unknown_malformed_and_extra_arguments():

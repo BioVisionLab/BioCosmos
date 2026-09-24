@@ -11,7 +11,7 @@ from typing import Any, Literal
 from jsonschema import Draft202012Validator
 from pydantic import BaseModel
 
-from plannerbench.cases import ANY_VALUE, Case, ExpectedPlan
+from plannerbench.cases import ABSENT, ANY_VALUE, Case, ExpectedPlan
 from plannerbench.spec import PlannerSpec
 
 
@@ -135,12 +135,15 @@ def matches_plan(calls: Iterable[ToolCallRecord], plan: ExpectedPlan) -> bool:
     for tool, expectations in plan.items():
         arguments = accepted[tool]
         for key, expected in expectations.items():
-            if key not in arguments:
+            options = expected if isinstance(expected, list) else [expected]
+            if arguments.get(key) is None:
+                if ABSENT in options:
+                    continue
                 return False
             if expected == ANY_VALUE:
                 continue
-            options = expected if isinstance(expected, list) else [expected]
-            if _normalize(arguments[key]) not in {_normalize(option) for option in options}:
+            values = {_normalize(option) for option in options if option != ABSENT}
+            if _normalize(arguments[key]) not in values:
                 return False
     return True
 

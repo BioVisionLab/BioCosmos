@@ -177,6 +177,19 @@ def test_db_search_pagination(mock_request):
     assert len(ids1.intersection(ids2)) == 0
 
 
+def test_db_search_species_list_is_not_paged(mock_request):
+    """The specimen limit pages specimens only; every matching species returns."""
+    for field in ("all", "family"):
+        res = TextToDbSearch(
+            request=mock_request, query="nymphalidae", field=field, limit=1
+        ).search()
+        assert len(res["specimens"]) == 1
+        assert {r["species"] for r in res["results"]} == {
+            "danaus_plexippus",
+            "coenonympha_pamphilus",
+        }
+
+
 def test_db_search_coordinate(mock_request):
     # Search for Los Angeles coordinate (34.0522, -118.2437)
     # This should match 'img1', 'img2', 'img3' (within ~100m bounding box)

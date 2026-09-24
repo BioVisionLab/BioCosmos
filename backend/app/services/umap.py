@@ -4,6 +4,7 @@ import polars as pl
 from ..configs.config import ImageMetaConfig, UmapDataConfig
 from ..database.duckdb import DuckDBClient
 from ..database.model import UmapEmbedding, UmapData
+from ..query.species_coordinates import specimen_detail_joins
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,10 @@ class SpeciesImageUmap:
         Retrieve UMAP embeddings for a given species.
         """
         image_meta_table = ImageMetaConfig().table
+        # The same specimen record the distribution map's cards show.
+        detail_joins, detail_columns = specimen_detail_joins(
+            self.db_client, image_alias="m"
+        )
         # We trim and replace a space with underscore to match the database format
         species = self.sanitize_species(species)
         try:
@@ -81,6 +86,8 @@ class SpeciesImageUmap:
                         m.lat,
                         m.lon,
                         m.class_dv,
+                        m.source_db,
+                        {detail_columns},
                         ROW_NUMBER() OVER (
                             PARTITION BY a.species, a.cluster_label 
                             ORDER BY 
@@ -90,6 +97,7 @@ class SpeciesImageUmap:
                     FROM {self.table} a
                     JOIN {image_meta_table} m
                     ON a.img_id = m.img_id
+                    {detail_joins}
                     WHERE a.species = ?
                 )
                 SELECT *

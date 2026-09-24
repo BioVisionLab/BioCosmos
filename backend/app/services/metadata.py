@@ -824,9 +824,8 @@ class ImageMetaService:
             WHERE lat BETWEEN ? AND ?
               AND lon BETWEEN ? AND ?
             GROUP BY species_key
-            LIMIT ?
         """
-        params = [lat_min, lat_max, lon_min, lon_max, limit]
+        params = [lat_min, lat_max, lon_min, lon_max]
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
@@ -856,7 +855,12 @@ class ImageMetaService:
     def search_by_field(
         self, field: str, q_param: str, limit: int, offset: int
     ) -> tuple[pl.DataFrame, pl.DataFrame, int]:
-        """Search metadata by a specific field."""
+        """Search metadata by a specific field.
+
+        `limit` and `offset` page the specimens only. The species list is
+        every match, so the results page can list them all whatever specimen
+        page the reader is on; the same holds for the other two searches.
+        """
         col_name = self._column_ref(field)
 
         query = f"""
@@ -867,9 +871,8 @@ class ImageMetaService:
             FROM {self.specimen_source()}
             WHERE REPLACE({col_name}, '_', ' ') ILIKE ?
             GROUP BY species_key
-            LIMIT ?
         """
-        params = [q_param, q_param, limit]
+        params = [q_param, q_param]
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 
         specimen_query = f"""
@@ -911,7 +914,6 @@ class ImageMetaService:
             params.append(q_param)
 
         params.extend([q_param] * len(search_fields))
-        params.append(limit)
 
         selects_str = ", ".join(selects)
         conditions_str = " OR ".join(conditions)
@@ -924,7 +926,6 @@ class ImageMetaService:
             FROM {self.specimen_source()}
             WHERE {conditions_str}
             GROUP BY species_key
-            LIMIT ?
         """
         results_df = self.db_client.execute_prepared_to_pl(query, params)
 

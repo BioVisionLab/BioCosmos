@@ -142,6 +142,14 @@ export function describeGeoCode(
 // Labels and tone
 // ---------------------------------------------------------------------------
 
+/**
+ * Shown beside a state mismatch. Many are not misplaced coordinates at all:
+ * the record names its state in a form GADM does not use, such as "East
+ * Kalimantan" for Kalimantan Timur, and the names fail to match.
+ */
+export const ADM1_MISMATCH_NOTE =
+  "The record may use a non-standard state name, such as an English or older name.";
+
 export function coordinateStatusLabel(
   status: string | null | undefined,
 ): string {

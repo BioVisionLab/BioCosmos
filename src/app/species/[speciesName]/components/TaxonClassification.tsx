@@ -7,7 +7,7 @@ import {
   ITALIC_COL_RANKS,
   rankValue,
 } from "@/lib/colTaxonomy";
-import { familyHref, genusHref } from "@/lib/taxonSlug";
+import { familyHref, genusHref, orderHref } from "@/lib/taxonSlug";
 import { TaxonomyData } from "@/lib/speciesData";
 
 function Row({
@@ -34,7 +34,7 @@ function Row({
 /**
  * One rank's value, linked when that rank has a page.
  *
- * Only family and genus do. Reading a classification is where someone is
+ * Only order (Lepidoptera alone), family and genus do. Reading a classification is where someone is
  * most likely to want to go up a level, and until these rows were links the
  * only way there was the breadcrumb.
  */
@@ -48,11 +48,13 @@ function RankValue({ rank, value }: { rank: string; value: string | null }) {
 
   if (!value) return body;
   const href =
-    rank === "family"
-      ? familyHref(value)
-      : rank === "genus"
-        ? genusHref(value)
-        : null;
+    rank === "order"
+      ? orderHref(value)
+      : rank === "family"
+        ? familyHref(value)
+        : rank === "genus"
+          ? genusHref(value)
+          : null;
   if (!href) return body;
 
   return (

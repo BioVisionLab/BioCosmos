@@ -12,12 +12,28 @@ import { configureMapLibreWorker } from "@/lib/maplibreWorker";
 
 const SOURCE_ID = "points";
 const LAYER_ID = "points-circles";
+const UNDERLAY_SOURCE_ID = "underlay";
+const UNDERLAY_LAYER_ID = "underlay-raster";
 
 export interface MapPoint {
   id: string | number;
   lat: number;
   lon: number;
   color: string;
+  /** Overrides the map-wide `circleRadius` for this point. */
+  radius?: number;
+  /** Overrides the default white outline for this point. */
+  strokeColor?: string;
+}
+
+/** A raster tile layer drawn beneath the points, such as a density map. */
+export interface RasterUnderlay {
+  /** Changing it replaces the layer; the same id leaves it alone. */
+  id: string;
+  tiles: string[];
+  attribution?: string;
+  opacity?: number;
+  tileSize?: number;
 }
 
 interface PointMapProps {
@@ -32,6 +48,11 @@ interface PointMapProps {
   /** Whether the popup opens on click or follows the cursor. */
   interaction: "click" | "hover";
   renderPopup: (point: MapPoint) => React.ReactNode;
+  rasterUnderlay?: RasterUnderlay | null;
+  /** Extra class on the popup, for a map that styles its own. */
+  popupClassName?: string;
+  /** Fit the camera to these [[west, south], [east, north]] bounds on load. */
+  fitBounds?: [[number, number], [number, number]] | null;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -65,6 +86,9 @@ export default function PointMap({
   maxZoom = 18,
   interaction,
   renderPopup,
+  rasterUnderlay = null,
+  popupClassName,
+  fitBounds = null,
   className,
   style,
 }: PointMapProps) {
@@ -93,7 +117,41 @@ export default function PointMap({
   const circleRadiusRef = useRef(circleRadius);
   circleRadiusRef.current = circleRadius;
 
+  const rasterUnderlayRef = useRef(rasterUnderlay);
+  // Synced in an effect declared before the map is created, so it is current
+  // by the time `style.load` reads it; effects run in declaration order.
+  useEffect(() => {
+    rasterUnderlayRef.current = rasterUnderlay;
+  }, [rasterUnderlay]);
+  const underlayIdRef = useRef<string | null>(null);
+
+  const addUnderlay = useCallback((map: MapLibreMap) => {
+    const underlay = rasterUnderlayRef.current;
+    if (map.getLayer(UNDERLAY_LAYER_ID)) map.removeLayer(UNDERLAY_LAYER_ID);
+    if (map.getSource(UNDERLAY_SOURCE_ID)) map.removeSource(UNDERLAY_SOURCE_ID);
+    underlayIdRef.current = underlay?.id ?? null;
+    if (!underlay) return;
+
+    map.addSource(UNDERLAY_SOURCE_ID, {
+      type: "raster",
+      tiles: underlay.tiles,
+      tileSize: underlay.tileSize ?? 256,
+      attribution: underlay.attribution,
+    });
+    // Beneath the points whenever they exist, so markers stay clickable.
+    map.addLayer(
+      {
+        id: UNDERLAY_LAYER_ID,
+        type: "raster",
+        source: UNDERLAY_SOURCE_ID,
+        paint: { "raster-opacity": underlay.opacity ?? 0.8 },
+      },
+      map.getLayer(LAYER_ID) ? LAYER_ID : undefined,
+    );
+  }, []);
+
   const addPointsLayer = useCallback((map: MapLibreMap) => {
+    addUnderlay(map);
     if (!map.getSource(SOURCE_ID)) {
       map.addSource(SOURCE_ID, {
         type: "geojson",
@@ -107,15 +165,23 @@ export default function PointMap({
         type: "circle",
         source: SOURCE_ID,
         paint: {
-          "circle-radius": circleRadiusRef.current,
+          "circle-radius": [
+            "coalesce",
+            ["get", "radius"],
+            circleRadiusRef.current,
+          ],
           "circle-color": ["get", "color"],
           "circle-opacity": 0.85,
           "circle-stroke-width": 1,
-          "circle-stroke-color": "rgba(255,255,255,0.7)",
+          "circle-stroke-color": [
+            "coalesce",
+            ["get", "strokeColor"],
+            "rgba(255,255,255,0.7)",
+          ],
         },
       });
     }
-  }, []);
+  }, [addUnderlay]);
 
   // Create the map once. Theme and data changes are applied in place below.
   useEffect(() => {
@@ -141,6 +207,9 @@ export default function PointMap({
       style: initialStyleUrl,
       center,
       zoom,
+      ...(fitBounds
+        ? { bounds: fitBounds, fitBoundsOptions: { padding: 40, maxZoom: 6 } }
+        : {}),
       minZoom,
       maxZoom,
       attributionControl: { compact: true, customAttribution: getBasemapAttribution() },
@@ -160,7 +229,10 @@ export default function PointMap({
       maxWidth: "none",
       // A hover popup under the cursor would trigger mouseleave on the layer
       // and flicker itself in and out.
-      className: interaction === "hover" ? "pointer-events-none" : undefined,
+      className:
+        [interaction === "hover" ? "pointer-events-none" : null, popupClassName]
+          .filter(Boolean)
+          .join(" ") || undefined,
     });
     popup.setDOMContent(popupHost);
     popupRef.current = popup;
@@ -206,6 +278,13 @@ export default function PointMap({
       });
     }
 
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && popup.isOpen()) popup.remove();
+    };
+    if (interaction === "click") {
+      document.addEventListener("keydown", closeOnEscape);
+    }
+
     popup.on("close", () => {
       activePointIdRef.current = null;
       setActivePoint(null);
@@ -217,6 +296,7 @@ export default function PointMap({
     resizeObserver.observe(container);
 
     return () => {
+      document.removeEventListener("keydown", closeOnEscape);
       resizeObserver.disconnect();
       popup.remove();
       map.remove();
@@ -227,6 +307,15 @@ export default function PointMap({
     // Interaction mode is fixed for a given map; the camera is handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addPointsLayer, interaction]);
+
+  // Swap the underlay when it changes identity. Before the style has loaded,
+  // `style.load` adds it from the ref instead.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    if ((rasterUnderlay?.id ?? null) === underlayIdRef.current) return;
+    addUnderlay(map);
+  }, [rasterUnderlay, addUnderlay]);
 
   // Push new points without tearing the map down.
   useEffect(() => {
@@ -278,13 +367,49 @@ export default function PointMap({
     const popupHost = popupHostRef.current;
     if (activePoint && popup?.isOpen() && popupHost) {
       popup.setDOMContent(popupHost);
+      // In a small map a popup can be taller than the room beside its point,
+      // and the container clips it. Pan just far enough to bring it inside,
+      // but only for a click popup: one that follows the cursor would drag
+      // the map along with it.
+      const map = mapRef.current;
+      const container = containerRef.current;
+      if (interaction !== "click" || !map || !container) return;
+      // Measured a frame later, once MapLibre has re-laid the popup out
+      // around its new content.
+      const frame = requestAnimationFrame(() => {
+        const element = popup.getElement();
+        if (!element || !popup.isOpen()) return;
+        const margin = 8;
+        // The attribution strip sits over the bottom edge.
+        const bottomMargin = 44;
+        const box = element.getBoundingClientRect();
+        const view = container.getBoundingClientRect();
+        const dx =
+          box.left < view.left + margin
+            ? box.left - view.left - margin
+            : box.right > view.right - margin
+              ? box.right - view.right + margin
+              : 0;
+        const dy =
+          box.top < view.top + margin
+            ? box.top - view.top - margin
+            : box.bottom > view.bottom - bottomMargin
+              ? box.bottom - view.bottom + bottomMargin
+              : 0;
+        if (dx !== 0 || dy !== 0) map.panBy([dx, dy], { duration: 250 });
+      });
+      return () => cancelAnimationFrame(frame);
     }
-  }, [activePoint]);
+  }, [activePoint, interaction]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (map?.getLayer(LAYER_ID)) {
-      map.setPaintProperty(LAYER_ID, "circle-radius", circleRadius);
+      map.setPaintProperty(LAYER_ID, "circle-radius", [
+        "coalesce",
+        ["get", "radius"],
+        circleRadius,
+      ]);
     }
   }, [circleRadius]);
 

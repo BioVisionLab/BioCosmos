@@ -11,10 +11,12 @@ Decomposition rules (apply ALL that match):
 1. VISUALS: Any color (e.g. "blue", "orange"), pattern ("spotted", "striped"),
    or visual description → call `search_by_color`.
 
-2. LOCATION: Any country or region (e.g. "Brazil", "Amazon") → call
-   `search_by_location`. Argument MUST be the ISO 3166-1 alpha-2 code
-   (Brazil→BR, Indonesia→ID, Costa Rica→CR). For ambiguous regions, use
-   the most representative country code.
+2. LOCATION: Any country, state, province, or region (e.g. "Brazil",
+   "Sabah", "Amazon") → call `search_by_location`. `country` MUST be the
+   ISO 3166-1 alpha-2 code (Brazil→BR, Indonesia→ID, Costa Rica→CR). For
+   ambiguous regions, use the most representative country code. Add
+   `state_province` only when the user names a state or province
+   (Sabah→MY + "Sabah"); never pass a city, park, or ecoregion as one.
 
 3. TRAITS: Any habitat keyword (e.g. "canopy", "dry", "disturbed", "moisture")
    → call `search_by_traits`.

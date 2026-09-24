@@ -5,7 +5,7 @@ import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
-import TaxonomyTree from "@/components/TaxonomyTree";
+import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
 import {
   REPRESENTATIVE_IMAGE_LIMIT,
@@ -91,8 +91,10 @@ export default async function GenusPage({ params }: GenusPageProps) {
             id={TREE_ID}
             nodes={taxon.tree}
             bottomRank="species"
+            highlightRank="genus"
             nodeCount={taxon.nodeCount}
           />
+          <UnrecordedTaxaNote taxa="species" />
           <ColAttribution />
         </div>
       </section>

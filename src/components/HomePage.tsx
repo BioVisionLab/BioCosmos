@@ -13,6 +13,7 @@ import { ButterflyIcon, NetworkIcon, TaxonomyIcon } from "./ui/icons";
 interface HomeSlots {
   specimenTray?: ReactNode;
   featured?: ReactNode;
+  familyExplorer?: ReactNode;
   dataSummary?: ReactNode;
   countryDiversity?: ReactNode;
 }
@@ -23,6 +24,7 @@ interface HomeSlots {
  *
  * @param specimenTray The hero's tray of the day's featured specimens.
  * @param featured The featured species rail, the rest of the same sample.
+ * @param familyExplorer The tray of families, one specimen each.
  * @param dataSummary The collection summary band.
  * @param countryDiversity The species-by-country map section.
  *
@@ -32,6 +34,7 @@ interface HomeSlots {
 export default function HomePage({
   specimenTray,
   featured,
+  familyExplorer,
   dataSummary,
   countryDiversity,
 }: HomeSlots) {
@@ -40,6 +43,7 @@ export default function HomePage({
       <Hero specimenTray={specimenTray} />
       <HomeContent
         featured={featured}
+        familyExplorer={familyExplorer}
         dataSummary={dataSummary}
         countryDiversity={countryDiversity}
       />
@@ -134,9 +138,9 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               <strong className="font-semibold text-deep-mocha-900 dark:text-deep-mocha-50">
                 modern machine learning
               </strong>
-              . We validate and harmonize <Compound>research-grade</Compound>{" "}
-              resources from museums and aggregators so they can be searched
-              in one place.
+              . We clean, validate, and harmonize records from museums and
+              aggregators, and use computer vision to extract traits and
+              patterns from specimen images.
             </p>
 
             {/* relative z-10: bc-rise leaves a transform behind, which makes
@@ -179,6 +183,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
 
 function HomeContent({
   featured,
+  familyExplorer,
   dataSummary,
   countryDiversity,
 }: Omit<HomeSlots, "specimenTray">) {
@@ -238,7 +243,7 @@ function HomeContent({
           id="featured-heading"
           eyebrow="Featured species"
           title="Browse featured butterflies"
-          description="A daily sample of the species with the most complete records: both wing surfaces, validated localities, museum specimens, traits, and more."
+          description="A sample of the species with the most complete records (updated daily)."
           className="bc-reveal"
         />
         {/* Its own container, so the rail's breakout lines its first card
@@ -247,6 +252,7 @@ function HomeContent({
       </section>
 
       <ColorSearch />
+      {familyExplorer}
       {dataSummary}
       {countryDiversity}
       <Acknowledgments />
@@ -275,11 +281,11 @@ function Acknowledgments() {
           className="mb-3"
         />
         <p className="max-w-3xl text-sm sm:text-base leading-relaxed text-deep-mocha-700 dark:text-deep-mocha-300">
-          This website would not be possible without the natural history
-          museums that care for and digitize their collections, the taxonomic
-          curators whose expertise keeps every name accurate, and all the
-          contributors who share their specimens, images, and records with the
-          world. Thank you.
+          This website would not be possible without the natural history museums
+          that care for and digitize their collections, the taxonomic curators
+          whose expertise keeps every name accurate, and all the contributors
+          who share their specimens, images, and records with the world. Thank
+          you.
         </p>
         <p className="mt-3 text-sm">
           <Link

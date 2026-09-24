@@ -30,20 +30,22 @@ export default function SemanticSearchBar() {
   };
 
   return (
-    <div className={SEARCH_PANEL}>
+    <div className={`${SEARCH_PANEL} flex flex-col items-center justify-center`}>
       <div className="mb-4 text-center text-deep-mocha-700 dark:text-deep-mocha-300 text-sm">
         <SemanticSearchDescription />
       </div>
-      <SearchForm
-        mode="semantic"
-        icon={FlaskConical}
-        onSubmit={handleSearch}
-        placeholder="Orange butterfly with black lines"
-      />
+      <div className="w-full">
+        <SearchForm
+          mode="semantic"
+          icon={FlaskConical}
+          onSubmit={handleSearch}
+          placeholder="Orange butterfly with black lines"
+        />
+      </div>
       {searchError && (
         <p
           role="alert"
-          className="text-xs text-burnt-peach-500 mt-2 bg-burnt-peach-50 dark:bg-burnt-peach-900/30 border border-burnt-peach-200 dark:border-burnt-peach-800 rounded-md px-3 py-2"
+          className="text-xs text-burnt-peach-500 mt-2 bg-burnt-peach-50 dark:bg-burnt-peach-900/30 border border-burnt-peach-200 dark:border-burnt-peach-800 rounded-md px-3 py-2 w-full"
         >
           {searchError}
         </p>

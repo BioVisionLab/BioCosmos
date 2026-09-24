@@ -199,6 +199,13 @@ class TestWithGeography:
         assert total == 1
         assert specimens.to_dicts()[0]["img_id"] == "i1"
 
+    def test_state_province_is_searchable(self, with_geography):
+        _, specimens, total = with_geography.search_by_field(
+            "state_province", "%minas%", 50, 0
+        )
+        assert total == 1
+        assert specimens.to_dicts()[0]["img_id"] == "i1"
+
     def test_validation_status_is_filterable(self, with_geography):
         _, specimens, total = with_geography.search_by_field(
             "validation_status", "%COUNTRY_MISMATCH%", 50, 0

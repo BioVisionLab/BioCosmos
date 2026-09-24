@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from ..configs.config import OpenAIConfig, PromptsConfig
+from ..query.locality_species import LocalitySpecies
 from .agent_tools import (
     AgentWarning,
     ColorArgs,
@@ -107,6 +108,7 @@ class AgentSearchService:
         image_meta_service: ImageMetaService | None = None,
         gbif_service: GbifPersistData | None = None,
         leptraits_service: LepTraits | None = None,
+        locality_species: LocalitySpecies | None = None,
     ) -> None:
         config = OpenAIConfig()
         if client is None:
@@ -134,6 +136,7 @@ class AgentSearchService:
         self.common_name_search = CommonNameSearch(duckdb)
         self.gbif_service = gbif_service or GbifPersistData(duckdb=duckdb)
         self.leptraits_service = leptraits_service or LepTraits(duckdb=duckdb)
+        self.locality_species = locality_species or LocalitySpecies(duckdb)
 
     async def search(self, query: str) -> AgentSearchOutcome:
         """Run a single planner request followed by filter-first tool execution."""
@@ -321,7 +324,8 @@ class AgentSearchService:
             )
         if isinstance(call.args, LocationArgs):
             return await self._search_by_location(
-                call.args.normalized_location(),
+                call.args.normalized_country(),
+                call.args.state_province,
             )
         if isinstance(call.args, ColorArgs):
             return await self._search_by_color(
@@ -394,12 +398,29 @@ class AgentSearchService:
             tool_name="search_by_image_similarity",
         )
 
-    async def _search_by_location(self, location: str) -> list[dict]:
-        species_names = await asyncio.to_thread(
-            self.gbif_service.search_by_country_code,
-            location,
-            FILTER_SPECIES_LIMIT,
-        )
+    async def _search_by_location(
+        self, country: str, state_province: str | None = None
+    ) -> list[dict]:
+        if await asyncio.to_thread(self.locality_species.available):
+            species_names = await asyncio.to_thread(
+                self.locality_species.species,
+                country,
+                state_province,
+                FILTER_SPECIES_LIMIT,
+            )
+        else:
+            # Without the locality table there is no ADM1 to match against, so
+            # the filter can only be as narrow as the recorded country.
+            if state_province:
+                logger.warning(
+                    "Locality table unavailable; ignoring state_province %r.",
+                    state_province,
+                )
+            species_names = await asyncio.to_thread(
+                self.gbif_service.search_by_country_code,
+                country,
+                FILTER_SPECIES_LIMIT,
+            )
         return await self._species_to_filter_rows(
             species_names,
             tool_name="search_by_location",
