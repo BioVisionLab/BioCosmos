@@ -13,7 +13,9 @@ import {
 
 import { useMemo, type ReactNode } from "react";
 
-import { LepTraitDataSourceInfo } from "@/components/Attribution";
+import {
+  LepTraitDataSourceInfo,
+} from "@/components/Attribution";
 import {
   AdultPresenceIcon,
   CanopyIcon,
@@ -170,7 +172,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
         </TraitCard>
       </TraitSection>
 
-      <div className="w-full flex justify-center items-center mt-12 mb-6">
+      <div className="w-full mt-12 mb-6">
         <LepTraitDataSourceInfo />
       </div>
     </div>

@@ -65,7 +65,7 @@ export default function ResourcesPage() {
             href="https://www.gbif.org/"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             GBIF
           </a>
@@ -74,7 +74,7 @@ export default function ResourcesPage() {
             href="https://idigbio.gbif.us/"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             iDigBio
           </a>
@@ -83,7 +83,7 @@ export default function ResourcesPage() {
             href="https://ecdysis.org/"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             Ecdysis
           </a>
@@ -92,7 +92,7 @@ export default function ResourcesPage() {
             href="https://scan-all-bugs.org/"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             SCANBUGS
           </a>
@@ -113,7 +113,7 @@ export default function ResourcesPage() {
             href={COL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             Catalogue of Life
           </a>{" "}
@@ -200,7 +200,7 @@ export default function ResourcesPage() {
             href={COL_TAXONOMY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             col-taxonomy
           </a>{" "}
@@ -243,7 +243,7 @@ export default function ResourcesPage() {
             href={GADM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             GADM
           </a>{" "}
@@ -344,7 +344,7 @@ export default function ResourcesPage() {
             href="https://en.wikipedia.org/wiki/Main_Page"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             Wikipedia
           </a>{" "}
@@ -353,7 +353,7 @@ export default function ResourcesPage() {
             href="https://en.wikipedia.org/wiki/Wikipedia:Copyrights"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-700"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             license
           </a>
