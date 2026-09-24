@@ -147,3 +147,114 @@ export function DnaIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/**
+ * The mitochondrial genome.
+ *
+ * A closed circle, because circularity is what sets a mitogenome apart from a
+ * nuclear chromosome at a glance, with its genes as arcs on an inner track in
+ * the supporting tone: the way a circular genome map lays out its annotation.
+ * The tick through the top of the ring is the control region, where
+ * replication starts and numbering begins.
+ */
+export function MitogenomeIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M13.8 7.1A5.2 5.2 0 0 1 17.2 11.5" />
+          <path d="M16.9 13.8A5.2 5.2 0 0 1 11.5 17.2" />
+          <path d="M9 16.3A5.2 5.2 0 0 1 7.1 10.2" />
+          <path d="M8.3 8.3A5.2 5.2 0 0 1 10.2 7.1" />
+        </>
+      }
+    >
+      <circle cx="12" cy="12" r="8.4" />
+      <path d="M12 2V5.4" />
+    </IconBase>
+  );
+}
+
+/**
+ * A marker sequenced across many individuals — COI, cytb, 12S and the like.
+ *
+ * One region of a genome rail, boxed and brought forward, with brackets
+ * above it for the stretch a primer pair amplifies: a marker is defined by
+ * where it sits, not by what it makes.
+ */
+export function MarkerIcon(props: IconProps) {
+  return (
+    <IconBase {...props} secondary={<GenomeRail />}>
+      <path d="M8.6 12.6H15.4A0.8 0.8 0 0 1 16.2 13.4V16.6A0.8 0.8 0 0 1 15.4 17.4H8.6A0.8 0.8 0 0 1 7.8 16.6V13.4A0.8 0.8 0 0 1 8.6 12.6Z" />
+      <path d="M7.8 9.8V7.4H10.2" />
+      <path d="M16.2 9.8V7.4H13.8" />
+    </IconBase>
+  );
+}
+
+/**
+ * A nuclear genome, drawn as a metaphase chromosome.
+ *
+ * Two sister chromatids pinched at the centromere: the one shape everyone
+ * reads as "chromosome", and so as the nuclear genome rather than the
+ * circular mitogenome beside it. The bands across each arm are in the
+ * supporting tone, the way a karyotype shows them.
+ */
+export function ChromosomeIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M7.6 7.4H10.6" />
+          <path d="M7.6 16.6H10.6" />
+          <path d="M13.4 7.4H16.4" />
+          <path d="M13.4 16.6H16.4" />
+        </>
+      }
+    >
+      <path d="M9 3.2C7.4 3.2 6.8 4.6 7.2 6.2L9 12L7.2 17.8C6.8 19.4 7.4 20.8 9 20.8C10.4 20.8 11 19.8 11.2 18.4L11.6 12L11.2 5.6C11 4.2 10.4 3.2 9 3.2Z" />
+      <path d="M15 3.2C16.6 3.2 17.2 4.6 16.8 6.2L15 12L16.8 17.8C17.2 19.4 16.6 20.8 15 20.8C13.6 20.8 13 19.8 12.8 18.4L12.4 12L12.8 5.6C13 4.2 13.6 3.2 15 3.2Z" />
+    </IconBase>
+  );
+}
+
+/**
+ * How an assembly is put together: overlapping contigs, in the supporting
+ * tone, joined below into a scaffold whose gaps are the stretches no read
+ * spanned. Contig and scaffold N50 measure exactly these two rows.
+ */
+export function AssemblyIcon(props: IconProps) {
+  return (
+    <IconBase
+      {...props}
+      secondary={
+        <>
+          <path d="M3 7H10.4" />
+          <path d="M7.6 10H14.6" />
+          <path d="M12.4 7H21" />
+        </>
+      }
+    >
+      <path d="M3 15.4H9.4" />
+      <path d="M11.4 15.4H14.6" />
+      <path d="M16.6 15.4H21" />
+      <path d="M3 13.6V17.2" />
+      <path d="M21 13.6V17.2" />
+    </IconBase>
+  );
+}
+
+/**
+ * A genome annotation: genes called on a genome rail, one on each strand,
+ * drawn as the arrowed blocks a genome browser uses for features.
+ */
+export function AnnotationIcon(props: IconProps) {
+  return (
+    <IconBase {...props} secondary={<GenomeRail />}>
+      <path d="M6.2 8.4H10.6L12.4 10.4L10.6 12.4H6.2Z" />
+      <path d="M17.8 16.8H13.4L11.6 18.8L13.4 20.8H17.8Z" />
+    </IconBase>
+  );
+}

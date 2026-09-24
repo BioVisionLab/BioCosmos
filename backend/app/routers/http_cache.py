@@ -41,6 +41,17 @@ LITERATURE_CACHE_CONTROL = (
 )
 LITERATURE_PARTIAL_CACHE_CONTROL = "public, max-age=300, s-maxage=300"
 
+# One day for a complete genetics summary: NCBI's answers are cached for a
+# week in the backend, so this only bounds how long a browser or CDN holds
+# the assembled payload. A summary missing counts because an NCBI request
+# failed or timed out is held for five minutes, as for literature.
+GENETICS_MAX_AGE = 60 * 60 * 24
+GENETICS_CACHE_CONTROL = (
+    f"public, max-age={GENETICS_MAX_AGE}, "
+    f"s-maxage={GENETICS_MAX_AGE}, stale-while-revalidate=86400"
+)
+GENETICS_PARTIAL_CACHE_CONTROL = "public, max-age=300, s-maxage=300"
+
 # Errors are not cached at all. A month-long cache entry for a typo'd family
 # name would outlive several ingestions and there would be no way to clear it
 # from the browser that holds it.
