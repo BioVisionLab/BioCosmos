@@ -17,7 +17,6 @@ import { fetchSpeciesThumbnail, imageUrlById } from "@/lib/images";
 import { safeWebUrl } from "@/lib/imageMetadata";
 import {
   cleanSpeciesName,
-  formatSpeciesNameForUrl,
   toBinomialName,
 } from "@/lib/names";
 import { speciesPageHref } from "@/lib/taxonSlug";
@@ -392,7 +391,7 @@ function DbSearch({
         setSpecimens(response.specimens);
         setTotalSpecimens(response.total_specimens);
         setLimit(response.limit);
-      } catch (error) {
+      } catch {
         setError("Failed to fetch search results");
       } finally {
         setLoading(false);
@@ -421,7 +420,7 @@ function DbSearch({
   }
 
   return (
-    <div className="items-center max-w-7xl w-full px-4 mx-auto">
+    <div className="items-center max-w-7xl w-full mx-auto">
       <BackLink />
       <div
         id="search-query"
@@ -513,9 +512,13 @@ function DbSearchResults({
   // index into `specimens` of the row whose thumbnail is open in the
   // full-image modal; reset whenever a new page/query loads new specimens.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  useEffect(() => {
+  // Reset during render rather than in an effect, so the stale index is
+  // never painted against the new rows.
+  const [openFor, setOpenFor] = useState(specimens);
+  if (openFor !== specimens) {
+    setOpenFor(specimens);
     setOpenIndex(null);
-  }, [specimens]);
+  }
   const specimenImageIds = specimens.map((s) => s.img_id);
   const totalSpeciesPages = Math.ceil(results.length / SPECIES_PER_PAGE);
   const speciesStart = (speciesPage - 1) * SPECIES_PER_PAGE;
@@ -565,7 +568,7 @@ function DbSearchResults({
                 </h2>
                 <Tips message="Click on an image card to navigate to the species detail page." />
               </div>
-              <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,140px),1fr))] gap-3 sm:gap-4">
                 {paginatedSpecies.map((item, index) => (
                   <Suspense
                     key={speciesStart + index}
@@ -888,7 +891,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
   }, [data.species]);
 
   return (
-    <div className="bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-[160px] min-h-[160px]">
+    <div className="bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center w-full min-w-0 min-h-[160px]">
       {loading ? (
         <ImageLoading size={IMAGE_SIZE} />
       ) : (

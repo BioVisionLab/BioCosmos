@@ -76,7 +76,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
   }, [imageUrl]);
 
   return (
-    <div className="items-center max-w-7xl w-full px-4 mx-auto">
+    <div className="items-center max-w-7xl w-full mx-auto">
       <BackLink />
       <div className="mt-8 mb-6 text-center">
         <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
@@ -91,7 +91,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
         ) : error ? (
           <p className="text-burnt-peach-500">Error: {error}</p>
         ) : results.length === 0 ? (
-          <p>No results found for "{imageUrl}".</p>
+          <p>No results found for &quot;{imageUrl}&quot;.</p>
         ) : (
           <MlImageResultCard data={results} />
         )}
@@ -113,12 +113,11 @@ function MlImageResultCard({ data }: { data: MlResultItems[] }) {
           id="other-results"
           className="text-lg text-deep-mocha-700 dark:text-deep-mocha-200"
         >
-          Found {data.length} other results"
+          Found {data.length - 1} other results
         </h2>
         <Tips message="Click on an image to view species page" />
       </div>
-      <p className="mb-4">Found {data.length} results</p>
-      <div className="grid grid-flow-row grid-cols-[repeat(auto-fill,160px)] gap-4">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,140px),1fr))] gap-3 sm:gap-4">
         {data.slice(1).map((item) => (
           <Suspense key={item.imgId} fallback={<div>Loading species...</div>}>
             <MLSearchResultCard data={item} />

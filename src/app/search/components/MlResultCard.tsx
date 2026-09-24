@@ -92,7 +92,7 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
   };
 
   return (
-    <div className={`bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center min-h-[200px] ${toolNames ? "w-full min-w-0" : "w-[160px]"}`}>
+    <div className="bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center min-h-[200px] w-full min-w-0">
       <MaybeSpeciesLink
           speciesKey={data.speciesKey}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
@@ -197,8 +197,8 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   const pageHref = speciesPageHref(data.speciesKey);
 
   return (
-    <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-pacific-blue-700/50 dark:to-deep-mocha-800/50 min-w-4xl">
-      <div className="bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-2xl flex items-center gap-3">
+    <div className="rounded-2xl shadow-md w-full max-w-4xl bg-gradient-to-br dark:from-pacific-blue-700/50 dark:to-deep-mocha-800/50">
+      <div className="bg-gradient-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-2xl flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold p-1">Top Result</h2>
         {data.score !== undefined && (
           <span className={getMatchPillClass(computeMatchPercent(data.score))}>
@@ -216,7 +216,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
 
       <div className="p-4">
         <MaybeSpeciesLink speciesKey={data.speciesKey}>
-          <h2 className="text-2xl font-semibold mb-2 italic text-start text-deep-mocha-300 dark:text-deep-mocha-300 mt-4">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-2 italic text-start wrap-break-word text-deep-mocha-300 dark:text-deep-mocha-300 mt-4">
             {resultName(data)}
           </h2>
         </MaybeSpeciesLink>
@@ -224,8 +224,8 @@ function TopResultCard({ data }: { data: MlResultItems }) {
         {loading ? (
           <ImageLoading size={160} />
         ) : (
-          <div className="flex gap-12 items-start m-4 p-3">
-            <div className="flex flex-col items-start">
+          <div className="flex flex-col gap-6 items-start mt-4 sm:flex-row sm:gap-12 sm:m-4 sm:p-3">
+            <div className="flex flex-col items-start max-w-full">
               {speciesImageUrl && (
                 <div className="relative aspect-square w-[260px] max-w-full">
                   <Image
@@ -240,14 +240,14 @@ function TopResultCard({ data }: { data: MlResultItems }) {
               )}
             </div>
 
-            <div className="flex flex-col items-start">
+            <div className="flex min-w-0 max-w-full flex-col items-start">
               <h3 className="text-sm mb-2 text-deep-mocha-400">Other forms:</h3>
               {otherImageUrls && (
-                <div className="gap-2 overflow-auto flex">
+                <div className="flex max-w-full gap-2 overflow-x-auto">
                   {otherImageUrls.map((url, index) => (
                     <div
                       key={index}
-                      className="p-3 border border-deep-mocha-500 rounded-lg bg-deep-mocha-100 dark:bg-deep-mocha-700"
+                      className="shrink-0 p-3 border border-deep-mocha-500 rounded-lg bg-deep-mocha-100 dark:bg-deep-mocha-700"
                     >
                       <div className="relative h-[70px] w-[70px]">
                         <Image
