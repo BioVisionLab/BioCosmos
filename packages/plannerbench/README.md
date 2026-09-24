@@ -20,7 +20,7 @@ Unknown tools, undecodable or schema-invalid arguments, and repeat calls to a
 tool all count as invalid.
 
 ```bash
-cd backend && env -u VIRTUAL_ENV uv run python scripts/export_planner_spec.py
+cd backend && uv run scripts/export_planner_spec.py
 # -> reports/planner/planner_spec.json
 ```
 
@@ -59,6 +59,7 @@ plannerbench run --help
 
 Keep each line-continuation backslash at the end of its line. Leave the final
 `--repeats` line without a backslash. Run `deactivate` when finished.
+
 | Option                 | Default                             | Meaning                                                                |
 | ---------------------- | ----------------------------------- | ---------------------------------------------------------------------- |
 | `-m/--model`           | required                            | Model id; repeat to compare several                                    |
