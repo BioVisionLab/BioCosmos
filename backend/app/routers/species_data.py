@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -27,8 +27,11 @@ from ..query.species_similarity import (
 from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
 from ..services.col import ColTaxonSearch
 from ..services.crossref import CrossrefClient, get_crossref_client
+from ..services.genetics import GeneticsBusy, GeneticsSummary, get_genetics_summary
 from ..services.literature import LiteratureSearch
 from .http_cache import (
+    GENETICS_CACHE_CONTROL,
+    GENETICS_PARTIAL_CACHE_CONTROL,
     LITERATURE_CACHE_CONTROL,
     LITERATURE_PARTIAL_CACHE_CONTROL,
     NO_STORE,
@@ -178,6 +181,54 @@ async def fetch_species_literature(
             LITERATURE_PARTIAL_CACHE_CONTROL
             if payload.partial
             else LITERATURE_CACHE_CONTROL
+        ),
+    )
+
+
+@router.get("/species/{scientific_name}/genetics", tags=["Species Data"])
+async def fetch_species_genetics(
+    scientific_name: str,
+    summary: Annotated[GeneticsSummary, Depends(get_genetics_summary)],
+):
+    """
+    What NCBI holds on a species' genes and mitochondrial DNA.
+
+    `geneTypes` counts the annotated genes of each NCBI gene type (empty when
+    the genome is not annotated). `mitochondrion` gives the RefSeq reference
+    mitogenome, when there is one, and how many GenBank nucleotide records
+    are mitochondrial, complete mitogenomes, or cover common markers. NCBI is
+    called at most once a week per species. `partial` is true when an NCBI
+    request failed or timed out, and the response is then cached only
+    briefly. A 503 means too many lookups are already waiting on NCBI.
+    """
+    try:
+        payload = await summary.summarize(scientific_name)
+    except GeneticsBusy:
+        logger.warning(f"Genetics lookup for {scientific_name} refused: busy")
+        return JSONResponse(
+            content={"message": "Genetic data is busy; try again shortly."},
+            status_code=503,
+            headers={"Cache-Control": NO_STORE, "Retry-After": "5"},
+        )
+    except Exception:
+        logger.exception(f"Error fetching genetic data for {scientific_name}")
+        return JSONResponse(
+            content={"message": "An error occurred while fetching genetic data."},
+            status_code=500,
+            headers={"Cache-Control": NO_STORE},
+        )
+    if payload is None:
+        return JSONResponse(
+            content={"message": f"Not a species name: {scientific_name}"},
+            status_code=404,
+            headers={"Cache-Control": NO_STORE},
+        )
+    return cached_json(
+        payload.model_dump(mode="json", by_alias=True),
+        cache_control=(
+            GENETICS_PARTIAL_CACHE_CONTROL
+            if payload.partial
+            else GENETICS_CACHE_CONTROL
         ),
     )
 

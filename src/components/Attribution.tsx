@@ -123,13 +123,18 @@ export function NcbiGeneDataSourceInfo({
 }: {
   speciesName: string;
 }) {
+  const name = speciesName.replace(/_/g, " ");
   const geneSearch = `https://www.ncbi.nlm.nih.gov/gene/?term=${encodeURIComponent(
-    `"${speciesName}"[Organism]`,
+    `"${name}"[Organism]`,
+  )}`;
+  const mitoSearch = `https://www.ncbi.nlm.nih.gov/nuccore/?term=${encodeURIComponent(
+    `"${name}"[Organism:noexp] AND mitochondrion[filter]`,
   )}`;
   return (
     <div className="text-base text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
       <p>
-        Gene counts are fetched live from the{" "}
+        Genome assemblies, annotated gene counts and reference mitogenomes come
+        from{" "}
         <a
           href="https://www.ncbi.nlm.nih.gov/datasets/"
           target="_blank"
@@ -137,19 +142,40 @@ export function NcbiGeneDataSourceInfo({
           className="underline hover:text-pacific-blue-300"
         >
           NCBI Datasets
-        </a>{" "}
-        gene service. They count the genes annotated for this species in NCBI
-        Gene, which depends on whether its genome has been sequenced and
-        annotated.
+        </a>
+        . The genome shown is the assembly NCBI designates as the species&apos;
+        reference or, without one, the most complete of its assemblies. Gene
+        counts depend on whether that genome has been annotated. Mitochondrial
+        counts are GenBank nucleotide records filed as mitochondrial for this
+        species or its subspecies, found with{" "}
+        <a
+          href="https://www.ncbi.nlm.nih.gov/books/NBK25501/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          NCBI E-utilities
+        </a>
+        ; a record covering several markers counts toward each. Counts are
+        refreshed weekly.
       </p>
-      <p className="mt-2">
+      <p className="mt-2 flex flex-col gap-1">
         <a
           href={geneSearch}
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-pacific-blue-300"
         >
-          Browse the gene records for <i>{speciesName}</i> in NCBI Gene
+          Browse the gene records for <i>{name}</i> in NCBI Gene
+        </a>
+        <a
+          href={mitoSearch}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          Browse the mitochondrial sequences for <i>{name}</i> in NCBI
+          Nucleotide
         </a>
       </p>
     </div>
