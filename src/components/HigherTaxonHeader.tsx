@@ -138,12 +138,12 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
 
       {/* Membership here is decided by the harmonized taxonomy: an image
           counts towards a family or genus only once colharmonize has resolved
-          its name. The Collections page counts every image as recorded, so
+          its name to a species. The Collections page counts every image as recorded, so
           its totals are the larger of the two. Neither is wrong; they answer
           different questions, and a reader comparing them deserves to know
           which is which. */}
       <p className="mt-2 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
-        Counts cover images whose name resolved to an accepted{" "}
+        Counts cover images whose name resolved to a species accepted by{" "}
         <a
           href="https://www.catalogueoflife.org/"
           target="_blank"
@@ -151,8 +151,8 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
           className="underline hover:text-pacific-blue-600 dark:hover:text-pacific-blue-400"
         >
           Catalogue of Life
-        </a>{" "}
-        taxon, so they can be lower than the totals on the Collections page.
+        </a>
+        , so they can be lower than the totals on the Collections page.
         {hasCoverage
           ? " Totals and percentages compare them with the accepted families, genera and species Catalogue of Life places in this taxon."
           : null}

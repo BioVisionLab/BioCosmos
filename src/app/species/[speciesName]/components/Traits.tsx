@@ -11,7 +11,7 @@ import {
   toVoltinismCode,
 } from "@/lib/leptraits";
 
-import { Children, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { LepTraitDataSourceInfo } from "@/components/Attribution";
 import {
@@ -31,79 +31,19 @@ import {
 } from "@/components/ui/icons";
 import { NoData } from "@/components/NoData";
 import { IconContainer } from "@/components/IconContainer";
-
-const valueClass =
-  "font-semibold text-deep-mocha-700 dark:text-deep-mocha-200 text-base sm:text-lg";
-const labelClass =
-  "font-normal text-base sm:text-lg text-deep-mocha-700 dark:text-deep-mocha-200";
-// Every icon-and-value row, so the cards line up with one another.
-const rowClass = "flex min-w-0 items-center gap-2 px-3 py-1";
-// Colour lives in the icon primitive now, so a call site says only how big.
-const commonIconClass = "w-12 h-12 m-2";
+import {
+  commonIconClass,
+  DataCard as TraitCard,
+  DataSection as TraitSection,
+  labelClass,
+  rowClass,
+  valueClass,
+} from "./DataCards";
 
 const hasText = (v: unknown): v is string =>
   typeof v === "string" && v.trim() !== "";
 const hasNumber = (v: unknown): v is number =>
   typeof v === "number" && !Number.isNaN(v);
-
-/**
- * One category of traits: a heading over a grid of cards that is one column
- * on a phone and two from `sm` up.
- *
- * Renders nothing when every card in it was skipped for lack of data, so a
- * species without, say, host plant records does not show an empty heading.
- */
-function TraitSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  const cards = Children.toArray(children).filter(Boolean);
-  if (cards.length === 0) {
-    return null;
-  }
-  return (
-    <section className="mb-8">
-      <h3 className="mb-3 border-b border-deep-mocha-300 pb-2 text-xl font-semibold dark:border-deep-mocha-700">
-        {title}
-      </h3>
-      <div className="grid gap-3 sm:grid-cols-2">{cards}</div>
-    </section>
-  );
-}
-
-/**
- * A single trait: its name, then the icon-and-value row the trait renders.
- *
- * `min-w-0` lets long values (host plant families, affinities) wrap inside
- * the grid track instead of stretching it.
- *
- * @param wide Spans both columns, for content that needs the full measure.
- */
-function TraitCard({
-  title,
-  wide = false,
-  children,
-}: {
-  title: string;
-  wide?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={`min-w-0 rounded-xl border border-deep-mocha-200 bg-white/50 py-3 dark:border-deep-mocha-700 dark:bg-deep-mocha-800/40 ${
-        wide ? "sm:col-span-2" : ""
-      }`}
-    >
-      <h4 className="mb-2 px-3 text-base font-medium text-deep-mocha-800 sm:text-lg dark:text-deep-mocha-100">
-        {title}
-      </h4>
-      {children}
-    </div>
-  );
-}
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits || noTraitData(traits)) {

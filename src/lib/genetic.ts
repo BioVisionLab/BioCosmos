@@ -97,4 +97,33 @@ function getGeneCategory(geneType: string): GeneCategory {
   }
 }
 
-export { fetchGenBankGeneCount, getGeneCategory, cleanGeneType };
+// NCBI's gene types, spelled out. The abbreviation is kept beside the name
+// because it is how a reader will meet the term in the literature.
+const GENE_TYPE_NAMES: Record<string, string> = {
+  protein_coding: "Protein-coding",
+  pseudo: "Pseudogene",
+  ncrna: "Non-coding RNA (ncRNA)",
+  rrna: "Ribosomal RNA (rRNA)",
+  trna: "Transfer RNA (tRNA)",
+  snrna: "Small nuclear RNA (snRNA)",
+  snorna: "Small nucleolar RNA (snoRNA)",
+  scrna: "Small cytoplasmic RNA (scRNA)",
+  mirna: "MicroRNA (miRNA)",
+  lncrna: "Long non-coding RNA (lncRNA)",
+  misc_rna: "Miscellaneous RNA",
+  biological_region: "Biological region",
+  other: "Other",
+  unknown: "Unknown",
+};
+
+/** A reader-facing name for one of NCBI's gene types. */
+function describeGeneType(geneType: string): string {
+  return GENE_TYPE_NAMES[geneType.toLowerCase()] ?? cleanGeneType(geneType);
+}
+
+export {
+  fetchGenBankGeneCount,
+  getGeneCategory,
+  cleanGeneType,
+  describeGeneType,
+};
