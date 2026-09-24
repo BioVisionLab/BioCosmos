@@ -63,7 +63,7 @@ export default function HomePage({
  * under the search as annotations rather than competing with it.
  */
 const CREDENTIALS = [
-  { label: "Every butterfly family", Icon: ButterflyIcon },
+  { label: "Rich specimen records", Icon: ButterflyIcon },
   { label: "Harmonized taxonomy", Icon: TaxonomyIcon },
   { label: "Advanced machine learning", Icon: NetworkIcon },
 ] as const;
@@ -140,7 +140,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               </strong>
               . We clean, validate, and harmonize records from museums and
               aggregators, and use computer vision to extract traits and
-              patterns from specimen images.
+              evolutionary patterns from specimen images.
             </p>
 
             {/* relative z-10: bc-rise leaves a transform behind, which makes

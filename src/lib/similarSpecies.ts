@@ -10,14 +10,14 @@ export type SimilarSpeciesSide = "dorsal" | "ventral";
 export interface SimilarSpeciesMeta {
   imgId: string;
   distance: number;
-  /**
-   * The name as recorded, and the link target.
-   *
-   * Every image endpoint keys on `image_meta.species`, so a link built from
-   * the accepted name would open a species page with an empty gallery for
-   * exactly the renamed taxa this panel surfaces.
-   */
+  /** The name as recorded. */
   species: string;
+  /**
+   * The species page the card links to: the accepted species' canonical
+   * recorded spelling, chosen by the backend. Not `species`, which may be a
+   * synonym or misspelling whose own page is orphaned.
+   */
+  speciesKey: string;
   /**
    * The accepted taxon the record resolves to. Null only when no
    * harmonization run has been loaded, or when the precomputed table predates

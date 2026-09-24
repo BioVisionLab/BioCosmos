@@ -1,6 +1,11 @@
 export interface MlResultItems {
   imgId: string;
   species: string;
+  /**
+   * The species page this result links to, chosen by the backend; null when
+   * the record has none. See `speciesPageHref`.
+   */
+  speciesKey?: string | null;
   score?: number;
   distance?: number;
 }
@@ -8,6 +13,7 @@ export interface MlResultItems {
 export interface SemanticSearchResult {
   imgId: string;
   species: string;
+  speciesKey: string | null;
   tool_names: string[];
 }
 
@@ -24,6 +30,10 @@ function isBaseSearchResult(
 
   const result = value as Record<string, unknown>;
   return typeof result.imgId === "string" && typeof result.species === "string";
+}
+
+function speciesKeyOf(item: Record<string, unknown>): string | null {
+  return typeof item.speciesKey === "string" ? item.speciesKey : null;
 }
 
 function isColorSearchResult(value: unknown): value is ColorSearchResult {
@@ -169,6 +179,7 @@ async function searchSemantic(
   const results = body.results.filter(isBaseSearchResult).map((item) => ({
     imgId: item.imgId,
     species: item.species,
+    speciesKey: speciesKeyOf(item),
     tool_names: Array.isArray(item.tool_names)
       ? item.tool_names.filter((name): name is string => typeof name === "string")
       : [],
@@ -204,6 +215,7 @@ async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
     return results.filter(isBaseSearchResult).map((item) => ({
       imgId: item.imgId,
       species: item.species,
+      speciesKey: speciesKeyOf(item),
       // Pass the raw metric correctly as distance instead of arbitrarily casting to a similarity score
       distance: typeof item.distance === "number" ? item.distance : undefined,
     }));

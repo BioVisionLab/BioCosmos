@@ -8,12 +8,8 @@ import {
   fetchThumbnailById,
   imageUrlById,
 } from "@/lib/images";
-import {
-  cleanSpeciesName,
-  isSpeciesName,
-  speciesUrlFromName,
-  toBinomialName,
-} from "@/lib/names";
+import { cleanSpeciesName, toBinomialName } from "@/lib/names";
+import { speciesPageHref } from "@/lib/taxonSlug";
 import Link from "next/link";
 import { ImageLoading } from "@/components/Loadings";
 import NoImage from "@/components/NoImage";
@@ -26,31 +22,34 @@ const IMAGE_SIZE = 128;
 /**
  * Wrap children in a link to the species page, when there is one to link to.
  *
- * A record identified only to genus has no species page: `/species/vanessa`
- * resolves to an empty gallery. Those results are still worth showing — they
- * are real images that matched — so the card renders, it just does not
- * pretend to lead somewhere.
+ * The backend names the page (`speciesKey`) and leaves it null for a record
+ * with none, such as one identified only to genus. Those results are still
+ * worth showing — they are real images that matched — so the card renders,
+ * it just does not pretend to lead somewhere.
  */
 function MaybeSpeciesLink({
-  species,
+  speciesKey,
   className,
   children,
 }: {
-  species: string;
+  speciesKey?: string | null;
   className?: string;
   children: React.ReactNode;
 }) {
-  if (!isSpeciesName(species)) {
+  const href = speciesPageHref(speciesKey);
+  if (!href) {
     return <div className={className}>{children}</div>;
   }
   return (
-    <Link
-      href={`/species/${speciesUrlFromName(species)}`}
-      className={className}
-    >
+    <Link href={href} className={className}>
       {children}
     </Link>
   );
+}
+
+/** The name a card shows: the page it leads to, else the recorded name. */
+function resultName(data: MlResultItems): string {
+  return toBinomialName(cleanSpeciesName(data.speciesKey || data.species));
 }
 
 function computeMatchPercent(score: number) {
@@ -76,7 +75,7 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
   const imageUrl = imageUrlById(data.imgId, "thumbnail");
   const [imageFailed, setImageFailed] = useState(false);
 
-  const speciesName = toBinomialName(cleanSpeciesName(data.species));
+  const speciesName = resultName(data);
 
   const getMatchPillClass = (pct: number) => {
     const base =
@@ -95,7 +94,7 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
   return (
     <div className={`bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center min-h-[200px] ${toolNames ? "w-full min-w-0" : "w-[160px]"}`}>
       <MaybeSpeciesLink
-          species={data.species}
+          speciesKey={data.speciesKey}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">
@@ -156,7 +155,10 @@ function TopResultCard({ data }: { data: MlResultItems }) {
         const speciesImage = await fetchImgById(data.imgId);
         if (!mounted) return;
         setSpeciesImageUrl(speciesImage);
-        const imageIds = await fetchSpeciesImageIds(data.species, 5);
+        const imageIds = await fetchSpeciesImageIds(
+          data.speciesKey || data.species,
+          5,
+        );
         if (imageIds.length > 0) {
           const otherImages = await Promise.all(
             imageIds.map((id) => fetchThumbnailById(id)),
@@ -174,7 +176,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
     return () => {
       mounted = false;
     };
-  }, [data.species, data.imgId]);
+  }, [data.species, data.speciesKey, data.imgId]);
 
   if (!data) return null;
 
@@ -191,6 +193,8 @@ function TopResultCard({ data }: { data: MlResultItems }) {
       return `${base} bg-hunter-green-100 text-hunter-green-800 dark:bg-hunter-green-900 dark:text-hunter-green-200`;
     return `${base} bg-hunter-green-200 text-hunter-green-900 dark:bg-hunter-green-800 dark:text-hunter-green-100`;
   };
+
+  const pageHref = speciesPageHref(data.speciesKey);
 
   return (
     <div className="rounded-2xl shadow-md w-fit bg-gradient-to-br dark:from-pacific-blue-700/50 dark:to-deep-mocha-800/50 min-w-4xl">
@@ -211,9 +215,9 @@ function TopResultCard({ data }: { data: MlResultItems }) {
       </div>
 
       <div className="p-4">
-        <MaybeSpeciesLink species={data.species}>
+        <MaybeSpeciesLink speciesKey={data.speciesKey}>
           <h2 className="text-2xl font-semibold mb-2 italic text-start text-deep-mocha-300 dark:text-deep-mocha-300 mt-4">
-            {toBinomialName(cleanSpeciesName(data.species))}
+            {resultName(data)}
           </h2>
         </MaybeSpeciesLink>
 
@@ -260,12 +264,12 @@ function TopResultCard({ data }: { data: MlResultItems }) {
                 </div>
               )}
 
-              {/* Omitted rather than disabled for a genus-only record: there
-                  is no species page to show. */}
-              {isSpeciesName(data.species) ? (
+              {/* Omitted rather than disabled for a record with no species
+                  page to show. */}
+              {pageHref ? (
                 <div className="mt-4">
                   <Link
-                    href={`/species/${speciesUrlFromName(data.species)}`}
+                    href={pageHref}
                     className="mb-2 inline-block rounded-lg bg-gradient-to-br from-hunter-green-500/50 to-pacific-blue-700/50 w-fit px-4 py-2 hover:bg-pacific-blue-600/70 transition text-deep-mocha-100"
                   >
                     Show species page →

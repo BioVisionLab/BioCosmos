@@ -49,6 +49,26 @@ export interface TypeSpecimen {
   remarks: string | null;
   reference: ColReference | null;
   referencePage: string | null;
+  /**
+   * Whether it types this species: the accepted name or its original
+   * combination. False for the type of a junior synonym.
+   */
+  typifiesSpecies: boolean;
+}
+
+/**
+ * The species' name-bearing type and its type locality, drawn only from types
+ * of the species itself. The locality may come from a later type in the
+ * series when the first records none.
+ */
+export interface TypeSummary {
+  kind: string;
+  typifiedName: string | null;
+  repository: string | null;
+  locality: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface Nomenclature {
@@ -68,6 +88,8 @@ export interface TaxonomyDetail {
   nomenclature: Nomenclature;
   nameUsages: NameUsage[];
   typeMaterial: TypeSpecimen[];
+  /** Null when no type of the species itself is recorded. */
+  typeSummary: TypeSummary | null;
   /** False when the backend has not ingested type material or references. */
   detailAvailable: boolean;
 }
@@ -91,7 +113,14 @@ export async function fetchTaxonomyDetail(
   return {
     nomenclature: data.nomenclature,
     nameUsages: Array.isArray(data.nameUsages) ? data.nameUsages : [],
-    typeMaterial: Array.isArray(data.typeMaterial) ? data.typeMaterial : [],
+    typeMaterial: Array.isArray(data.typeMaterial)
+      ? data.typeMaterial.map((specimen: TypeSpecimen) => ({
+          ...specimen,
+          // An older backend sends no flag; treat its types as the species'.
+          typifiesSpecies: specimen.typifiesSpecies !== false,
+        }))
+      : [],
+    typeSummary: data.typeSummary ?? null,
     detailAvailable: data.detailAvailable !== false,
   };
 }

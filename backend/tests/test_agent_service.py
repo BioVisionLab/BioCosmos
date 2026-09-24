@@ -34,7 +34,63 @@ def make_service(*calls) -> AgentSearchService:
     service = AgentSearchService.__new__(AgentSearchService)
     service.tool_registry = build_tool_registry(PromptsConfig())
     service._plan = AsyncMock(return_value=planner_response(*calls))
+    # Orchestration is under test here; linking to species pages has its own
+    # tests below.
+    service._link_species_pages = lambda dataframe: dataframe
     return service
+
+
+def pages(available=True, keys=None):
+    resolver = MagicMock()
+    resolver.available.return_value = available
+    resolver.page_keys_for_images.side_effect = lambda ids: {
+        i: keys[i] for i in ids if i in (keys or {})
+    }
+    return resolver
+
+
+def linking_service(resolver) -> AgentSearchService:
+    service = AgentSearchService.__new__(AgentSearchService)
+    service.species_pages = resolver
+    return service
+
+
+RANKED = pl.DataFrame(
+    {
+        "imgId": ["typo", "good", "orphan", "genus"],
+        "species": ["vanessa_carduii", "vanessa_cardui", "bogus_name", "vanessa"],
+        "score": [0.9, 0.8, 0.7, 0.6],
+        "tool_names": [["search_by_color"]] * 4,
+    }
+)
+
+
+def test_results_link_to_the_species_page_and_orphans_are_dropped():
+    service = linking_service(
+        pages(keys={"typo": "vanessa_cardui", "good": "vanessa_cardui"})
+    )
+    rows = service._link_species_pages(RANKED).to_dicts()
+    # Two spellings of one species share a page; the higher-ranked stays.
+    assert [(row["imgId"], row["speciesKey"]) for row in rows] == [
+        ("typo", "vanessa_cardui")
+    ]
+
+
+def test_without_a_run_results_link_to_the_recorded_binomial():
+    service = linking_service(pages(available=False))
+    rows = service._link_species_pages(RANKED).to_dicts()
+    assert [(row["imgId"], row["speciesKey"]) for row in rows] == [
+        ("typo", "vanessa_carduii"),
+        ("good", "vanessa_cardui"),
+        ("orphan", "bogus_name"),
+        ("genus", None),
+    ]
+
+
+def test_linking_an_empty_result_keeps_the_column():
+    service = linking_service(pages())
+    empty = AgentSearchService._empty_results()
+    assert "speciesKey" in service._link_species_pages(empty).columns
 
 
 @pytest.mark.asyncio

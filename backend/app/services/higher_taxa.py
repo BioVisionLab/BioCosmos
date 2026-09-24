@@ -21,6 +21,7 @@ import duckdb
 
 from ..configs.config import ColConfig, ImageMetaConfig
 from ..database.duckdb import DuckDBClient
+from .species_pages import DOMINANT_RECORD, MATCHED_IMAGES
 
 logger = logging.getLogger(__name__)
 
@@ -51,58 +52,11 @@ _COL_SCOPE_PREDICATE: dict[Scope, str] = {
 }
 
 
-# The images that count towards a higher taxon, and the species each one
-# belongs to.
-#
-# `accepted_species_name` is the grouping key throughout: it is the binomial
-# colharmonize resolved the record to, so a subspecies record folds into its
-# species and a misspelling folds into the name it was meant to be. Grouping
-# on the recorded string instead would count `danaus_acleophile` as a species
-# beside `danaus_cleophile`, which is the same butterfly spelled twice.
-#
-# It is deliberately not coalesced to `accepted_name`. colharmonize leaves it
-# empty for a record it could only resolve to genus rank, and falling back
-# would turn that empty into the genus name and count a bare genus as one of
-# its own species.
-#
-# Such a record is left out entirely, from the image counts as much as the
-# species tally: every count on these pages is of images of a valid species.
-# Counting them in a family's rollup but not on the genus page is how a
-# family linked to a genus page that answered 404 — `allancastria_cerisyi`,
-# resolved to the genus alone, gave Allancastria 45 images and no species.
-_MATCHED_IMAGES = """
-        SELECT o.img_id,
-               o.species AS recorded_key,
-               o.class_dv,
-               t.accepted_species_name AS accepted_species,
-               lower(split_part(t.accepted_name, ' ', 1)) AS genus_key,
-               lower(t.accepted_family) AS family_key
-        FROM {image_meta} o
-        JOIN {status} t USING (img_id)
-        WHERE t.update_status = 'MATCHED'
-          AND t.accepted_name IS NOT NULL
-          AND t.accepted_species_name IS NOT NULL
-"""
-
-# Which recorded spelling a species node should link to: the one the most
-# images were filed under. The species page resolves on the recorded string,
-# so the node has to carry one of them rather than the accepted name, and the
-# commonest is the one most likely to reach a populated page.
-_DOMINANT_RECORD = """
-    per_record AS (
-        SELECT accepted_species, recorded_key, count(*) AS records
-        FROM matched
-        WHERE accepted_species IS NOT NULL
-        GROUP BY accepted_species, recorded_key
-    ), dominant AS (
-        SELECT accepted_species, recorded_key
-        FROM per_record
-        QUALIFY row_number() OVER (
-            PARTITION BY accepted_species
-            ORDER BY records DESC, recorded_key
-        ) = 1
-    )
-"""
+# The images that count towards a higher taxon, and which recorded spelling
+# each species links to. Shared with the search results, so a species reached
+# from either leads to the same page; see `species_pages` for both.
+_MATCHED_IMAGES = MATCHED_IMAGES
+_DOMINANT_RECORD = DOMINANT_RECORD
 
 
 def _clean_name(expression: str) -> str:

@@ -45,6 +45,20 @@ export function genusHref(name: string): string {
 }
 
 /**
+ * The link to a species page the backend chose, or null when it chose none.
+ *
+ * Search and similarity results carry a `speciesKey`: the accepted species'
+ * canonical recorded spelling, resolved server-side so the link never lands
+ * on a page orphaned under a synonym or misspelling. It is used verbatim —
+ * unlike `speciesHref`, never trimmed — because the backend already picked a
+ * binomial, and null means the record has no species page to open.
+ */
+export function speciesPageHref(speciesKey?: string | null): string | null {
+  const key = speciesKey?.trim();
+  return key ? `/species/${encodeURIComponent(toTaxonSlug(key))}` : null;
+}
+
+/**
  * The species page resolves its images on the name the collection recorded,
  * so a link built from an accepted name that differs would reach a page with
  * nothing on it. Callers pass the recorded key; `speciesUrlFromName` trims a

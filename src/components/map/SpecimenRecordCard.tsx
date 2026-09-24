@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import NoImage from "@/components/NoImage";
 import { CodeHint, CoordinateStatusBadge } from "@/components/CodeHint";
 import {
   ADM1_MISMATCH_NOTE,
@@ -28,6 +29,59 @@ function StatusBadge({ status }: { status: string | null }) {
         validationStatus: status as CoordinateValidationStatusCode,
       }}
     />
+  );
+}
+
+/**
+ * The card's image slot: a fixed box on the gallery's placeholder surface, so
+ * the card keeps one shape whether the thumbnail loads, is still loading, or
+ * failed, and the popup's close button (pinned inside the box's corner by
+ * `.species-map-popup` in globals.css) sits in the same place either way.
+ *
+ * The <img> stays invisible until it has loaded, as in the specimens gallery:
+ * otherwise the browser paints its broken-image icon and the alt text.
+ */
+function SpecimenThumbnail({
+  imgId,
+  alt,
+  compact,
+}: {
+  imgId: string;
+  alt: string;
+  compact: boolean;
+}) {
+  const src = `/api/images/id?imageId=${encodeURIComponent(imgId)}&type=thumbnail`;
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc === src;
+
+  return (
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-lg bg-deep-mocha-100 dark:bg-deep-mocha-900 ${
+        compact ? "h-16 w-16" : "h-28 w-full"
+      }`}
+    >
+      {failed ? (
+        <NoImage
+          className={compact ? "text-[10px] [&>svg]:h-4 [&>svg]:w-4" : ""}
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoadedSrc(src)}
+          onError={() => setFailedSrc(src)}
+          // The full card insets the image on both sides, so it stays
+          // centred and clear of the close button in the top-right corner.
+          className={`h-full w-full object-contain transition-opacity ${
+            compact ? "p-1" : "px-9 py-2"
+          } ${loadedSrc === src ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
+    </div>
   );
 }
 
@@ -96,18 +150,10 @@ export function SpecimenRecordCard({
   ];
 
   const thumbnail = (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={`/api/images/id?imageId=${encodeURIComponent(record.imgId)}&type=thumbnail`}
+    <SpecimenThumbnail
+      imgId={record.imgId}
       alt={`Specimen ${record.catalogNumber ?? record.imgId}`}
-      loading="lazy"
-      className={
-        compact
-          ? "w-16 h-16 shrink-0 object-contain"
-          : // Inset on both sides, so it stays centred and clear of the
-            // close button in the top-right corner.
-            "w-full h-24 px-7 object-contain"
-      }
+      compact={compact}
     />
   );
 

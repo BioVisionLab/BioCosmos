@@ -83,6 +83,44 @@ class TestImagePersistData:
         species_a = result.filter(pl.col("species") == "species_a")
         assert species_a["distance"][0] == 0.3
 
+    def test_filter_by_species_links_the_binomial_without_a_run(self):
+        """No harmonization loaded: the recorded binomial is the page."""
+        df = pl.DataFrame(
+            {
+                "imgId": ["ssp", "sp", "genus"],
+                "species": ["vanessa_cardui_cardui", "vanessa_cardui", "vanessa"],
+                "distance": [0.1, 0.2, 0.3],
+            }
+        )
+        persist = self._make_instance()
+        result = persist._filter_by_species(df)
+
+        # The subspecies record and the species record share a page.
+        assert result["imgId"].to_list() == ["ssp", "genus"]
+        assert result["speciesKey"].to_list() == ["vanessa_cardui", None]
+
+    def test_filter_by_species_drops_images_without_a_page(self):
+        df = pl.DataFrame(
+            {
+                "imgId": ["typo", "good", "orphan"],
+                "species": ["vanessa_carduii", "vanessa_cardui", "bogus_name"],
+                "distance": [0.1, 0.2, 0.3],
+            }
+        )
+        persist = self._make_instance()
+        with patch("app.services.images.SpeciesPageResolver") as MockPages:
+            MockPages.return_value.available.return_value = True
+            MockPages.return_value.page_keys_for_images.return_value = {
+                "typo": "vanessa_cardui",
+                "good": "vanessa_cardui",
+            }
+            result = persist._filter_by_species(df)
+
+        # The misspelling links to the species page and, being nearer, stands
+        # for it; the unresolved record has no page and is gone.
+        assert result["imgId"].to_list() == ["typo"]
+        assert result["speciesKey"].to_list() == ["vanessa_cardui"]
+
     def test_filter_by_species_handles_none(self):
         persist = self._make_instance()
         result = persist._filter_by_species(None)

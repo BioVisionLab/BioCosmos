@@ -7,9 +7,7 @@ import { ImageLoading } from "@/components/Loadings";
 import NoImage from "@/components/NoImage";
 import {
   cleanSpeciesName,
-  isSpeciesName,
   isSubspeciesName,
-  speciesUrlFromName,
   toBinomialName,
 } from "@/lib/names";
 import {
@@ -17,6 +15,7 @@ import {
   SimilarSpeciesMeta,
   SimilarSpeciesSide,
 } from "@/lib/similarSpecies";
+import { speciesPageHref } from "@/lib/taxonSlug";
 import { useInView } from "@/lib/useInView";
 
 const IMAGE_SIZE = 120;
@@ -295,18 +294,14 @@ function SimilarSpeciesImage({
     </div>
   );
 
-  // The backend drops genus-only matches from this panel, so the plain branch
-  // is a guard rather than something a reader should meet — but an older
-  // precomputed table predates that filter, and a card leading to an empty
-  // gallery is worse than a card leading nowhere.
-  if (!isSpeciesName(meta.species)) return card;
+  // The backend drops any match with no species page from this panel, so
+  // the plain branch is a guard rather than something a reader should meet —
+  // but a card leading to an orphaned page is worse than one leading nowhere.
+  const href = speciesPageHref(meta.speciesKey);
+  if (!href) return card;
 
   return (
-    <Link
-      key={index}
-      href={`/species/${speciesUrlFromName(meta.species)}`}
-      className="flex"
-    >
+    <Link key={index} href={href} className="flex">
       {card}
     </Link>
   );
