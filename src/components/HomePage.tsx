@@ -13,6 +13,7 @@ import { ButterflyIcon, NetworkIcon, TaxonomyIcon } from "./ui/icons";
 interface HomeSlots {
   specimenTray?: ReactNode;
   featured?: ReactNode;
+  familyExplorer?: ReactNode;
   dataSummary?: ReactNode;
   countryDiversity?: ReactNode;
 }
@@ -23,6 +24,7 @@ interface HomeSlots {
  *
  * @param specimenTray The hero's tray of the day's featured specimens.
  * @param featured The featured species rail, the rest of the same sample.
+ * @param familyExplorer The tray of families, one specimen each.
  * @param dataSummary The collection summary band.
  * @param countryDiversity The species-by-country map section.
  *
@@ -32,6 +34,7 @@ interface HomeSlots {
 export default function HomePage({
   specimenTray,
   featured,
+  familyExplorer,
   dataSummary,
   countryDiversity,
 }: HomeSlots) {
@@ -40,6 +43,7 @@ export default function HomePage({
       <Hero specimenTray={specimenTray} />
       <HomeContent
         featured={featured}
+        familyExplorer={familyExplorer}
         dataSummary={dataSummary}
         countryDiversity={countryDiversity}
       />
@@ -179,6 +183,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
 
 function HomeContent({
   featured,
+  familyExplorer,
   dataSummary,
   countryDiversity,
 }: Omit<HomeSlots, "specimenTray">) {
@@ -247,6 +252,7 @@ function HomeContent({
       </section>
 
       <ColorSearch />
+      {familyExplorer}
       {dataSummary}
       {countryDiversity}
       <Acknowledgments />

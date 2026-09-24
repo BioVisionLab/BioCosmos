@@ -463,6 +463,47 @@ class HigherTaxonRepository:
         """
         return self._rows(query, params, f"genus members for '{genus_key}'")
 
+    def family_images(self, order_key: str) -> list[dict]:
+        """One image to stand for each family of an order that has any.
+
+        The family's most-photographed species, in its dorsal view where
+        there is one: the specimen a reader is most likely to recognize the
+        family by. Deterministic, like the representative strip, because it
+        sits in the same thirty-day cache.
+        """
+        if not self.harmonized_available() or not self.col_available():
+            return []
+        query = f"""
+    WITH families AS (
+        SELECT DISTINCT coalesce(family_norm, name_norm) AS family_key
+        FROM {self.col_table}
+        WHERE taxon_rank = 'family'
+          AND is_accepted
+          AND lower("order") = ?
+    ), matched AS ({self._matched_images()}
+          AND lower(t.accepted_family) IN (SELECT family_key FROM families)
+          AND t.accepted_species_name IS NOT NULL
+    ), top_species AS (
+        SELECT family_key, accepted_species
+        FROM matched
+        GROUP BY family_key, accepted_species
+        QUALIFY row_number() OVER (
+            PARTITION BY family_key
+            ORDER BY count(*) DESC, accepted_species
+        ) = 1
+    )
+    SELECT m.family_key,
+           m.img_id,
+           m.accepted_species AS display_name
+    FROM matched m
+    JOIN top_species USING (family_key, accepted_species)
+    QUALIFY row_number() OVER (
+        PARTITION BY m.family_key
+        ORDER BY (lower(m.class_dv) = 'dorsal') DESC NULLS LAST, m.img_id
+    ) = 1
+        """
+        return self._rows(query, [order_key], f"family images for '{order_key}'")
+
     def col_totals(self, scope: Scope, key: str) -> dict | None:
         """How many families, genera and species CoL accepts inside a taxon.
 

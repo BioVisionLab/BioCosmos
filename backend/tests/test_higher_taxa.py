@@ -24,6 +24,7 @@ from app.query.higher_taxa import (
     HigherTaxonCounts,
     HigherTaxonOverview,
     OrderOverview,
+    attach_family_images,
     build_order_tree,
     build_rooted_tree,
     build_tree,
@@ -262,6 +263,23 @@ class TestOrderMembers:
             )
             == []
         )
+
+
+class TestFamilyImages:
+    def test_one_image_per_family_with_records(self, repository):
+        rows = repository.family_images("lepidoptera")
+        # Erebidae and Hesperiidae have nothing photographed.
+        assert [row["family_key"] for row in rows] == ["nymphalidae"]
+
+    def test_shows_the_most_photographed_species_dorsally(self, repository):
+        (row,) = repository.family_images("lepidoptera")
+        # Four images of C. pamphilus, counting its subspecies; i1 and i10 are
+        # its dorsal views, and the lower id wins.
+        assert row["display_name"] == "Coenonympha pamphilus"
+        assert row["img_id"] == "i1"
+
+    def test_without_the_backbone_there_are_none(self, repository_without_backbone):
+        assert repository_without_backbone.family_images("lepidoptera") == []
 
 
 class TestColTotals:
@@ -967,3 +985,23 @@ class TestTaxaWithoutRecords:
             2,
             4,
         )
+
+
+def test_family_images_attach_to_family_nodes_only():
+    tree = build_order_tree(
+        [_order_row("nymphalidae", superfamily="Papilionoidea")],
+        order_key="lepidoptera",
+        order_name="Lepidoptera",
+    )
+    attach_family_images(
+        tree,
+        [
+            {"family_key": "nymphalidae", "img_id": "i1", "display_name": "X y"},
+            # A key shared with a non-family node must not leak onto it.
+            {"family_key": "papilionoidea", "img_id": "i2", "display_name": "Z"},
+        ],
+    )
+    family = find(tree, "Nymphalidae")
+    assert (family.img_id, family.img_name) == ("i1", "X y")
+    assert find(tree, "Papilionoidea").img_id is None
+    assert tree[0].img_id is None

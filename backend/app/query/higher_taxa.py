@@ -66,6 +66,10 @@ class TaxonNode(BaseModel):
     species_count: int = 0
     image_count: int = 0
     placed: bool = True
+    # One image to stand for the node, and the species it shows. Set only on
+    # the families of an order, which the landing page shows as a tray.
+    img_id: str | None = None
+    img_name: str | None = None
     children: list["TaxonNode"] = Field(default_factory=list)
 
 
@@ -406,6 +410,22 @@ def build_rooted_tree(
     return [root]
 
 
+def attach_family_images(tree: list[TaxonNode], rows: list[dict]) -> None:
+    """Give each family node in an order's tree its representative image."""
+    by_family = {_text(row.get("family_key")): row for row in rows}
+
+    def visit(node: TaxonNode) -> None:
+        row = by_family.get(node.key) if node.rank == "family" else None
+        if row:
+            node.img_id = _optional(row.get("img_id"))
+            node.img_name = _optional(row.get("display_name"))
+        for child in node.children:
+            visit(child)
+
+    for node in tree:
+        visit(node)
+
+
 def build_order_tree(
     rows: list[dict], *, order_key: str, order_name: str
 ) -> list[TaxonNode]:
@@ -463,6 +483,8 @@ class HigherTaxonOverview:
             key=self.key,
             name=self._display_name(classification),
         )
+        if self.rank == "order":
+            attach_family_images(tree, repository.family_images(self.key))
 
         payload = HigherTaxonPayload(
             key=self.key,

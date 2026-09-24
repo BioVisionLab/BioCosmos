@@ -5,12 +5,15 @@ import CollectionSummary, {
   institutionBars,
 } from "@/components/CollectionSummary";
 import CountryDiversitySection from "@/components/CountryDiversitySection";
+import FamilyExplorer from "@/components/FamilyExplorer";
 import FeaturedRail from "@/components/FeaturedRail";
 import HomePage from "@/components/HomePage";
 import SpecimenTray from "@/components/SpecimenTray";
 import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchFeaturedSpecies, HERO_SPECIMENS } from "@/lib/featuredSpecies";
+import { familiesWithRecords, fetchHigherTaxon } from "@/lib/higherTaxa";
 import { fetchTaxonStats } from "@/lib/metaStats";
+import { ORDER_NAME } from "@/lib/taxonSlug";
 
 // Never pre-render at build time (API_HOST unavailable during Docker build)
 export const dynamic = "force-dynamic";
@@ -33,6 +36,11 @@ export default function MainPage() {
           }
         >
           <FeaturedRailSection />
+        </Suspense>
+      }
+      familyExplorer={
+        <Suspense fallback={<FamilyExplorer families={null} />}>
+          <FamilyExplorerSection />
         </Suspense>
       }
       dataSummary={
@@ -110,6 +118,16 @@ async function CollectionSummarySection() {
       )}
     />
   );
+}
+
+/**
+ * The order payload the /order page uses, and the same thirty-day cache
+ * entry. A failed request costs this tray its specimens, not the page.
+ */
+async function FamilyExplorerSection() {
+  const order = await fetchHigherTaxon("order", ORDER_NAME).catch(() => null);
+  const families = order ? familiesWithRecords(order) : [];
+  return <FamilyExplorer families={families.length > 0 ? families : null} />;
 }
 
 async function CountryDiversityResolved() {

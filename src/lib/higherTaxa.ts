@@ -54,6 +54,10 @@ export interface TaxonNode {
   imageCount: number;
   /** False for a genus Catalogue of Life cannot place inside this family. */
   placed: boolean;
+  /** One image to stand for the node; set only on an order's families. */
+  imageId: string | null;
+  /** The species that image shows. */
+  imageName: string | null;
   children: TaxonNode[];
 }
 
@@ -134,6 +138,8 @@ function normalizeNode(raw: unknown): TaxonNode | null {
     speciesCount: count(source.speciesCount),
     imageCount: count(source.imageCount),
     placed: source.placed !== false,
+    imageId: optionalText(source.imgId),
+    imageName: optionalText(source.imgName),
     children,
   };
 }
@@ -188,6 +194,25 @@ export function pickRepresentatives(
     if (!picked.includes(image)) picked.push(image);
   }
   return picked;
+}
+
+/**
+ * An order's families that have a page, most-photographed first: the order a
+ * reader browsing by family is likeliest to want them in.
+ */
+export function familiesWithRecords(taxon: HigherTaxon): TaxonNode[] {
+  const families: TaxonNode[] = [];
+  const visit = (node: TaxonNode) => {
+    if (node.rank === "family") {
+      if (node.href) families.push(node);
+      return;
+    }
+    node.children.forEach(visit);
+  };
+  taxon.tree.forEach(visit);
+  return families.sort(
+    (a, b) => b.imageCount - a.imageCount || a.name.localeCompare(b.name),
+  );
 }
 
 function normalizeHigherTaxon(raw: unknown, rank: HigherRank): HigherTaxon | null {
