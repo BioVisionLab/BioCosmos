@@ -12,6 +12,8 @@ export interface SpecimenCellProps {
   imageUrl: string | null;
   /** The binomial, already cleaned for display. */
   label: string;
+  /** Italic, as a binomial is. False for a name above genus. */
+  italic?: boolean;
   /** Printed under the name like a drawer label, in capitals. */
   family?: string | null;
   alt: string;
@@ -37,6 +39,7 @@ export default function SpecimenCell({
   href,
   imageUrl,
   label,
+  italic = true,
   family,
   alt,
   index = 0,
@@ -72,7 +75,11 @@ export default function SpecimenCell({
         {failed ? <NoImage /> : null}
       </div>
       <span className="mt-2 block min-h-9 border-t border-dashed border-deep-mocha-200 pt-1.5 text-left dark:border-deep-mocha-700">
-        <span className="block truncate text-xs italic text-deep-mocha-700 dark:text-deep-mocha-200">
+        <span
+          className={`block truncate text-xs text-deep-mocha-700 dark:text-deep-mocha-200 ${
+            italic ? "italic" : "font-medium"
+          }`}
+        >
           {label || " "}
         </span>
         {family ? (

@@ -180,7 +180,7 @@ class TestEnsure:
 
 
 class TestLocalityDisplay:
-    def test_orders_from_coarsest_to_finest(self):
+    def test_orders_from_finest_to_coarsest(self):
         assert (
             locality_display(
                 {
@@ -190,19 +190,19 @@ class TestLocalityDisplay:
                     "locality": "Serra do Caraca",
                 }
             )
-            == "Brazil, Minas Gerais, Ouro Preto, Serra do Caraca"
+            == "Serra do Caraca, Ouro Preto, Minas Gerais, Brazil"
         )
 
     def test_skips_empty_ranks(self):
         assert (
-            locality_display({"country": "Peru", "locality": "Cusco"}) == "Peru, Cusco"
+            locality_display({"country": "Peru", "locality": "Cusco"}) == "Cusco, Peru"
         )
 
     def test_falls_back_to_the_verbatim_form(self):
         """165,046 occurrences carry only the verbatim locality."""
         assert (
             locality_display({"country": "Peru", "verbatimLocality": "nr. Cusco"})
-            == "Peru, nr. Cusco"
+            == "nr. Cusco, Peru"
         )
 
     def test_drops_a_rank_that_repeats_one_already_written(self):
@@ -215,7 +215,7 @@ class TestLocalityDisplay:
                     "locality": "ouro preto",
                 }
             )
-            == "Brazil, Ouro Preto"
+            == "Ouro Preto, Brazil"
         )
 
     def test_drops_a_repeat_that_differs_only_in_accents(self):
@@ -228,7 +228,7 @@ class TestLocalityDisplay:
                     "locality": "São Paulo",
                 }
             )
-            == "Brazil, Sao Paulo"
+            == "Sao Paulo, Brazil"
         )
 
     def test_keeps_genuinely_different_accented_names(self):
@@ -240,7 +240,7 @@ class TestLocalityDisplay:
                     "locality": "Serra do Caraça",
                 }
             )
-            == "Brazil, Minas Gerais, Serra do Caraça"
+            == "Serra do Caraça, Minas Gerais, Brazil"
         )
 
     def test_none_when_nothing_survives(self):
@@ -250,7 +250,7 @@ class TestLocalityDisplay:
 class TestReaders:
     def test_locality_block_carries_a_display_line(self, built):
         block = OccurrenceLocality(built).get_for_image("i1")
-        assert block["display"] == "Brazil, Minas Gerais, Ouro Preto, Serra do Caraca"
+        assert block["display"] == "Serra do Caraca, Ouro Preto, Minas Gerais, Brazil"
         assert block["countryCode"] == "BR"
 
     def test_locality_block_is_none_when_nothing_was_recorded(self, built):

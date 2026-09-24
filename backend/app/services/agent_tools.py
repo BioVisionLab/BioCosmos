@@ -28,10 +28,11 @@ class CommonNameArgs(ToolArgs):
 
 
 class LocationArgs(ToolArgs):
-    location: str = Field(pattern=r"^[A-Za-z]{2}$")
+    country: str = Field(pattern=r"^[A-Za-z]{2}$")
+    state_province: str | None = Field(default=None, min_length=1, max_length=100)
 
-    def normalized_location(self) -> str:
-        return self.location.upper()
+    def normalized_country(self) -> str:
+        return self.country.upper()
 
 
 class ColorArgs(ToolArgs):

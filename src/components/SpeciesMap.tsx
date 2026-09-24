@@ -2,64 +2,160 @@
 
 import { useMemo } from "react";
 import { useTheme } from "next-themes";
-import PointMap, { MapPoint } from "@/components/map/PointMap";
-import { Occurrence } from "@/lib/map";
+import PointMap, { MapPoint, RasterUnderlay } from "@/components/map/PointMap";
+import {
+  GBIF_ATTRIBUTION,
+  gbifDensityTileUrl,
+  SpeciesCoordinatePoint,
+} from "@/lib/map";
+import { SpecimenRecordCard } from "@/components/map/SpecimenRecordCard";
 
-const OCCURRENCE_COLOR = "#10b981";
-const CIRCLE_RADIUS = 4;
+const MARKER_RADIUS = 6;
 
-interface SpeciesMapProps {
-  occurrences?: Occurrence[];
+/**
+ * How a specimen's coordinate fared against GADM, as the map colours it.
+ *
+ * Three kinds rather than eight codes: a reader scanning a map needs to know
+ * whether a dot agrees with the locality its label records, not which check
+ * it failed. The popup carries the exact status.
+ */
+export type MarkerKind = "valid" | "flagged" | "unvalidated";
+
+export const MARKER_COLORS: Record<MarkerKind, string> = {
+  valid: "#4f8b41", // hunter-green-600
+  flagged: "#d95326", // burnt-peach-500
+  unvalidated: "#a29090", // deep-mocha-400
+};
+
+export function markerKind(status: string | null | undefined): MarkerKind {
+  if (!status) return "unvalidated";
+  return status === "VALID" ? "valid" : "flagged";
 }
 
-const SpeciesMap: React.FC<SpeciesMapProps> = ({ occurrences = [] }) => {
+interface SpeciesMapProps {
+  /** Our own georeferenced specimens, drawn as markers. */
+  points?: SpeciesCoordinatePoint[];
+  /** The GBIF taxon whose density tiles are drawn beneath the markers. */
+  gbifTaxonKey?: number | null;
+}
+
+type Bounds = [[number, number], [number, number]];
+
+/**
+ * Where the camera opens.
+ *
+ * Fit to our specimens when they sit in one part of the world. A species
+ * collected on every continent spans the whole globe, where fitting gives a
+ * world view centred on 0° that can crop the very region most specimens come
+ * from — so past half the globe the map centres on the median specimen
+ * instead, at a world zoom. The median, not the mean: a few outliers across
+ * the antimeridian would drag a mean into the ocean.
+ */
+function initialView(
+  points: SpeciesCoordinatePoint[],
+): { bounds: Bounds | null; center: [number, number] } {
+  const world: [number, number] = [0, 20];
+  if (points.length === 0) return { bounds: null, center: world };
+  let west = 180;
+  let south = 90;
+  let east = -180;
+  let north = -90;
+  for (const point of points) {
+    west = Math.min(west, point.lon);
+    east = Math.max(east, point.lon);
+    south = Math.min(south, point.lat);
+    north = Math.max(north, point.lat);
+  }
+  if (east - west <= 180) {
+    return {
+      bounds: [
+        [west, south],
+        [east, north],
+      ],
+      center: world,
+    };
+  }
+  const median = (values: number[]) =>
+    values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+  return {
+    bounds: null,
+    center: [
+      median(points.map((point) => point.lon)),
+      median(points.map((point) => point.lat)),
+    ],
+  };
+}
+
+const SpeciesMap: React.FC<SpeciesMapProps> = ({
+  points = [],
+  gbifTaxonKey = null,
+}) => {
   const { resolvedTheme } = useTheme();
   const isDarkTheme = resolvedTheme === "dark";
 
-  const points = useMemo<MapPoint[]>(
-    () =>
-      occurrences
-        .filter(
-          (occ) =>
-            typeof occ.decimalLatitude === "number" &&
-            typeof occ.decimalLongitude === "number" &&
-            !Number.isNaN(occ.decimalLatitude) &&
-            !Number.isNaN(occ.decimalLongitude),
-        )
-        .map((occ, idx) => ({
-          id: `${occ.key || "occ"}-${idx}`,
-          lat: occ.decimalLatitude,
-          lon: occ.decimalLongitude,
-          color: OCCURRENCE_COLOR,
-        })),
-    [occurrences],
+  const byId = useMemo(
+    () => new Map(points.map((point) => [point.imgId, point])),
+    [points],
   );
 
-  const mapCenter: [number, number] =
-    points.length > 0 ? [points[0].lon, points[0].lat] : [0, 20];
+  const mapPoints = useMemo<MapPoint[]>(
+    () =>
+      points.map((point) => ({
+        id: point.imgId,
+        lat: point.lat,
+        lon: point.lon,
+        color: MARKER_COLORS[markerKind(point.validationStatus)],
+        radius: MARKER_RADIUS,
+        // A dark ring on the light basemap and a light one on the dark: the
+        // outline is what sets our specimens apart from the GBIF hexagons
+        // underneath, whatever their colour.
+        strokeColor: isDarkTheme ? "#ffffff" : "#1c1717",
+      })),
+    [points, isDarkTheme],
+  );
 
-  const mapZoom = points.length > 0 ? 4 : 2;
+  const underlay = useMemo<RasterUnderlay | null>(
+    () =>
+      gbifTaxonKey
+        ? {
+            id: `gbif-${gbifTaxonKey}`,
+            tiles: [gbifDensityTileUrl(gbifTaxonKey)],
+            attribution: GBIF_ATTRIBUTION,
+            opacity: 0.75,
+          }
+        : null,
+    [gbifTaxonKey],
+  );
+
+  // Our specimens frame the view when there are any; otherwise the GBIF
+  // layer covers the globe, so start from the world.
+  const { bounds, center } = useMemo(() => initialView(points), [points]);
 
   return (
+    // Tinted like the loading skeleton, so the moment between the skeleton
+    // and the first basemap tiles is the same surface rather than a blank.
     <div
-      className={isDarkTheme ? "umap-dark-map" : ""}
+      className={`rounded-b-xl bg-deep-mocha-100/70 dark:bg-deep-mocha-800/60 ${
+        isDarkTheme ? "umap-dark-map" : ""
+      }`}
       style={{ height: "400px", width: "100%" }}
     >
       <PointMap
-        points={points}
-        circleRadius={CIRCLE_RADIUS}
-        center={mapCenter}
-        zoom={mapZoom}
-        minZoom={2}
+        points={mapPoints}
+        circleRadius={MARKER_RADIUS}
+        center={center}
+        zoom={1}
+        fitBounds={bounds}
+        rasterUnderlay={underlay}
+        minZoom={0}
         maxZoom={18}
         interaction="click"
-        renderPopup={(point) => (
-          <>
-            Occurrence Record <br />
-            Lat: {point.lat.toFixed(4)} <br />
-            Lon: {point.lon.toFixed(4)}
-          </>
-        )}
+        popupClassName="species-map-popup"
+        renderPopup={(mapPoint) => {
+          const point = byId.get(String(mapPoint.id));
+          if (!point) return null;
+          return <SpecimenRecordCard record={point} />;
+        }}
         style={{
           height: "400px",
           width: "100%",

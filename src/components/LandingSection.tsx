@@ -78,7 +78,7 @@ export default function LandingSectionHeading({
         {title}
       </h2>
       {description ? (
-        <p className="mt-2 max-w-2xl text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
+        <p className="mt-2 max-w-6xl text-sm sm:text-base text-deep-mocha-600 dark:text-deep-mocha-400">
           {description}
         </p>
       ) : null}

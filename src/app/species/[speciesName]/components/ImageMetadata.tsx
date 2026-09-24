@@ -18,6 +18,7 @@ import {
 } from "@/lib/imageMetadata";
 import { SpecimenLocality } from "@/lib/geoValidation";
 import {
+  CoordinateRegionRow,
   METADATA_EMPTY,
   METADATA_LABEL,
   METADATA_VALUE,
@@ -192,7 +193,10 @@ function TaxonomyBlock({ update }: { update: TaxonUpdate }) {
         </div>
       ) : null}
 
-      <AlternativeCandidates candidates={update.candidates} />
+      {/* An exact hit on an accepted name settles it; the runner-ups are noise. */}
+      {update.matchMethod !== "EXACT_ACCEPTED" ? (
+        <AlternativeCandidates candidates={update.candidates} />
+      ) : null}
     </div>
   );
 }
@@ -327,6 +331,10 @@ export default function ImageMetadata({
                   />
                 </div>
               ) : null}
+              <CoordinateRegionRow
+                validation={coordinates}
+                className="col-span-2 leading-normal"
+              />
 
               {/* Omitted entirely when no harmonization run has been loaded,
                   rather than shown as a row of placeholders. */}

@@ -35,7 +35,11 @@ const FIELD_GROUPS: SearchFieldGroup[] = [
   },
   {
     label: "Geography",
-    options: [{ value: "coordinate", label: "Coordinate (10,000 km² area)" }],
+    options: [
+      { value: "country", label: "Country" },
+      { value: "state_province", label: "State / Province" },
+      { value: "coordinate", label: "Coordinate (10,000 km² area)" },
+    ],
   },
 ];
 

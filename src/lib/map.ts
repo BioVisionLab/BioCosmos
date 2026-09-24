@@ -37,27 +37,73 @@ const CLUSTER_COLORS = [
   "#d946ef", // Magenta
 ];
 
-export interface Occurrence {
-  key: string | number;
-  decimalLatitude: number;
-  decimalLongitude: number;
-  // Add other fields you might fetch from GBIF later, e.g., eventDate, basisOfRecord
-}
-
 /**
- * Why a map has no points.
+ * Why a map has no GBIF layer.
  *
- * Three outcomes that used to be one empty array: GBIF has no georeferenced
- * records, GBIF does not know the name at all, or the request failed. A
- * reader can act on the difference, so the UI is told which it is.
+ * GBIF has no georeferenced records, GBIF does not know the name at all, or
+ * the request failed. A reader can act on the difference, so the UI is told
+ * which it is.
  */
 export type GbifLookupStatus = "ok" | "unmatched" | "error";
 
-export interface GbifOccurrenceResult {
+export interface GbifTaxonResult {
   status: GbifLookupStatus;
-  occurrences: Occurrence[];
+  /** The GBIF backbone key the density tiles are drawn for. */
+  taxonKey?: number;
+  /** Georeferenced records without a geospatial issue. */
+  count?: number;
   /** The name GBIF matched, when it matched one. */
   matchedName?: string;
+}
+
+/** The specimen record a map point stands for, as its popup shows it. */
+export interface SpecimenRecord {
+  imgId: string;
+  catalogNumber: string | null;
+  institutionCode: string | null;
+  institutionName: string | null;
+  sourceDb: string | null;
+  /** The views photographed, e.g. ["dorsal", "ventral"]. */
+  sides: string[];
+  validationStatus: string | null;
+  /** The locality as the record states it: what the coordinate was checked against. */
+  recordedCountry: string | null;
+  recordedAdm1: string | null;
+  /** The GADM region the coordinate falls in. */
+  referenceCountry: string | null;
+  referenceAdm1: string | null;
+}
+
+/** One georeferenced specimen from our own collection. */
+export interface SpeciesCoordinatePoint {
+  /** The representative image: dorsal when the specimen has one. */
+  imgId: string;
+  lat: number;
+  lon: number;
+  /** Images of this specimen, all sharing the coordinate. */
+  imageCount: number;
+  /** The views photographed, e.g. ["dorsal", "ventral"]. */
+  sides: string[];
+  sourceDb: string | null;
+  sex: string | null;
+  /** The specimen's catalog number at its holding institution. */
+  catalogNumber: string | null;
+  institutionCode: string | null;
+  /** The holder's full name, when its code could be resolved. */
+  institutionName: string | null;
+  /** GADM validation status, or null when validation has not been run. */
+  validationStatus: string | null;
+  recordedCountry: string | null;
+  recordedAdm1: string | null;
+  referenceCountry: string | null;
+  referenceAdm1: string | null;
+}
+
+export interface SpeciesCoordinates {
+  /** Specimens with a usable coordinate, before any cap. */
+  total: number;
+  truncated: boolean;
+  points: SpeciesCoordinatePoint[];
 }
 
 export interface UmapOccurrence {
@@ -66,6 +112,8 @@ export interface UmapOccurrence {
   decimalLongitude: number;
   classDv: string;
   cluster: number;
+  /** The specimen record behind the point, as the distribution map shows it. */
+  record: SpecimenRecord;
 }
 
 function getBasemapStyleUrl(isDark: boolean): string {
@@ -144,21 +192,44 @@ function getClusterColor(): string[] {
   return CLUSTER_COLORS;
 }
 
+const GBIF_DENSITY_TILE_URL =
+  "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png";
+
 /**
- * Fetch the GBIF occurrences for a species.
+ * The GBIF Maps API density layer for a taxon.
+ *
+ * Every georeferenced record GBIF holds, pre-aggregated into hexagons, so the
+ * whole range is drawn at any zoom for the cost of a few tiles — rather than
+ * the first page of the occurrence search, which showed whichever 200 records
+ * GBIF happened to return first. The hexagons shrink as the map zooms in.
+ */
+function gbifDensityTileUrl(taxonKey: number): string {
+  const params = new URLSearchParams({
+    taxonKey: String(taxonKey),
+    srs: "EPSG:3857",
+    bin: "hex",
+    hexPerTile: "40",
+    style: "purpleYellow-noborder.poly",
+  });
+  return `${GBIF_DENSITY_TILE_URL}?${params.toString()}`;
+}
+
+const GBIF_ATTRIBUTION =
+  '<a href="https://www.gbif.org" target="_blank">GBIF</a>';
+
+/**
+ * Resolve a species to its GBIF taxon and record count.
  *
  * `recordedName` is what the collection calls the taxon and may be a URL slug
  * (`danaus_plexippus`); `acceptedName` is what Catalogue of Life resolved it
- * to. The route tries the accepted name first and un-slugs either, so no
- * cleaning is needed here — and no name is rejected before it is asked about,
- * which is what previously kept the map empty for every species.
+ * to. The route tries the accepted name first and un-slugs either.
  */
-async function fetchGbifOccurrences(
+async function fetchGbifTaxon(
   recordedName: string,
-  acceptedName?: string | null
-): Promise<GbifOccurrenceResult> {
+  acceptedName?: string | null,
+): Promise<GbifTaxonResult> {
   if (!recordedName || !recordedName.trim()) {
-    return { status: "unmatched", occurrences: [] };
+    return { status: "unmatched" };
   }
 
   const params = new URLSearchParams({ species: recordedName.trim() });
@@ -167,47 +238,59 @@ async function fetchGbifOccurrences(
   }
 
   try {
-    const response = await fetch(`/api/gbif-occurrences?${params.toString()}`);
+    const response = await fetch(`/api/gbif-taxon?${params.toString()}`);
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        `GBIF API error: ${response.status} ${response.statusText}`
-      );
+    if (!response.ok || data.status === "error") {
+      return { status: "error" };
     }
-
-    if (data.status !== "ok") {
-      return { status: data.status === "error" ? "error" : "unmatched", occurrences: [] };
+    if (data.status !== "ok" || typeof data.taxonKey !== "number") {
+      return { status: "unmatched" };
     }
-
-    // Process results: Filter out occurrences without valid lat/lon
-    interface GbifRawOccurrence {
-      key: string | number;
-      decimalLatitude: number;
-      decimalLongitude: number;
-    }
-
-    const occurrences: Occurrence[] = (data.results ?? [])
-      .map((occ: GbifRawOccurrence) => ({
-        key: occ.key,
-        decimalLatitude: occ.decimalLatitude,
-        decimalLongitude: occ.decimalLongitude,
-      }))
-      .filter(
-        (occ: Occurrence) =>
-          typeof occ.decimalLatitude === "number" &&
-          typeof occ.decimalLongitude === "number" &&
-          !isNaN(occ.decimalLatitude) &&
-          !isNaN(occ.decimalLongitude)
-      );
-
-    return { status: "ok", occurrences, matchedName: data.matchedName };
+    return {
+      status: "ok",
+      taxonKey: data.taxonKey,
+      count: typeof data.count === "number" ? data.count : undefined,
+      matchedName: data.matchedName,
+    };
   } catch (error) {
-    console.error(
-      `Error fetching GBIF occurrences for ${recordedName}:`,
-      error
+    console.error(`Error resolving GBIF taxon for ${recordedName}:`, error);
+    return { status: "error" };
+  }
+}
+
+/**
+ * The georeferenced specimens of a species in our own collection.
+ *
+ * Keyed on the recorded name, like every other occurrence lookup. Null when
+ * the request failed, so the card can tell an error from a species with no
+ * coordinates.
+ */
+async function fetchSpeciesCoordinates(
+  species: string,
+): Promise<SpeciesCoordinates | null> {
+  if (!species || !species.trim()) {
+    return { total: 0, truncated: false, points: [] };
+  }
+  try {
+    const response = await fetch(
+      `/api/species-coordinates?species=${encodeURIComponent(species.trim())}`,
     );
-    return { status: "error", occurrences: [] };
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    const points: SpeciesCoordinatePoint[] = (data.points ?? []).filter(
+      (point: SpeciesCoordinatePoint) =>
+        Number.isFinite(point.lat) && Number.isFinite(point.lon),
+    );
+    return {
+      total: typeof data.total === "number" ? data.total : points.length,
+      truncated: !!data.truncated,
+      points,
+    };
+  } catch (error) {
+    console.error(`Error fetching coordinates for ${species}:`, error);
+    return null;
   }
 }
 
@@ -234,11 +317,28 @@ function parseUmapCoordinates(umapData: SpeciesImageUmap[]): UmapOccurrence[] {
     decimalLongitude: umap.lon,
     classDv: umap.classDv ?? "Unknown",
     cluster: umap.clusterLabel ?? -1,
+    record: {
+      imgId: umap.imgId,
+      catalogNumber: umap.catalogNumber ?? null,
+      institutionCode: umap.institutionCode ?? null,
+      institutionName: umap.institutionName ?? null,
+      sourceDb: umap.sourceDb ?? null,
+      // One image, so one side.
+      sides: umap.classDv ? [umap.classDv.toLowerCase()] : [],
+      validationStatus: umap.validationStatus ?? null,
+      recordedCountry: umap.recordedCountry ?? null,
+      recordedAdm1: umap.recordedAdm1 ?? null,
+      referenceCountry: umap.referenceCountry ?? null,
+      referenceAdm1: umap.referenceAdm1 ?? null,
+    },
   }));
 }
 
 export {
-  fetchGbifOccurrences,
+  GBIF_ATTRIBUTION,
+  fetchGbifTaxon,
+  fetchSpeciesCoordinates,
+  gbifDensityTileUrl,
   getBasemapStyleUrl,
   getBasemapAttribution,
   loadLightBasemapStyle,

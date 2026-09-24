@@ -1,5 +1,5 @@
 /**
- * Data for the family and genus pages.
+ * Data for the order, family and genus pages.
  *
  * Server-only: `API_HOST` is not a `NEXT_PUBLIC_` variable, so this module is
  * imported by server components and never reaches the browser. Nothing on
@@ -17,7 +17,7 @@ import {
 } from "@/lib/colTaxonomy";
 import { speciesHref, toTaxonSlug } from "@/lib/taxonSlug";
 
-export type HigherRank = "family" | "genus";
+export type HigherRank = "order" | "family" | "genus";
 
 /**
  * Thirty days.
@@ -47,11 +47,17 @@ export interface TaxonNode {
   /** Only the ranks that have a page of their own carry one. */
   href: string | null;
   colLink: string | null;
+  /** Families with images below this node; set only on an order's tree. */
+  familyCount: number | null;
   genusCount: number | null;
   speciesCount: number;
   imageCount: number;
   /** False for a genus Catalogue of Life cannot place inside this family. */
   placed: boolean;
+  /** One image to stand for the node; set only on an order's families. */
+  imageId: string | null;
+  /** The species that image shows. */
+  imageName: string | null;
   children: TaxonNode[];
 }
 
@@ -69,9 +75,19 @@ export interface HigherTaxon {
   /** The full lineage, for the header and the breadcrumb. */
   classification: ColTaxonomy | null;
   counts: {
+    /** Families the collection has images of; set only on an order. */
+    familyCount: number | null;
     genusCount: number | null;
     speciesCount: number;
     imageCount: number;
+    /**
+     * How many of each rank Catalogue of Life accepts inside the taxon, the
+     * denominator for coverage. Null without the backbone, or beside a count
+     * the page does not show.
+     */
+    familyTotal: number | null;
+    genusTotal: number | null;
+    speciesTotal: number | null;
   };
   tree: TaxonNode[];
   images: RepresentativeImage[];
@@ -117,10 +133,13 @@ function normalizeNode(raw: unknown): TaxonNode | null {
     authorship: optionalText(source.authorship),
     href: optionalText(source.href),
     colLink: optionalText(source.colLink),
+    familyCount: optionalCount(source.familyCount),
     genusCount: optionalCount(source.genusCount),
     speciesCount: count(source.speciesCount),
     imageCount: count(source.imageCount),
     placed: source.placed !== false,
+    imageId: optionalText(source.imgId),
+    imageName: optionalText(source.imgName),
     children,
   };
 }
@@ -177,6 +196,25 @@ export function pickRepresentatives(
   return picked;
 }
 
+/**
+ * An order's families that have a page, most-photographed first: the order a
+ * reader browsing by family is likeliest to want them in.
+ */
+export function familiesWithRecords(taxon: HigherTaxon): TaxonNode[] {
+  const families: TaxonNode[] = [];
+  const visit = (node: TaxonNode) => {
+    if (node.rank === "family") {
+      if (node.href) families.push(node);
+      return;
+    }
+    node.children.forEach(visit);
+  };
+  taxon.tree.forEach(visit);
+  return families.sort(
+    (a, b) => b.imageCount - a.imageCount || a.name.localeCompare(b.name),
+  );
+}
+
 function normalizeHigherTaxon(raw: unknown, rank: HigherRank): HigherTaxon | null {
   if (!raw || typeof raw !== "object") return null;
   const source = raw as Record<string, unknown>;
@@ -197,9 +235,13 @@ function normalizeHigherTaxon(raw: unknown, rank: HigherRank): HigherTaxon | nul
     rank,
     classification: normalizeColTaxonomy(source.classification),
     counts: {
+      familyCount: optionalCount(counts.familyCount),
       genusCount: optionalCount(counts.genusCount),
       speciesCount: count(counts.speciesCount),
       imageCount: count(counts.imageCount),
+      familyTotal: optionalCount(counts.familyTotal),
+      genusTotal: optionalCount(counts.genusTotal),
+      speciesTotal: optionalCount(counts.speciesTotal),
     },
     tree,
     images: Array.isArray(source.images)

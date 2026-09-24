@@ -12,9 +12,12 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from plannerbench.spec import PlannerSpec
 
 ANY_VALUE = "*"
+ABSENT = "-"
 
-# One argument expectation: an exact value, any of several values, or ANY_VALUE
-# for "present with any value". Comparison ignores case and outer whitespace.
+# One argument expectation: an exact value, any of several values, ANY_VALUE
+# for "present with any value", or ABSENT for "not passed" (a null counts as
+# not passed). ABSENT may sit in a list: ["Amazonas", "-"] accepts that value
+# or no value. Comparison ignores case and outer whitespace.
 ArgExpectation = str | list[str]
 # tool name -> {argument -> expectation}. An empty mapping accepts any arguments.
 # An empty plan ({}) means the planner should call no tool at all.

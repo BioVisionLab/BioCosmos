@@ -12,6 +12,7 @@ from app.routers.species_data import (
     get_col_search,
     get_precomputed_similarity,
     get_species_similarity,
+    get_species_coordinates,
 )
 
 
@@ -520,6 +521,47 @@ class TestHigherTaxonEndpoints:
         assert response.status_code == 500
         assert response.headers.get("cache-control") == "no-store"
 
+    @patch("app.routers.species_data.OrderOverview")
+    def test_order_overview_success(self, MockOrder):
+        instance = MockOrder.return_value
+        instance.overview = AsyncMock(
+            return_value={
+                **OVERVIEW,
+                "key": "lepidoptera",
+                "name": "Lepidoptera",
+                "rank": "order",
+            }
+        )
+        response = client.get("/order/lepidoptera")
+        assert response.status_code == 200
+        assert response.json()["rank"] == "order"
+        assert "max-age=2592000" in response.headers["cache-control"]
+        assert "s-maxage=2592000" in response.headers["cache-control"]
+
+    @patch("app.routers.species_data.IngestionState")
+    @patch("app.routers.species_data.OrderOverview")
+    def test_order_overview_carries_the_ingestion_etag(self, MockOrder, MockState):
+        """A re-ingest changes the ETag, retiring the thirty-day entry early."""
+        MockOrder.return_value.overview = AsyncMock(return_value=OVERVIEW)
+        MockState.return_value.get.return_value = "fp1"
+        with patch.object(app.state, "duck_db", object(), create=True):
+            response = client.get("/order/lepidoptera")
+        assert response.headers["etag"] == 'W/"order:lepidoptera:fp1"'
+
+    @patch("app.routers.species_data.OrderOverview")
+    def test_a_missing_order_is_not_cached(self, MockOrder):
+        MockOrder.return_value.overview = AsyncMock(return_value=None)
+        response = client.get("/order/nope")
+        assert response.status_code == 404
+        assert response.headers.get("cache-control") == "no-store"
+
+    @patch("app.routers.species_data.OrderOverview")
+    def test_order_overview_error_is_not_cached(self, MockOrder):
+        MockOrder.return_value.overview = AsyncMock(side_effect=Exception("boom"))
+        response = client.get("/order/lepidoptera")
+        assert response.status_code == 500
+        assert response.headers.get("cache-control") == "no-store"
+
     @patch("app.routers.species_data.GenusOverview")
     def test_genus_overview_success(self, MockGenus):
         instance = MockGenus.return_value
@@ -555,3 +597,41 @@ class TestHigherTaxonEndpoints:
         response = client.get("/family/Nymphalidae/classification")
         assert response.status_code == 200
         assert response.json()["family"] == "Nymphalidae"
+
+
+# =========================================================================
+# GET /species/{scientific_name}/coordinates
+# =========================================================================
+
+
+class TestFetchSpeciesCoordinates:
+    def _get(self, url, **lookup):
+        service = MagicMock()
+        service.get = MagicMock(**lookup)
+        app.dependency_overrides[get_species_coordinates] = lambda: service
+        try:
+            return client.get(url), service
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_success_is_cacheable(self):
+        payload = {"species": "danaus_plexippus", "total": 0, "truncated": False, "points": []}
+        response, service = self._get(
+            "/species/danaus_plexippus/coordinates", return_value=payload
+        )
+        assert response.status_code == 200
+        assert response.json() == payload
+        assert "max-age" in response.headers["cache-control"]
+        service.get.assert_called_once_with("danaus_plexippus")
+
+    def test_not_found_is_not_cached(self):
+        response, _ = self._get("/species/unknown_species/coordinates", return_value=None)
+        assert response.status_code == 404
+        assert response.headers["cache-control"] == "no-store"
+
+    def test_error_returns_500(self):
+        response, _ = self._get(
+            "/species/danaus_plexippus/coordinates", side_effect=Exception("boom")
+        )
+        assert response.status_code == 500
+        assert response.headers["cache-control"] == "no-store"

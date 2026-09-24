@@ -108,15 +108,17 @@ plan, invalid argument, and error.
 lists each query with every plan that counts as correct. A trial is correct
 when its valid tool calls match one plan exactly: a missing tool and an extra
 tool are both wrong. Argument values can be exact (case-insensitive), a list of
-alternatives, or `"*"` for "present with any value":
+alternatives, `"*"` for "present with any value", or `"-"` for "not passed".
+`"-"` can also go in a list, meaning that value or nothing. Only the arguments
+a plan lists are checked, so a plan uses `"-"` to penalize one the model
+should not have added, such as an invented `state_province`:
 
 ```toml
 [[cases]]
-id = "descriptive-country"
-query = "owl-like butterfly from brazil"
+id = "adm1-not-city"
+query = "butterflies near Manaus"
 accept = [
-  { search_by_color = {}, search_by_location = { location = "BR" } },
-  { search_by_image_similarity = { reference_species = ["Caligo", "Caligo eurilochus"] }, search_by_location = { location = "BR" } },
+  { search_by_location = { country = "BR", state_province = ["Amazonas", "-"] } },
 ]
 ```
 

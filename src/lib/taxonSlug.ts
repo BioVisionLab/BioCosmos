@@ -24,6 +24,18 @@ export function isCanonicalTaxonSlug(slug: string): boolean {
   return slug === toTaxonSlug(slug);
 }
 
+/**
+ * The one order the site has a page for. The collection is Lepidoptera, so
+ * `/order` needs no parameter; a second order would give it one.
+ */
+export const ORDER_NAME = "Lepidoptera";
+export const ORDER_PATH = "/order";
+
+/** The order page, or null for any order other than the one it serves. */
+export function orderHref(name: string): string | null {
+  return toTaxonSlug(name) === toTaxonSlug(ORDER_NAME) ? ORDER_PATH : null;
+}
+
 export function familyHref(name: string): string {
   return `/family/${encodeURIComponent(toTaxonSlug(name))}`;
 }

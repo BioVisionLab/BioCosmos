@@ -1,4 +1,4 @@
-"""Payloads for the family and genus pages.
+"""Payloads for the order, family and genus pages.
 
 The repository in `app/services/higher_taxa.py` returns one flat row per
 member. This module turns those rows into the nested tree the page renders,
@@ -23,7 +23,7 @@ from pydantic.alias_generators import to_camel
 from ..database.duckdb import DuckDBClient
 from ..database.model import subgenus_name
 from ..services.higher_taxa import HigherTaxonRepository, Scope
-from .taxon_data import FamilySearch, GenusSearch
+from .taxon_data import FamilySearch, GenusSearch, OrderSearch
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # ragged in practice: CoL populates subfamily for most butterfly genera, tribe
 # for many, and subtribe for almost none, so a level with nothing in it is
 # omitted rather than rendered empty.
+_ORDER_GROUPING_RANKS = ("suborder", "superfamily")
 _FAMILY_GROUPING_RANKS = ("subfamily", "tribe", "subtribe")
 _GENUS_GROUPING_RANKS = ("subgenus",)
 
@@ -60,10 +61,15 @@ class TaxonNode(BaseModel):
     href: str | None = None
     col_id: str | None = None
     col_link: str | None = None
+    family_count: int | None = None
     genus_count: int | None = None
     species_count: int = 0
     image_count: int = 0
     placed: bool = True
+    # One image to stand for the node, and the species it shows. Set only on
+    # the families of an order, which the landing page shows as a tray.
+    img_id: str | None = None
+    img_name: str | None = None
     children: list["TaxonNode"] = Field(default_factory=list)
 
 
@@ -84,10 +90,19 @@ class TaxonImage(BaseModel):
 class HigherTaxonCounts(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
+    # Set only on an order page. There it counts the families the collection
+    # has images of, not every family the tree lists.
+    family_count: int | None = None
     # None on a genus page, where there is no rank between it and species.
     genus_count: int | None = None
     species_count: int = 0
     image_count: int = 0
+    # How many of each rank Catalogue of Life accepts inside the taxon, so the
+    # page can say what share of it the collection covers. None when the
+    # backbone is absent, and set only beside a count of the same rank.
+    family_total: int | None = None
+    genus_total: int | None = None
+    species_total: int | None = None
 
 
 class HigherTaxonPayload(BaseModel):
@@ -173,14 +188,36 @@ def _is_rename(accepted: str, recorded: str) -> bool:
     return canonical(accepted) != canonical(recorded)
 
 
+def _leaf_from_order_row(row: dict) -> TaxonNode:
+    key = _text(row.get("family_key"))
+    images = _int(row.get("image_count"))
+    genera = _int(row.get("genus_count"))
+    return TaxonNode(
+        key=key,
+        name=_text(row.get("family_name")) or key.capitalize(),
+        rank="family",
+        authorship=_optional(row.get("authorship")),
+        # A family the collection has no images of has no page to link to:
+        # its family route would answer 404.
+        href=f"/family/{key}" if images else None,
+        col_id=_optional(row.get("col_id")),
+        col_link=_optional(row.get("col_link")),
+        genus_count=genera or None,
+        species_count=_int(row.get("species_count")),
+        image_count=images,
+    )
+
+
 def _leaf_from_family_row(row: dict) -> TaxonNode:
     key = _text(row.get("genus_key"))
+    images = _int(row.get("image_count"))
     return TaxonNode(
         key=key,
         name=_text(row.get("genus_name")) or key.capitalize(),
         rank="genus",
         authorship=_optional(row.get("authorship")),
-        href=f"/genus/{key}",
+        # A CoL genus the collection holds nothing of has no page to link to.
+        href=f"/genus/{key}" if images else None,
         col_id=_optional(row.get("col_id")),
         col_link=_optional(row.get("col_link")),
         species_count=_int(row.get("species_count")),
@@ -201,6 +238,7 @@ def _species_href(key: str) -> str:
 
 def _leaf_from_genus_row(row: dict) -> TaxonNode:
     key = _text(row.get("species_key"))
+    images = _int(row.get("image_count"))
     name = _text(row.get("species_name"))
     recorded = _text(row.get("recorded_name"))
     return TaxonNode(
@@ -210,11 +248,15 @@ def _leaf_from_genus_row(row: dict) -> TaxonNode:
         recorded_name=recorded if _is_rename(name, recorded) else None,
         rank="species",
         authorship=_optional(row.get("authorship")),
-        href=_species_href(key),
+        # A species listed only from the backbone has no recorded name for the
+        # species route to resolve images on, so it links nowhere.
+        href=_species_href(key) if images else None,
         col_id=_optional(row.get("col_id")),
         col_link=_optional(row.get("col_link")),
-        species_count=1,
-        image_count=_int(row.get("image_count")),
+        # Counted only when photographed, so a subgenus's badge says how many
+        # of its species the collection holds, as the header does.
+        species_count=1 if images else 0,
+        image_count=images,
     )
 
 
@@ -275,8 +317,19 @@ def _accumulate(node: TaxonNode) -> None:
         return
     node.species_count = sum(child.species_count for child in node.children)
     node.image_count = sum(child.image_count for child in node.children)
+    # Only families with images count, matching the header: a family is a
+    # family of the collection once something in it has been photographed.
+    families = sum(
+        (1 if child.image_count else 0)
+        if child.rank == "family"
+        else (child.family_count or 0)
+        for child in node.children
+    )
+    node.family_count = families or None
     genera = sum(
-        1 if child.rank == "genus" else (child.genus_count or 0)
+        (1 if child.image_count else 0)
+        if child.rank == "genus"
+        else (child.genus_count or 0)
         for child in node.children
     )
     node.genus_count = genera or None
@@ -289,7 +342,10 @@ def build_tree(rows: list[dict], *, scope: Scope, scope_key: str) -> list[TaxonN
     function of its member rows, which makes it the one part of this feature
     that can be tested without either.
     """
-    if scope == "family":
+    if scope == "order":
+        ranks = _ORDER_GROUPING_RANKS
+        leaf_of = _leaf_from_order_row
+    elif scope == "family":
         ranks = _FAMILY_GROUPING_RANKS
         leaf_of = _leaf_from_family_row
     else:
@@ -331,6 +387,52 @@ def build_tree(rows: list[dict], *, scope: Scope, scope_key: str) -> list[TaxonN
     return tree
 
 
+def build_rooted_tree(
+    rows: list[dict], *, scope: Scope, key: str, name: str
+) -> list[TaxonNode]:
+    """The classification under a single root node for the taxon itself.
+
+    The root gives the page one node to highlight, the same on every rank,
+    and gives the counts one place to total. For an order it also matters for
+    shape: CoL leaves suborder empty for most Lepidoptera, so without a root
+    the tree would open on a mixed list of suborders and superfamilies.
+    """
+    # Built directly rather than through `_collapse`, which would re-sort the
+    # children and file the grouping ranks in among the members beside them,
+    # and would push the unplaced bucket out of last place.
+    root = TaxonNode(
+        key=key,
+        name=name,
+        rank=scope,
+        children=build_tree(rows, scope=scope, scope_key=key),
+    )
+    _accumulate(root)
+    return [root]
+
+
+def attach_family_images(tree: list[TaxonNode], rows: list[dict]) -> None:
+    """Give each family node in an order's tree its representative image."""
+    by_family = {_text(row.get("family_key")): row for row in rows}
+
+    def visit(node: TaxonNode) -> None:
+        row = by_family.get(node.key) if node.rank == "family" else None
+        if row:
+            node.img_id = _optional(row.get("img_id"))
+            node.img_name = _optional(row.get("display_name"))
+        for child in node.children:
+            visit(child)
+
+    for node in tree:
+        visit(node)
+
+
+def build_order_tree(
+    rows: list[dict], *, order_key: str, order_name: str
+) -> list[TaxonNode]:
+    """An order's tree: its families under a root for the order."""
+    return build_rooted_tree(rows, scope="order", key=order_key, name=order_name)
+
+
 class HigherTaxonOverview:
     """Assemble everything one higher-taxon page needs.
 
@@ -362,23 +464,36 @@ class HigherTaxonOverview:
         if not repository.harmonized_available():
             return None
 
-        if self.rank == "family":
+        if self.rank == "order":
+            rows = repository.order_members(self.key)
+        elif self.rank == "family":
             rows = repository.family_members(self.key)
         else:
             rows = repository.genus_members(self.key)
-        if not rows:
+        # Every rank's rows include CoL taxa with nothing in them, so rows
+        # alone do not mean the collection holds any of it.
+        if not any(_int(row.get("image_count")) for row in rows):
             return None
 
         images = repository.representative_images(self.rank, self.key, limit)
         classification = await self._classification()
-        tree = build_tree(rows, scope=self.rank, scope_key=self.key)
+        tree = build_rooted_tree(
+            rows,
+            scope=self.rank,
+            key=self.key,
+            name=self._display_name(classification),
+        )
+        if self.rank == "order":
+            attach_family_images(tree, repository.family_images(self.key))
 
         payload = HigherTaxonPayload(
             key=self.key,
             name=self._display_name(classification),
             rank=self.rank,
             classification=classification,
-            counts=self._counts(rows),
+            counts=self._with_totals(
+                self._counts(rows), repository.col_totals(self.rank, self.key)
+            ),
             tree=tree,
             images=[
                 TaxonImage(
@@ -397,13 +512,47 @@ class HigherTaxonOverview:
         return payload
 
     def _counts(self, rows: list[dict]) -> HigherTaxonCounts:
-        species = sum(_int(row.get("species_count", 1)) for row in rows)
-        images = sum(_int(row.get("image_count")) for row in rows)
-        return HigherTaxonCounts(
-            genus_count=len(rows) if self.rank == "family" else None,
-            species_count=species if self.rank == "family" else len(rows),
-            image_count=images,
-        )
+        if self.rank == "order":
+            return HigherTaxonCounts(
+                family_count=sum(1 for row in rows if _int(row.get("image_count"))),
+                genus_count=sum(_int(row.get("genus_count")) for row in rows),
+                species_count=sum(_int(row.get("species_count")) for row in rows),
+                image_count=sum(_int(row.get("image_count")) for row in rows),
+            )
+        # Rows for taxa only the backbone lists carry no images, and count
+        # towards the totals beside these rather than towards these.
+        held = [row for row in rows if _int(row.get("image_count"))]
+        images = sum(_int(row.get("image_count")) for row in held)
+        if self.rank == "family":
+            return HigherTaxonCounts(
+                genus_count=len(held),
+                species_count=sum(_int(row.get("species_count")) for row in held),
+                image_count=images,
+            )
+        return HigherTaxonCounts(species_count=len(held), image_count=images)
+
+    @staticmethod
+    def _with_totals(
+        counts: HigherTaxonCounts, totals: dict | None
+    ) -> HigherTaxonCounts:
+        """Attach CoL's totals, for the ranks the header has a count for.
+
+        A zero total means CoL has nothing at that rank under this name — a
+        genus the backbone does not know, say — and a coverage figure against
+        nothing would be meaningless, so it is left unset instead.
+        """
+        if not totals:
+            return counts
+
+        def total(field: str) -> int | None:
+            return _int(totals.get(field)) or None
+
+        if counts.family_count is not None:
+            counts.family_total = total("family_total")
+        if counts.genus_count is not None:
+            counts.genus_total = total("genus_total")
+        counts.species_total = total("species_total")
+        return counts
 
     def _display_name(self, classification: dict | None) -> str:
         """CoL's own casing when we have it, the capitalized key otherwise."""
@@ -415,13 +564,23 @@ class HigherTaxonOverview:
 
     async def _classification(self) -> dict | None:
         """The taxon's own lineage, for the header and the breadcrumb."""
-        search = FamilySearch if self.rank == "family" else GenusSearch
+        search = {
+            "order": OrderSearch,
+            "family": FamilySearch,
+            "genus": GenusSearch,
+        }[self.rank]
         results = await search(
             request=self.request, query=self.name
         ).get_classification()
         if not results:
             return None
         return results[0].get("classification") or None
+
+
+class OrderOverview(HigherTaxonOverview):
+    """An order page: members are families, drawn from the backbone."""
+
+    rank: Scope = "order"
 
 
 class FamilyOverview(HigherTaxonOverview):

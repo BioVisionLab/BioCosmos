@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { COL_RANK_ORDER, ITALIC_COL_RANKS, rankValue } from "@/lib/colTaxonomy";
 import { TaxonomyData } from "@/lib/speciesData";
-import { familyHref, genusHref } from "@/lib/taxonSlug";
+import { familyHref, genusHref, orderHref } from "@/lib/taxonSlug";
 
 // Each rank sits one step right of its parent.
 const STEP_REM = 0.875;
@@ -19,6 +19,7 @@ const RANK_TAG =
   "text-hunter-green-700/80 dark:text-hunter-green-400/80";
 
 function rankHref(rank: string, value: string): string | null {
+  if (rank === "order") return orderHref(value);
   if (rank === "family") return familyHref(value);
   if (rank === "genus") return genusHref(value);
   return null;

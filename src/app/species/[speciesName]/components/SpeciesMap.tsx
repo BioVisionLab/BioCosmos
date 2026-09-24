@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { GbifLookupStatus, Occurrence } from "@/lib/map";
-import SpeciesMap from "@/components/SpeciesMap";
-import { fetchGbifOccurrences } from "@/lib/map";
-import { TextLoading } from "@/components/Loadings";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  fetchGbifTaxon,
+  fetchSpeciesCoordinates,
+  GbifTaxonResult,
+  SpeciesCoordinates,
+} from "@/lib/map";
+import SpeciesMap, { MARKER_COLORS, markerKind, MarkerKind } from "@/components/SpeciesMap";
+import { DistributionMapSkeleton } from "./DistributionMapSkeleton";
 
 interface SpeciesDistributionProps {
   /** The name the collection records, which is also the page slug. */
@@ -14,50 +18,88 @@ interface SpeciesDistributionProps {
 }
 
 /**
- * What to say when the map has no points.
+ * Why the GBIF layer is missing.
  *
  * "No occurrences" and "GBIF has never heard of this name" are different
  * facts, and only one of them is about the species.
  */
-function emptyMessage(status: GbifLookupStatus): string {
-  switch (status) {
+function gbifEmptyMessage(gbif: GbifTaxonResult): string {
+  switch (gbif.status) {
     case "unmatched":
-      return "This name was not found in the GBIF taxonomic backbone, so no occurrences could be retrieved.";
+      return "This name was not found in the GBIF taxonomic backbone, so no GBIF occurrences are shown.";
     case "error":
-      return "GBIF could not be reached. Showing map without points.";
+      return "GBIF could not be reached, so no GBIF occurrences are shown.";
     default:
-      return "No georeferenced GBIF occurrences found. Showing map without points.";
+      return "GBIF holds no georeferenced occurrences for this species.";
   }
+}
+
+const MARKER_LABELS: Record<MarkerKind, string> = {
+  valid: "coordinate matches locality",
+  flagged: "coordinate flagged",
+  unvalidated: "not validated",
+};
+
+const numberFormat = new Intl.NumberFormat();
+
+
+function Swatch({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-deep-mocha-900 dark:ring-white shrink-0"
+      style={{ backgroundColor: color }}
+    />
+  );
 }
 
 function SpeciesDistribution({
   recordedName,
   acceptedName,
 }: SpeciesDistributionProps) {
-  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
-  const [status, setStatus] = useState<GbifLookupStatus>("ok");
+  const [specimens, setSpecimens] = useState<SpeciesCoordinates | null>(null);
+  const [gbif, setGbif] = useState<GbifTaxonResult>({ status: "ok" });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let ignore = false;
 
-    const fetchOccurrences = async () => {
+    const load = async () => {
       setLoading(true);
-      const result = await fetchGbifOccurrences(
-        recordedName.trim(),
-        acceptedName,
-      );
+      // Independent sources: either can fail without taking the other down.
+      const [ours, theirs] = await Promise.all([
+        fetchSpeciesCoordinates(recordedName.trim()),
+        fetchGbifTaxon(recordedName.trim(), acceptedName),
+      ]);
       if (ignore) return;
-      setOccurrences(result.occurrences);
-      setStatus(result.status);
+      setSpecimens(ours);
+      setGbif(theirs);
       setLoading(false);
     };
 
-    void fetchOccurrences();
+    void load();
     return () => {
       ignore = true;
     };
   }, [recordedName, acceptedName]);
+
+  const points = useMemo(() => specimens?.points ?? [], [specimens]);
+
+  const kinds = useMemo(() => {
+    const counts: Record<MarkerKind, number> = {
+      valid: 0,
+      flagged: 0,
+      unvalidated: 0,
+    };
+    for (const point of points) counts[markerKind(point.validationStatus)]++;
+    return counts;
+  }, [points]);
+
+  const hasGbif = gbif.status === "ok" && !!gbif.taxonKey && gbif.count !== 0;
+
+  if (loading) {
+    return <DistributionMapSkeleton msg="Fetching occurrence data" />;
+  }
 
   return (
     // The same card as the classification above it: gradient header band over
@@ -68,39 +110,67 @@ function SpeciesDistribution({
       <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl">
         <h2 className="text-2xl font-semibold">Distribution Map</h2>
       </div>
-      {/* Padding lives on the text, not on the body: the map runs edge to
-          edge and its own bottom corners finish the card. */}
       <div>
-        {loading ? (
-          <div className="m-4 aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl flex items-center justify-center">
-            <TextLoading msg="Fetching GBIF occurrence data" />
-          </div>
-        ) : (
-          <>
-            {occurrences.length > 0 ? (
-              // The count and the source belong in one line: both describe
-              // what is plotted, and two stacked footnotes around a map read
-              // as clutter.
-              <p className="text-xs px-4 py-3 text-deep-mocha-700 dark:text-deep-mocha-300">
-                Showing {occurrences.length} occurrences from{" "}
+        {/* The legend is the info line: what each mark is and how many
+            there are, in one place above the map. */}
+        <div className="text-xs px-4 py-3 space-y-1.5 text-deep-mocha-700 dark:text-deep-mocha-300">
+          {specimens === null ? (
+            <p>LepiVerse specimen records could not be loaded.</p>
+          ) : points.length === 0 ? (
+            <p>No georeferenced LepiVerse specimen records for this species.</p>
+          ) : (
+            <div>
+              <p className="font-medium text-deep-mocha-900 dark:text-deep-mocha-100">
+                {numberFormat.format(specimens.total)} LepiVerse specimen{" "}
+                {specimens.total === 1 ? "record" : "records"}
+                {specimens.truncated &&
+                  ` (${numberFormat.format(points.length)} shown)`}
+              </p>
+              <ul className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                {(Object.keys(kinds) as MarkerKind[])
+                  .filter((kind) => kinds[kind] > 0)
+                  .map((kind) => (
+                    <li key={kind} className="flex items-center gap-1.5">
+                      <Swatch color={MARKER_COLORS[kind]} />
+                      {numberFormat.format(kinds[kind])} {MARKER_LABELS[kind]}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          {hasGbif ? (
+            <p className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="inline-block w-6 h-2.5 rounded-sm shrink-0"
+                style={{
+                  background:
+                    "linear-gradient(to right, #5e0b7a, #c43d6c, #fbe54a)",
+                }}
+              />
+              <span>
+                GBIF occurrence density
+                {typeof gbif.count === "number" &&
+                  ` (${numberFormat.format(gbif.count)} records)`}
+                {" · "}
                 <a
-                  href="https://www.gbif.org/"
+                  href={`https://www.gbif.org/species/${gbif.taxonKey}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-blue-700"
+                  className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
                 >
-                  GBIF
+                  View on GBIF
                 </a>
-                . Use the zoom and pan controls to explore the map.
-              </p>
-            ) : (
-              <p className="text-xs px-4 py-3 text-deep-mocha-700 dark:text-deep-mocha-300">
-                {emptyMessage(status)}
-              </p>
-            )}
-            <SpeciesMap occurrences={occurrences} />
-          </>
-        )}
+              </span>
+            </p>
+          ) : (
+            <p>{gbifEmptyMessage(gbif)}</p>
+          )}
+        </div>
+        <SpeciesMap
+          points={points}
+          gbifTaxonKey={hasGbif ? gbif.taxonKey : null}
+        />
       </div>
     </div>
   );

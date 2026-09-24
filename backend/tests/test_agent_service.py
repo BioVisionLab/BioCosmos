@@ -41,7 +41,7 @@ def make_service(*calls) -> AgentSearchService:
 async def test_search_runs_filters_before_scoped_rankings():
     service = make_service(
         tool_call("search_by_color", '{"color_description": "blue"}'),
-        tool_call("search_by_location", '{"location": "BR"}'),
+        tool_call("search_by_location", '{"country": "BR"}'),
     )
     executed = []
 
@@ -85,7 +85,7 @@ async def test_search_runs_filters_before_scoped_rankings():
 @pytest.mark.asyncio
 async def test_search_returns_partial_results_with_warning():
     service = make_service(
-        tool_call("search_by_location", '{"location": "BR"}'),
+        tool_call("search_by_location", '{"country": "BR"}'),
         tool_call("search_by_color", '{"color_description": "blue"}'),
     )
 
@@ -113,7 +113,7 @@ async def test_search_returns_partial_results_with_warning():
 @pytest.mark.asyncio
 async def test_search_falls_back_to_filters_when_all_rankings_fail():
     service = make_service(
-        tool_call("search_by_location", '{"location": "BR"}'),
+        tool_call("search_by_location", '{"country": "BR"}'),
         tool_call("search_by_color", '{"color_description": "blue"}'),
     )
 
@@ -145,7 +145,7 @@ async def test_search_falls_back_to_filters_when_all_rankings_fail():
 @pytest.mark.asyncio
 async def test_search_does_not_fallback_when_ranking_succeeds_empty():
     service = make_service(
-        tool_call("search_by_location", '{"location": "BR"}'),
+        tool_call("search_by_location", '{"country": "BR"}'),
         tool_call("search_by_color", '{"color_description": "blue"}'),
     )
 
@@ -410,7 +410,7 @@ async def test_image_similarity_excludes_exact_reference_species():
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "calls",
-    [(), (tool_call("search_by_location", '{"location": "Brazil"}'),)],
+    [(), (tool_call("search_by_location", '{"country": "Brazil"}'),)],
     ids=["no-tools", "only-invalid-tools"],
 )
 async def test_search_falls_back_to_text_search_without_usable_tools(calls):

@@ -150,7 +150,7 @@ function DetailSections({ detail }: { detail: TaxonomyDetail }) {
           >
             Name Usage ({detail.nameUsages.length})
           </h2>
-          <Tips message="The accepted name comes first, then the original combination it was described under, then every other synonym by year of publication." />
+          <Tips message="The results are in this order: the accepted name, the original combination of the species description, and every other synonym by year of publication." />
         </div>
         <NameUsageTable
           // Remount on a new species so its table starts on page one.

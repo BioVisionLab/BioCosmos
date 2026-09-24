@@ -245,6 +245,10 @@ export default function CollectionSummary({
               bars={families}
               tone="green"
               rows={FAMILY_ROWS + 1}
+              more={{
+                href: "/collections",
+                label: "See full collection statistics",
+              }}
             />
             <Bars
               title="Top holding institutions"
@@ -260,18 +264,10 @@ export default function CollectionSummary({
             />
           </div>
 
-          {/* Two fixed-height lines, always present, so the band is the same
+          {/* A fixed-height line, always present, so the band is the same
               height whether the counts arrived, are still arriving, or failed. */}
           <p className="mt-8 h-4 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
             {!pending && !counts ? "Live counts are temporarily unavailable." : " "}
-          </p>
-          <p className="mt-1 h-5 text-sm">
-            <Link
-              href="/collections"
-              className="text-pacific-blue-600 hover:underline dark:text-pacific-blue-400"
-            >
-              See full collection statistics →
-            </Link>
           </p>
         </div>
       </div>
