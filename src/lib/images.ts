@@ -18,13 +18,16 @@ function cleanSpeciesName(name: string): string {
 async function fetchSpeciesImageIds(
   speciesName: string,
   limit?: number,
-  offset?: number
+  offset?: number,
+  order?: "view"
 ): Promise<string[]> {
   const cleanName = cleanSpeciesName(speciesName);
   // pass limit/offset to the server so it can control how many IDs are returned
   const qs: string[] = [];
   if (typeof limit === "number") qs.push(`limit=${encodeURIComponent(String(limit))}`);
   if (typeof offset === "number") qs.push(`offset=${encodeURIComponent(String(offset))}`);
+  // "view" sorts the page dorsal first, then ventral. Same images either way.
+  if (order) qs.push(`order=${order}`);
   const qsStr = qs.length > 0 ? `&${qs.join("&")}` : "";
   const response = await fetch(
     `${IMAGE_API_BASE}/metadata?scientificName=${encodeURIComponent(cleanName)}${qsStr}`

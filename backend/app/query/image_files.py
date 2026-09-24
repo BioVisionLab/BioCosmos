@@ -32,13 +32,16 @@ class ImageMetaRetrieval:
         scientific_name: str,
         limit: int = 100,
         offset: int = 0,
+        view_order: bool = False,
     ) -> list[str]:
         """
         Retrieve a page of image IDs associated with a species.
         """
         image_ids: list[str] = ImageMetaService(
             duckdb=self.duckdb
-        ).get_image_ids_by_species(scientific_name, limit=limit, offset=offset)
+        ).get_image_ids_by_species(
+            scientific_name, limit=limit, offset=offset, view_order=view_order
+        )
         return image_ids
 
     def get_meta_by_id(self, image_id: str) -> dict | None:

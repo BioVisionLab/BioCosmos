@@ -32,6 +32,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         paging.set(key, String(parsed));
       }
     }
+    // Only the one alternative order is forwarded; anything else keeps the
+    // backend default rather than bouncing off its validation.
+    if (searchParams.get("order") === "view") paging.set("order", "view");
     const query = paging.size > 0 ? `?${paging.toString()}` : "";
     const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(
       species,
