@@ -144,7 +144,7 @@ export function SpeciesClassification({
                   href={taxonomyData.colLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-blue-700"
+                  className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
                 >
                   View record
                 </a>
