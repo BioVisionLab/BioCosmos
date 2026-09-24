@@ -37,7 +37,7 @@ class TestImageMetaRetrieval:
 
         assert ids == ["img-025"]
         MockMeta.return_value.get_image_ids_by_species.assert_called_once_with(
-            "danaus plexippus", limit=24, offset=24
+            "danaus plexippus", limit=24, offset=24, view_order=False
         )
 
     def test_get_species_image_ids_defaults(self, fake_request):
@@ -49,7 +49,7 @@ class TestImageMetaRetrieval:
             retrieval.get_species_image_ids("danaus plexippus")
 
         MockMeta.return_value.get_image_ids_by_species.assert_called_once_with(
-            "danaus plexippus", limit=100, offset=0
+            "danaus plexippus", limit=100, offset=0, view_order=False
         )
 
     def test_get_species_image_ids_empty(self, fake_request):

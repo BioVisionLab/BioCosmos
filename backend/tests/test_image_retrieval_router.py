@@ -38,7 +38,10 @@ class TestFetchSpeciesImageIds:
         assert response.status_code == 200
         assert response.json() == ["a", "b"]
         MockRetrieval.return_value.get_species_image_ids.assert_called_once_with(
-            "danaus_plexippus", limit=DEFAULT_IMAGE_ID_LIMIT, offset=0
+            "danaus_plexippus",
+            limit=DEFAULT_IMAGE_ID_LIMIT,
+            offset=0,
+            view_order=False,
         )
 
     @patch("app.routers.image_retrieval.ImageMetaRetrieval")
@@ -51,7 +54,7 @@ class TestFetchSpeciesImageIds:
 
         assert response.status_code == 200
         MockRetrieval.return_value.get_species_image_ids.assert_called_once_with(
-            "danaus_plexippus", limit=24, offset=48
+            "danaus_plexippus", limit=24, offset=48, view_order=False
         )
 
     @patch("app.routers.image_retrieval.ImageMetaRetrieval")
@@ -80,6 +83,27 @@ class TestFetchSpeciesImageIds:
 
         _, kwargs = MockRetrieval.return_value.get_species_image_ids.call_args
         assert kwargs["offset"] == 0
+
+    @patch("app.routers.image_retrieval.ImageMetaRetrieval")
+    def test_view_order_reaches_query_layer(self, MockRetrieval):
+        MockRetrieval.return_value.get_species_image_ids.return_value = ["a"]
+
+        response = client.get(
+            "/image/danaus_plexippus/metadata", params={"limit": 8, "order": "view"}
+        )
+
+        assert response.status_code == 200
+        _, kwargs = MockRetrieval.return_value.get_species_image_ids.call_args
+        assert kwargs["view_order"] is True
+
+    @patch("app.routers.image_retrieval.ImageMetaRetrieval")
+    def test_unknown_order_rejected(self, MockRetrieval):
+        response = client.get(
+            "/image/danaus_plexippus/metadata", params={"order": "random"}
+        )
+
+        assert response.status_code == 422
+        MockRetrieval.return_value.get_species_image_ids.assert_not_called()
 
     @patch("app.routers.image_retrieval.ImageMetaRetrieval")
     def test_empty_first_page_returns_404(self, MockRetrieval):

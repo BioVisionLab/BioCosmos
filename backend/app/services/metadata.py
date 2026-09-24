@@ -441,26 +441,41 @@ class ImageMetaService:
         *,
         limit: int = 100,
         offset: int = 0,
+        view_order: bool = False,
         raise_on_error: bool = False,
     ) -> list[str]:
         """
         Retrieve a page of image IDs for a given species.
 
-        Results are ordered by image ID so that offset-based paging is stable
+        Pages are cut by image ID so that offset-based paging is stable
         across requests.
 
         :param scientific_name: The scientific name of the species.
         :param limit: Maximum number of image IDs to return.
         :param offset: Number of image IDs to skip before collecting results.
+        :param view_order: Sort the page dorsal first, then ventral, then any
+            other view. Only the order within the page changes: the page is
+            still cut by image ID, so it holds the same images either way and
+            paging stays stable.
         :return: A list of image IDs.
         """
         cleaned_name = self.sanitize_species_name(scientific_name)
+        order = (
+            """CASE LOWER(class_dv)
+                    WHEN 'dorsal' THEN 0 WHEN 'ventral' THEN 1 ELSE 2
+                END, img_id"""
+            if view_order
+            else "img_id"
+        )
         try:
             query = f"""
-                SELECT img_id FROM {self.table}
-                WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
-                ORDER BY img_id
-                LIMIT ? OFFSET ?
+                SELECT img_id FROM (
+                    SELECT img_id, class_dv FROM {self.table}
+                    WHERE REPLACE(LOWER(species), '_', '') = REPLACE(LOWER(?), '_', '')
+                    ORDER BY img_id
+                    LIMIT ? OFFSET ?
+                ) AS page
+                ORDER BY {order}
             """
             results = self.db_client.execute_prepared_to_pl(
                 query, [cleaned_name, limit, offset]
