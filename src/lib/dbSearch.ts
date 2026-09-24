@@ -72,6 +72,56 @@ export interface SpecimenMetadata {
   catalog_number: string | null;
   institution_name: string | null;
   institution_homepage: string | null;
+
+  // LepTraits for the record's accepted species, as readable words. All null
+  // for species LepTraits lacks, and until the trait index has been built.
+  canopy_affinity: string | null;
+  edge_affinity: string | null;
+  moisture_affinity: string | null;
+  disturbance_affinity: string | null;
+  voltinism: string | null;
+  diapause_stage: string | null;
+  oviposition_style: string | null;
+  hostplant_families: string | null;
+  host_breadth: string | null;
+  flight_months: string | null;
+  wing_size: string | null;
+}
+
+export type TraitField =
+  | "canopy_affinity"
+  | "edge_affinity"
+  | "moisture_affinity"
+  | "disturbance_affinity"
+  | "voltinism"
+  | "diapause_stage"
+  | "oviposition_style"
+  | "hostplant_families"
+  | "host_breadth"
+  | "flight_months"
+  | "wing_size";
+
+/**
+ * The LepTraits fields the text search can target. Kept out of "All Fields"
+ * by the backend: each is a small vocabulary shared by every image of a
+ * species, so a sweep for "closed" or "Jun" would return most of the site.
+ */
+export const TRAIT_FIELD_OPTIONS: { value: TraitField; label: string }[] = [
+  { value: "canopy_affinity", label: "Canopy (e.g. closed, open)" },
+  { value: "edge_affinity", label: "Edge Affinity" },
+  { value: "moisture_affinity", label: "Moisture (mesic, xeric)" },
+  { value: "disturbance_affinity", label: "Disturbance Affinity" },
+  { value: "voltinism", label: "Voltinism (univoltine…)" },
+  { value: "diapause_stage", label: "Diapause Stage" },
+  { value: "oviposition_style", label: "Oviposition Style" },
+  { value: "hostplant_families", label: "Host-Plant Family" },
+  { value: "host_breadth", label: "Host Breadth (specialist…)" },
+  { value: "flight_months", label: "Flight Month (e.g. Jun)" },
+  { value: "wing_size", label: "Wing Size (small, medium, large)" },
+];
+
+export function isTraitField(field: string): field is TraitField {
+  return TRAIT_FIELD_OPTIONS.some((option) => option.value === field);
 }
 
 export interface DbSearchResponse {
@@ -152,6 +202,17 @@ async function searchDatabase(
     catalog_number: item.catalog_number ?? null,
     institution_name: item.institution_name ?? null,
     institution_homepage: item.institution_homepage ?? null,
+    canopy_affinity: item.canopy_affinity ?? null,
+    edge_affinity: item.edge_affinity ?? null,
+    moisture_affinity: item.moisture_affinity ?? null,
+    disturbance_affinity: item.disturbance_affinity ?? null,
+    voltinism: item.voltinism ?? null,
+    diapause_stage: item.diapause_stage ?? null,
+    oviposition_style: item.oviposition_style ?? null,
+    hostplant_families: item.hostplant_families ?? null,
+    host_breadth: item.host_breadth ?? null,
+    flight_months: item.flight_months ?? null,
+    wing_size: item.wing_size ?? null,
   }));
 
   return {

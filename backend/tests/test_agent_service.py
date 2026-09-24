@@ -76,6 +76,15 @@ def test_results_link_to_the_species_page_and_orphans_are_dropped():
     ]
 
 
+def test_results_are_named_by_their_species_page():
+    service = linking_service(
+        pages(keys={"typo": "vanessa_cardui", "good": "vanessa_cardui"})
+    )
+    rows = service._link_species_pages(RANKED).to_dicts()
+    # The misspelling ranked first, but the result names the valid species.
+    assert [row["species"] for row in rows] == ["vanessa_cardui"]
+
+
 def test_without_a_run_results_link_to_the_recorded_binomial():
     service = linking_service(pages(available=False))
     rows = service._link_species_pages(RANKED).to_dicts()

@@ -69,22 +69,6 @@ const CREDENTIALS = [
 ] as const;
 
 /**
- * A hyphenated compound, kept on one line.
- *
- * `text-balance` is free to break at a hyphen that is already in the text, and
- * it did: the lead used to end a line on "image-" and open the next with
- * "based discovery". Which words land where still depends on the measure and
- * the loaded font, so this is marked on the compounds themselves rather than
- * dodged by picking a width that happens to break elsewhere today.
- *
- * Renders exactly the characters it is given; only the break opportunity
- * inside them is removed.
- */
-function Compound({ children }: { children: string }) {
-  return <span className="whitespace-nowrap">{children}</span>;
-}
-
-/**
  * The top of the landing page, as a collection drawer: the copy and the
  * search on the left, on millimetre graph paper, and a unit tray of the day's
  * featured specimens on the right.
@@ -108,7 +92,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
       className="bc-bleed bc-graph-paper -mt-4 border-b border-deep-mocha-200/80 dark:border-deep-mocha-800"
       aria-label="Lepiverse"
     >
-      <div className="px-(--bc-gutter)]">
+      <div className="[padding-inline:var(--bc-gutter)]">
         <div
           className={`${LANDING_CONTAINER} @container grid items-center gap-10 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:gap-14 lg:py-16`}
         >

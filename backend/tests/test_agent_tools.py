@@ -8,6 +8,7 @@ import pytest
 from app.configs.config import PromptsConfig
 from app.services.agent_tools import (
     LocationArgs,
+    TraitArgs,
     build_tool_definitions,
     build_tool_registry,
     parse_tool_calls,
@@ -141,3 +142,33 @@ def test_common_names_pass_through_without_scientific_translation():
     assert calls[0].category == "filter"
     assert calls[0].args.common_name == "blue morpho"
     assert calls[1].args.reference_species == "monarch"
+
+
+def test_trait_args_accept_the_planner_s_casing():
+    args = TraitArgs.model_validate(
+        {
+            "canopy": "Closed",
+            "hostplant_family": "fabaceae",
+            "flight_months": ["June", "JUL"],
+        }
+    )
+    assert args.canopy == "closed"
+    assert args.hostplant_family == "Fabaceae"
+    assert args.flight_months == ["jun", "jul"]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {},
+        # The old graded vocabulary, which LepTraits never recorded.
+        {"canopy_affinity": "High"},
+        {"canopy": "high"},
+        {"hostplant_family": "Fabaceae; DROP TABLE"},
+        {"flight_months": ["summer"]},
+        {"flight_months": []},
+    ],
+)
+def test_trait_args_reject_unusable_values(arguments):
+    with pytest.raises(ValueError):
+        TraitArgs.model_validate(arguments)

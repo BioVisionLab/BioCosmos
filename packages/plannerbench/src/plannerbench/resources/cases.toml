@@ -6,7 +6,7 @@
 #   {}                                    any arguments
 #   { country = "BR" }                    exact value (case-insensitive, trimmed)
 #   { country = ["BR", "PE"] }            any of these values
-#   { canopy_affinity = "*" }             present, with any value
+#   { canopy = "*" }                      present, with any value
 #   { state_province = "-" }              not passed (null counts as not passed)
 #   { state_province = ["Amazonas", "-"] } that value, or not passed
 #
@@ -55,7 +55,7 @@ accept = [
 [[cases]]
 id = "trait-only"
 query = "butterflies that live in the forest canopy"
-accept = [{ search_by_traits = { canopy_affinity = "*" } }]
+accept = [{ search_by_traits = { canopy = "closed" } }]
 
 # --- Combinations ------------------------------------------------------------
 
@@ -79,13 +79,13 @@ accept = [
 [[cases]]
 id = "color-trait"
 query = "spotted butterflies in disturbed habitats"
-accept = [{ search_by_color = {}, search_by_traits = { disturbance_affinity = "*" } }]
+accept = [{ search_by_color = {}, search_by_traits = { disturbance = "tolerant" } }]
 
 [[cases]]
 id = "color-country-trait"
 query = "orange canopy butterflies in Costa Rica"
 accept = [
-  { search_by_color = {}, search_by_location = { country = "CR", state_province = "-" }, search_by_traits = { canopy_affinity = "*" } },
+  { search_by_color = {}, search_by_location = { country = "CR", state_province = "-" }, search_by_traits = { canopy = "*" } },
 ]
 
 # --- Descriptive queries with more than one reasonable reading ---------------
