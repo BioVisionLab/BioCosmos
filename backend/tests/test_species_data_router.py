@@ -521,6 +521,47 @@ class TestHigherTaxonEndpoints:
         assert response.status_code == 500
         assert response.headers.get("cache-control") == "no-store"
 
+    @patch("app.routers.species_data.OrderOverview")
+    def test_order_overview_success(self, MockOrder):
+        instance = MockOrder.return_value
+        instance.overview = AsyncMock(
+            return_value={
+                **OVERVIEW,
+                "key": "lepidoptera",
+                "name": "Lepidoptera",
+                "rank": "order",
+            }
+        )
+        response = client.get("/order/lepidoptera")
+        assert response.status_code == 200
+        assert response.json()["rank"] == "order"
+        assert "max-age=2592000" in response.headers["cache-control"]
+        assert "s-maxage=2592000" in response.headers["cache-control"]
+
+    @patch("app.routers.species_data.IngestionState")
+    @patch("app.routers.species_data.OrderOverview")
+    def test_order_overview_carries_the_ingestion_etag(self, MockOrder, MockState):
+        """A re-ingest changes the ETag, retiring the thirty-day entry early."""
+        MockOrder.return_value.overview = AsyncMock(return_value=OVERVIEW)
+        MockState.return_value.get.return_value = "fp1"
+        with patch.object(app.state, "duck_db", object(), create=True):
+            response = client.get("/order/lepidoptera")
+        assert response.headers["etag"] == 'W/"order:lepidoptera:fp1"'
+
+    @patch("app.routers.species_data.OrderOverview")
+    def test_a_missing_order_is_not_cached(self, MockOrder):
+        MockOrder.return_value.overview = AsyncMock(return_value=None)
+        response = client.get("/order/nope")
+        assert response.status_code == 404
+        assert response.headers.get("cache-control") == "no-store"
+
+    @patch("app.routers.species_data.OrderOverview")
+    def test_order_overview_error_is_not_cached(self, MockOrder):
+        MockOrder.return_value.overview = AsyncMock(side_effect=Exception("boom"))
+        response = client.get("/order/lepidoptera")
+        assert response.status_code == 500
+        assert response.headers.get("cache-control") == "no-store"
+
     @patch("app.routers.species_data.GenusOverview")
     def test_genus_overview_success(self, MockGenus):
         instance = MockGenus.return_value

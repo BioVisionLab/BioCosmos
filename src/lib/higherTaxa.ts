@@ -1,5 +1,5 @@
 /**
- * Data for the family and genus pages.
+ * Data for the order, family and genus pages.
  *
  * Server-only: `API_HOST` is not a `NEXT_PUBLIC_` variable, so this module is
  * imported by server components and never reaches the browser. Nothing on
@@ -17,7 +17,7 @@ import {
 } from "@/lib/colTaxonomy";
 import { speciesHref, toTaxonSlug } from "@/lib/taxonSlug";
 
-export type HigherRank = "family" | "genus";
+export type HigherRank = "order" | "family" | "genus";
 
 /**
  * Thirty days.
@@ -47,6 +47,8 @@ export interface TaxonNode {
   /** Only the ranks that have a page of their own carry one. */
   href: string | null;
   colLink: string | null;
+  /** Families with images below this node; set only on an order's tree. */
+  familyCount: number | null;
   genusCount: number | null;
   speciesCount: number;
   imageCount: number;
@@ -69,6 +71,8 @@ export interface HigherTaxon {
   /** The full lineage, for the header and the breadcrumb. */
   classification: ColTaxonomy | null;
   counts: {
+    /** Families the collection has images of; set only on an order. */
+    familyCount: number | null;
     genusCount: number | null;
     speciesCount: number;
     imageCount: number;
@@ -117,6 +121,7 @@ function normalizeNode(raw: unknown): TaxonNode | null {
     authorship: optionalText(source.authorship),
     href: optionalText(source.href),
     colLink: optionalText(source.colLink),
+    familyCount: optionalCount(source.familyCount),
     genusCount: optionalCount(source.genusCount),
     speciesCount: count(source.speciesCount),
     imageCount: count(source.imageCount),
@@ -197,6 +202,7 @@ function normalizeHigherTaxon(raw: unknown, rank: HigherRank): HigherTaxon | nul
     rank,
     classification: normalizeColTaxonomy(source.classification),
     counts: {
+      familyCount: optionalCount(counts.familyCount),
       genusCount: optionalCount(counts.genusCount),
       speciesCount: count(counts.speciesCount),
       imageCount: count(counts.imageCount),

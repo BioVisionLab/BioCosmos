@@ -39,10 +39,21 @@ const BADGE =
 const MUTED =
   "shrink-0 text-[0.6875rem] tabular-nums text-deep-mocha-500 dark:text-deep-mocha-400";
 
+// The taxon the page is about, when it appears in its own tree. The same pill
+// the species rung wears in the classification ladder.
+const HIGHLIGHT =
+  "rounded-md px-2 py-0.5 box-decoration-clone bg-gradient-to-r " +
+  "from-hunter-green-500/20 to-pacific-blue-500/20 font-semibold " +
+  "text-deep-mocha-900 dark:text-deep-mocha-50";
+
+type BottomRank = "family" | "genus" | "species";
+
 export interface TaxonomyTreeProps {
   nodes: TaxonNode[];
   /** The rank the tree stops at, which decides which nodes are links. */
-  bottomRank: "genus" | "species";
+  bottomRank: BottomRank;
+  /** Nodes of this rank are the page's own taxon, and are highlighted. */
+  highlightRank?: string;
   /** Every node in the tree, used to pick the default expansion. */
   nodeCount: number;
   /** A stable id so the controls island can find this subtree. */
@@ -64,13 +75,14 @@ export interface TaxonomyTreeProps {
  * React state that triggers a re-render, or every node would snap back to the
  * state the server chose. Nothing does today.
  *
- * On both pages every node that links somewhere is a leaf and every node with
+ * On every page every node that links somewhere is a leaf and every node with
  * children links nowhere, so a link never sits inside a `<summary>` and
  * clicking one cannot also toggle a disclosure.
  */
 export default function TaxonomyTree({
   nodes,
   bottomRank,
+  highlightRank,
   nodeCount,
   id,
 }: TaxonomyTreeProps) {
@@ -83,6 +95,7 @@ export default function TaxonomyTree({
             key={`${node.rank}:${node.key}`}
             node={node}
             bottomRank={bottomRank}
+            highlightRank={highlightRank}
             eager={eager}
           />
         ))}
@@ -94,10 +107,12 @@ export default function TaxonomyTree({
 function TreeNode({
   node,
   bottomRank,
+  highlightRank,
   eager,
 }: {
   node: TaxonNode;
-  bottomRank: "genus" | "species";
+  bottomRank: BottomRank;
+  highlightRank?: string;
   eager: boolean;
 }) {
   const hasChildren = node.children.length > 0;
@@ -106,7 +121,13 @@ function TreeNode({
   // hundreds — and seeing them is the point of the page, so they stay open.
   // Only the level holding the bulk collapses, and only when there is bulk.
   const childrenAreTerminal = node.children[0]?.rank === bottomRank;
-  const open = eager || !childrenAreTerminal;
+  // The order tree is the exception: most of its forty-odd superfamilies are
+  // moths the collection holds nothing of, so the few with images open and
+  // the rest stay folded.
+  const open =
+    eager ||
+    !childrenAreTerminal ||
+    (bottomRank === "family" && node.imageCount > 0);
 
   return (
     <li className={ITEM} data-taxon-name={node.name.toLowerCase()}>
@@ -123,7 +144,11 @@ function TreeNode({
               aria-hidden="true"
               className="h-3.5 w-3.5 shrink-0 self-center text-hunter-green-600 dark:text-hunter-green-400 transition-transform duration-150 group-open/node:rotate-90"
             />
-            <NodeLabel node={node} bottomRank={bottomRank} />
+            <NodeLabel
+              node={node}
+              bottomRank={bottomRank}
+              highlightRank={highlightRank}
+            />
           </summary>
           <ul className={LIST}>
             {node.children.map((child) => (
@@ -131,6 +156,7 @@ function TreeNode({
                 key={`${child.rank}:${child.key}`}
                 node={child}
                 bottomRank={bottomRank}
+                highlightRank={highlightRank}
                 eager={eager}
               />
             ))}
@@ -138,7 +164,11 @@ function TreeNode({
         </details>
       ) : (
         <span className={`${ROW} pl-5`}>
-          <NodeLabel node={node} bottomRank={bottomRank} />
+          <NodeLabel
+            node={node}
+            bottomRank={bottomRank}
+            highlightRank={highlightRank}
+          />
         </span>
       )}
     </li>
@@ -148,14 +178,24 @@ function TreeNode({
 function NodeLabel({
   node,
   bottomRank,
+  highlightRank,
 }: {
   node: TaxonNode;
-  bottomRank: "genus" | "species";
+  bottomRank: BottomRank;
+  highlightRank?: string;
 }) {
   const italic = ITALIC_COL_RANKS.has(node.rank) ? "italic" : "";
   // Only the terminal rank has a page of its own. The ranks in between are
   // plain text because there is nowhere to send a reader who clicks one.
   const href = node.rank === bottomRank ? node.href : null;
+  // A terminal node without a page: on the order tree, a family Catalogue of
+  // Life lists but the collection holds nothing of. Shown, because it is part
+  // of the classification, but set back so it does not read as a dead link.
+  const empty = node.rank === bottomRank && !href;
+  const highlighted = !!highlightRank && node.rank === highlightRank;
+  const nameTone = empty
+    ? "text-deep-mocha-500 dark:text-deep-mocha-400"
+    : "text-deep-mocha-800 dark:text-deep-mocha-100";
 
   return (
     <>
@@ -171,12 +211,10 @@ function NodeLabel({
         >
           {node.name}
         </Link>
+      ) : highlighted ? (
+        <span className={`${italic} ${HIGHLIGHT}`}>{node.name}</span>
       ) : (
-        <span
-          className={`${italic} font-medium text-deep-mocha-800 dark:text-deep-mocha-100`}
-        >
-          {node.name}
-        </span>
+        <span className={`${italic} font-medium ${nameTone}`}>{node.name}</span>
       )}
       {node.authorship ? (
         <span className="text-deep-mocha-500 dark:text-deep-mocha-400 text-xs font-normal">
@@ -189,6 +227,15 @@ function NodeLabel({
       {node.recordedName ? (
         <span className="text-deep-mocha-500 dark:text-deep-mocha-400 text-xs italic">
           recorded as {node.recordedName}
+        </span>
+      ) : null}
+      {node.familyCount ? (
+        <span className={BADGE}>
+          {node.familyCount.toLocaleString()}
+          <span className="sr-only">
+            {node.familyCount === 1 ? " family" : " families"}
+          </span>
+          <span aria-hidden="true"> fam</span>
         </span>
       ) : null}
       {/* Suppressed on leaves: "0 genera" is the one thing a reader of a leaf

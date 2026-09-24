@@ -1,7 +1,8 @@
 import type { HigherTaxon } from "@/lib/higherTaxa";
 
 /**
- * The name of a family or genus, and how much of the collection sits under it.
+ * The name of an order, family or genus, and how much of the collection sits
+ * under it.
  *
  * Deliberately not the species header. `SpeciesTitle` centres a large name
  * because a species page is about one organism; a higher taxon is a
@@ -14,6 +15,9 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
   const authorship = taxon.classification?.authorship;
 
   const stats: { label: string; value: number }[] = [];
+  if (taxon.counts.familyCount !== null) {
+    stats.push({ label: "families", value: taxon.counts.familyCount });
+  }
   if (taxon.counts.genusCount !== null) {
     stats.push({ label: "genera", value: taxon.counts.genusCount });
   }

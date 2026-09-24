@@ -1,4 +1,4 @@
-"""Data access for the family and genus pages.
+"""Data access for the order, family and genus pages.
 
 A higher-taxon page asks three things of the database: which taxa sit below
 this one, how much of the collection each of them accounts for, and which
@@ -25,11 +25,19 @@ from ..database.duckdb import DuckDBClient
 logger = logging.getLogger(__name__)
 
 
-Scope = Literal["family", "genus"]
+Scope = Literal["order", "family", "genus"]
 
 # Which harmonized column each page scopes on. Kept as a table rather than
 # interpolating the caller's string: the scope reaches here from a URL.
+#
+# The harmonized table records no order, so an order is scoped through the
+# backbone: its images are those of the families CoL places in it. `{col}` is
+# the backbone's table name, which comes from config and never from a URL.
 _SCOPE_PREDICATE: dict[Scope, str] = {
+    "order": (
+        "lower(t.accepted_family) IN (SELECT coalesce(family_norm, name_norm) "
+        "FROM {col} WHERE taxon_rank = 'family' AND lower(\"order\") = ?)"
+    ),
     "family": "lower(t.accepted_family) = ?",
     "genus": "lower(split_part(t.accepted_name, ' ', 1)) = ?",
 }
@@ -162,6 +170,67 @@ class HigherTaxonRepository:
         return _MATCHED_IMAGES.format(
             image_meta=self.image_meta_table, status=self.status_table
         )
+
+    def order_members(self, order_key: str) -> list[dict]:
+        """Every family Catalogue of Life places in one order, with its counts.
+
+        The tree is the backbone's, not the collection's: a family with no
+        images here is still a family of the order, and leaving it out would
+        present the collection's gaps as the order's classification. Such a
+        family comes back with zero counts, and the page shows it without a
+        link.
+
+        Without the backbone there is no classification to draw, so there is
+        no order page either.
+        """
+        if not self.harmonized_available() or not self.col_available():
+            return []
+
+        name_expr = _clean_name("f.scientific_name")
+        query = f"""
+    WITH families AS (
+        -- A family's own row may leave its `family` column empty, because
+        -- the classification columns describe a row's ancestors; its name is
+        -- then the only place the family is written.
+        SELECT coalesce(family_norm, name_norm) AS family_norm,
+               scientific_name,
+               nullif(trim(authorship), '')  AS authorship,
+               usage_id,
+               col_link,
+               nullif(trim(suborder), '')    AS suborder,
+               nullif(trim(superfamily), '') AS superfamily
+        FROM {self.col_table}
+        WHERE taxon_rank = 'family'
+          AND is_accepted
+          AND lower("order") = ?
+        QUALIFY row_number() OVER (
+            PARTITION BY coalesce(family_norm, name_norm) ORDER BY usage_id
+        ) = 1
+    ), matched AS ({self._matched_images()}
+          AND lower(t.accepted_family) IN (SELECT family_norm FROM families)
+    ), rollup AS (
+        SELECT family_key,
+               count(DISTINCT nullif(genus_key, '')) AS genus_count,
+               count(DISTINCT accepted_species)      AS species_count,
+               count(*)                              AS image_count
+        FROM matched
+        GROUP BY family_key
+    )
+    SELECT f.family_norm AS family_key,
+           {name_expr} AS family_name,
+           f.authorship,
+           f.usage_id AS col_id,
+           f.col_link,
+           f.suborder,
+           f.superfamily,
+           coalesce(r.genus_count, 0)   AS genus_count,
+           coalesce(r.species_count, 0) AS species_count,
+           coalesce(r.image_count, 0)   AS image_count
+    FROM families f
+    LEFT JOIN rollup r ON r.family_key = f.family_norm
+    ORDER BY f.family_norm
+        """
+        return self._rows(query, [order_key], f"order members for '{order_key}'")
 
     def family_members(self, family_key: str) -> list[dict]:
         """The genera of one family, with the CoL rank each sits under.
@@ -355,7 +424,9 @@ class HigherTaxonRepository:
         """
         if not self.harmonized_available():
             return []
-        predicate = _SCOPE_PREDICATE[scope]
+        if scope == "order" and not self.col_available():
+            return []
+        predicate = _SCOPE_PREDICATE[scope].format(col=self.col_table)
 
         query = f"""
     WITH matched AS ({self._matched_images()}

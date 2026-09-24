@@ -11,7 +11,7 @@ from ..query.featured_species import (
     FeaturedSpecies,
     seconds_until_rotation,
 )
-from ..query.higher_taxa import FamilyOverview, GenusOverview
+from ..query.higher_taxa import FamilyOverview, GenusOverview, OrderOverview
 from ..query.specimen_data import SpecimenData
 from ..query.species_coordinates import SpeciesCoordinates
 from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
@@ -399,6 +399,34 @@ def _overview_etag(request: Request, rank: str, key: str) -> str | None:
     except Exception:  # noqa: BLE001 - an ETag is never worth failing a request
         return None
     return f"{rank}:{key}:{fingerprint}" if fingerprint else None
+
+
+@router.get("/order/{order_name}", tags=["Species Data"])
+async def fetch_order_overview(request: Request, order_name: str):
+    """Everything the order page renders. Same shape as the family overview.
+
+    The tree lists every family Catalogue of Life places in the order, with
+    zero counts for those the collection has no images of.
+    """
+    try:
+        overview = await OrderOverview(request=request, name=order_name).overview()
+        if not overview:
+            raise HTTPException(
+                status_code=404, detail=f"No data found for order: {order_name}"
+            )
+        return cached_json(
+            overview, etag=_overview_etag(request, "order", order_name.lower())
+        )
+    except HTTPException as error:
+        error.headers = {**(error.headers or {}), "Cache-Control": NO_STORE}
+        raise
+    except Exception:
+        logger.exception(f"Error fetching order overview for {order_name}")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred.",
+            headers={"Cache-Control": NO_STORE},
+        )
 
 
 @router.get("/family/{family_name}", tags=["Species Data"])

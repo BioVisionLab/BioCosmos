@@ -217,6 +217,12 @@ class RankScopedSearch:
             return []
 
 
+class OrderSearch(RankScopedSearch):
+    """Order-level taxon search against the CoL backbone."""
+
+    rank = "order"
+
+
 class FamilySearch(RankScopedSearch):
     """Family-level taxon search against the CoL backbone."""
 

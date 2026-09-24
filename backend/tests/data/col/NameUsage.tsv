@@ -16,3 +16,6 @@ TRIB1	SUBF1	accepted	Coenonymphini	Tutt, 1896	tribe				Animalia	Arthropoda	Hexap
 GEN4	TRIB1	accepted	Aphantopus	Wallengren, 1853	genus				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera		Papilionoidea	Nymphalidae	Satyrinae	Coenonymphini										
 AAA4	GEN4	accepted	Aphantopus hyperantus	(Linnaeus, 1758)	species	Aphantopus	hyperantus		Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera		Papilionoidea	Nymphalidae	Satyrinae	Coenonymphini		Aphantopus								
 GEN3	FAM2	accepted	Zzzonympha	Other, 1899	genus				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera			Erebidae												
+ORD1		accepted	Lepidoptera	Linnaeus, 1758	order				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera											https://www.catalogueoflife.org/data/taxon/ORD1				
+FAM2	ORD1	accepted	Erebidae	Leach, 1815	family				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera	Glossata	Noctuoidea													
+FAM3	ORD1	accepted	Hesperiidae	Latreille, 1809	family				Animalia	Arthropoda	Hexapoda	Insecta		Lepidoptera		Papilionoidea													
