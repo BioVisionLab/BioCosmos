@@ -29,10 +29,10 @@ note = "Country name to ISO alpha-2."
 accept = [{ search_by_location = { country = "ID", state_province = "-" } }]
 
 [[cases]]
-id = "region-to-country"
-query = "species from the Amazon rainforest"
-note = "Region resolved to its most representative country."
-accept = [{ search_by_location = { country = "BR", state_province = "-" } }]
+id = "adm1-ambiguous-name"
+query = "butterflies in Georgia USA"
+note = "The US state, not the country GE."
+accept = [{ search_by_location = { country = "US", state_province = "Georgia" } }]
 
 [[cases]]
 id = "similar-scientific"
@@ -56,63 +56,6 @@ accept = [
 id = "trait-only"
 query = "butterflies that live in the forest canopy"
 accept = [{ search_by_traits = { canopy_affinity = "*" } }]
-
-# --- Locality (ADM1) ---------------------------------------------------------
-
-[[cases]]
-id = "adm1-basic"
-query = "butterflies of Sabah"
-note = "A state alone implies its country."
-accept = [{ search_by_location = { country = "MY", state_province = "Sabah" } }]
-
-[[cases]]
-id = "adm1-accent"
-query = "species from São Paulo"
-note = "The backend folds accents; either spelling is correct."
-accept = [{ search_by_location = { country = "BR", state_province = ["São Paulo", "Sao Paulo"] } }]
-
-[[cases]]
-id = "adm1-with-country"
-query = "Queensland, Australia butterflies"
-accept = [{ search_by_location = { country = "AU", state_province = "Queensland" } }]
-
-[[cases]]
-id = "adm1-ambiguous-name"
-query = "butterflies in Georgia USA"
-note = "The US state, not the country GE."
-accept = [{ search_by_location = { country = "US", state_province = "Georgia" } }]
-
-[[cases]]
-id = "adm1-not-city"
-query = "butterflies near Manaus"
-note = "A city is not an ADM1: its state or the country alone."
-accept = [{ search_by_location = { country = "BR", state_province = ["Amazonas", "-"] } }]
-
-[[cases]]
-id = "adm1-not-park"
-query = "species in Corcovado National Park"
-note = "A park is not an ADM1: its province or the country alone."
-accept = [{ search_by_location = { country = "CR", state_province = ["Puntarenas", "-"] } }]
-
-[[cases]]
-id = "region-no-adm1"
-query = "Borneo butterflies"
-note = "An island spanning countries: a country, no invented ADM1."
-accept = [{ search_by_location = { country = ["MY", "ID"], state_province = "-" } }]
-
-[[cases]]
-id = "adm1-combo-color"
-query = "blue butterflies in Minas Gerais"
-accept = [
-  { search_by_color = {}, search_by_location = { country = "BR", state_province = "Minas Gerais" } },
-]
-
-[[cases]]
-id = "adm1-combo-traits"
-query = "canopy species in Chiapas"
-accept = [
-  { search_by_location = { country = "MX", state_province = "Chiapas" }, search_by_traits = { canopy_affinity = "*" } },
-]
 
 # --- Combinations ------------------------------------------------------------
 

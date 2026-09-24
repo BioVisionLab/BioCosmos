@@ -7,6 +7,19 @@ from unittest.mock import MagicMock, patch
 from app.query.precomputed_similarity import PrecomputedSpeciesSimilarity
 
 
+def pages_resolving(keys=None, missing=()):
+    """A page resolver that gives each image a page of its own.
+
+    `keys` overrides the page of chosen images; `missing` have none.
+    """
+    keys = keys or {}
+    pages = MagicMock()
+    pages.page_keys_for_images.side_effect = lambda ids: {
+        i: keys.get(i, f"page_{i}") for i in ids if i not in missing
+    }
+    return pages
+
+
 class TestPrecomputedSpeciesSimilarity:
     """Unit tests for precomputed similarity lookups."""
 
@@ -15,6 +28,7 @@ class TestPrecomputedSpeciesSimilarity:
         sim.taxonomy = MagicMock()
         sim.taxonomy.get_for_images.return_value = resolved or {}
         sim.taxonomy.accepted_keys_for_species.return_value = set()
+        sim.pages = pages_resolving()
         return sim
 
     # ------------------------------------------------------------------
@@ -204,8 +218,25 @@ class TestPrecomputedSpeciesSimilarity:
         row = sim.find_similar_species("danaus plexippus")["dorsal"][0]
 
         assert row["acceptedName"] == "Vanessa cardui"
-        # The link target stays the name the images are filed under.
         assert row["species"] == "vanessa_carduii"
+
+    def test_links_to_the_species_page(self, fake_request):
+        """Not the recorded spelling, whose own page is an orphan."""
+        duck = fake_request.app.state.duck_db
+        duck.execute = MagicMock(return_value=MagicMock(fetchone=lambda: (1,)))
+        self._rows(duck, [
+            {"species": "vanessa_carduii", "imgId": "typo", "distance": 0.1},
+            {"species": "danaus_x_y", "imgId": "orphan", "distance": 0.2},
+        ])
+        sim = self._make_instance(fake_request, resolved={
+            "typo": self._record("typo", "COL:2"),
+            "orphan": self._record("orphan", "COL:3", "Danaus x"),
+        })
+        sim.pages = pages_resolving({"typo": "vanessa_cardui"}, missing={"orphan"})
+
+        dorsal = sim.find_similar_species("danaus plexippus")["dorsal"]
+
+        assert [row["speciesKey"] for row in dorsal] == ["vanessa_cardui"]
 
     def test_spellings_of_one_taxon_collapse_to_one_card(self, fake_request):
         duck = fake_request.app.state.duck_db

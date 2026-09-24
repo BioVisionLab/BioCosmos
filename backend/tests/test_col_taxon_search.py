@@ -10,7 +10,7 @@ import os
 
 import pytest
 
-from app.database.model import ColReference, ColTaxonomy
+from app.database.model import ColReference, ColTaxonomy, ColTypeSpecimen
 from app.services.col import ColBackboneService, ColTaxonSearch
 
 
@@ -395,11 +395,31 @@ class TestTaxonomyDetail:
         # Recombined, but CoL links no basionym.
         assert result["nomenclature"]["isOriginalCombination"] is None
 
+    def test_type_summary_comes_from_the_basionym(self, backbone):
+        summary = detail(backbone, "Coenonympha pamphilus")["typeSummary"]
+        assert summary["kind"] == "lectotype"
+        assert summary["typifiedName"] == "Papilio pamphilus"
+        assert summary["repository"] == "LSL LSL-1"
+        assert summary["locality"] == "Sweden, Uppsala"
+        assert summary["country"] == "SE"
+        assert summary["latitude"] == 59.86
+
+    def test_type_summary_without_a_recorded_locality(self, backbone):
+        summary = detail(backbone, "Zzzonympha pamphilus")["typeSummary"]
+        assert summary["kind"] == "holotype"
+        assert summary["repository"] == "NHMUK"
+        assert summary["locality"] is None
+        assert summary["country"] is None
+
+    def test_no_type_summary_without_types(self, backbone):
+        assert detail(backbone, "Aphantopus hyperantus")["typeSummary"] is None
+
     def test_degrades_without_the_detail_tables(self, backbone):
         backbone.db_client.execute("DROP TABLE col_type_material")
         result = detail(backbone, "Coenonympha pamphilus")
         assert result["detailAvailable"] is False
         assert result["typeMaterial"] == []
+        assert result["typeSummary"] is None
         assert result["nameUsages"][0]["name"] == "Coenonympha pamphilus"
 
 
@@ -418,3 +438,45 @@ class TestColReference:
 
     def test_nothing_to_cite(self):
         assert ColReference.from_row({}, "ref_") is None
+
+
+def specimen(status, *, typifies=True, locality=None, country=None, name=None):
+    return ColTypeSpecimen(
+        status=status,
+        typifiedName=name,
+        locality=locality,
+        country=country,
+        typifiesSpecies=typifies,
+    )
+
+
+class TestTypeSummary:
+    summarize = staticmethod(ColTaxonSearch._type_summary)
+
+    def test_a_synonym_type_is_not_the_species_type(self):
+        summary = self.summarize(
+            [
+                specimen("holotype", typifies=False, locality="Elsewhere"),
+                specimen("paratype", locality="Here"),
+            ]
+        )
+        assert summary.kind == "paratype"
+        assert summary.locality == "Here"
+
+    def test_the_locality_falls_through_to_a_later_type(self):
+        summary = self.summarize(
+            [
+                specimen("holotype", name="Papilio x"),
+                specimen("paratype", country="SE"),
+            ]
+        )
+        assert summary.kind == "holotype"
+        assert summary.typifiedName == "Papilio x"
+        assert summary.locality is None
+        assert summary.country == "SE"
+
+    def test_only_synonym_types_give_no_summary(self):
+        assert self.summarize([specimen("holotype", typifies=False)]) is None
+
+    def test_no_types_give_no_summary(self):
+        assert self.summarize([]) is None

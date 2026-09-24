@@ -15,10 +15,9 @@ import { safeWebUrl } from "@/lib/imageMetadata";
 import {
   cleanSpeciesName,
   formatSpeciesNameForUrl,
-  isSpeciesName,
-  speciesUrlFromName,
   toBinomialName,
 } from "@/lib/names";
+import { speciesPageHref } from "@/lib/taxonSlug";
 import { FlaskConical } from "lucide-react";
 import SearchFieldSelect, {
   type SearchFieldGroup,
@@ -114,28 +113,25 @@ function HighlightText({
 /**
  * Wrap children in a link to the species page, when there is one to link to.
  *
- * A record identified only to genus has no species page: `/species/vanessa`
- * resolves to an empty gallery. The result is still worth showing — it is a
- * real image that matched — so the card renders without pretending to lead
- * somewhere.
+ * The backend names the page (`species_key`) and leaves it null for a result
+ * with none, such as one identified only to genus. The result is still worth
+ * showing, so the card renders without pretending to lead somewhere.
  */
 function MaybeSpeciesLink({
-  species,
+  speciesKey,
   className,
   children,
 }: {
-  species: string;
+  speciesKey: string | null;
   className?: string;
   children: React.ReactNode;
 }) {
-  if (!isSpeciesName(species)) {
+  const href = speciesPageHref(speciesKey);
+  if (!href) {
     return <div className={className}>{children}</div>;
   }
   return (
-    <Link
-      href={`/species/${speciesUrlFromName(species)}`}
-      className={className}
-    >
+    <Link href={href} className={className}>
       {children}
     </Link>
   );
@@ -145,10 +141,10 @@ function MaybeSpeciesLink({
  * The Species cell: the Catalogue of Life accepted name, with the name as
  * recorded beneath it when the two differ.
  *
- * The link deliberately targets the *recorded* slug. Every image endpoint
- * keys on `image_meta.species`, so linking the accepted slug would open a
- * species page with an empty gallery for exactly the renamed taxa this
- * feature exists to surface.
+ * The link targets the page the backend chose (`species_key`): the accepted
+ * species' canonical recorded spelling. Neither the accepted slug nor this
+ * record's own spelling will do — the first can open an empty gallery, the
+ * second a page orphaned under a synonym or misspelling.
  */
 function renderTaxonCell(specimen: SpecimenMetadata, query: string) {
   const matched = specimen.matched_fields || [];
@@ -186,12 +182,9 @@ function renderTaxonCell(specimen: SpecimenMetadata, query: string) {
   }
 
   const isGenusOnly = specimen.accepted_rank === "genus";
-  // Linked only when the record names a species. A genus has no species page
-  // to open, so the name stays plain text and the marker beside it says why.
-  const href =
-    recorded && isSpeciesName(recorded)
-      ? `/species/${speciesUrlFromName(recorded)}`
-      : undefined;
+  // Linked only when the record has a species page. A genus has none to open,
+  // so the name stays plain text and the marker beside it says why.
+  const href = speciesPageHref(specimen.species_key);
 
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
@@ -864,7 +857,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
         <ImageLoading size={IMAGE_SIZE} />
       ) : (
         <MaybeSpeciesLink
-          species={data.species}
+          speciesKey={data.species_key}
           className="flex flex-col items-center justify-between h-full w-full gap-2"
         >
           <div className="flex flex-1 items-center justify-center w-full">

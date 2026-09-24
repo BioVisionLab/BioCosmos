@@ -12,6 +12,7 @@ from ..configs.config import ImageConfig
 from ..database.lance import LanceDB
 from .unicom import UnicomImageEmbedder
 from .clip import ClipEmbedder
+from .species_pages import SpeciesPageResolver, attach_page_keys
 
 
 logger = logging.getLogger(__name__)
@@ -601,17 +602,31 @@ class ImagePersistData:
             return results
 
     def _filter_by_species(self, results: pl.DataFrame) -> pl.DataFrame:
-        """Filter the results to ensure only one image per species is kept."""
+        """Keep the nearest image of each species page, and only those.
+
+        Each row gains a `speciesKey`: the page it links to. An image whose
+        record did not resolve to a species with a reachable page is dropped,
+        since its own recorded name would open an orphaned page. Two spellings
+        of one species share a page and so make one result.
+        """
         try:
             if results is None:
                 self.logger.warning("No results to filter by species.")
                 return results
 
+            keyed = attach_page_keys(results, SpeciesPageResolver(self.meta_table))
             # Keep the first occurrence of each species (most similar).
             # `keep="first"` is load-bearing: polars defaults to "any", which
             # would discard the sort above and pick an arbitrary image.
-            filtered_results = results.sort("distance", descending=False).unique(
-                subset=["species"], keep="first", maintain_order=True
+            filtered_results = (
+                keyed.with_columns(
+                    pl.coalesce(
+                        pl.col("speciesKey"), pl.col("species").cast(pl.String)
+                    ).alias("_dedupe")
+                )
+                .sort("distance", descending=False)
+                .unique(subset=["_dedupe"], keep="first", maintain_order=True)
+                .drop("_dedupe")
             )
 
             return filtered_results

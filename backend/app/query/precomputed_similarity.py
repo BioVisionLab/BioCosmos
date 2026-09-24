@@ -4,6 +4,7 @@ import polars as pl
 from fastapi import Request
 
 from ..database.duckdb import DuckDBClient
+from ..services.species_pages import SpeciesPageResolver
 from ..services.taxonomy_update import OccurrenceTaxonomy
 from .species_similarity import (
     VisuallySimilarSpeciesPayload,
@@ -27,6 +28,7 @@ class PrecomputedSpeciesSimilarity:
         self.limit = limit
         # One lookup for both sides; it caches its own table probe.
         self.taxonomy = OccurrenceTaxonomy(duckdb_client=self.duck_db)
+        self.pages = SpeciesPageResolver(self.duck_db)
 
     def find_similar_species(
         self, species_name: str, side: str | None = None
@@ -109,7 +111,7 @@ class PrecomputedSpeciesSimilarity:
             return []
 
         return resolve_similar_species(
-            result.to_dicts(), self.taxonomy, exclude_keys, self.limit
+            result.to_dicts(), self.taxonomy, exclude_keys, self.limit, self.pages
         )
 
     def _table_exists(self) -> bool:

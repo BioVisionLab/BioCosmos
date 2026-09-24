@@ -110,7 +110,14 @@ class TestFetchVisuallySimilarSpecies:
     def test_precomputed_result_returned(self):
         precomputed = MagicMock()
         precomputed.find_similar_species.return_value = {
-            "dorsal": [{"species": "vanessa_cardui", "imgId": "img-001", "distance": 0.1}],
+            "dorsal": [
+                {
+                    "species": "vanessa_cardui",
+                    "speciesKey": "vanessa_cardui",
+                    "imgId": "img-001",
+                    "distance": 0.1,
+                }
+            ],
             "ventral": [],
         }
         runtime = MagicMock()
@@ -139,6 +146,7 @@ class TestFetchVisuallySimilarSpecies:
             "dorsal": [
                 {
                     "species": "vanessa_cardui",
+                    "speciesKey": "vanessa_cardui",
                     "imgId": "img-001",
                     "distance": 0.1,
                     "acceptedName": None,
@@ -147,6 +155,7 @@ class TestFetchVisuallySimilarSpecies:
                 },
                 {
                     "species": "vanessa_atalanta",
+                    "speciesKey": "vanessa_atalanta",
                     "imgId": "img-002",
                     "distance": 0.2,
                     "acceptedName": "Vanessa atalanta",
@@ -179,7 +188,14 @@ class TestFetchVisuallySimilarSpecies:
         runtime = MagicMock()
         runtime.find_similar_species.return_value = {
             "dorsal": [],
-            "ventral": [{"species": "vanessa_atalanta", "imgId": "img-002", "distance": 0.2}],
+            "ventral": [
+                {
+                    "species": "vanessa_atalanta",
+                    "speciesKey": "vanessa_atalanta",
+                    "imgId": "img-002",
+                    "distance": 0.2,
+                }
+            ],
         }
 
         app.dependency_overrides[get_precomputed_similarity] = lambda: precomputed
@@ -363,6 +379,7 @@ class TestFetchVisuallySimilarSpecies:
             "dorsal": [
                 {
                     "species": "vanessa_cardui",
+                    "speciesKey": "vanessa_cardui",
                     "imgId": "img-001",
                     "distance": 0.1,
                     "acceptedName": "Vanessa cardui",

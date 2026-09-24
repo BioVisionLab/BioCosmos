@@ -427,6 +427,9 @@ class ColTypeSpecimen(BaseModel):
     remarks: str | None = None
     reference: ColReference | None = None
     referencePage: str | None = None
+    # Whether it typifies this species: the accepted name or its original
+    # combination. A junior synonym's type typifies a different name.
+    typifiesSpecies: bool = True
 
     @staticmethod
     def _to_float(value: str | None) -> float | None:
@@ -436,7 +439,7 @@ class ColTypeSpecimen(BaseModel):
             return None
 
     @classmethod
-    def from_row(cls, row: dict) -> "ColTypeSpecimen":
+    def from_row(cls, row: dict, typifies_species: bool = True) -> "ColTypeSpecimen":
         def get(key: str) -> str | None:
             return _row_text(row, key)
 
@@ -459,7 +462,25 @@ class ColTypeSpecimen(BaseModel):
             remarks=get("remarks"),
             reference=ColReference.from_row(row, "ref_"),
             referencePage=get("page"),
+            typifiesSpecies=typifies_species,
         )
+
+
+class ColTypeSummary(BaseModel):
+    """The species' name-bearing type and where it was collected.
+
+    Drawn only from types of the accepted name or its original combination.
+    The kind is the highest-ranking such type; the locality may come from a
+    later one when that type records none.
+    """
+
+    kind: str
+    typifiedName: str | None = None
+    repository: str | None = None
+    locality: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class ColNomenclature(BaseModel):
@@ -486,6 +507,7 @@ class ColTaxonomyDetail(BaseModel):
     nomenclature: ColNomenclature
     nameUsages: list[ColNameUsage]
     typeMaterial: list[ColTypeSpecimen]
+    typeSummary: ColTypeSummary | None = None
     # False when the database predates the type-material and reference
     # tables, so empty lists mean "not loaded" rather than "none recorded".
     detailAvailable: bool = True
