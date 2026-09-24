@@ -202,6 +202,11 @@ const GBIF_DENSITY_TILE_URL =
  * whole range is drawn at any zoom for the cost of a few tiles — rather than
  * the first page of the occurrence search, which showed whichever 200 records
  * GBIF happened to return first. The hexagons shrink as the map zooms in.
+ *
+ * The style ramps from hot pink to deep plum, so the darkest hexagons are the
+ * densest. `purpleYellow` ran the other way (densest was the palest), and the
+ * `colors` parameter is ignored by the PNG density tiles. The pink/plum hues
+ * also stay clear of the green and orange specimen markers drawn on top.
  */
 function gbifDensityTileUrl(taxonKey: number): string {
   const params = new URLSearchParams({
@@ -209,7 +214,7 @@ function gbifDensityTileUrl(taxonKey: number): string {
     srs: "EPSG:3857",
     bin: "hex",
     hexPerTile: "40",
-    style: "purpleYellow-noborder.poly",
+    style: "iNaturalist.poly",
   });
   return `${GBIF_DENSITY_TILE_URL}?${params.toString()}`;
 }

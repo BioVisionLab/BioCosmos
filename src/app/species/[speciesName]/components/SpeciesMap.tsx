@@ -145,7 +145,7 @@ function SpeciesDistribution({
                 className="inline-block w-6 h-2.5 rounded-sm shrink-0"
                 style={{
                   background:
-                    "linear-gradient(to right, #5e0b7a, #c43d6c, #fbe54a)",
+                    "linear-gradient(to right, #f6005a, #b4006c, #71005e)",
                 }}
               />
               <span>
