@@ -142,7 +142,7 @@ export default function ColorSearch() {
         id="visual-search-heading"
         eyebrow="Visual search"
         title="Explore by appearance"
-        description="Pick a colour or pattern. Results are ranked by image similarity, not by labels."
+        description="Pick a colour or pattern. Results are ranked by image similarity. You can use semantic search for more complex queries."
       />
 
       <div className={LANDING_CONTAINER}>

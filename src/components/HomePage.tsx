@@ -134,9 +134,9 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               <strong className="font-semibold text-deep-mocha-900 dark:text-deep-mocha-50">
                 modern machine learning
               </strong>
-              . We validate and harmonize <Compound>research-grade</Compound>{" "}
-              resources from museums and aggregators so they can be searched
-              in one place.
+              . We clean, validate, and harmonize records from museums and
+              aggregators, and use computer vision to extract traits and
+              patterns from specimen images.
             </p>
 
             {/* relative z-10: bc-rise leaves a transform behind, which makes
@@ -238,7 +238,7 @@ function HomeContent({
           id="featured-heading"
           eyebrow="Featured species"
           title="Browse featured butterflies"
-          description="A daily sample of the species with the most complete records: both wing surfaces, validated localities, museum specimens, traits, and more."
+          description="A sample of the species with the most complete records (updated daily)."
           className="bc-reveal"
         />
         {/* Its own container, so the rail's breakout lines its first card
@@ -275,11 +275,11 @@ function Acknowledgments() {
           className="mb-3"
         />
         <p className="max-w-3xl text-sm sm:text-base leading-relaxed text-deep-mocha-700 dark:text-deep-mocha-300">
-          This website would not be possible without the natural history
-          museums that care for and digitize their collections, the taxonomic
-          curators whose expertise keeps every name accurate, and all the
-          contributors who share their specimens, images, and records with the
-          world. Thank you.
+          This website would not be possible without the natural history museums
+          that care for and digitize their collections, the taxonomic curators
+          whose expertise keeps every name accurate, and all the contributors
+          who share their specimens, images, and records with the world. Thank
+          you.
         </p>
         <p className="mt-3 text-sm">
           <Link
