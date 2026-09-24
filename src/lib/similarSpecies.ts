@@ -16,8 +16,10 @@ export interface SimilarSpeciesMeta {
    * The species page the card links to: the accepted species' canonical
    * recorded spelling, chosen by the backend. Not `species`, which may be a
    * synonym or misspelling whose own page is orphaned.
+   *
+   * Optional because a CDN-cached payload from an older backend lacks it.
    */
-  speciesKey: string;
+  speciesKey?: string;
   /**
    * The accepted taxon the record resolves to. Null only when no
    * harmonization run has been loaded, or when the precomputed table predates

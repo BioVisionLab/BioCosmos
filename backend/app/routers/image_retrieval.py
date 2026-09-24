@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Request
 from fastapi import HTTPException
@@ -124,6 +125,7 @@ async def fetch_species_image_ids(
     scientific_name: str,
     limit: int = DEFAULT_IMAGE_ID_LIMIT,
     offset: int = 0,
+    order: Literal["id", "view"] = "id",
 ):
     """
     Takes in a species name.
@@ -134,6 +136,9 @@ async def fetch_species_image_ids(
         limit (int, optional): Maximum IDs to return. Clamped to
             1..MAX_IMAGE_ID_LIMIT. Defaults to DEFAULT_IMAGE_ID_LIMIT.
         offset (int, optional): Number of IDs to skip. Defaults to 0.
+        order (str, optional): "view" sorts the page dorsal first, then
+            ventral, for the overview gallery. The page holds the same images
+            either way. Defaults to "id".
 
     Returns a list of image IDs. Returns a 404 only when the first page is
     empty; paging past the end yields an empty list so that callers can detect
@@ -152,6 +157,7 @@ async def fetch_species_image_ids(
             scientific_name,
             limit=limit,
             offset=offset,
+            view_order=order == "view",
         )
     except Exception as e:
         logger.error(f"Error fetching image IDs for {scientific_name}: {e}")

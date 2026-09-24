@@ -41,7 +41,9 @@ export function SpeciesImageGallery({
       setItems([]);
 
       try {
-        const ids = await fetchSpeciesImageIds(speciesName, 8);
+        // Dorsal views first, then ventral, so the gallery opens on the
+        // upperside a reader expects.
+        const ids = await fetchSpeciesImageIds(speciesName, 8, 0, "view");
         if (!ignore) setItems(ids);
         // notify initial selection (provide items and selectedIndex)
         if (!ignore && onSelectionChange)

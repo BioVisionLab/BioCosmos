@@ -15,7 +15,7 @@ import {
   SimilarSpeciesMeta,
   SimilarSpeciesSide,
 } from "@/lib/similarSpecies";
-import { speciesPageHref } from "@/lib/taxonSlug";
+import { speciesHref, speciesPageHref } from "@/lib/taxonSlug";
 import { useInView } from "@/lib/useInView";
 
 const IMAGE_SIZE = 120;
@@ -297,7 +297,15 @@ function SimilarSpeciesImage({
   // The backend drops any match with no species page from this panel, so
   // the plain branch is a guard rather than something a reader should meet —
   // but a card leading to an orphaned page is worse than one leading nowhere.
-  const href = speciesPageHref(meta.speciesKey);
+  //
+  // The key can also be missing outright: this response is CDN-cached for a
+  // day, so a payload from a backend that predates `speciesKey` keeps being
+  // served after a deploy. Every card was then a dead end. A missing key
+  // falls back to the recorded name, which is what these links used before.
+  const href =
+    meta.speciesKey === undefined
+      ? speciesHref(meta.species)
+      : speciesPageHref(meta.speciesKey);
   if (!href) return card;
 
   return (
