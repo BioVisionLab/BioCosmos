@@ -45,13 +45,17 @@ IMAGES = [
     ("i6", "oldgenus_renamed", "dorsal"),
     # Never resolved by the harmonization run.
     ("i7", "unresolvable_name", "dorsal"),
-    # Identified only to genus: an image of a specimen, but not of a species.
+    # Identified only to genus: an image of a specimen, but not of a species,
+    # so it counts nowhere.
     ("i8", "coenonympha", "dorsal"),
     # A genus the backbone knows nothing about.
     ("i9", "nosuchgenus_ghost", "dorsal"),
     # A subspecies of a species the collection also holds: one species to a
     # reader, and one tile.
     ("i10", "coenonympha_pamphilus_lyllus", "dorsal"),
+    # A genus held only through a genus-rank match, as `allancastria_cerisyi`
+    # is: counting it would list a genus whose own page has no species.
+    ("i11", "onlygenus_misspeltus", "dorsal"),
 ]
 
 # img_id -> (update_status, accepted_name, accepted_family)
@@ -67,6 +71,7 @@ TAXONOMY = {
     "i8": ("MATCHED", "Coenonympha", "Nymphalidae"),
     "i9": ("MATCHED", "Nosuchgenus ghost", "Nymphalidae"),
     "i10": ("MATCHED", "Coenonympha pamphilus", "Nymphalidae"),
+    "i11": ("MATCHED", "Onlygenus", "Nymphalidae"),
 }
 
 
@@ -169,21 +174,26 @@ class TestFamilyMembers:
         assert "oldgenus" not in genera
 
     def test_unmatched_images_are_excluded(self, repository):
-        """Strict membership: an image the run could not resolve counts nowhere."""
+        """Strict membership: an image not resolved to a species counts nowhere."""
         genera = by_key(repository.family_members("nymphalidae"), "genus_key")
         assert "unresolvable" not in genera
         total = sum(row["image_count"] for row in genera.values())
-        # Every image but the one the run could not resolve.
-        assert total == len(IMAGES) - 1
+        # Every image but the unresolved one and the two genus-only ones.
+        assert total == len(IMAGES) - 3
 
-    def test_a_genus_only_record_counts_as_an_image_not_a_species(self, repository):
+    def test_a_genus_only_record_is_not_counted(self, repository):
         genera = by_key(repository.family_members("nymphalidae"), "genus_key")
-        # Three pamphilus images, one of its subspecies, one renamed, one
-        # identified only to genus.
-        assert genera["coenonympha"]["image_count"] == 6
-        # Two species among them: the subspecies is not a third, and the
-        # genus-only record is not one at all.
+        # Three pamphilus images, one of its subspecies, one renamed; the one
+        # identified only to genus is not an image of a valid species.
+        assert genera["coenonympha"]["image_count"] == 5
+        # Two species among them: the subspecies is not a third.
         assert genera["coenonympha"]["species_count"] == 2
+
+    def test_a_genus_held_only_to_genus_rank_is_not_listed(self, repository):
+        """Listing it would link to a genus page that has no species: a 404."""
+        genera = by_key(repository.family_members("nymphalidae"), "genus_key")
+        assert "onlygenus" not in genera
+        assert repository.genus_members("onlygenus") == []
 
     def test_places_a_genus_under_its_col_subfamily_and_tribe(self, repository):
         genera = by_key(repository.family_members("nymphalidae"), "genus_key")
@@ -212,7 +222,7 @@ class TestFamilyMembers:
             repository_without_backbone.family_members("nymphalidae"), "genus_key"
         )
         assert "coenonympha" in genera
-        assert genera["coenonympha"]["image_count"] == 6
+        assert genera["coenonympha"]["image_count"] == 5
         # Placement is all that is lost.
         assert genera["coenonympha"]["subfamily"] is None
 
@@ -240,8 +250,8 @@ class TestOrderMembers:
         nymphalidae = by_key(repository.order_members("lepidoptera"), "family_key")[
             "nymphalidae"
         ]
-        # Every matched image; the genus-only record counts as an image only.
-        assert nymphalidae["image_count"] == 10
+        # Every image matched to a species; genus-only records count nowhere.
+        assert nymphalidae["image_count"] == 9
         assert nymphalidae["genus_count"] == 4
         assert nymphalidae["species_count"] == 5
 
@@ -855,7 +865,7 @@ class TestOrderOverview:
         payload = await overview.overview()
         assert payload["rank"] == "order"
         assert payload["counts"]["familyCount"] == 1
-        assert payload["counts"]["imageCount"] == 10
+        assert payload["counts"]["imageCount"] == 9
         assert payload["tree"][0]["rank"] == "order"
         assert payload["tree"][0]["familyCount"] == 1
 

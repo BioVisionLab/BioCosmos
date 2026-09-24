@@ -114,6 +114,48 @@ export function LepTraitDataSourceInfo() {
   );
 }
 
+/**
+ * The Genetics counterpart of `LepTraitDataSourceInfo`, in the same panel, so
+ * the two sources on the Biology tab are credited the same way.
+ */
+export function NcbiGeneDataSourceInfo({
+  speciesName,
+}: {
+  speciesName: string;
+}) {
+  const geneSearch = `https://www.ncbi.nlm.nih.gov/gene/?term=${encodeURIComponent(
+    `"${speciesName}"[Organism]`,
+  )}`;
+  return (
+    <div className="text-base text-deep-mocha-600 dark:text-deep-mocha-400 border border-pacific-blue-300/30 bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-xl mt-2">
+      <p>
+        Gene counts are fetched live from the{" "}
+        <a
+          href="https://www.ncbi.nlm.nih.gov/datasets/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          NCBI Datasets
+        </a>{" "}
+        gene service. They count the genes annotated for this species in NCBI
+        Gene, which depends on whether its genome has been sequenced and
+        annotated.
+      </p>
+      <p className="mt-2">
+        <a
+          href={geneSearch}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-pacific-blue-300"
+        >
+          Browse the gene records for <i>{speciesName}</i> in NCBI Gene
+        </a>
+      </p>
+    </div>
+  );
+}
+
 export function NcbiAttribution({
   leadingText = "Source: ",
   isLarge = false,
@@ -217,7 +259,6 @@ export function NcbiLink() {
   );
 }
 
-
 /**
  * @param release The Catalogue of Life release, named so a reader can tell
  *   which backbone produced the classification above it. Defaults to the one
@@ -270,8 +311,8 @@ export function ColDataSourceInfo({
         </a>
         {release ? ` (${release})` : ""}. Each recorded name is matched to an
         accepted Catalogue of Life usage, and the evidence behind that match is
-        shown alongside every specimen, so a name that has since been synonymized
-        or corrected can be seen for what it is.
+        shown alongside every specimen, so a name that has since been
+        synonymized or corrected can be seen for what it is.
       </p>
     </div>
   );

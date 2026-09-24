@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.query.higher_taxa import OVERVIEW_PAYLOAD_VERSION
 from app.routers.species_data import (
     router,
     get_col_search,
@@ -546,7 +547,9 @@ class TestHigherTaxonEndpoints:
         MockState.return_value.get.return_value = "fp1"
         with patch.object(app.state, "duck_db", object(), create=True):
             response = client.get("/order/lepidoptera")
-        assert response.headers["etag"] == 'W/"order:lepidoptera:fp1"'
+        assert response.headers["etag"] == (
+            f'W/"order:lepidoptera:fp1:v{OVERVIEW_PAYLOAD_VERSION}"'
+        )
 
     @patch("app.routers.species_data.OrderOverview")
     def test_a_missing_order_is_not_cached(self, MockOrder):
