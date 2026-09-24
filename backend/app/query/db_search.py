@@ -6,7 +6,7 @@ from fastapi import Request
 import math
 
 from ..services.institution import InstitutionDirectory
-from ..services.metadata import ImageMetaService
+from ..services.metadata import SPECIMEN_TRAIT_COLUMNS, ImageMetaService
 from ..services.species_pages import SpeciesPageResolver
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,16 @@ logger = logging.getLogger(__name__)
 # to three queries per request for matches a reader rarely wants when they
 # typed a species name. `country` and `state_province` do join the sweep:
 # "Brazil" is a search people actually make.
+#
+# Traits are controlled vocabularies too, and name every image of a species:
+# "closed" or "Jun" in the sweep would return a third of the collection.
 TARGETED_ONLY_FIELDS = (
     "coordinate",
     "update_status",
     "validation_status",
     "county",
     "locality",
+    *SPECIMEN_TRAIT_COLUMNS,
 )
 
 
@@ -106,6 +110,8 @@ class TextToDbSearch:
             "county",
             "locality",
             "validation_status",
+            # LepTraits, by the species each record resolved to.
+            *SPECIMEN_TRAIT_COLUMNS,
         ]
 
         field = self.field.replace(" ", "_")
@@ -320,6 +326,9 @@ class TextToDbSearch:
                 "catalog_number": row.get("catalog_number"),
                 "institution_name": holder.get("name"),
                 "institution_homepage": holder.get("homepage"),
+                # LepTraits for the record's accepted species. None until the
+                # trait index is built, and for species LepTraits lacks.
+                **{name: row.get(name) for name in SPECIMEN_TRAIT_COLUMNS},
                 "matched_fields": matched_cols
             })
         return db_specimens

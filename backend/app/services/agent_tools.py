@@ -39,26 +39,57 @@ class ColorArgs(ToolArgs):
     color_description: str = Field(min_length=1, max_length=200)
 
 
-TraitValue = Literal["High", "Medium", "Low"]
+Month = Literal[
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec",
+]  # fmt: skip
 
 
 class TraitArgs(ToolArgs):
-    canopy_affinity: TraitValue | None = None
-    edge_affinity: TraitValue | None = None
-    moisture_affinity: TraitValue | None = None
-    disturbance_affinity: TraitValue | None = None
+    """LepTraits constraints, in the words a query uses rather than its codes.
+
+    Each value maps onto the recorded LepTraits categories in
+    `agent.TRAIT_PREDICATES`; the planner never sees the raw vocabulary.
+    """
+
+    canopy: Literal["closed", "open", "mixed", "generalist", "edge"] | None = None
+    edge: Literal["associated", "avoidant"] | None = None
+    moisture: Literal["wet", "dry"] | None = None
+    disturbance: Literal["tolerant", "avoidant"] | None = None
+    voltinism: Literal["univoltine", "bivoltine", "multivoltine"] | None = None
+    diapause_stage: Literal["egg", "larva", "pupa", "adult"] | None = None
+    oviposition: Literal["single", "clustered"] | None = None
+    hostplant_family: str | None = Field(
+        default=None, pattern=r"^[A-Za-z]+$", max_length=64
+    )
+    host_breadth: Literal["specialist", "generalist"] | None = None
+    flight_months: list[Month] | None = Field(default=None, min_length=1, max_length=12)
+    wing_size: Literal["small", "medium", "large"] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_case(cls, data: Any) -> Any:
+        """Accept "June", "Univoltine" or "fabaceae" as the planner writes them."""
+        if not isinstance(data, dict):
+            return data
+        normalized = {}
+        for key, value in data.items():
+            if key == "hostplant_family" and isinstance(value, str):
+                value = value.strip().capitalize()
+            elif key == "flight_months" and isinstance(value, list):
+                value = [
+                    month.strip().lower()[:3] if isinstance(month, str) else month
+                    for month in value
+                ]
+            elif isinstance(value, str):
+                value = value.strip().lower()
+            normalized[key] = value
+        return normalized
 
     @model_validator(mode="after")
     def require_trait(self) -> TraitArgs:
-        if not any(
-            (
-                self.canopy_affinity,
-                self.edge_affinity,
-                self.moisture_affinity,
-                self.disturbance_affinity,
-            )
-        ):
-            raise ValueError("At least one trait affinity is required.")
+        if not self.model_dump(exclude_none=True):
+            raise ValueError("At least one trait is required.")
         return self
 
 

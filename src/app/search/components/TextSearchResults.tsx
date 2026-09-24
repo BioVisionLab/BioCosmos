@@ -1,4 +1,5 @@
 import { ImageLoading } from "@/components/Loadings";
+import NoImage from "@/components/NoImage";
 import SearchForm from "@/components/SearchForm";
 import PaginationControls from "@/components/PaginationControls";
 import Tips from "@/components/Tips";
@@ -8,6 +9,8 @@ import type { CoordinateValidationStatusCode } from "@/lib/geoValidation";
 import {
   DbResultItems,
   SpecimenMetadata,
+  TRAIT_FIELD_OPTIONS,
+  isTraitField,
   searchDatabase,
 } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail, imageUrlById } from "@/lib/images";
@@ -64,6 +67,7 @@ const FIELD_GROUPS: SearchFieldGroup[] = [
       { value: "validation_status", label: "Coordinate Status" },
     ],
   },
+  { label: "Traits (LepTraits)", options: TRAIT_FIELD_OPTIONS },
 ];
 
 const IMAGE_SIZE = 128;
@@ -317,13 +321,17 @@ function SpecimenThumbnail({
   species: string | null | undefined;
   onClick?: () => void;
 }) {
+  // Keyed by id, so a new page of rows starts clean without an effect.
+  const [failedId, setFailedId] = useState<string | null>(null);
   const boxClasses =
     "relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-deep-mocha-200 dark:border-deep-mocha-700 bg-deep-mocha-100 dark:bg-deep-mocha-800";
 
-  if (!imgId) {
+  // The gallery's placeholder, shrunk to the 48px cell: the icon alone,
+  // with the words kept for screen readers.
+  if (!imgId || failedId === imgId) {
     return (
-      <div className={`${boxClasses} flex items-center justify-center`}>
-        <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
+      <div className={boxClasses} role="img" aria-label="No image">
+        <NoImage className="[&>span]:sr-only" />
       </div>
     );
   }
@@ -346,6 +354,7 @@ function SpecimenThumbnail({
         fill
         sizes={`${SPECIMEN_THUMB_SIZE}px`}
         className="object-contain"
+        onError={() => setFailedId(imgId)}
         unoptimized
       />
     </button>
@@ -460,6 +469,7 @@ function DbSearch({
           results={results}
           specimens={specimens}
           query={query}
+          field={field}
           loading={loading}
           totalSpecimens={totalSpecimens}
           page={page}
@@ -477,6 +487,7 @@ function DbSearchResults({
   results,
   specimens,
   query,
+  field,
   loading,
   totalSpecimens,
   page,
@@ -486,6 +497,7 @@ function DbSearchResults({
   results: DbResultItems[];
   specimens: SpecimenMetadata[];
   query: string;
+  field: string;
   loading: boolean;
   totalSpecimens: number;
   page: number;
@@ -493,6 +505,11 @@ function DbSearchResults({
   onPageChange: (newPage: number) => void;
 }) {
   const [speciesPage, setSpeciesPage] = useState(1);
+  const traitField = isTraitField(field) ? field : null;
+  // The option label without its "(e.g. …)" hint, as a column heading.
+  const traitLabel = TRAIT_FIELD_OPTIONS.find(
+    (option) => option.value === traitField,
+  )?.label.replace(/\s*\(.*\)$/, "");
   // index into `specimens` of the row whose thumbnail is open in the
   // full-image modal; reset whenever a new page/query loads new specimens.
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -598,6 +615,13 @@ function DbSearchResults({
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Family
                       </th>
+                      {/* Only for a trait search: the value that matched,
+                          since no other column shows it. */}
+                      {traitField && (
+                        <th className="px-4 py-3 font-semibold whitespace-nowrap">
+                          {traitLabel}
+                        </th>
+                      )}
                       <th className="px-4 py-3 font-semibold whitespace-nowrap">
                         Specimen ID
                       </th>
@@ -681,6 +705,15 @@ function DbSearchResults({
                               isMatched={matched.includes("family")}
                             />
                           </td>
+                          {traitField && (
+                            <td className="px-4 py-3 align-top">
+                              <HighlightText
+                                text={specimen[traitField]}
+                                highlight={query}
+                                isMatched={matched.includes(traitField)}
+                              />
+                            </td>
+                          )}
                           <td className="px-4 py-3 align-top">
                             {renderSpecimenIdCell(specimen)}
                           </td>
@@ -832,6 +865,9 @@ function DbSearchResults({
 function DbResultCard({ data }: { data: DbResultItems }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // A species with no image answers the thumbnail request with an error;
+  // show the gallery's placeholder rather than a broken image.
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -862,14 +898,19 @@ function DbResultCard({ data }: { data: DbResultItems }) {
         >
           <div className="flex flex-1 items-center justify-center w-full">
             <div className="relative aspect-square w-full max-w-32">
-              <Image
-              src={imageUrl || `/api/image/${data.species}`}
-              alt={`Image of ${data.species}`}
-              fill
-              sizes={`${IMAGE_SIZE}px`}
-              className="object-contain"
-              unoptimized
-              />
+              {imageFailed || !imageUrl ? (
+                <NoImage />
+              ) : (
+                <Image
+                  src={imageUrl}
+                  alt={`Image of ${data.species}`}
+                  fill
+                  sizes={`${IMAGE_SIZE}px`}
+                  className="object-contain"
+                  onError={() => setImageFailed(true)}
+                  unoptimized
+                />
+              )}
             </div>
           </div>
 

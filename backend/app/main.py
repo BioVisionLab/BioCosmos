@@ -29,7 +29,7 @@ from .services.locality import LocalityService
 from .services.institution import InstitutionService
 from .services.provenance import ProvenanceService
 from .services.taxonomy_update import TaxonomyUpdateService
-from .services.leptraits import LepTraits
+from .services.leptraits import LepTraits, TraitIndexService
 from .routers import (
     data_stats,
     image_retrieval,
@@ -261,6 +261,10 @@ def run_data_ingestion(app: FastAPI):
     ColBackboneService(app.state.duck_db).ingest()
     TaxonomyUpdateService(app.state.duck_db).ensure()
     report_taxonomy_readiness(app.state.duck_db)
+
+    # Traits are keyed to occurrences through the accepted species the run
+    # above resolved, so the index is rebuilt after it.
+    TraitIndexService(app.state.duck_db).ensure()
 
     # Locality is derived from gbif_meta rather than from image_meta, which
     # carries no locality columns of its own, so it runs after both.

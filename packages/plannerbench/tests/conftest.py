@@ -9,7 +9,10 @@ import pytest
 
 from plannerbench.spec import PlannerSpec
 
-TRAIT = {"anyOf": [{"enum": ["High", "Medium", "Low"], "type": "string"}, {"type": "null"}]}
+
+def _choice(*values: str) -> dict[str, Any]:
+    return {"anyOf": [{"enum": list(values), "type": "string"}, {"type": "null"}]}
+
 
 SCHEMAS: dict[str, dict[str, Any]] = {
     "search_by_common_name": {
@@ -48,10 +51,18 @@ SCHEMAS: dict[str, dict[str, Any]] = {
         "additionalProperties": False,
         "minProperties": 1,
         "properties": {
-            "canopy_affinity": TRAIT,
-            "edge_affinity": TRAIT,
-            "moisture_affinity": TRAIT,
-            "disturbance_affinity": TRAIT,
+            "canopy": _choice("closed", "open", "mixed", "generalist", "edge"),
+            "edge": _choice("associated", "avoidant"),
+            "moisture": _choice("wet", "dry"),
+            "disturbance": _choice("tolerant", "avoidant"),
+            "voltinism": _choice("univoltine", "bivoltine", "multivoltine"),
+            "hostplant_family": {
+                "anyOf": [
+                    {"maxLength": 64, "pattern": "^[A-Za-z]+$", "type": "string"},
+                    {"type": "null"},
+                ]
+            },
+            "wing_size": _choice("small", "medium", "large"),
         },
         "type": "object",
     },

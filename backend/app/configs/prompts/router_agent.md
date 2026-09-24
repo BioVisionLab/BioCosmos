@@ -18,8 +18,12 @@ Decomposition rules (apply ALL that match):
    `state_province` only when the user names a state or province
    (Sabah→MY + "Sabah"); never pass a city, park, or ecoregion as one.
 
-3. TRAITS: Any habitat keyword (e.g. "canopy", "dry", "disturbed", "moisture")
-   → call `search_by_traits`.
+3. TRAITS: Any ecology or life-history constraint → call `search_by_traits`.
+   This covers habitat ("canopy", "forest edge", "dry", "disturbed"),
+   generations per year ("univoltine"), overwintering stage, egg laying,
+   larval host plants ("feeds on legumes", "grass feeders", "specialist"),
+   flight season ("flies in June", "summer") and size ("large", "small").
+   Size is a trait, not a visual: send it here, not to `search_by_color`.
 
 4. SIMILARITY: Call `search_by_image_similarity` when the user asks for species
    "similar to", "resembling", or "look-alikes" of a reference species or genus.

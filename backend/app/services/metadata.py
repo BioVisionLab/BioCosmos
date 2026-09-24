@@ -10,6 +10,7 @@ from ..configs.config import (
     ColConfig,
     GbifConfig,
     ImageMetaConfig,
+    LepTraitConfig,
     LocalityConfig,
     ProvenanceConfig,
 )
@@ -80,6 +81,22 @@ SPECIMEN_PROVENANCE_COLUMNS = (
     "catalog_number",
 )
 
+# LepTraits, keyed to the occurrence through its accepted species by
+# TraitIndexService. Stored as the words a reader searches with.
+SPECIMEN_TRAIT_COLUMNS = (
+    "canopy_affinity",
+    "edge_affinity",
+    "moisture_affinity",
+    "disturbance_affinity",
+    "voltinism",
+    "diapause_stage",
+    "oviposition_style",
+    "hostplant_families",
+    "host_breadth",
+    "flight_months",
+    "wing_size",
+)
+
 # `geoharmonize integrate` keys its output on the logical field it was told
 # to read, which is `source_id` whatever column fed it. The backend maps that
 # to img_id at the join rather than asking the tool to know our column names.
@@ -90,6 +107,7 @@ _TAXONOMY_ALIAS = "taxonomy"
 _LOCALITY_ALIAS = "locality_meta"
 _COORDINATE_ALIAS = "coordinates_meta"
 _PROVENANCE_ALIAS = "provenance_meta"
+_TRAITS_ALIAS = "traits_meta"
 
 # Which joined table owns each searchable column. Anything not listed here
 # belongs to image_meta itself.
@@ -98,6 +116,7 @@ _FIELD_OWNER = {
     **{name: _LOCALITY_ALIAS for name in SPECIMEN_LOCALITY_COLUMNS},
     **{name: _COORDINATE_ALIAS for name in SPECIMEN_COORDINATE_COLUMNS},
     **{name: _PROVENANCE_ALIAS for name in SPECIMEN_PROVENANCE_COLUMNS},
+    **{name: _TRAITS_ALIAS for name in SPECIMEN_TRAIT_COLUMNS},
 }
 
 
@@ -251,6 +270,8 @@ class ImageMetaService:
     _locality_table_present: bool | None = None
     _coordinates_table_present: bool | None = None
     _provenance_table_present: bool | None = None
+    _traits_table_present: bool | None = None
+    traits_table = "image_meta_traits"
 
     def __init__(self, duckdb: DuckDBClient):
         config = ImageMetaConfig()
@@ -263,11 +284,13 @@ class ImageMetaService:
         self.locality_table = locality_config.table
         self.coordinates_table = locality_config.coordinates_table
         self.provenance_table = ProvenanceConfig().table
+        self.traits_table = LepTraitConfig().index_table
         # Resolved lazily and cached; the tables appear at ingestion time.
         self._taxonomy_table_present: bool | None = None
         self._locality_table_present: bool | None = None
         self._coordinates_table_present: bool | None = None
         self._provenance_table_present: bool | None = None
+        self._traits_table_present: bool | None = None
         self.db_client = duckdb
 
     def ingest(self):
@@ -731,6 +754,16 @@ class ImageMetaService:
             )
         return self._provenance_table_present
 
+    def _traits_available(self) -> bool:
+        """Whether the trait index has been built.
+
+        Built at startup by TraitIndexService, and absent when LepTraits was
+        never ingested.
+        """
+        if self._traits_table_present is None:
+            self._traits_table_present = self.db_client.table_exists(self.traits_table)
+        return self._traits_table_present
+
     def _optional_joins(
         self,
     ) -> tuple[tuple[bool, str, str, str, tuple[str, ...]], ...]:
@@ -763,6 +796,13 @@ class ImageMetaService:
                 _PROVENANCE_ALIAS,
                 "img_id",
                 SPECIMEN_PROVENANCE_COLUMNS,
+            ),
+            (
+                self._traits_available(),
+                self.traits_table,
+                _TRAITS_ALIAS,
+                "img_id",
+                SPECIMEN_TRAIT_COLUMNS,
             ),
         )
 
@@ -815,6 +855,7 @@ class ImageMetaService:
             _LOCALITY_ALIAS: self._locality_available,
             _COORDINATE_ALIAS: self._coordinates_available,
             _PROVENANCE_ALIAS: self._provenance_available,
+            _TRAITS_ALIAS: self._traits_available,
         }[alias]
         if not available():
             return "CAST(NULL AS VARCHAR)"

@@ -49,6 +49,106 @@ PLANNER_TIMEOUT_SECONDS = 30.0
 RANKING_SCORE_FLOOR = 0.5
 
 
+# Trait argument -> the recorded LepTraits categories it stands for. The
+# habitat affinities are graded ("strong", "weak"); both grades count.
+_TRAIT_CATEGORIES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
+    "canopy": (
+        "canopy_affinity",
+        {
+            "closed": (
+                "Closed canopy",
+                "Closed canopy (+edge)",
+                "Mixed canopy (closed affinity)",
+            ),
+            "open": (
+                "Open canopy",
+                "Semi-open canopy",
+                "Mixed canopy (open affinity)",
+            ),
+            "mixed": (
+                "Mixed canopy",
+                "Mixed canopy (open affinity)",
+                "Mixed canopy (closed affinity)",
+            ),
+            "generalist": ("Canopy generalist",),
+            "edge": ("Edge associated", "Closed canopy (+edge)"),
+        },
+    ),
+    "edge": (
+        "edge_affinity",
+        {
+            "associated": ("Edge-associated (strong)", "Edge-associated (weak)"),
+            "avoidant": ("Edge-avoidant (strong)", "Edge-avoidant (weak)"),
+        },
+    ),
+    "moisture": (
+        "moisture_affinity",
+        {
+            "wet": ("Mesic-associated (strong)", "Mesic-associated (weak)"),
+            "dry": ("Xeric-associated (strong)", "Xeric-associated (weak)"),
+        },
+    ),
+    "disturbance": (
+        "disturbance_affinity",
+        {
+            "tolerant": (
+                "Disturbance-associated (strong)",
+                "Disturbance-associated (weak)",
+            ),
+            "avoidant": (
+                "Disturbance-avoidant (strong)",
+                "Disturbance-avoidant (weak)",
+            ),
+        },
+    ),
+    "voltinism": (
+        "voltinism",
+        {
+            "univoltine": ("Univoltine",),
+            "bivoltine": ("Bivoltine",),
+            "multivoltine": ("Multivoltine",),
+        },
+    ),
+    "host_breadth": (
+        "host_breadth",
+        {"specialist": ("Specialist",), "generalist": ("Generalist",)},
+    ),
+    "wing_size": (
+        "wing_size",
+        {"small": ("Small",), "medium": ("Medium",), "large": ("Large",)},
+    ),
+}
+
+# Trait argument -> index column holding a comma-separated list of words.
+_TRAIT_LISTS = {
+    "diapause_stage": "diapause_stage",
+    "oviposition": "oviposition_style",
+    "hostplant_family": "hostplant_families",
+    "flight_months": "flight_months",
+}
+
+
+def trait_predicate(field_name: str, value: Any) -> tuple[str, list[Any]]:
+    """A WHERE fragment over the trait index for one validated argument.
+
+    Column names come from the tables above, never from the request; the
+    values are bound. Several flight months match a species flying in any.
+    """
+    if field_name in _TRAIT_CATEGORIES:
+        column, categories = _TRAIT_CATEGORIES[field_name]
+        recorded = categories[value]
+        placeholders = ", ".join("?" for _ in recorded)
+        return f"t.{column} IN ({placeholders})", list(recorded)
+    if field_name in _TRAIT_LISTS:
+        column = _TRAIT_LISTS[field_name]
+        words = value if isinstance(value, list) else [value]
+        matches = " OR ".join(
+            f"list_contains(string_split(lower(t.{column}), ', '), ?)" for _ in words
+        )
+        return f"({matches})", [str(word).lower() for word in words]
+    raise ValueError(f"Unsupported trait argument: {field_name}")
+
+
 class AgentSearchResult(BaseModel):
     """Public result item returned by agent search."""
 
@@ -160,14 +260,12 @@ class AgentSearchService:
             return dataframe.with_columns(pl.lit(None, pl.String).alias("speciesKey"))
         keyed = attach_page_keys(dataframe, self.species_pages)
         # Rows arrive ranked, so the first of each page is the one to keep.
-        # Records the fallback could not key (genus-only) stay, unlinked.
-        return (
-            keyed.with_columns(
-                pl.coalesce(pl.col("speciesKey"), pl.col("species")).alias("_page")
-            )
-            .unique(subset=["_page"], keep="first", maintain_order=True)
-            .drop("_page")
-        )
+        # Records the fallback could not key (genus-only) stay, unlinked. A
+        # result names the species of the page it links to, not whichever
+        # recorded variant (a misspelling, a trinomial) its image was filed as.
+        return keyed.with_columns(
+            pl.coalesce(pl.col("speciesKey"), pl.col("species")).alias("species")
+        ).unique(subset=["species"], keep="first", maintain_order=True)
 
     async def _search(self, query: str) -> AgentSearchOutcome:
         response = await self._plan(query)
@@ -497,32 +595,35 @@ class AgentSearchService:
         )
 
     async def _search_by_traits(self, args: TraitArgs) -> list[dict]:
-        columns = {
-            "canopy_affinity": "CanopyAffinity",
-            "edge_affinity": "EdgeAffinity",
-            "moisture_affinity": "MoistureAffinity",
-            "disturbance_affinity": "DisturbanceAffinity",
-        }
+        """Every recorded name of the species whose traits match.
+
+        The trait index keys LepTraits to occurrences through their accepted
+        species, so this returns each spelling the collection files a matching
+        species under. That is what lets the result intersect with the other
+        filters and allowlist images, both of which work on recorded names.
+        """
+        db_client = self.leptraits_service.db_client
+        traits_table = self.leptraits_service.index_table
+        if not await asyncio.to_thread(db_client.table_exists, traits_table):
+            # An empty result would read as "no species has these traits" and
+            # empty the whole search; failing reports the constraint instead.
+            raise RuntimeError(f"The trait index '{traits_table}' has not been built.")
+
         conditions: list[str] = []
         params: list[Any] = []
-        values = args.model_dump(exclude_none=True)
-        for field_name, column_name in columns.items():
-            if field_name in values:
-                conditions.append(f"{column_name} = ?")
-                params.append(values[field_name])
+        for field_name, value in args.model_dump(exclude_none=True).items():
+            condition, condition_params = trait_predicate(field_name, value)
+            conditions.append(condition)
+            params.extend(condition_params)
 
-        where_clause = " AND ".join(conditions)
         sql = (
-            f"SELECT DISTINCT Species FROM {self.leptraits_service.table} "
-            f"WHERE {where_clause} ORDER BY Species LIMIT ?"
+            f"SELECT DISTINCT o.species FROM {self.image_meta_service.table} o "
+            f"JOIN {traits_table} t USING (img_id) "
+            f"WHERE {' AND '.join(conditions)} ORDER BY o.species LIMIT ?"
         )
         params.append(FILTER_SPECIES_LIMIT)
-        result = await asyncio.to_thread(
-            self.leptraits_service.db_client.execute_prepared_to_pl,
-            sql,
-            params,
-        )
-        species_names = result["Species"].to_list() if not result.is_empty() else []
+        result = await asyncio.to_thread(db_client.execute_prepared_to_pl, sql, params)
+        species_names = result["species"].to_list() if not result.is_empty() else []
         return await self._species_to_filter_rows(
             species_names,
             tool_name="search_by_traits",

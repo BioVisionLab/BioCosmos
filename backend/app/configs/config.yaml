@@ -107,6 +107,9 @@ col:
 leptrait:
   url: "https://raw.githubusercontent.com/hhandika/LepTraits/refs/heads/main/consensus/consensus.csv"
   table: "lep_traits_consensus"
+  # Traits keyed to each occurrence through its accepted species, rebuilt at
+  # startup whenever LepTraits or the taxonomy run changes.
+  index_table: "image_meta_traits"
   # Skip leptrait ingestion if set to true
   skip: false
 embedder:
