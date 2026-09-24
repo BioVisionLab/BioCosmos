@@ -2,7 +2,7 @@
 
 Jupyter notebook files in `notebooks/` load summaries, draw figures, and export them.
 Each notebook produces exactly one publication figure; intermediate exploratory panels
-are not kept. 
+are not kept.
 Reusable helpers live in the `helpers/` package: configuration, database queries and
 aggregation, and matplotlib/seaborn plotting in `helpers/publication.py`; country
 normalization in `helpers/country_mapping.py`; and the equal-area grid maps in
@@ -28,7 +28,7 @@ env -u VIRTUAL_ENV uv run --project analyses --extra indexing jupyter lab analys
 
 The optional indexing dependencies pin LanceDB to `0.39.0`, matching the backend's
 current root lockfile. Keep this pin aligned when upgrading the backend. `LANCE_DIR`
-comes from `backend/.env`. The database filename and image table name come 
+comes from `backend/.env`. The database filename and image table name come
 from backend YAML config file (`backend/app/configs/config.yaml`). Relative paths resolve from
 `backend/`.
 
@@ -85,21 +85,18 @@ the provider settings from `backend/.env` into the current bash shell.
 The last line of the `plannerbench` command has no trailing backslash.
 
 ```bash
-env -u VIRTUAL_ENV uv sync --all-packages --locked
-source .venv/bin/activate
-set -a
-source backend/.env
-set +a
-cd backend && python scripts/export_planner_spec.py
+uv sync --all-packages --locked
+
+cd backend && uv run scripts/export_planner_spec.py
 cd ..
-plannerbench run \
+# Compare models on the UF endpoint
+uv run --env-file backend/.env plannerbench run \
     -m mistral-small-3.1 \
     -m gemma-4-31b-it \
-    -m llama-3.1-nemotron-nano-8B-v1 \
-    -m ministral-8b-instruct \
-    -m magistral-small \
-    --repeats 3
-env -u VIRTUAL_ENV uv run --project analyses jupyter lab analyses/benchmarks/planner_model_performance.ipynb
+    -m gpt-oss-20b \
+    -m meta-muse-glimmer-30b \
+    -m nemotron-3-nano-30b-a3b \
+    --repeats 5
 ```
 
 The activated root `.venv` supplies `plannerbench`; the separate

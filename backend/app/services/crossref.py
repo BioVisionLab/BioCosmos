@@ -21,12 +21,12 @@ place the application talks to CrossRef, and follows its etiquette
 import asyncio
 import logging
 import time
-from collections import OrderedDict
 from urllib.parse import urlencode
 
 import httpx
 
 from ..configs.config import CrossrefConfig
+from .ttl_cache import TtlCache
 
 logger = logging.getLogger(__name__)
 
@@ -62,34 +62,6 @@ class CrossrefError(Exception):
     """CrossRef could not be reached or refused the request."""
 
 
-class _TtlCache:
-    """A bounded, least-recently-set memo of successful responses."""
-
-    def __init__(self, ttl: float, maxsize: int):
-        self.ttl = ttl
-        self.maxsize = maxsize
-        self._entries: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
-
-    def get(self, key: str) -> list[dict] | None:
-        entry = self._entries.get(key)
-        if entry is None:
-            return None
-        stored_at, value = entry
-        if time.monotonic() - stored_at >= self.ttl:
-            del self._entries[key]
-            return None
-        return value
-
-    def set(self, key: str, value: list[dict]) -> None:
-        self._entries.pop(key, None)
-        self._entries[key] = (time.monotonic(), value)
-        while len(self._entries) > self.maxsize:
-            self._entries.popitem(last=False)
-
-    def clear(self) -> None:
-        self._entries.clear()
-
-
 class CrossrefClient:
     """Search CrossRef works, within its limits and with caching."""
 
@@ -98,11 +70,11 @@ class CrossrefClient:
         mailto: str | None = None,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
-        cache: _TtlCache | None = None,
+        cache: TtlCache[list[dict]] | None = None,
     ):
         self.mailto = mailto
         self._transport = transport
-        self._cache = cache or _TtlCache(CACHE_TTL_SECONDS, CACHE_MAX_ENTRIES)
+        self._cache = cache or TtlCache(CACHE_TTL_SECONDS, CACHE_MAX_ENTRIES)
         self._concurrency = POLITE_CONCURRENCY if mailto else PUBLIC_CONCURRENCY
         self._min_interval = 1.0 / DEFAULT_RATE_PER_SECOND
         self._next_start = 0.0

@@ -686,6 +686,26 @@ class CrossrefConfig:
         return (os.getenv("CROSSREF_MAILTO") or "").strip() or None
 
 
+class NcbiConfig:
+    """Credentials for the NCBI E-utilities and Datasets APIs.
+
+    NCBI asks every E-utilities caller to identify itself with ``tool`` and
+    ``email``, and allows 10 requests per second with an API key instead of 3
+    without one. Both are deployment-specific, so they come from the
+    environment. The contact address falls back to the CrossRef one, since it
+    is usually the same maintainer.
+    """
+
+    @property
+    def api_key(self) -> str | None:
+        return (os.getenv("NCBI_API_KEY") or "").strip() or None
+
+    @property
+    def email(self) -> str | None:
+        email = (os.getenv("NCBI_EMAIL") or "").strip()
+        return email or CrossrefConfig().mailto
+
+
 class PromptsConfig:
     def __init__(self):
         self._prompt_dir = _PROMPT_DIR
