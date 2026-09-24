@@ -13,6 +13,7 @@
 import Link from "next/link";
 import { HelpCircle } from "lucide-react";
 
+import { ADM1_MISMATCH_NOTE, CoordinateValidation } from "@/lib/geoValidation";
 import {
   SpecimenImageMeta,
   SpecimenProvenance,
@@ -25,6 +26,42 @@ export const METADATA_VALUE = "text-deep-mocha-700 dark:text-deep-mocha-300";
 export const METADATA_LINK =
   "text-deep-mocha-700 dark:text-deep-mocha-300 underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300";
 export const METADATA_EMPTY = "text-deep-mocha-400 dark:text-deep-mocha-600";
+
+/**
+ * Where GADM places the coordinate, for a record whose coordinate falls in a
+ * different state or country than the locality it records. Set beside the
+ * recorded locality, it shows what disagrees rather than only that something
+ * does. Null for any other status: a match needs no second locality, and the
+ * remaining flags have no single region to name.
+ */
+export function CoordinateRegionRow({
+  validation,
+  className = "",
+}: {
+  validation: CoordinateValidation | null;
+  className?: string;
+}) {
+  const status = validation?.validationStatus;
+  if (status !== "ADM1_MISMATCH" && status !== "COUNTRY_MISMATCH") {
+    return null;
+  }
+  // Finest rank first, like the recorded locality above it.
+  const region = [validation?.referenceAdm1, validation?.referenceCountry]
+    .filter(Boolean)
+    .join(", ");
+  if (!region) return null;
+  return (
+    <div className={`flex flex-col gap-0.5 min-w-0 ${className}`}>
+      <div className="flex flex-wrap items-baseline gap-x-1 min-w-0">
+        <span className={METADATA_LABEL}>Coordinate in:</span>
+        <span className={`min-w-0 ${METADATA_VALUE}`}>{region}</span>
+      </div>
+      {status === "ADM1_MISMATCH" ? (
+        <p className="text-xs text-deep-mocha-500">{ADM1_MISMATCH_NOTE}</p>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * A link to the page that explains a whole matching vocabulary.

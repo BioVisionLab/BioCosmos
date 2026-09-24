@@ -12,6 +12,7 @@ from app.routers.species_data import (
     get_col_search,
     get_precomputed_similarity,
     get_species_similarity,
+    get_species_coordinates,
 )
 
 
@@ -555,3 +556,41 @@ class TestHigherTaxonEndpoints:
         response = client.get("/family/Nymphalidae/classification")
         assert response.status_code == 200
         assert response.json()["family"] == "Nymphalidae"
+
+
+# =========================================================================
+# GET /species/{scientific_name}/coordinates
+# =========================================================================
+
+
+class TestFetchSpeciesCoordinates:
+    def _get(self, url, **lookup):
+        service = MagicMock()
+        service.get = MagicMock(**lookup)
+        app.dependency_overrides[get_species_coordinates] = lambda: service
+        try:
+            return client.get(url), service
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_success_is_cacheable(self):
+        payload = {"species": "danaus_plexippus", "total": 0, "truncated": False, "points": []}
+        response, service = self._get(
+            "/species/danaus_plexippus/coordinates", return_value=payload
+        )
+        assert response.status_code == 200
+        assert response.json() == payload
+        assert "max-age" in response.headers["cache-control"]
+        service.get.assert_called_once_with("danaus_plexippus")
+
+    def test_not_found_is_not_cached(self):
+        response, _ = self._get("/species/unknown_species/coordinates", return_value=None)
+        assert response.status_code == 404
+        assert response.headers["cache-control"] == "no-store"
+
+    def test_error_returns_500(self):
+        response, _ = self._get(
+            "/species/danaus_plexippus/coordinates", side_effect=Exception("boom")
+        )
+        assert response.status_code == 500
+        assert response.headers["cache-control"] == "no-store"

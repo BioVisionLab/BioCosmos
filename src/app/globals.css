@@ -198,6 +198,103 @@ body {
   border-left-color: #3a3c41;
 }
 
+/*
+ * The species map popups, styled as one of the site's cards rather than
+ * MapLibre's default box. Selectors carry `.umap-dark-map` in dark mode
+ * so they outrank the generic dark popup rules above.
+ */
+.species-map-popup .maplibregl-popup-content {
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #ffffff;
+  border: 1px solid var(--color-deep-mocha-200);
+  box-shadow: 0 8px 24px rgb(28 23 23 / 0.14);
+}
+
+.species-map-popup[class*="maplibregl-popup-anchor-top"] .maplibregl-popup-tip {
+  border-bottom-color: #ffffff;
+}
+.species-map-popup[class*="maplibregl-popup-anchor-bottom"] .maplibregl-popup-tip {
+  border-top-color: #ffffff;
+}
+.species-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #ffffff;
+}
+.species-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #ffffff;
+}
+
+/* MapLibre pins its close button flush in the corner with no padding; inset
+   it as a round button that lines up with the popup's title. */
+.species-map-popup .maplibregl-popup-close-button {
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-deep-mocha-500);
+  transition: background-color 150ms, color 150ms;
+}
+
+.species-map-popup .maplibregl-popup-close-button:hover {
+  background-color: var(--color-deep-mocha-100);
+  color: var(--color-deep-mocha-900);
+}
+
+.species-map-popup .maplibregl-popup-close-button:focus-visible {
+  outline: 2px solid var(--color-pacific-blue-500);
+  outline-offset: 1px;
+}
+
+.dark .umap-dark-map .species-map-popup .maplibregl-popup-close-button {
+  color: var(--color-deep-mocha-300);
+}
+
+.dark .umap-dark-map .species-map-popup .maplibregl-popup-close-button:hover {
+  background-color: var(--color-deep-mocha-700);
+  color: #ffffff;
+}
+
+.dark .umap-dark-map .species-map-popup .maplibregl-popup-content {
+  /* Restated: the generic dark rule above resets the radius. */
+  border-radius: 12px;
+  background-color: var(--color-deep-mocha-800);
+  border-color: var(--color-deep-mocha-700);
+  color: inherit;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+.dark
+  .umap-dark-map
+  .species-map-popup[class*="maplibregl-popup-anchor-top"]
+  .maplibregl-popup-tip {
+  border-bottom-color: var(--color-deep-mocha-800);
+}
+.dark
+  .umap-dark-map
+  .species-map-popup[class*="maplibregl-popup-anchor-bottom"]
+  .maplibregl-popup-tip {
+  border-top-color: var(--color-deep-mocha-800);
+}
+.dark
+  .umap-dark-map
+  .species-map-popup.maplibregl-popup-anchor-left
+  .maplibregl-popup-tip {
+  border-right-color: var(--color-deep-mocha-800);
+}
+.dark
+  .umap-dark-map
+  .species-map-popup.maplibregl-popup-anchor-right
+  .maplibregl-popup-tip {
+  border-left-color: var(--color-deep-mocha-800);
+}
+
 .dynamic-content a {
   text-decoration: underline;
   color: #b0b2b5;

@@ -29,6 +29,17 @@ export interface SpeciesImageUmap {
   lon: number;
   classDv: string;
   clusterLabel?: number;
+  // The specimen record behind the point; null until the backend's
+  // provenance, institution and coordinate tables exist.
+  sourceDb?: string | null;
+  catalogNumber?: string | null;
+  institutionCode?: string | null;
+  institutionName?: string | null;
+  validationStatus?: string | null;
+  recordedCountry?: string | null;
+  recordedAdm1?: string | null;
+  referenceCountry?: string | null;
+  referenceAdm1?: string | null;
 }
 
 /**

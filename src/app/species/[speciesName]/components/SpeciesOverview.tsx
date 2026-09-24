@@ -8,18 +8,14 @@ import ImageMetadata from "./ImageMetadata";
 import { TaxonomyData } from "@/lib/speciesData";
 import VisuallySimilarSpecies from "./SimilarSpecies";
 import { LepTraits } from "@/lib/leptraits";
-import { NoData } from "@/components/NoData";
 import { useInView } from "@/lib/useInView";
+import { DistributionMapSkeleton } from "./DistributionMapSkeleton";
 
 const SpeciesDistribution = dynamic(
   () => import("@/app/species/[speciesName]/components/SpeciesMap"),
   {
     ssr: false,
-    loading: () => (
-      <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl flex items-center justify-center">
-        <NoData text="Loading map..." />
-      </div>
-    ),
+    loading: () => <DistributionMapSkeleton msg="Loading map" />,
   },
 );
 
@@ -143,8 +139,9 @@ export function SpeciesOverview({
         <div className="lg:col-span-1 space-y-5">
           <SpeciesClassification taxonomyData={taxonomy} />
 
-          {/* The map pulls 200 GBIF occurrences plus the MapLibre bundle, so it
-              only mounts once the reader scrolls near it.
+          {/* The map pulls our specimen coordinates, the GBIF density tiles
+              and the MapLibre bundle, so it only mounts once the reader
+              scrolls near it.
 
               GBIF is the exception to the recorded-name rule above: it is an
               external backbone rather than our gallery, so it gets both names
@@ -156,7 +153,7 @@ export function SpeciesOverview({
                 acceptedName={taxonomy?.acceptedName ?? taxonomy?.species ?? null}
               />
             ) : (
-              <div className="aspect-video bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-xl" />
+              <DistributionMapSkeleton />
             )}
           </div>
         </div>

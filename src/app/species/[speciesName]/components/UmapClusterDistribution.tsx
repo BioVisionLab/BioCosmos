@@ -1,69 +1,17 @@
 "use client";
 
 // Render the UMAP cluster distribution over an OpenFreeMap basemap.
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import PointMap, { MapPoint } from "@/components/map/PointMap";
-import { UmapOccurrence } from "@/lib/map";
-import { fetchThumbnailById } from "@/lib/images";
-import { ImageLoading } from "@/components/Loadings";
-import { toTitleCase } from "@/lib/textUtils";
+import { SpecimenRecordCard } from "@/components/map/SpecimenRecordCard";
+import { SpecimenRecord, UmapOccurrence } from "@/lib/map";
 
-const MAP_IMAGE_SIZE = 120;
 const CIRCLE_RADIUS = 7;
 
 interface ClusterPoint extends MapPoint {
   cluster: number;
   classDv: string;
-}
-
-function MapImage({ imgId }: { imgId: string }) {
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    const fetchImageUrl = async () => {
-      try {
-        const url = await fetchThumbnailById(imgId);
-        setImgUrl(url);
-      } catch (err) {
-        console.error("Error fetching cluster image:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchImageUrl();
-  }, [imgId]);
-
-  if (!imgUrl) {
-    return <ImageLoading size={MAP_IMAGE_SIZE} />;
-  }
-
-  if (loading) {
-    return <ImageLoading size={MAP_IMAGE_SIZE} />;
-  }
-
-  return (
-    <div className="flex items-center justify-center">
-      <div
-        style={{
-          position: "relative",
-          width: MAP_IMAGE_SIZE,
-          height: MAP_IMAGE_SIZE,
-        }}
-      >
-        <Image
-          src={imgUrl}
-          alt={`Cluster ${imgId}`}
-          fill
-          className="object-contain"
-          unoptimized
-        />
-      </div>
-    </div>
-  );
 }
 
 export default function UmapClusterDistribution({
@@ -97,6 +45,16 @@ export default function UmapClusterDistribution({
     [occurrences, clusterColors],
   );
 
+  // MapLibre flattens point properties, so the record is looked up by id
+  // rather than carried on the point.
+  const records = useMemo(
+    () =>
+      new Map<string, SpecimenRecord>(
+        occurrences.map((occ) => [String(occ.key), occ.record]),
+      ),
+    [occurrences],
+  );
+
   const mapCenter: [number, number] =
     points.length > 0 ? [points[0].lon, points[0].lat] : [0, 20];
 
@@ -123,18 +81,29 @@ export default function UmapClusterDistribution({
         minZoom={2}
         maxZoom={19}
         interaction="hover"
+        popupClassName="species-map-popup"
         renderPopup={(point) => {
           const cluster = point as ClusterPoint;
+          const record = records.get(String(cluster.id));
+          if (!record) return null;
           return (
-            <div>
-              <MapImage imgId={cluster.id.toString()} />
-              <p className="font-semibold">Cluster {cluster.cluster}</p>
-              <p>{toTitleCase(cluster.classDv)}</p>
-              <p>
-                Lat: {cluster.lat.toFixed(4)} <br />
-                Lon: {cluster.lon.toFixed(4)}
-              </p>
-            </div>
+            <SpecimenRecordCard
+              record={record}
+              compact
+              leadingRows={[
+                [
+                  "Cluster",
+                  <span key="cluster" className="flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="inline-block w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: cluster.color }}
+                    />
+                    {cluster.cluster}
+                  </span>,
+                ],
+              ]}
+            />
           );
         }}
         style={{

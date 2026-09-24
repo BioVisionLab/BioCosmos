@@ -16,6 +16,7 @@ import {
 } from "@/lib/imageMetadata";
 import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
 import {
+  CoordinateRegionRow,
   METADATA_LABEL,
   METADATA_VALUE,
   MatchingHelpLink,
@@ -375,6 +376,7 @@ function SpecimenImageModal({
                           </>
                         ) : null}
                       </div>
+                      <CoordinateRegionRow validation={coordinatesOf(meta)} />
 
 
                       {/* The same taxonomic update the species-page panel

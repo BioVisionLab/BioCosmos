@@ -13,6 +13,7 @@ from ..query.featured_species import (
 )
 from ..query.higher_taxa import FamilyOverview, GenusOverview
 from ..query.specimen_data import SpecimenData
+from ..query.species_coordinates import SpeciesCoordinates
 from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
 from ..query.species_similarity import (
     SpeciesSimilarity,
@@ -351,6 +352,39 @@ async def fetch_species_specimen_info(
             status_code=500,
             detail="An internal error occurred while fetching specimens.",
         )
+
+
+def get_species_coordinates(request: Request) -> SpeciesCoordinates:
+    return SpeciesCoordinates(request.app.state.duck_db)
+
+
+@router.get("/species/{scientific_name}/coordinates", tags=["Species Data"])
+async def fetch_species_coordinates(
+    scientific_name: str,
+    service: SpeciesCoordinates = Depends(get_species_coordinates),
+):
+    """
+    Georeferenced specimens of a species, one point per specimen, with the
+    GADM coordinate validation when it has been run.
+
+    Returns 404 when the species has no usable coordinate.
+    """
+    try:
+        payload = await asyncio.to_thread(service.get, scientific_name)
+    except Exception:
+        logger.exception(f"Error fetching coordinates for: {scientific_name}")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred while fetching coordinates.",
+            headers={"Cache-Control": NO_STORE},
+        )
+    if payload is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No georeferenced specimens for species: {scientific_name}",
+            headers={"Cache-Control": NO_STORE},
+        )
+    return cached_json(payload, cache_control=SIMILARITY_CACHE_CONTROL)
 
 
 def _overview_etag(request: Request, rank: str, key: str) -> str | None:

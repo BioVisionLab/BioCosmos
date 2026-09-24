@@ -626,6 +626,17 @@ class UmapEmbedding(BaseModel):
     lon: Optional[float]
     class_dv: Optional[str]
     cluster_label: Optional[int]
+    # The specimen record behind the point, as the distribution map shows it.
+    # Null until the provenance, institution and coordinate tables exist.
+    source_db: str | None = None
+    catalog_number: str | None = None
+    institution_code: str | None = None
+    institution_name: str | None = None
+    validation_status: str | None = None
+    recorded_country: str | None = None
+    recorded_adm1: str | None = None
+    reference_country: str | None = None
+    reference_adm1: str | None = None
 
     def __repr__(self):
         return f"UmapEmbedding(species={self.species}, umap_x={self.umap_x}, umap_y={self.umap_y})"
