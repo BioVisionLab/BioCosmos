@@ -14,6 +14,7 @@ import {
   PRIMARY_TYPE_STATUSES,
   TaxonomyDetail,
   TypeSpecimen,
+  TypeSummary,
   fetchTaxonomyDetail,
 } from "@/lib/taxonomyDetail";
 import { ClassificationLadder } from "./ClassificationLadder";
@@ -127,16 +128,27 @@ function DetailSections({ detail }: { detail: TaxonomyDetail }) {
         <NomenclatureTable detail={detail} />
       </Card>
 
-      <Card
-        title="Type Material"
-        count={detail.typeMaterial.length || undefined}
-      >
+      {/* Everything about the types in one card: the summary a reader
+          comes for, then the specimens it was drawn from. */}
+      <Card title="Type">
         {unavailable ? (
           <Muted>Type material has not been loaded on this server.</Muted>
         ) : detail.typeMaterial.length === 0 ? (
           <Muted>No type material recorded in Catalogue of Life.</Muted>
         ) : (
-          <TypeMaterialList types={detail.typeMaterial} />
+          <>
+            <TypeSummaryTable
+              summary={detail.typeSummary}
+              acceptedName={detail.nomenclature.acceptedName}
+            />
+            <h3 className="mt-4 mb-2 font-semibold text-deep-mocha-800 dark:text-deep-mocha-100">
+              Specimens{" "}
+              <span className="font-normal text-deep-mocha-500 dark:text-deep-mocha-400">
+                ({detail.typeMaterial.length})
+              </span>
+            </h3>
+            <TypeMaterialList types={detail.typeMaterial} />
+          </>
         )}
       </Card>
 
@@ -372,6 +384,82 @@ function countryName(code: string | null): string | null {
   }
 }
 
+/**
+ * A locality with its country, without naming the country twice: CoL
+ * localities often already start with it.
+ */
+function placeLabel(
+  locality: string | null,
+  countryCode: string | null,
+): string | null {
+  const country = countryName(countryCode);
+  if (locality && country && locality.includes(country)) return locality;
+  return [locality, country].filter(Boolean).join(" · ") || null;
+}
+
+function coordinatesLabel(
+  latitude: number | null,
+  longitude: number | null,
+): string | null {
+  return latitude !== null && longitude !== null
+    ? `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`
+    : null;
+}
+
+function TypeStatusBadge({ status }: { status: string }) {
+  return (
+    <Badge tone={PRIMARY_TYPE_STATUSES.has(status) ? "matched" : "neutral"}>
+      {status}
+    </Badge>
+  );
+}
+
+function TypeSummaryTable({
+  summary,
+  acceptedName,
+}: {
+  summary: TypeSummary | null;
+  acceptedName: string;
+}) {
+  if (!summary) {
+    // Types are listed below, but all of them belong to synonyms.
+    return <Muted>Type of this name not recorded.</Muted>;
+  }
+  const place = placeLabel(summary.locality, summary.country);
+  const coordinates = coordinatesLabel(summary.latitude, summary.longitude);
+  const typified =
+    summary.typifiedName &&
+    summary.typifiedName.toLowerCase() !== acceptedName.toLowerCase()
+      ? summary.typifiedName
+      : null;
+  return (
+    <table className="w-full min-w-0">
+      <tbody>
+        <Row label="Type Kind">
+          <TypeStatusBadge status={summary.kind} />
+          {typified ? (
+            <span className="text-deep-mocha-500 dark:text-deep-mocha-400">
+              {" "}
+              of <i className="italic">{typified}</i>
+            </span>
+          ) : null}
+        </Row>
+        <Row label="Type Locality">
+          {place ?? (
+            <span className="text-deep-mocha-500 dark:text-deep-mocha-400">
+              Not recorded
+            </span>
+          )}
+        </Row>
+        {coordinates ? <Row label="Coordinates">{coordinates}</Row> : null}
+        {summary.repository ? (
+          <Row label="Repository">{summary.repository}</Row>
+        ) : null}
+      </tbody>
+    </table>
+  );
+}
+
 function sexLabel(sex: string | null): string | null {
   if (!sex) return null;
   const value = sex.toLowerCase();
@@ -403,20 +491,13 @@ function TypeMaterialList({ types }: { types: TypeSpecimen[] }) {
 }
 
 function TypeSpecimenCard({ specimen }: { specimen: TypeSpecimen }) {
-  const primary = PRIMARY_TYPE_STATUSES.has(specimen.status);
+  const primary =
+    specimen.typifiesSpecies && PRIMARY_TYPE_STATUSES.has(specimen.status);
   const repository = [specimen.institutionCode, specimen.catalogNumber]
     .filter(Boolean)
     .join(" ");
-  const country = countryName(specimen.country);
-  // CoL localities often already start with the country.
-  const place =
-    specimen.locality && country && specimen.locality.includes(country)
-      ? specimen.locality
-      : [specimen.locality, country].filter(Boolean).join(" · ");
-  const coordinates =
-    specimen.latitude !== null && specimen.longitude !== null
-      ? `${specimen.latitude.toFixed(2)}, ${specimen.longitude.toFixed(2)}`
-      : null;
+  const place = placeLabel(specimen.locality, specimen.country);
+  const coordinates = coordinatesLabel(specimen.latitude, specimen.longitude);
   const collected = [specimen.collector, specimen.date]
     .filter(Boolean)
     .join(", ");
@@ -437,6 +518,11 @@ function TypeSpecimenCard({ specimen }: { specimen: TypeSpecimen }) {
             of <i className="italic">{specimen.typifiedName}</i>
           </span>
         ) : null}
+        {specimen.typifiesSpecies ? null : (
+          <span className="text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
+            (synonym type)
+          </span>
+        )}
       </div>
       <table className="w-full min-w-0">
         <tbody>

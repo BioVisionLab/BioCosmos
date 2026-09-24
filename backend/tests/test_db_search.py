@@ -229,3 +229,62 @@ def test_api_endpoint(populated_duckdb):
     assert data["total_specimens"] == 3
     assert data["page"] == 1
     assert data["limit"] == 2
+
+
+def _pages(species_keys=None, image_keys=None, available=True):
+    pages = MagicMock()
+    pages.available.return_value = available
+    pages.page_keys_for_species.side_effect = lambda names: {
+        n: species_keys[n] for n in names if n in (species_keys or {})
+    }
+    pages.page_keys_for_images.side_effect = lambda ids: {
+        i: image_keys[i] for i in ids if i in (image_keys or {})
+    }
+    return pages
+
+
+def test_species_results_link_to_valid_pages_only(mock_request):
+    """A misspelling folds into its species; an unresolved name is dropped."""
+    searcher = TextToDbSearch(request=mock_request, query="vanessa", field="species")
+    results_df = pl.DataFrame(
+        {
+            "species": ["vanessa_carduii", "vanessa_cardui", "vanessa_bogus"],
+            "match_field": [True, True, True],
+        }
+    )
+    pages = _pages(
+        species_keys={
+            "vanessa_carduii": "vanessa_cardui",
+            "vanessa_cardui": "vanessa_cardui",
+        }
+    )
+    results = searcher._process_results(results_df, "species", ["species"], pages)
+    assert [(r["species"], r["species_key"]) for r in results] == [
+        ("vanessa_cardui", "vanessa_cardui")
+    ]
+
+
+def test_specimens_without_a_page_are_listed_unlinked(mock_request):
+    searcher = TextToDbSearch(request=mock_request, query="danaus plexippus")
+    full = mock_request.app.state.duck_db.conn.execute(
+        "SELECT * FROM image_meta WHERE img_id IN ('img1', 'img2') ORDER BY img_id"
+    ).pl()
+    pages = _pages(image_keys={"img1": "danaus_plexippus"})
+    specimens = searcher._process_specimens(full, "species", ["species"], pages)
+    assert [(s["img_id"], s["species_key"]) for s in specimens] == [
+        ("img1", "danaus_plexippus"),
+        ("img2", None),
+    ]
+
+
+def test_without_a_run_specimens_link_to_the_recorded_binomial(mock_request):
+    res = TextToDbSearch(
+        request=mock_request, query="danaus plexippus", field="all"
+    ).search()
+    keys = {s["img_id"]: s["species_key"] for s in res["specimens"]}
+    assert keys == {
+        "img1": "danaus_plexippus",
+        "img2": "danaus_plexippus",
+        "img3": "danaus_plexippus",
+    }
+    assert res["results"][0]["species_key"] == "danaus_plexippus"

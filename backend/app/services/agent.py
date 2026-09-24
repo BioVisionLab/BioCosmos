@@ -32,6 +32,7 @@ from .gbif import GbifPersistData
 from .images import ImagePersistData
 from .leptraits import LepTraits
 from .metadata import ImageMetaService
+from .species_pages import SpeciesPageResolver, attach_page_keys
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,9 @@ class AgentSearchResult(BaseModel):
 
     img_id: str
     species: str
+    # The species page the result links to; see `species_pages`. Absent from
+    # results cached before it existed.
+    species_key: str | None = None
     tool_names: list[str] = Field(default_factory=list, alias="tool_names")
 
 
@@ -109,6 +113,7 @@ class AgentSearchService:
         gbif_service: GbifPersistData | None = None,
         leptraits_service: LepTraits | None = None,
         locality_species: LocalitySpecies | None = None,
+        species_pages: SpeciesPageResolver | None = None,
     ) -> None:
         config = OpenAIConfig()
         if client is None:
@@ -137,9 +142,34 @@ class AgentSearchService:
         self.gbif_service = gbif_service or GbifPersistData(duckdb=duckdb)
         self.leptraits_service = leptraits_service or LepTraits(duckdb=duckdb)
         self.locality_species = locality_species or LocalitySpecies(duckdb)
+        self.species_pages = species_pages or SpeciesPageResolver(duckdb)
 
     async def search(self, query: str) -> AgentSearchOutcome:
-        """Run a single planner request followed by filter-first tool execution."""
+        """Run a single planner request followed by filter-first tool execution.
+
+        Every result links to a valid species page. The tools work on recorded
+        names, so the final list is resolved once here: a result with no page
+        is dropped, and two spellings of one species keep the higher-ranked.
+        """
+        outcome = await self._search(query)
+        dataframe = await asyncio.to_thread(self._link_species_pages, outcome.dataframe)
+        return AgentSearchOutcome(dataframe, outcome.warnings)
+
+    def _link_species_pages(self, dataframe: pl.DataFrame) -> pl.DataFrame:
+        if dataframe.is_empty():
+            return dataframe.with_columns(pl.lit(None, pl.String).alias("speciesKey"))
+        keyed = attach_page_keys(dataframe, self.species_pages)
+        # Rows arrive ranked, so the first of each page is the one to keep.
+        # Records the fallback could not key (genus-only) stay, unlinked.
+        return (
+            keyed.with_columns(
+                pl.coalesce(pl.col("speciesKey"), pl.col("species")).alias("_page")
+            )
+            .unique(subset=["_page"], keep="first", maintain_order=True)
+            .drop("_page")
+        )
+
+    async def _search(self, query: str) -> AgentSearchOutcome:
         response = await self._plan(query)
         if not getattr(response, "choices", None):
             raise AgentPlannerError("The planner returned no choices.")

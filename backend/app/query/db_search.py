@@ -7,6 +7,7 @@ import math
 
 from ..services.institution import InstitutionDirectory
 from ..services.metadata import ImageMetaService
+from ..services.species_pages import SpeciesPageResolver
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +148,13 @@ class TextToDbSearch:
                 logger.info(f"No results found for query: {self.query}")
                 return DbSearchPayload.empty(query=self.query).model_dump()
             
-            db_results = self._process_results(results_df, field, valid_fields)
-            db_specimens = self._process_specimens(specimens_df, field, valid_fields)
+            pages = SpeciesPageResolver(self.request.app.state.duck_db)
+            db_results = self._process_results(
+                results_df, field, valid_fields, pages
+            )
+            db_specimens = self._process_specimens(
+                specimens_df, field, valid_fields, pages
+            )
 
             logger.info(f"Found {len(db_results)} unique species, total {total_specimens} specimens (showing page {self.page}) for query: {self.query}")
             return DbSearchPayload.from_data(
@@ -159,13 +165,36 @@ class TextToDbSearch:
             logger.error(f"Error performing db search: {e}", exc_info=True)
             raise e
 
-    def _process_results(self, results_df, field: str, valid_fields: list[str]) -> list[dict]:
+    def _process_results(
+        self,
+        results_df,
+        field: str,
+        valid_fields: list[str],
+        pages: SpeciesPageResolver,
+    ) -> list[dict]:
+        """One entry per species page the matching records lead to.
+
+        Each entry names the page it links to. A recorded name that resolves
+        to no species with a reachable page is left out: its own page would
+        be an orphan. With no harmonization run loaded, the recorded binomial
+        stands in, as it always did.
+        """
+        page_keys = (
+            pages.page_keys_for_species(results_df["species"].to_list())
+            if pages.available()
+            else None
+        )
         db_results = []
         seen_species = set()
         for row in results_df.iter_rows(named=True):
             species = row["species"]
-            cleaned_species = self.extract_binomial_species(species)
-            
+            if page_keys is None:
+                cleaned_species = self.extract_binomial_species(species)
+            else:
+                cleaned_species = page_keys.get(species)
+                if not cleaned_species:
+                    continue
+
             if cleaned_species in seen_species:
                 continue
             seen_species.add(cleaned_species)
@@ -187,6 +216,7 @@ class TextToDbSearch:
             
             db_results.append({
                 "species": cleaned_species,
+                "species_key": cleaned_species,
                 "matched_fields": matched_cols,
                 "score": score
             })
@@ -194,10 +224,24 @@ class TextToDbSearch:
         db_results.sort(key=lambda x: x["score"], reverse=True)
         return db_results
 
-    def _process_specimens(self, specimens_df, field: str, valid_fields: list[str]) -> list[dict]:
+    def _process_specimens(
+        self,
+        specimens_df,
+        field: str,
+        valid_fields: list[str],
+        pages: SpeciesPageResolver,
+    ) -> list[dict]:
         db_specimens = []
         if specimens_df.is_empty():
             return db_specimens
+
+        # Every specimen is listed, since this is a table of records, but only
+        # one whose species has a valid page links to it.
+        page_keys = (
+            pages.page_keys_for_images(specimens_df["img_id"].to_list())
+            if pages.available()
+            else None
+        )
             
         search_fields = [f for f in valid_fields if f not in TARGETED_ONLY_FIELDS]
         directory = self._institution_directory(specimens_df)
@@ -223,6 +267,11 @@ class TextToDbSearch:
             db_specimens.append({
                 "img_id": row["img_id"],
                 "species": row["species"],
+                "species_key": (
+                    page_keys.get(row["img_id"])
+                    if page_keys is not None
+                    else self.binomial_or_none(row["species"])
+                ),
                 "family": row["family"],
                 "common_name": row["common_name"],
                 "sex": row["sex"],
@@ -289,6 +338,14 @@ class TextToDbSearch:
             return {}
         directory = InstitutionDirectory(self.request.app.state.duck_db).get_all()
         return {code: directory[code] for code in codes if code in directory}
+
+    @classmethod
+    def binomial_or_none(cls, name: str | None) -> str | None:
+        """The recorded binomial, or None for a record named only to genus."""
+        if not name:
+            return None
+        key = cls.extract_binomial_species(name)
+        return key if "_" in key else None
 
     @staticmethod
     def extract_binomial_species(name: str) -> str:

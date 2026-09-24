@@ -225,10 +225,12 @@ body {
 }
 
 /* MapLibre pins its close button flush in the corner with no padding; inset
-   it as a round button that lines up with the popup's title. */
+   it as a round button inside the corner of the card's image box, which is
+   always there (a placeholder when the thumbnail is missing), so the button
+   sits in the same place on every card. 12px of popup padding + 4px. */
 .species-map-popup .maplibregl-popup-close-button {
-  top: 10px;
-  right: 10px;
+  top: 16px;
+  right: 16px;
   width: 24px;
   height: 24px;
   padding: 0;
@@ -236,14 +238,26 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  font-size: 18px;
-  line-height: 1;
-  color: var(--color-deep-mocha-500);
+  /* Hide MapLibre's "×" text glyph: its font metrics sit it off the circle's
+     centre. The X is drawn by ::before instead, in currentColor. */
+  font-size: 0;
+  color: var(--color-deep-mocha-600);
+  background-color: rgb(255 255 255 / 0.85);
+  box-shadow: 0 1px 2px rgb(28 23 23 / 0.12);
   transition: background-color 150ms, color 150ms;
 }
 
+.species-map-popup .maplibregl-popup-close-button::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 2l8 8M10 2l-8 8' stroke='black' stroke-width='1.75' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
 .species-map-popup .maplibregl-popup-close-button:hover {
-  background-color: var(--color-deep-mocha-100);
+  background-color: #ffffff;
   color: var(--color-deep-mocha-900);
 }
 
@@ -254,6 +268,8 @@ body {
 
 .dark .umap-dark-map .species-map-popup .maplibregl-popup-close-button {
   color: var(--color-deep-mocha-300);
+  background-color: rgb(56 46 46 / 0.85); /* deep-mocha-800 */
+  box-shadow: none;
 }
 
 .dark .umap-dark-map .species-map-popup .maplibregl-popup-close-button:hover {

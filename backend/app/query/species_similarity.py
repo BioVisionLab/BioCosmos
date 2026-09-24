@@ -7,6 +7,7 @@ from pydantic.alias_generators import to_camel
 
 from ..services.images import ImagePersistData
 from ..services.metadata import ImageMetaService
+from ..services.species_pages import SpeciesPageResolver, recorded_binomial_key
 from ..services.taxonomy_update import OccurrenceTaxonomy
 
 logger = logging.getLogger(__name__)
@@ -29,11 +30,12 @@ class SimilarSpeciesRow(BaseModel):
     )
 
     img_id: str
-    # The name as recorded. It stays the link target: every image endpoint
-    # keys on `image_meta.species`, so a link built from the accepted name
-    # would open a species page with an empty gallery for exactly the renamed
-    # taxa this panel surfaces.
+    # The name as recorded, for display next to the accepted one.
     species: str
+    # The species page the card links to: the accepted species' canonical
+    # recorded spelling, not this record's own, which may be a synonym or a
+    # misspelling whose page is orphaned. See `species_pages`.
+    species_key: str
     distance: float
     # Absent until a colharmonize run has been loaded, and on a precomputed
     # table built before the taxonomy columns existed.
@@ -74,11 +76,20 @@ def has_binomial_record(candidate: dict) -> bool:
     return len([part for part in candidate["species"].split("_") if part]) >= 2
 
 
-def similar_species_row(candidate: dict, record: dict | None) -> dict:
+def binomial_record_key(species: str) -> str:
+    """The binomial route key of a recorded name, for the un-harmonized
+    fallback, where there is no accepted species to find a page for."""
+    return pl.select(recorded_binomial_key(pl.lit(species))).item()
+
+
+def similar_species_row(
+    candidate: dict, record: dict | None, species_key: str
+) -> dict:
     """Shape one card the way the payload declares it."""
     return {
         "imgId": candidate["imgId"],
         "species": candidate["species"],
+        "speciesKey": species_key,
         "distance": candidate["distance"],
         "acceptedName": record["display_accepted_name"] if record else None,
         "acceptedRank": record["accepted_rank"] if record else None,
@@ -91,6 +102,7 @@ def resolve_similar_species(
     taxonomy: OccurrenceTaxonomy,
     exclude_keys: set[str],
     limit: int,
+    pages: SpeciesPageResolver,
 ) -> list[dict]:
     """Map candidate images onto accepted taxa, nearest first.
 
@@ -116,13 +128,15 @@ def resolve_similar_species(
             "falling back to recorded names for similar species."
         )
         return [
-            similar_species_row(row, None)
+            similar_species_row(row, None, binomial_record_key(row["species"]))
             for row in candidates
             if has_binomial_record(row)
         ][:limit]
 
+    page_keys = pages.page_keys_for_images([row["imgId"] for row in candidates])
     rows: list[dict] = []
     seen: set[str] = set()
+    seen_pages: set[str] = set()
     for candidate in sorted(candidates, key=lambda row: row["distance"]):
         record = resolved.get(candidate["imgId"])
         if record is None:
@@ -135,8 +149,14 @@ def resolve_similar_species(
             continue
         if not is_comparable_taxon(record):
             continue
+        # A species with no page a link can reach would leave the card
+        # pointing at an orphan, so it is not shown at all.
+        page = page_keys.get(candidate["imgId"])
+        if not page or page in seen_pages:
+            continue
         seen.add(key)
-        rows.append(similar_species_row(candidate, record))
+        seen_pages.add(page)
+        rows.append(similar_species_row(candidate, record, page))
         if len(rows) >= limit:
             break
     return rows
@@ -174,6 +194,7 @@ class SpeciesSimilarity:
         )
         # One lookup for both sides; it caches its own table probe.
         self.taxonomy = OccurrenceTaxonomy(duckdb_client=self.duck_db)
+        self.pages = SpeciesPageResolver(self.duck_db)
 
     def find_similar_species(
         self, species_name: str, side: str | None = None
@@ -326,7 +347,7 @@ class SpeciesSimilarity:
         """
         candidates = self._filter_similar_images(similar_images, species_name)
         return resolve_similar_species(
-            candidates, self.taxonomy, exclude_keys, self.limit
+            candidates, self.taxonomy, exclude_keys, self.limit, self.pages
         )
 
     def _filter_similar_images(

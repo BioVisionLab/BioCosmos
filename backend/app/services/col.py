@@ -26,6 +26,7 @@ from ..database.model import (
     ColTaxonomy,
     ColTaxonomyDetail,
     ColTypeSpecimen,
+    ColTypeSummary,
     binomial_name,
     year_from,
 )
@@ -859,14 +860,24 @@ class ColTaxonSearch:
                     ColNameUsage(name=recorded, status="recorded", isRecorded=True)
                 )
 
+        typifying = self._typifying_ids(usages, accepted_id)
+        type_material = [
+            ColTypeSpecimen.from_row(row, row.get("name_id") in typifying)
+            for row in sorted(
+                types,
+                # The species' own types first, then those of its synonyms.
+                key=lambda row: (
+                    row.get("name_id") not in typifying,
+                    *self._type_sort_key(row),
+                ),
+            )
+        ]
         detail_payload = ColTaxonomyDetail(
             classification=ColTaxonomy.model_validate(taxon),
             nomenclature=self._nomenclature(taxon, usages, accepted_id),
             nameUsages=name_usages,
-            typeMaterial=[
-                ColTypeSpecimen.from_row(row)
-                for row in sorted(types, key=self._type_sort_key)
-            ],
+            typeMaterial=type_material,
+            typeSummary=self._type_summary(type_material),
             detailAvailable=detail,
         )
         return detail_payload.model_dump(by_alias=True)
@@ -935,6 +946,48 @@ class ColTaxonSearch:
             order,
             row.get("typified_name") or "",
             row.get("catalog_number") or "",
+        )
+
+    @staticmethod
+    def _typifying_ids(usages: list[dict], accepted_id: str) -> set[str]:
+        """The usages whose types are this species' types.
+
+        The accepted name and its original combination. A junior synonym was
+        described from its own type, which typifies that name and says
+        nothing about where this species was first collected.
+        """
+        return {accepted_id} | {
+            row["usage_id"] for row in usages if row.get("is_basionym")
+        }
+
+    @staticmethod
+    def _type_summary(specimens: list[ColTypeSpecimen]) -> ColTypeSummary | None:
+        """The species' type kind and type locality, from its sorted types.
+
+        The kind is the highest-ranking type of the species itself. The
+        locality falls through to the next of its types when that one records
+        none: a holotype catalogued without a locality still has paratypes
+        from the same series that name one.
+        """
+        own = [specimen for specimen in specimens if specimen.typifiesSpecies]
+        if not own:
+            return None
+        first = own[0]
+        place = next(
+            (specimen for specimen in own if specimen.locality or specimen.country),
+            None,
+        )
+        repository = " ".join(
+            part for part in (first.institutionCode, first.catalogNumber) if part
+        )
+        return ColTypeSummary(
+            kind=first.status,
+            typifiedName=first.typifiedName,
+            repository=repository or None,
+            locality=place.locality if place else None,
+            country=place.country if place else None,
+            latitude=place.latitude if place else None,
+            longitude=place.longitude if place else None,
         )
 
     @staticmethod

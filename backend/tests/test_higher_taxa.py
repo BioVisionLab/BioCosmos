@@ -350,6 +350,31 @@ class TestGenusMembers:
         assert row["species_name"] == "Coenonympha tullia"
         assert row["recorded_name"] == "Oldgenus renamed"
 
+    def test_links_the_binomial_even_when_a_subspecies_is_commoner(
+        self, repository
+    ):
+        """The route is a binomial and matches the recorded string exactly.
+
+        Linking a trinomial would be cut to its binomial on the way into the
+        URL and open a gallery holding none of its images.
+        """
+        client = repository.db_client
+        client.execute(
+            "INSERT INTO image_meta (img_id, species, family, class_dv) "
+            "SELECT 'ssp' || i, 'coenonympha_pamphilus_lyllus', 'nymphalidae', "
+            "'dorsal' FROM range(5) t(i)"
+        )
+        client.execute(
+            "INSERT INTO image_meta_taxonomy (img_id, update_status, "
+            "accepted_name, accepted_species_name, display_accepted_name, "
+            "accepted_family) SELECT 'ssp' || i, 'MATCHED', "
+            "'Coenonympha pamphilus', 'Coenonympha pamphilus', "
+            "'Coenonympha pamphilus', 'Nymphalidae' FROM range(5) t(i)"
+        )
+        species = by_key(repository.genus_members("coenonympha"), "species_key")
+        assert species["coenonympha_pamphilus"]["image_count"] == 9
+        assert "coenonympha_pamphilus_lyllus" not in species
+
     def test_a_genus_only_record_is_not_a_species(self, repository):
         species = by_key(repository.genus_members("coenonympha"), "species_key")
         assert "coenonympha" not in species

@@ -10,16 +10,32 @@ from app.query.species_similarity import (
 )
 
 
+def pages_resolving(keys=None, missing=()):
+    """A page resolver that gives each image a page of its own.
+
+    `keys` overrides the page of chosen images; `missing` have none.
+    """
+    keys = keys or {}
+    pages = MagicMock()
+    pages.page_keys_for_images.side_effect = lambda ids: {
+        i: keys.get(i, f"page_{i}") for i in ids if i not in missing
+    }
+    return pages
+
+
 class TestVisuallySimilarSpeciesPayload:
 
     def test_serializes_to_camel_case(self):
         payload = VisuallySimilarSpeciesPayload(
-            dorsal=[{"species": "a", "imgId": "1", "distance": 0.1}],
+            dorsal=[
+                {"species": "a", "speciesKey": "a_b", "imgId": "1", "distance": 0.1}
+            ],
             ventral=[],
         )
         data = payload.model_dump(by_alias=True)
         assert "dorsal" in data
         assert "ventral" in data
+        assert data["dorsal"][0]["speciesKey"] == "a_b"
 
     def test_empty_payload(self):
         payload = VisuallySimilarSpeciesPayload(dorsal=[], ventral=[])
@@ -167,10 +183,11 @@ class TestSpeciesSimilarity:
 class TestResolvingToAcceptedTaxa:
     """The panel shows accepted taxa, one card each, always a full row."""
 
-    def _make_instance(self, fake_request, resolved, limit=10):
+    def _make_instance(self, fake_request, resolved, limit=10, pages=None):
         sim = SpeciesSimilarity(request=fake_request, limit=limit)
         sim.taxonomy = MagicMock()
         sim.taxonomy.get_for_images.return_value = resolved
+        sim.pages = pages or pages_resolving()
         return sim
 
     def _record(self, img_id, key, name="Vanessa cardui", rank="species"):
@@ -258,6 +275,61 @@ class TestResolvingToAcceptedTaxa:
         assert len(rows) == 3
         assert len({row["acceptedName"] for row in rows}) == 3
 
+    def test_links_to_the_species_page_not_the_recorded_spelling(
+        self, fake_request
+    ):
+        """A misspelled record's own page is an orphan; its species' is not."""
+        df = pl.DataFrame({
+            "imgId": ["typo"],
+            "species": ["vanessa_carduii"],
+            "distance": [0.2],
+        })
+        sim = self._make_instance(
+            fake_request,
+            {"typo": self._record("typo", "COL:2")},
+            pages=pages_resolving({"typo": "vanessa_cardui"}),
+        )
+        [row] = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert row["species"] == "vanessa_carduii"
+        assert row["speciesKey"] == "vanessa_cardui"
+
+    def test_drops_a_species_with_no_page(self, fake_request):
+        """And the next candidate takes its slot."""
+        df = pl.DataFrame({
+            "imgId": ["orphan", "good", "spare"],
+            "species": ["danaus_chrysippus_alcippus", "vanessa_cardui", "x_y"],
+            "distance": [0.1, 0.2, 0.3],
+        })
+        sim = self._make_instance(
+            fake_request,
+            {
+                "orphan": self._record("orphan", "COL:9", "Danaus chrysippus"),
+                "good": self._record("good", "COL:2"),
+                "spare": self._record("spare", "COL:3", "X y"),
+            },
+            limit=2,
+            pages=pages_resolving(missing={"orphan"}),
+        )
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert [row["imgId"] for row in rows] == ["good", "spare"]
+
+    def test_two_taxa_sharing_a_page_make_one_card(self, fake_request):
+        df = pl.DataFrame({
+            "imgId": ["a", "b"],
+            "species": ["vanessa_cardui", "vanessa_cardui"],
+            "distance": [0.1, 0.2],
+        })
+        sim = self._make_instance(
+            fake_request,
+            {
+                "a": self._record("a", "COL:2"),
+                "b": self._record("b", "COL:3", "Vanessa kershawi"),
+            },
+            pages=pages_resolving({"a": "vanessa_cardui", "b": "vanessa_cardui"}),
+        )
+        rows = sim._resolve_accepted(df, "danaus plexippus", set())
+        assert [row["imgId"] for row in rows] == ["a"]
+
     def test_falls_back_to_recorded_names_without_a_run(self, fake_request):
         """A database with no harmonization still shows a panel."""
         df = pl.DataFrame({
@@ -270,6 +342,7 @@ class TestResolvingToAcceptedTaxa:
         assert len(rows) == 1
         assert rows[0]["acceptedName"] is None
         assert rows[0]["species"] == "vanessa_cardui"
+        assert rows[0]["speciesKey"] == "vanessa_cardui"
 
     def test_row_shape_is_what_the_payload_declares(self, fake_request):
         df = pl.DataFrame({
@@ -284,6 +357,7 @@ class TestResolvingToAcceptedTaxa:
         assert set(rows[0]) == {
             "imgId",
             "species",
+            "speciesKey",
             "distance",
             "acceptedName",
             "acceptedRank",
@@ -310,6 +384,7 @@ class TestOnlyComparableSpecies:
         sim = SpeciesSimilarity(request=fake_request, limit=10)
         sim.taxonomy = MagicMock()
         sim.taxonomy.get_for_images.return_value = resolved
+        sim.pages = pages_resolving()
         return sim._resolve_accepted(frame, "danaus plexippus", set())
 
     def test_drops_a_match_that_stopped_at_genus(self, fake_request):

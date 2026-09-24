@@ -7,12 +7,8 @@ import LandingSectionHeading, {
 } from "@/components/LandingSection";
 import { imageUrlById } from "@/lib/images";
 import { ColorSearchResult, searchByColor } from "@/lib/ml_search";
-import {
-  cleanSpeciesName,
-  isSpeciesName,
-  speciesUrlFromName,
-  toBinomialName,
-} from "@/lib/names";
+import { cleanSpeciesName, toBinomialName } from "@/lib/names";
+import { speciesPageHref } from "@/lib/taxonSlug";
 
 const RESULT_LIMIT = 6;
 // The backend removes duplicate species after its vector lookup, so request a
@@ -208,7 +204,9 @@ export default function ColorSearch() {
           {Array.from({ length: RESULT_LIMIT }, (_, slot) => {
             const result = results[slot] ?? null;
             const name = result
-              ? toBinomialName(cleanSpeciesName(result.species))
+              ? toBinomialName(
+                  cleanSpeciesName(result.speciesKey || result.species),
+                )
               : "";
             return (
               // Keyed by position, not by image id: switching colour should
@@ -216,14 +214,10 @@ export default function ColorSearch() {
               // and mount six more.
               <li key={`slot-${slot}`} className="flex">
                 <SpecimenCell
-                  // A record identified only to genus has no species page, so
-                  // the cell shows the image without pretending to lead
-                  // anywhere.
-                  href={
-                    result && isSpeciesName(result.species)
-                      ? `/species/${speciesUrlFromName(result.species)}`
-                      : null
-                  }
+                  // A record with no species page — one identified only to
+                  // genus, say — shows its image without pretending to lead
+                  // anywhere. The backend names the page.
+                  href={result ? speciesPageHref(result.speciesKey) : null}
                   imageUrl={result ? imageUrlById(result.imgId, "full") : null}
                   label={name}
                   alt={result ? `Image of ${name}` : ""}

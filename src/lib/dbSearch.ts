@@ -1,5 +1,7 @@
 export interface DbResultItems {
   species: string;
+  /** The species page this entry links to; null when there is none. */
+  species_key: string | null;
   matched_fields: string[];
   score: number;
 }
@@ -7,6 +9,11 @@ export interface DbResultItems {
 export interface SpecimenMetadata {
   img_id: string;
   species: string;
+  /**
+   * The species page this record links to, chosen by the backend. Null when
+   * the record resolves to no species with a page; the row is still listed.
+   */
+  species_key: string | null;
   family: string;
   common_name: string | null;
   sex: string | null;
@@ -100,11 +107,13 @@ async function searchDatabase(
     matched_fields: item.matched_fields || [],
     score: item.score || 0,
     species: item.species || "",
+    species_key: item.species_key ?? null,
   }));
 
   const specimens = (json.specimens || []).map((item: any) => ({
     img_id: item.img_id || "",
     species: item.species || "",
+    species_key: item.species_key ?? null,
     family: item.family || "",
     common_name: item.common_name,
     sex: item.sex,
