@@ -19,8 +19,8 @@ def raw(name: str | None, arguments: str | None) -> RawToolCall:
 def test_validation_mirrors_backend_acceptance_rules(spec) -> None:
     records = validate_calls(
         [
-            raw("search_by_location", '{"location": " br "}'),
-            raw("search_by_location", '{"location": "PE"}'),
+            raw("search_by_location", '{"country": " br "}'),
+            raw("search_by_location", '{"country": "PE"}'),
             raw("search_by_weather", "{}"),
             raw("search_by_color", "not json"),
             raw("search_by_image_similarity", '["Danaus"]'),
@@ -39,14 +39,14 @@ def test_validation_mirrors_backend_acceptance_rules(spec) -> None:
     ]
     # Whitespace is trimmed as the pydantic models do; an all-null trait call
     # is empty once nulls are dropped, which TraitArgs rejects.
-    assert records[0].arguments == {"location": "br"}
+    assert records[0].arguments == {"country": "br"}
     assert records[5].error is not None
 
 
 def test_schema_violations_are_invalid(spec) -> None:
     records = validate_calls(
         [
-            raw("search_by_location", '{"location": "Brazil"}'),
+            raw("search_by_location", '{"country": "Brazil"}'),
             raw("search_by_traits", '{"canopy_affinity": "Very high"}'),
             raw("search_by_color", '{"color_description": "blue", "extra": 1}'),
         ],
@@ -59,16 +59,16 @@ def test_plan_matching_is_exact_on_tools_and_flexible_on_values(spec) -> None:
     calls = validate_calls(
         [
             raw("search_by_color", '{"color_description": "blue"}'),
-            raw("search_by_location", '{"location": "br"}'),
+            raw("search_by_location", '{"country": "br"}'),
         ],
         spec,
     )
-    assert matches_plan(calls, {"search_by_color": {}, "search_by_location": {"location": "BR"}})
+    assert matches_plan(calls, {"search_by_color": {}, "search_by_location": {"country": "BR"}})
     assert matches_plan(
         calls,
         {
             "search_by_color": {"color_description": "*"},
-            "search_by_location": {"location": ["PE", "BR"]},
+            "search_by_location": {"country": ["PE", "BR"]},
         },
     )
     # Missing and extra tools are both wrong.
@@ -77,8 +77,29 @@ def test_plan_matching_is_exact_on_tools_and_flexible_on_values(spec) -> None:
         calls,
         {"search_by_color": {}, "search_by_location": {}, "search_by_traits": {}},
     )
+    assert not matches_plan(calls, {"search_by_color": {}, "search_by_location": {"country": "PE"}})
+
+
+def test_absent_expectation_rejects_extra_arguments(spec) -> None:
+    country_only = validate_calls([raw("search_by_location", '{"country": "BR"}')], spec)
+    with_null = validate_calls(
+        [raw("search_by_location", '{"country": "BR", "state_province": null}')], spec
+    )
+    with_adm1 = validate_calls(
+        [raw("search_by_location", '{"country": "BR", "state_province": "Amazonas"}')],
+        spec,
+    )
+    exact = {"search_by_location": {"country": "BR", "state_province": "-"}}
+    either = {"search_by_location": {"country": "BR", "state_province": ["Amazonas", "-"]}}
+
+    assert matches_plan(country_only, exact)
+    assert matches_plan(with_null, exact)
+    assert not matches_plan(with_adm1, exact)
+    assert matches_plan(country_only, either)
+    assert matches_plan(with_adm1, either)
+    # Without ABSENT, a listed argument must still be present.
     assert not matches_plan(
-        calls, {"search_by_color": {}, "search_by_location": {"location": "PE"}}
+        country_only, {"search_by_location": {"country": "BR", "state_province": "*"}}
     )
 
 
@@ -94,13 +115,13 @@ def test_signature_ignores_order_and_case(spec) -> None:
     first = validate_calls(
         [
             raw("search_by_color", '{"color_description": "Blue"}'),
-            raw("search_by_location", '{"location": "BR"}'),
+            raw("search_by_location", '{"country": "BR"}'),
         ],
         spec,
     )
     second = validate_calls(
         [
-            raw("search_by_location", '{"location": "br"}'),
+            raw("search_by_location", '{"country": "br"}'),
             raw("search_by_color", '{"color_description": "blue"}'),
         ],
         spec,

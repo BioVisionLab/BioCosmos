@@ -17,7 +17,7 @@ CASES = """
 [[cases]]
 id = "color-country"
 query = "blue from brazil"
-accept = [{ search_by_color = {}, search_by_location = { location = "BR" } }]
+accept = [{ search_by_color = {}, search_by_location = { country = "BR" } }]
 
 [[cases]]
 id = "similar"
@@ -51,14 +51,14 @@ def fake_client(monkeypatch: pytest.MonkeyPatch, sleeps: list[float]) -> FakeCli
         {
             ("good", "blue from brazil"): response(
                 ("search_by_color", '{"color_description": "blue"}'),
-                ("search_by_location", '{"location": "BR"}'),
+                ("search_by_location", '{"country": "BR"}'),
             ),
             ("good", "monarch look-alikes"): response(
                 ("search_by_image_similarity", '{"reference_species": "Danaus plexippus"}')
             ),
             ("weak", "blue from brazil"): response(
                 ("search_by_color", '{"color_description": "blue"}'),
-                ("search_by_location", '{"location": "Brazil"}'),
+                ("search_by_location", '{"country": "Brazil"}'),
             ),
             ("weak", "monarch look-alikes"): TimeoutError("planner timed out"),
         }
@@ -99,7 +99,7 @@ def test_run_compares_models_and_writes_report(
 
     assert result.exit_code == 0, result.output
     assert "2 cases x 2 models x 2 repeats = 8 calls" in result.output
-    assert "location" in result.output and "does not match" in result.output
+    assert "country" in result.output and "does not match" in result.output
     assert "prompt" in result.output and "completion" in result.output and "total" in result.output
     assert len(fake_client.requests) == 8
     assert ">= 0.1 min at 100 RPM" in result.output
