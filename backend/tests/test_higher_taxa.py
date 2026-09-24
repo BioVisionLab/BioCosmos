@@ -21,8 +21,11 @@ from app.query import higher_taxa as higher_taxa_query
 from app.query.higher_taxa import (
     PAYLOAD_CACHE,
     UNPLACED_KEY,
+    HigherTaxonCounts,
+    HigherTaxonOverview,
     OrderOverview,
     build_order_tree,
+    build_rooted_tree,
     build_tree,
 )
 from app.services.col import ColBackboneService
@@ -212,6 +215,14 @@ class TestFamilyMembers:
         # Placement is all that is lost.
         assert genera["coenonympha"]["subfamily"] is None
 
+    def test_lists_a_col_genus_the_collection_holds_nothing_of(self, repository):
+        """The tree is the classification; a gap in the collection shows."""
+        genera = by_key(repository.family_members("erebidae"), "genus_key")
+        assert set(genera) == {"zzzonympha"}
+        assert genera["zzzonympha"]["col_id"] == "GEN3"
+        assert genera["zzzonympha"]["image_count"] == 0
+        assert genera["zzzonympha"]["species_count"] == 0
+
     def test_an_unknown_family_has_no_members(self, repository):
         assert repository.family_members("nosuchfamily") == []
 
@@ -253,6 +264,29 @@ class TestOrderMembers:
         )
 
 
+class TestColTotals:
+    """The denominators for the header's coverage figures."""
+
+    def test_counts_every_accepted_taxon_in_an_order(self, repository):
+        totals = repository.col_totals("order", "lepidoptera")
+        assert totals["family_total"] == 3
+        # Zzzonympha is a homonym in two families; it is one genus name.
+        assert totals["genus_total"] == 3
+        assert totals["species_total"] == 6
+
+    def test_counts_the_genera_and_species_of_a_family(self, repository):
+        totals = repository.col_totals("family", "nymphalidae")
+        assert totals["genus_total"] == 3
+        assert totals["species_total"] == 6
+
+    def test_counts_species_not_synonyms_or_subspecies(self, repository):
+        # Papilio pamphilus is a synonym and Coenonympha incertae is unranked.
+        assert repository.col_totals("genus", "coenonympha")["species_total"] == 3
+
+    def test_without_the_backbone_there_is_no_total(self, repository_without_backbone):
+        assert repository_without_backbone.col_totals("family", "nymphalidae") is None
+
+
 class TestGenusMembers:
     def test_lists_species_with_their_image_counts(self, repository):
         species = by_key(repository.genus_members("coenonympha"), "species_key")
@@ -260,6 +294,19 @@ class TestGenusMembers:
         # folded in rather than standing beside it under the same name.
         assert species["coenonympha_pamphilus"]["image_count"] == 4
         assert "coenonympha_pamphilus_lyllus" not in species
+
+    def test_lists_a_col_species_the_collection_holds_nothing_of(self, repository):
+        species = by_key(repository.genus_members("coenonympha"), "species_key")
+        row = species["coenonympha_dubia"]
+        assert row["image_count"] == 0
+        assert row["species_name"] == "Coenonympha dubia"
+        assert row["recorded_name"] is None
+
+    def test_a_held_species_is_not_listed_twice(self, repository):
+        """Coenonympha tullia is held under a renamed record key."""
+        names = [row["species_name"] for row in repository.genus_members("coenonympha")]
+        assert names.count("Coenonympha tullia") == 1
+        assert names.count("Coenonympha pamphilus") == 1
 
     def test_keys_a_renamed_species_on_the_name_the_collection_records(
         self, repository
@@ -795,6 +842,13 @@ class TestOrderOverview:
         assert payload["tree"][0]["familyCount"] == 1
 
     @pytest.mark.asyncio
+    async def test_the_counts_carry_col_totals_for_coverage(self, overview):
+        counts = (await overview.overview())["counts"]
+        assert counts["familyTotal"] == 3
+        assert counts["genusTotal"] == 3
+        assert counts["speciesTotal"] == 6
+
+    @pytest.mark.asyncio
     async def test_a_second_request_is_served_from_the_memo(
         self, overview, repository, monkeypatch
     ):
@@ -818,3 +872,98 @@ class TestOrderOverview:
             lambda key: [_order_row("erebidae", image_count=0)],
         )
         assert await overview.overview() is None
+
+
+class TestTotalsAttachment:
+    def test_a_total_is_set_only_beside_a_count_of_its_rank(self):
+        """A genus page has no genus count, so it gets no genus total."""
+        counts = HigherTaxonOverview._with_totals(
+            HigherTaxonCounts(species_count=2, image_count=5),
+            {"family_total": 0, "genus_total": 1, "species_total": 4},
+        )
+        assert counts.family_total is None
+        assert counts.genus_total is None
+        assert counts.species_total == 4
+
+    def test_a_zero_total_is_left_unset(self):
+        """CoL knowing nothing is not 0% coverage."""
+        counts = HigherTaxonOverview._with_totals(
+            HigherTaxonCounts(genus_count=1, species_count=1, image_count=1),
+            {"family_total": 0, "genus_total": 0, "species_total": 0},
+        )
+        assert counts.genus_total is None
+        assert counts.species_total is None
+
+    def test_without_totals_the_counts_are_unchanged(self):
+        counts = HigherTaxonCounts(genus_count=1, species_count=1, image_count=1)
+        assert HigherTaxonOverview._with_totals(counts, None) == counts
+
+
+class TestTaxaWithoutRecords:
+    def test_a_genus_without_images_does_not_link_or_count(self):
+        tree = build_rooted_tree(
+            [
+                _family_row("aphantopus", subfamily="Satyrinae"),
+                _family_row(
+                    "ghostus", subfamily="Satyrinae", species_count=0, image_count=0
+                ),
+            ],
+            scope="family",
+            key="nymphalidae",
+            name="Nymphalidae",
+        )
+        assert find(tree, "Ghostus").href is None
+        assert find(tree, "Aphantopus").href == "/genus/aphantopus"
+        assert find(tree, "Satyrinae").genus_count == 1
+
+    def test_a_species_without_images_does_not_link_or_count(self):
+        rows = [
+            {
+                "species_key": "danaus_plexippus",
+                "species_name": "Danaus plexippus",
+                "recorded_name": "Danaus plexippus",
+                "image_count": 3,
+            },
+            {
+                "species_key": "danaus_ghost",
+                "species_name": "Danaus ghost",
+                "recorded_name": None,
+                "image_count": 0,
+            },
+        ]
+        tree = build_rooted_tree(rows, scope="genus", key="danaus", name="Danaus")
+        assert find(tree, "Danaus ghost").href is None
+        assert find(tree, "Danaus ghost").species_count == 0
+        assert tree[0].species_count == 1
+
+    @pytest.mark.parametrize("scope", ["family", "genus"])
+    def test_every_rank_roots_its_tree_on_the_taxon(self, scope):
+        tree = build_rooted_tree([], scope=scope, key="x", name="X")
+        assert [(node.rank, node.name) for node in tree] == [(scope, "X")]
+
+    def test_the_unplaced_bucket_stays_last_under_the_root(self):
+        tree = build_rooted_tree(
+            [
+                _family_row("zeta", subfamily="Satyrinae"),
+                _family_row("alpha", col_id=None),
+            ],
+            scope="family",
+            key="nymphalidae",
+            name="Nymphalidae",
+        )
+        assert tree[0].children[-1].key == UNPLACED_KEY
+
+    def test_header_counts_only_taxa_with_images(self):
+        overview = HigherTaxonOverview.__new__(HigherTaxonOverview)
+        overview.rank = "family"
+        counts = overview._counts(
+            [
+                _family_row("aphantopus", species_count=2, image_count=4),
+                _family_row("ghostus", species_count=0, image_count=0),
+            ]
+        )
+        assert (counts.genus_count, counts.species_count, counts.image_count) == (
+            1,
+            2,
+            4,
+        )

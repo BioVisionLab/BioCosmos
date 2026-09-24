@@ -5,7 +5,7 @@ import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import TaxonBreadcrumb from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
-import TaxonomyTree from "@/components/TaxonomyTree";
+import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
 import {
   REPRESENTATIVE_IMAGE_LIMIT,
@@ -82,10 +82,7 @@ export default async function OrderPage() {
             highlightRank="order"
             nodeCount={taxon.nodeCount}
           />
-          <p className="mt-3 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
-            Families in grey are in the Catalogue of Life classification but
-            have no images in the collection yet.
-          </p>
+          <UnrecordedTaxaNote taxa="families" />
           <ColAttribution />
         </div>
       </section>

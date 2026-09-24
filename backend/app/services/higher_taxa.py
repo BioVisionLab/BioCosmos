@@ -42,6 +42,14 @@ _SCOPE_PREDICATE: dict[Scope, str] = {
     "genus": "lower(split_part(t.accepted_name, ' ', 1)) = ?",
 }
 
+# The same scopes, stated against the backbone itself, for counting how many
+# taxa Catalogue of Life places in one.
+_COL_SCOPE_PREDICATE: dict[Scope, str] = {
+    "order": 'lower("order") = ?',
+    "family": "family_norm = ?",
+    "genus": "genus_norm = ?",
+}
+
 
 # The images that count towards a higher taxon, and the species each one
 # belongs to.
@@ -235,6 +243,11 @@ class HigherTaxonRepository:
     def family_members(self, family_key: str) -> list[dict]:
         """The genera of one family, with the CoL rank each sits under.
 
+        Every genus Catalogue of Life accepts in the family, plus any genus
+        the collection files there that CoL does not. A CoL genus with no
+        images comes back with zero counts: the tree is the classification,
+        and the collection's gaps are shown as gaps rather than hidden.
+
         Genera are rolled up from the accepted name rather than the recorded
         one, so a species CoL moved appears under the genus CoL moved it to
         and not under both.
@@ -248,9 +261,18 @@ class HigherTaxonRepository:
             "NULL AS col_family, NULL AS subfamily, NULL AS tribe, NULL AS subtribe"
         )
         join = ""
+        members = "SELECT genus_key FROM rollup"
         params: list = [family_key]
 
         if self.col_available():
+            members = f"""SELECT genus_key FROM rollup
+        UNION
+        SELECT genus_norm FROM {self.col_table}
+        WHERE taxon_rank = 'genus'
+          AND is_accepted
+          AND family_norm = ?
+          AND genus_norm IS NOT NULL"""
+            params.append(family_key)
             # 92 genus names in Lepidoptera have more than one accepted usage
             # in the backbone. Prefer the one CoL places in the family being
             # rendered; an unqualified join would multiply those rows.
@@ -268,7 +290,7 @@ class HigherTaxonRepository:
         FROM {self.col_table}
         WHERE taxon_rank = 'genus'
           AND is_accepted
-          AND genus_norm IN (SELECT genus_key FROM rollup)
+          AND genus_norm IN (SELECT genus_key FROM members)
         QUALIFY row_number() OVER (
             PARTITION BY genus_norm
             ORDER BY (family_norm = ?) DESC NULLS LAST, usage_id
@@ -278,7 +300,7 @@ class HigherTaxonRepository:
                 "p.authorship, p.usage_id AS col_id, p.col_link, "
                 "p.family_norm AS col_family, p.subfamily, p.tribe, p.subtribe"
             )
-            join = "LEFT JOIN placement p ON p.genus_norm = r.genus_key"
+            join = "LEFT JOIN placement p ON p.genus_norm = m.genus_key"
             params.append(family_key)
 
         # `scientific_name` is preferred for display because it carries CoL's
@@ -286,9 +308,9 @@ class HigherTaxonRepository:
         # initcap().
         name_expr = _clean_name(
             "coalesce(p.scientific_name, "
-            "concat(upper(left(r.genus_key, 1)), substr(r.genus_key, 2)))"
+            "concat(upper(left(m.genus_key, 1)), substr(m.genus_key, 2)))"
             if self.col_available()
-            else "concat(upper(left(r.genus_key, 1)), substr(r.genus_key, 2))"
+            else "concat(upper(left(m.genus_key, 1)), substr(m.genus_key, 2))"
         )
 
         query = f"""
@@ -304,15 +326,18 @@ class HigherTaxonRepository:
         FROM matched
         WHERE genus_key <> ''
         GROUP BY genus_key
+    ), members AS (
+        {members}
     ){placement}
-    SELECT r.genus_key,
+    SELECT m.genus_key,
            {name_expr} AS genus_name,
            {projection},
-           r.species_count,
-           r.image_count
-    FROM rollup r
+           coalesce(r.species_count, 0) AS species_count,
+           coalesce(r.image_count, 0)   AS image_count
+    FROM members m
+    LEFT JOIN rollup r USING (genus_key)
     {join}
-    ORDER BY r.image_count DESC, r.genus_key
+    ORDER BY image_count DESC, m.genus_key
         """
         return self._rows(query, params, f"family members for '{family_key}'")
 
@@ -328,11 +353,17 @@ class HigherTaxonRepository:
         its images up by `image_meta.species`, so an href built from the
         accepted name would render a header over an empty gallery wherever
         Catalogue of Life has renamed the taxon.
+
+        With the backbone present, every species CoL accepts in the genus is
+        listed too. One the collection holds nothing of has no recorded name
+        to link on, so it is keyed on its canonical name and comes back with
+        no images; the page shows it without a link.
         """
         if not self.harmonized_available():
             return []
 
         placement = ""
+        col_only = ""
         projection = (
             "NULL AS authorship, NULL AS col_id, NULL AS col_link, "
             "NULL AS col_status, NULL AS subgenus"
@@ -370,6 +401,35 @@ class HigherTaxonRepository:
                 "LEFT JOIN placement p ON p.canonical_key = lower(s.accepted_species)"
             )
             params.append(genus_key)
+            # Species rank only: a subspecies is not a member in its own right
+            # here, any more than a subspecies record is.
+            col_only = f"""
+    UNION ALL
+    SELECT species_key, species_name, recorded_name, authorship, col_id,
+           col_link, col_status, subgenus, image_count
+    FROM (
+        SELECT replace(c.canonical_key, ' ', '_') AS species_key,
+               {_clean_name("c.scientific_name")} AS species_name,
+               NULL AS recorded_name,
+               nullif(trim(c.authorship), '') AS authorship,
+               c.usage_id AS col_id,
+               c.col_link,
+               c.status AS col_status,
+               nullif(trim(c.subgenus), '') AS subgenus,
+               0 AS image_count
+        FROM {self.col_table} c
+        WHERE c.genus_norm = ?
+          AND c.taxon_rank = 'species'
+          AND c.is_accepted
+          AND c.canonical_key IS NOT NULL
+          AND c.canonical_key NOT IN (
+              SELECT lower(accepted_species) FROM scoped
+          )
+        QUALIFY row_number() OVER (
+            PARTITION BY c.canonical_key ORDER BY c.usage_id
+        ) = 1
+    )"""
+            params.append(genus_key)
 
         # CoL's own spelling when we have it, because it carries the subgenus
         # parenthetical the harmonized name drops; the accepted name otherwise.
@@ -398,10 +458,40 @@ class HigherTaxonRepository:
            {projection},
            s.image_count
     FROM scoped s
-    {join}
-    ORDER BY s.accepted_species
+    {join}{col_only}
+    ORDER BY species_key
         """
         return self._rows(query, params, f"genus members for '{genus_key}'")
+
+    def col_totals(self, scope: Scope, key: str) -> dict | None:
+        """How many families, genera and species CoL accepts inside a taxon.
+
+        The denominator for the header's coverage: the collection's counts say
+        how much of a taxon has been photographed, and these say how much
+        there is. Accepted names only, and species rather than subspecies, so
+        the two are counted the same way — the collection's species are
+        accepted binomials too.
+
+        None without the backbone, when there is nothing to compare against.
+        """
+        if not self.col_available():
+            return None
+        predicate = _COL_SCOPE_PREDICATE[scope]
+        query = f"""
+    SELECT count(DISTINCT CASE WHEN taxon_rank = 'family'
+                               THEN coalesce(family_norm, name_norm) END)
+               AS family_total,
+           count(DISTINCT CASE WHEN taxon_rank = 'genus'
+                               THEN genus_norm END) AS genus_total,
+           count(DISTINCT CASE WHEN taxon_rank = 'species'
+                               THEN canonical_key END) AS species_total
+    FROM {self.col_table}
+    WHERE is_accepted
+      AND taxon_rank IN ('family', 'genus', 'species')
+      AND {predicate}
+        """
+        rows = self._rows(query, [key], f"CoL totals for {scope} '{key}'")
+        return rows[0] if rows else None
 
     # ------------------------------------------------------------------
     # Images

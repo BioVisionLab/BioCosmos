@@ -76,6 +76,14 @@ export interface HigherTaxon {
     genusCount: number | null;
     speciesCount: number;
     imageCount: number;
+    /**
+     * How many of each rank Catalogue of Life accepts inside the taxon, the
+     * denominator for coverage. Null without the backbone, or beside a count
+     * the page does not show.
+     */
+    familyTotal: number | null;
+    genusTotal: number | null;
+    speciesTotal: number | null;
   };
   tree: TaxonNode[];
   images: RepresentativeImage[];
@@ -206,6 +214,9 @@ function normalizeHigherTaxon(raw: unknown, rank: HigherRank): HigherTaxon | nul
       genusCount: optionalCount(counts.genusCount),
       speciesCount: count(counts.speciesCount),
       imageCount: count(counts.imageCount),
+      familyTotal: optionalCount(counts.familyTotal),
+      genusTotal: optionalCount(counts.genusTotal),
+      speciesTotal: optionalCount(counts.speciesTotal),
     },
     tree,
     images: Array.isArray(source.images)

@@ -48,6 +48,20 @@ const HIGHLIGHT =
 
 type BottomRank = "family" | "genus" | "species";
 
+/**
+ * The key to the greyed-out rows, set under each tree. `taxa` is the plural
+ * of the tree's bottom rank: "families", "genera" or "species".
+ */
+export function UnrecordedTaxaNote({ taxa }: { taxa: string }) {
+  return (
+    <p className="mt-3 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
+      Linked {taxa} have records in the collection. {taxa[0].toUpperCase()}
+      {taxa.slice(1)} in grey are in the Catalogue of Life classification but
+      have no images here yet.
+    </p>
+  );
+}
+
 export interface TaxonomyTreeProps {
   nodes: TaxonNode[];
   /** The rank the tree stops at, which decides which nodes are links. */
@@ -188,7 +202,7 @@ function NodeLabel({
   // Only the terminal rank has a page of its own. The ranks in between are
   // plain text because there is nowhere to send a reader who clicks one.
   const href = node.rank === bottomRank ? node.href : null;
-  // A terminal node without a page: on the order tree, a family Catalogue of
+  // A terminal node without a page: a family, genus or species Catalogue of
   // Life lists but the collection holds nothing of. Shown, because it is part
   // of the classification, but set back so it does not read as a dead link.
   const empty = node.rank === bottomRank && !href;

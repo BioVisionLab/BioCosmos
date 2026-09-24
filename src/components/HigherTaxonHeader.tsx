@@ -1,5 +1,23 @@
 import type { HigherTaxon } from "@/lib/higherTaxa";
 
+interface Stat {
+  label: string;
+  value: number;
+  /** Catalogue of Life's count at this rank, when there is one to compare. */
+  total: number | null;
+}
+
+/**
+ * A share as a reader wants to see it: a decimal only where it carries
+ * information, and never a "0%" for something the collection does hold.
+ */
+function formatShare(value: number, total: number): string {
+  const share = (value / total) * 100;
+  if (share > 0 && share < 0.1) return "<0.1%";
+  if (share < 10) return `${share.toFixed(1)}%`;
+  return `${Math.round(share)}%`;
+}
+
 /**
  * The name of an order, family or genus, and how much of the collection sits
  * under it.
@@ -14,15 +32,30 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
   const vernacular = taxon.classification?.vernacularName;
   const authorship = taxon.classification?.authorship;
 
-  const stats: { label: string; value: number }[] = [];
-  if (taxon.counts.familyCount !== null) {
-    stats.push({ label: "families", value: taxon.counts.familyCount });
+  const { counts } = taxon;
+  const stats: Stat[] = [];
+  if (counts.familyCount !== null) {
+    stats.push({
+      label: "families",
+      value: counts.familyCount,
+      total: counts.familyTotal,
+    });
   }
-  if (taxon.counts.genusCount !== null) {
-    stats.push({ label: "genera", value: taxon.counts.genusCount });
+  if (counts.genusCount !== null) {
+    stats.push({
+      label: "genera",
+      value: counts.genusCount,
+      total: counts.genusTotal,
+    });
   }
-  stats.push({ label: "species", value: taxon.counts.speciesCount });
-  stats.push({ label: "images", value: taxon.counts.imageCount });
+  stats.push({
+    label: "species",
+    value: counts.speciesCount,
+    total: counts.speciesTotal,
+  });
+  // Images have no Catalogue of Life counterpart to be a share of.
+  stats.push({ label: "images", value: counts.imageCount, total: null });
+  const hasCoverage = stats.some((stat) => stat.total !== null);
 
   return (
     <header className="mb-8">
@@ -43,23 +76,64 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
         </p>
       ) : null}
 
-      <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
-        {stats.map((stat) => (
-          <div key={stat.label} className="flex items-baseline gap-2">
-            {/* The number is the thing; the word beside it is the label, so
-                the label is what a screen reader reads first. */}
-            <dt className="sr-only">{stat.label}</dt>
-            <dd className="text-2xl font-semibold tabular-nums text-hunter-green-700 dark:text-hunter-green-300">
-              {stat.value.toLocaleString()}
-            </dd>
-            <span
-              aria-hidden="true"
-              className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400"
-            >
-              {stat.label}
-            </span>
-          </div>
-        ))}
+      <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-4">
+        {stats.map((stat) => {
+          const share =
+            stat.total !== null ? formatShare(stat.value, stat.total) : null;
+          // Clamped: a genus CoL cannot place still counts here, so a count
+          // can in principle edge past the backbone's total.
+          const width =
+            stat.total !== null
+              ? Math.min(100, (stat.value / stat.total) * 100)
+              : 0;
+          return (
+            <div key={stat.label} className="flex flex-col gap-1.5">
+              <div className="flex items-baseline gap-2">
+                {/* The number is the thing; the word beside it is the label,
+                    so the label is what a screen reader reads first. */}
+                <dt className="sr-only">{stat.label}</dt>
+                <dd className="flex items-baseline gap-2">
+                  <span className="text-2xl font-semibold tabular-nums text-hunter-green-700 dark:text-hunter-green-300">
+                    {stat.value.toLocaleString()}
+                  </span>
+                  {stat.total !== null ? (
+                    <span className="text-sm tabular-nums text-deep-mocha-600 dark:text-deep-mocha-400">
+                      <span className="sr-only">out of </span>
+                      <span aria-hidden="true">of </span>
+                      {stat.total.toLocaleString()}
+                    </span>
+                  ) : null}
+                  <span
+                    aria-hidden="true"
+                    className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400"
+                  >
+                    {stat.label}
+                  </span>
+                  {share ? (
+                    <span className="self-center rounded-full px-1.5 text-[0.6875rem] font-medium tabular-nums bg-pacific-blue-500/15 text-pacific-blue-800 dark:text-pacific-blue-200">
+                      {share}
+                      <span className="sr-only"> covered</span>
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+              {stat.total !== null ? (
+                // Decorative: the share is already stated in text beside it.
+                <div
+                  aria-hidden="true"
+                  className="h-1 w-full rounded-full bg-deep-mocha-300/40 dark:bg-deep-mocha-600/40 overflow-hidden"
+                >
+                  <div
+                    className="h-full rounded-full bg-linear-to-r from-hunter-green-500 to-pacific-blue-500"
+                    // At least a sliver, so a share under one percent still
+                    // shows that something is there.
+                    style={{ width: `${width > 0 ? Math.max(width, 2) : 0}%` }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </dl>
 
       {/* Membership here is decided by the harmonized taxonomy: an image
@@ -79,6 +153,9 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
           Catalogue of Life
         </a>{" "}
         taxon, so they can be lower than the totals on the Collections page.
+        {hasCoverage
+          ? " Totals and percentages compare them with the accepted families, genera and species Catalogue of Life places in this taxon."
+          : null}
       </p>
     </header>
   );
