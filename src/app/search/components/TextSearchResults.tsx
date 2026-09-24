@@ -453,7 +453,7 @@ function DbSearch({
               router.push(newUrl, { scroll: false });
             }}
             groups={FIELD_GROUPS}
-            className="w-56"
+            className="w-56 min-w-0"
           />
         </div>
       </div>
