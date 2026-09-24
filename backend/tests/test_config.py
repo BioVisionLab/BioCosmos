@@ -468,3 +468,33 @@ class TestSearchIndexConfig:
         from app.configs.config import SearchIndexConfig
 
         assert SearchIndexConfig().build_vector is False
+
+
+class TestNcbiConfig:
+    @pytest.mark.parametrize(
+        "raw", ["abc123", '"abc123"', "'abc123'", '  " abc123 "  ']
+    )
+    def test_strips_quotes_from_credentials(self, monkeypatch, raw):
+        """A quoted key reaches NCBI verbatim and is rejected with a 400."""
+        from app.configs.config import NcbiConfig
+
+        monkeypatch.setenv("NCBI_API_KEY", raw)
+        monkeypatch.setenv("NCBI_EMAIL", raw.replace("abc123", "me@example.org"))
+        assert NcbiConfig().api_key == "abc123"
+        assert NcbiConfig().email == "me@example.org"
+
+    @pytest.mark.parametrize("raw", ["", "   ", '""', "''"])
+    def test_blank_or_empty_quotes_are_unset(self, monkeypatch, raw):
+        from app.configs.config import NcbiConfig
+
+        monkeypatch.setenv("NCBI_API_KEY", raw)
+        monkeypatch.setenv("NCBI_EMAIL", raw)
+        monkeypatch.setenv("CROSSREF_MAILTO", "fallback@example.org")
+        assert NcbiConfig().api_key is None
+        assert NcbiConfig().email == "fallback@example.org"
+
+    def test_mismatched_quotes_are_kept(self, monkeypatch):
+        from app.configs.config import NcbiConfig
+
+        monkeypatch.setenv("NCBI_API_KEY", "\"abc123'")
+        assert NcbiConfig().api_key == "\"abc123'"

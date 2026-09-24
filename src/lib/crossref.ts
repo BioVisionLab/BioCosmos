@@ -29,6 +29,27 @@ export interface CrossRefResult {
   mentions: string[];
 }
 
+/**
+ * A plain-text citation for the clipboard, in the order the page shows it:
+ * authors, year, title, journal, volume (issue), pages, DOI. Publisher markup
+ * in the title (`<i>` around a species name) is dropped.
+ */
+export function formatCitation(pub: CrossRefResult): string {
+  const title = pub.title.replace(/<[^>]+>/g, "").trim();
+  const parts = [
+    pub.authors.length ? `${pub.authors.join(", ")}.` : "",
+    pub.published_year ? `(${pub.published_year}).` : "",
+    title ? `${title.replace(/\.$/, "")}.` : "",
+  ];
+  let source = pub.journal;
+  if (pub.volume) source += `, ${pub.volume}`;
+  if (pub.issue) source += ` (${pub.issue})`;
+  if (pub.pages) source += `, pp. ${pub.pages}`;
+  parts.push(source ? `${source}.` : "");
+  if (pub.doi) parts.push(pub.doi);
+  return parts.filter(Boolean).join(" ");
+}
+
 /** Publications keyed by year ("Unknown Year" when CrossRef has none). */
 export type PublicationsByYear = Record<string, CrossRefResult[]>;
 

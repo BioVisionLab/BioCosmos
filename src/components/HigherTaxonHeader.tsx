@@ -148,7 +148,7 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
           href="https://www.catalogueoflife.org/"
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-pacific-blue-600 dark:hover:text-pacific-blue-400"
+          className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
         >
           Catalogue of Life
         </a>

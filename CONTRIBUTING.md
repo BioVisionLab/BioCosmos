@@ -196,6 +196,12 @@ If you prefer to run the services manually without Docker, follow these steps:
     # Without it, requests use CrossRef's slower anonymous public pool.
     # CROSSREF_MAILTO=you@example.org
 
+    # Recommended: contact address and API key for NCBI (Genetics tab).
+    # The email falls back to CROSSREF_MAILTO. Without a key, NCBI allows
+    # 3 requests per second instead of 10.
+    # NCBI_EMAIL=you@example.org
+    # NCBI_API_KEY=your_ncbi_api_key
+
     # Optional: Custom LLM service
     # LLM_API_URL=your_llm_endpoint
     # LLM_API_KEY=your_api_key
@@ -412,6 +418,118 @@ bun lint
 - **Dark Mode**: Theme handled by `next-themes` with system preference detection.
 - **API Integration**: Next.js route handlers in `src/app/api/` proxy requests to the backend.
 - **Convenience Scripts**: Use `scripts/run_frontend.sh` for quick startup.
+
+## Caching and Cache Invalidation
+
+Responses are cached in several places, and some of those places cannot be
+cleared from the server. Decide how a cached response will be retired
+**before** you choose how long it may live.
+
+### Where responses are cached
+
+- **Browser and CDN (HTTP cache).** Set by the `Cache-Control` and `ETag`
+  headers, which are defined in `backend/app/routers/http_cache.py` and
+  forwarded by the proxies in `src/app/api/`. Entries last up to 30 days
+  (higher-taxon overviews), or 1 day for similarity, literature and genetics.
+  **The server cannot clear them.** They retire only by expiring, by an `ETag`
+  mismatch on revalidation, or by the request URL changing.
+- **Next.js data cache.** Set by `fetch(..., { next: { revalidate } })` in
+  `src/lib/` (featured species, higher taxa, country diversity). Entries last
+  for the `revalidate` value and are cleared by a frontend redeploy.
+- **Backend in-process caches.** `TtlCache`
+  (`backend/app/services/ttl_cache.py`) holds CrossRef and NCBI answers for a
+  week, and `agent_cache.py` holds agent searches for 15 minutes. Restarting
+  the backend empties them.
+- **Precomputed DuckDB tables.** Built by
+  `backend/scripts/precompute_similarity.py` and `geoharmonize integrate`, and
+  kept until you rerun them.
+
+### Choosing an invalidation mechanism
+
+Use the first of these that fits:
+
+1. **An `ETag` tied to the data's source.** When a payload is derived from an
+   ingestion, build the `ETag` from the ingestion fingerprint, as
+   `_overview_etag` in `backend/app/routers/species_data.py` does. A
+   re-ingestion then changes every `ETag` at once, and a shared cache notices
+   on its next revalidation.
+2. **A payload version.** A fingerprint describes the inputs, not the code. When
+   the same inputs start producing a different payload, bump a version:
+   - When the endpoint already has an `ETag`, bump the version inside it
+     (`OVERVIEW_PAYLOAD_VERSION` in `backend/app/query/higher_taxa.py`).
+   - When there is no `ETag`, put the version in the request URL
+     (`GENETICS_PAYLOAD_VERSION` in `src/lib/genetic.ts`, sent as `&v=`). The
+     URL is the cache key, so a new URL misses every stale copy, including
+     ones in visitors' browsers that nothing else can reach.
+3. **A short `max-age` alone.** Use this when there is nothing to fingerprint and
+   the payload shape is stable. An example is the precomputed similarity
+   table, which is regenerated on its own schedule.
+
+### When to bump a payload version
+
+Bump the version, and add a one-line note beside the constant saying why, when
+a change would make **new frontend code render an old cached payload wrongly
+or incompletely**. That includes:
+
+- adding a field the page renders (the genetics `nuclear` section is an
+  example);
+- removing or renaming a field;
+- changing what a value means or how it is counted, even when its name and
+  type stay the same;
+- fixing a bug that put wrong data in cached responses.
+
+You don't need to bump it for changes that leave the payload the same, such
+as refactors, logging and performance work. Even when you bump, write the
+frontend to tolerate the old shape during a rollout, with optional chaining
+and defaults. The old frontend and new backend can be live at the same time.
+
+### Rules for new endpoints
+
+- Define each `Cache-Control` policy as a constant in `http_cache.py`, with a
+  comment explaining the duration and how an entry is retired early. Build
+  responses with `cached_json`.
+- Never cache errors: send `NO_STORE` for 4xx and 5xx responses. A long-lived
+  cached error cannot be cleared from the browser that holds it.
+- Cache partial results briefly: 5 minutes, in both the HTTP header and any
+  in-process cache (`TtlCache.set(..., ttl=...)`). Then a failed upstream call
+  doesn't outlive an outage.
+- Next.js proxies forward the backend's `Cache-Control` and default to
+  `no-store`. Don't set a separate policy in the proxy, except for
+  content-addressed resources that never change (image bytes by ID are
+  `immutable`).
+- Cache calls to external APIs (CrossRef, NCBI, GBIF) in the backend service
+  client, not in the browser. Cache the assembled payload, bound the cache's
+  size, share one in-flight request between concurrent callers, and stay
+  within the provider's published rate limits. `crossref.py` and
+  `genetics.py` show the pattern.
+
+### Clearing caches by hand
+
+- **In-process caches:** restart the backend.
+- **Next.js data cache:** redeploy the frontend, or wait for `revalidate`.
+- **CDN:** purge through the CDN provider if the site sits behind one.
+- **Visitors' browsers:** these can't be cleared. Bump the payload version.
+
+### Verifying caching behaviour
+
+- Check the headers on both hops. Each should show the expected
+  `Cache-Control` and, where one applies, an `ETag`:
+
+  ```bash
+  curl -sI "http://localhost:8000/species/Danaus%20plexippus/genetics"
+  ```
+
+  The Next.js proxies answer only `GET`, so ask for the headers of a real
+  request rather than a `HEAD`:
+
+  ```bash
+  curl -s -D - -o /dev/null "http://localhost:3000/api/genetics?species=Danaus%20plexippus&v=2"
+  ```
+
+- In the browser's developer tools, a response marked "(disk cache)" or with
+  a transfer size of 0 was served from cache. Test a payload change with the
+  cache disabled, and then again with it enabled. The second pass shows what
+  returning visitors will get.
 
 ## Deployment
 

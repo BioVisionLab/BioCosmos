@@ -40,6 +40,20 @@ def _as_bool(value, label: str, *, default: bool = False) -> bool:
     return default
 
 
+def _env_str(name: str) -> str | None:
+    """A string setting from the environment, or None when unset or blank.
+
+    Strips one pair of matching quotes as well as whitespace. `uv run
+    --env-file` unquotes `KEY="value"`, but a value exported by the shell or
+    another loader can keep them, and a quoted credential is simply wrong:
+    NCBI answers 400 to an ``api_key`` sent as ``"abc"``.
+    """
+    value = (os.getenv(name) or "").strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+    return value or None
+
+
 def get_image_path() -> str:
     config = load_config()
     return config["images"]["dir"]
@@ -683,7 +697,7 @@ class CrossrefConfig:
 
     @property
     def mailto(self) -> str | None:
-        return (os.getenv("CROSSREF_MAILTO") or "").strip() or None
+        return _env_str("CROSSREF_MAILTO")
 
 
 class NcbiConfig:
@@ -698,12 +712,11 @@ class NcbiConfig:
 
     @property
     def api_key(self) -> str | None:
-        return (os.getenv("NCBI_API_KEY") or "").strip() or None
+        return _env_str("NCBI_API_KEY")
 
     @property
     def email(self) -> str | None:
-        email = (os.getenv("NCBI_EMAIL") or "").strip()
-        return email or CrossrefConfig().mailto
+        return _env_str("NCBI_EMAIL") or CrossrefConfig().mailto
 
 
 class PromptsConfig:

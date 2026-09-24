@@ -156,9 +156,9 @@ export default function HeaderClient() {
         {/* Nav Links & Profile */}
         <div className="flex items-center space-x-4 flex-shrink-0">
           <Link href="/visualization" legacyBehavior={false}>
-            <span className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer whitespace-nowrap">Explore</span>
+            <span className="hover:text-green-700 dark:hover:text-green-400 cursor-pointer whitespace-nowrap">Explore</span>
           </Link>
-          <a href="#" className="hover:text-green-600 dark:hover:text-green-400 whitespace-nowrap">Collections</a>
+          <a href="#" className="hover:text-green-700 dark:hover:text-green-400 whitespace-nowrap">Collections</a>
           {/* User Profile Icon Placeholder */}
           <div className="w-8 h-8 bg-deep-mocha-400 rounded-full flex-shrink-0"></div>
           <ThemeToggle />

@@ -1,4 +1,8 @@
-import { NcbiGeneDataSourceInfo } from "@/components/Attribution";
+import {
+  NcbiGeneDataNote,
+  NcbiGeneDataSourceInfo,
+} from "@/components/Attribution";
+import Note from "@/components/Note";
 import { IconContainer } from "@/components/IconContainer";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
@@ -157,9 +161,6 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
               : "No genetic data available."
           }
         />
-        <div className="w-full flex justify-center items-center mt-12 mb-6">
-          <NcbiGeneDataSourceInfo speciesName={speciesName} />
-        </div>
       </div>
     );
   }
@@ -176,10 +177,14 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
   return (
     <div id="genetics-section">
       {summary.partial && (
-        <p className={`${noteClass} mb-4`} role="status">
-          Some data could not be loaded from NCBI, so this summary may be
-          incomplete.
-        </p>
+        <div className="mb-4" role="status">
+          <Note label="Incomplete results">
+            <p>
+              Some data could not be loaded from NCBI, so this summary may be
+              incomplete. Please try again later.
+            </p>
+          </Note>
+        </div>
       )}
 
       {hasNuclear && nuclear && (
@@ -212,7 +217,8 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
         <MitochondrialDna mito={mito} speciesName={speciesName} />
       )}
 
-      <div className="w-full flex justify-center items-center mt-12 mb-6">
+      <div className="w-full mt-12 mb-6">
+        <NcbiGeneDataNote />
         <NcbiGeneDataSourceInfo speciesName={speciesName} />
       </div>
     </div>
