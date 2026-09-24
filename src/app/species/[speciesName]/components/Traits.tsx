@@ -14,7 +14,6 @@ import {
 import { useMemo, type ReactNode } from "react";
 
 import {
-  LepTraitDataNote,
   LepTraitDataSourceInfo,
 } from "@/components/Attribution";
 import {
@@ -174,7 +173,6 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
       </TraitSection>
 
       <div className="w-full mt-12 mb-6">
-        <LepTraitDataNote />
         <LepTraitDataSourceInfo />
       </div>
     </div>

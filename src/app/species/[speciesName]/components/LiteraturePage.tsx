@@ -9,7 +9,9 @@ import {
   LiteratureResult,
   PublicationsByYear,
   fetchLiterature,
+  formatCitation,
 } from "@/lib/crossref";
+import CopyButton from "@/components/CopyButton";
 import Link from "next/link";
 import { JSX, useEffect, useState } from "react";
 
@@ -233,7 +235,15 @@ function Publication({ pub }: { pub: CrossRefResult }) {
           ""
         )}
       </p>
-      {pub.doi ? <JournalViewButton doi={pub.doi} /> : null}
+      <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
+        {pub.doi ? <JournalViewButton doi={pub.doi} /> : null}
+        <CopyButton
+          text={formatCitation(pub)}
+          label="Copy citation"
+          buttonText="Copy Citation"
+          className={secondaryButtonClass}
+        />
+      </div>
     </div>
   );
 }
@@ -270,18 +280,24 @@ function JournalTitle({ title }: { title: string }) {
   );
 }
 
+const publicationButtonBase =
+  "inline-flex items-center gap-1 border px-2 py-1 rounded-md text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pacific-blue-700 dark:focus-visible:outline-pacific-blue-300";
+
+/* Primary: white on pacific-blue-700 is 6.3:1, on 800 (hover) 10.5:1. */
+const primaryButtonClass = `${publicationButtonBase} border-pacific-blue-700 bg-pacific-blue-700 font-medium text-white hover:border-pacific-blue-800 hover:bg-pacific-blue-800`;
+
+const secondaryButtonClass = `${publicationButtonBase} border-pacific-blue-700 text-pacific-blue-700 hover:bg-pacific-blue-700/10 dark:border-pacific-blue-300 dark:text-pacific-blue-300 dark:hover:bg-pacific-blue-300/10`;
+
 /* `doi` is already a resolvable https://doi.org/... URL. */
 function JournalViewButton({ doi }: { doi: string }) {
   return (
-    <div className="border border-pacific-blue-700 px-2 py-1 rounded-md w-fit mt-2 mb-4 hover:bg-pacific-blue-700 hover:text-white text-sm">
-      <Link
-        href={doi}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-2"
-      >
-        View Publication
-      </Link>
-    </div>
+    <Link
+      href={doi}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={primaryButtonClass}
+    >
+      View Publication
+    </Link>
   );
 }

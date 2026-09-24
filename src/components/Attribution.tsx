@@ -138,30 +138,6 @@ export function LepTraitsAttribution({
   );
 }
 
-export function LepTraitDataNote() {
-  return (
-    <Note>
-      <p>
-        Traits are compiled from field guides and regional literature and
-        summarise the species across its whole range, so a local population can
-        differ.
-      </p>
-      <p>
-        Wingspan gives the lower and upper bounds reported across those
-        accounts, split by sex where the sources do.
-      </p>
-      <p>
-        Flight duration and adult presence count months across the range, not at
-        a single site.
-      </p>
-      <p>
-        &ldquo;No data available&rdquo; means the trait was not recorded in the
-        source accounts, not that it is absent in the species.
-      </p>
-    </Note>
-  );
-}
-
 /** Where the trait data come from, with the publication to cite. */
 export function LepTraitDataSourceInfo() {
   return (
@@ -195,17 +171,13 @@ export function NcbiGeneDataNote() {
     <Note>
       <ul className="list-disc space-y-1 pl-4">
         <li>
-          The genome shown is the assembly NCBI designates as the species&apos;
-          reference or, without one, the most complete of its assemblies.
+          The genome shown is the NCBI designated species&apos; reference. If
+          there is none designated, it will be from the most complete assembly.
         </li>
-        <li>
-          Gene counts depend on whether that genome has been annotated; an
-          unannotated assembly has none.
-        </li>
+        <li>Gene counts depend on whether that genome has been annotated.</li>
         <li>
           Mitochondrial counts are GenBank nucleotide records filed as
-          mitochondrial for this species or its subspecies. A record covering
-          several markers counts toward each.
+          mitochondrial for this species or its subspecies.
         </li>
         <li>Counts are refreshed weekly.</li>
       </ul>
