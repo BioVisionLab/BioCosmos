@@ -108,7 +108,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
       className="bc-bleed bc-graph-paper -mt-4 border-b border-deep-mocha-200/80 dark:border-deep-mocha-800"
       aria-label="Lepiverse"
     >
-      <div className="[padding-inline:var(--bc-gutter)]">
+      <div className="px-(--bc-gutter)]">
         <div
           className={`${LANDING_CONTAINER} @container grid items-center gap-10 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:gap-14 lg:py-16`}
         >

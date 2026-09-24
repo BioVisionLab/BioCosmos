@@ -31,6 +31,15 @@ logger = logging.getLogger(__name__)
 # ragged in practice: CoL populates subfamily for most butterfly genera, tribe
 # for many, and subtribe for almost none, so a level with nothing in it is
 # omitted rather than rendered empty.
+# Bumped whenever a payload changes for the same ingestion: a new counting
+# rule, a new field. The overview ETag is otherwise the backbone fingerprint,
+# which describes the inputs and cannot speak for the code, so without this a
+# cache in front of the API revalidates to a 304 and keeps the old payload for
+# the full thirty days.
+#
+# 2: images resolved only to genus rank no longer count anywhere.
+OVERVIEW_PAYLOAD_VERSION = 2
+
 _ORDER_GROUPING_RANKS = ("suborder", "superfamily")
 _FAMILY_GROUPING_RANKS = ("subfamily", "tribe", "subtribe")
 _GENUS_GROUPING_RANKS = ("subgenus",)

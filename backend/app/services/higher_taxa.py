@@ -64,6 +64,12 @@ _COL_SCOPE_PREDICATE: dict[Scope, str] = {
 # empty for a record it could only resolve to genus rank, and falling back
 # would turn that empty into the genus name and count a bare genus as one of
 # its own species.
+#
+# Such a record is left out entirely, from the image counts as much as the
+# species tally: every count on these pages is of images of a valid species.
+# Counting them in a family's rollup but not on the genus page is how a
+# family linked to a genus page that answered 404 — `allancastria_cerisyi`,
+# resolved to the genus alone, gave Allancastria 45 images and no species.
 _MATCHED_IMAGES = """
         SELECT o.img_id,
                o.species AS recorded_key,
@@ -75,6 +81,7 @@ _MATCHED_IMAGES = """
         JOIN {status} t USING (img_id)
         WHERE t.update_status = 'MATCHED'
           AND t.accepted_name IS NOT NULL
+          AND t.accepted_species_name IS NOT NULL
 """
 
 # Which recorded spelling a species node should link to: the one the most
@@ -318,9 +325,6 @@ class HigherTaxonRepository:
           AND lower(t.accepted_family) = ?
     ), rollup AS (
         SELECT genus_key,
-               -- A record identified only to genus is an image of a specimen
-               -- but not of a species, so it counts once in the gallery and
-               -- not at all in the species tally.
                count(DISTINCT accepted_species) AS species_count,
                count(*)                         AS image_count
         FROM matched
@@ -442,7 +446,6 @@ class HigherTaxonRepository:
         query = f"""
     WITH matched AS ({self._matched_images()}
           AND lower(split_part(t.accepted_name, ' ', 1)) = ?
-          AND t.accepted_species_name IS NOT NULL
     ), {_DOMINANT_RECORD}, scoped AS (
         SELECT m.accepted_species,
                d.recorded_key,
@@ -482,7 +485,6 @@ class HigherTaxonRepository:
           AND lower("order") = ?
     ), matched AS ({self._matched_images()}
           AND lower(t.accepted_family) IN (SELECT family_key FROM families)
-          AND t.accepted_species_name IS NOT NULL
     ), top_species AS (
         SELECT family_key, accepted_species
         FROM matched
@@ -562,7 +564,6 @@ class HigherTaxonRepository:
         query = f"""
     WITH matched AS ({self._matched_images()}
           AND {predicate}
-          AND t.accepted_species_name IS NOT NULL
     ), {_DOMINANT_RECORD}, counted AS (
         SELECT accepted_species, count(*) AS image_count
         FROM matched GROUP BY accepted_species
