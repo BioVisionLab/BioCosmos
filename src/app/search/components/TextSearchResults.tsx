@@ -61,7 +61,7 @@ const FIELD_GROUPS: SearchFieldGroup[] = [
       { value: "state_province", label: "State / Province" },
       { value: "county", label: "County" },
       { value: "locality", label: "Locality" },
-      { value: "coordinate", label: "Coordinate (100m radius)" },
+      { value: "coordinate", label: "Coordinate (10,000 km² area)" },
       { value: "validation_status", label: "Coordinate Status" },
     ],
   },
