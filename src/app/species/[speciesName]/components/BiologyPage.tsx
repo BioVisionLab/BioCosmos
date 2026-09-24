@@ -10,7 +10,7 @@ function BiologyPage({
 }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-2">Genetics</h2>
+      <h2 className="text-2xl font-semibold mb-4">Genetics</h2>
 
       <GeneticData speciesName={speciesName} />
 

@@ -11,7 +11,12 @@ from ..query.featured_species import (
     FeaturedSpecies,
     seconds_until_rotation,
 )
-from ..query.higher_taxa import FamilyOverview, GenusOverview, OrderOverview
+from ..query.higher_taxa import (
+    OVERVIEW_PAYLOAD_VERSION,
+    FamilyOverview,
+    GenusOverview,
+    OrderOverview,
+)
 from ..query.specimen_data import SpecimenData
 from ..query.species_coordinates import SpeciesCoordinates
 from ..query.taxon_data import TaxonSearch, FamilySearch, GenusSearch, SpeciesSearch
@@ -393,12 +398,15 @@ def _overview_etag(request: Request, rank: str, key: str) -> str | None:
     A re-ingestion changes the backbone fingerprint, which changes every
     higher-taxon ETag at once — the only way to retire a thirty-day cache
     entry early once a shared cache sits in front of this service.
+    OVERVIEW_PAYLOAD_VERSION does the same for a change in the code.
     """
     try:
         fingerprint = IngestionState(request.app.state.duck_db).get("col_taxonomy")
     except Exception:  # noqa: BLE001 - an ETag is never worth failing a request
         return None
-    return f"{rank}:{key}:{fingerprint}" if fingerprint else None
+    if not fingerprint:
+        return None
+    return f"{rank}:{key}:{fingerprint}:v{OVERVIEW_PAYLOAD_VERSION}"
 
 
 @router.get("/order/{order_name}", tags=["Species Data"])

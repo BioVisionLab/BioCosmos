@@ -510,7 +510,7 @@ function NameUsageTable({ usages }: { usages: NameUsage[] }) {
     <>
       {/* Scrolls inside its own box on a phone rather than widening the page. */}
       <div className="overflow-x-auto w-full rounded-2xl border border-deep-mocha-200 dark:border-deep-mocha-700/80 shadow-xs bg-white/40 dark:bg-deep-mocha-800/40 backdrop-blur-md">
-        <table className="w-full min-w-[36rem] text-left text-sm text-deep-mocha-700 dark:text-deep-mocha-300 border-collapse">
+        <table className="w-full min-w-xl text-left text-sm text-deep-mocha-700 dark:text-deep-mocha-300 border-collapse">
           <thead className="bg-hunter-green-500/10 dark:bg-hunter-green-500/20 text-hunter-green-800 dark:text-hunter-green-300 font-semibold tracking-wider text-xs uppercase border-b border-deep-mocha-200 dark:border-deep-mocha-700">
             <tr>
               <th className={headerClass}>Name</th>
