@@ -9,6 +9,7 @@ import SearchFieldSelect, {
 } from "./SearchFieldSelect";
 import SearchForm from "./SearchForm";
 import { SEARCH_PANEL } from "./searchPanel";
+import { TRAIT_FIELD_OPTIONS } from "@/lib/dbSearch";
 
 const FIELD_GROUPS: SearchFieldGroup[] = [
   { options: [{ value: "all", label: "All Fields" }] },
@@ -41,6 +42,7 @@ const FIELD_GROUPS: SearchFieldGroup[] = [
       { value: "coordinate", label: "Coordinate (10,000 km² area)" },
     ],
   },
+  { label: "Traits (LepTraits)", options: TRAIT_FIELD_OPTIONS },
 ];
 
 export default function TextSearch() {

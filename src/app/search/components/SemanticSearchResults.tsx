@@ -219,7 +219,7 @@ function SemanticSearchView({ query }: { query: string }) {
   };
 
   return (
-    <div className="items-center max-w-7xl w-full px-4 mx-auto">
+    <div className="items-center max-w-7xl w-full mx-auto">
       <BackLink />
       <div id="search-query" className="mb-8 mt-8 text-center space-y-4">
         <SemanticSearchDescription />
@@ -305,7 +305,7 @@ function MlSearchResults({
             </h2>
             <Tips message="Click on an image to view species page" />
           </div>
-          <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-4">
+          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,140px),1fr))] gap-3 sm:gap-4">
             {results.map((item) => (
               <Suspense
                 key={item.imgId}

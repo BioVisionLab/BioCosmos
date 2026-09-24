@@ -24,7 +24,7 @@ def test_validation_mirrors_backend_acceptance_rules(spec) -> None:
             raw("search_by_weather", "{}"),
             raw("search_by_color", "not json"),
             raw("search_by_image_similarity", '["Danaus"]'),
-            raw("search_by_traits", '{"canopy_affinity": null}'),
+            raw("search_by_traits", '{"canopy": null}'),
         ],
         spec,
     )
@@ -47,7 +47,7 @@ def test_schema_violations_are_invalid(spec) -> None:
     records = validate_calls(
         [
             raw("search_by_location", '{"country": "Brazil"}'),
-            raw("search_by_traits", '{"canopy_affinity": "Very high"}'),
+            raw("search_by_traits", '{"canopy": "High"}'),
             raw("search_by_color", '{"color_description": "blue", "extra": 1}'),
         ],
         spec,

@@ -432,6 +432,11 @@ class LepTraitConfig:
     def table(self) -> str:
         return self._leptrait_config.get("table", "lep_traits_consensus")
 
+    @property
+    def index_table(self) -> str:
+        """The per-occurrence trait table both searches filter on."""
+        return self._leptrait_config.get("index_table", "image_meta_traits")
+
 
 class ImageConfig:
     """
