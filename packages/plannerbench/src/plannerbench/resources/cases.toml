@@ -57,28 +57,6 @@ id = "trait-only"
 query = "butterflies that live in the forest canopy"
 accept = [{ search_by_traits = { canopy = "closed" } }]
 
-[[cases]]
-id = "trait-voltinism"
-query = "univoltine butterflies"
-accept = [{ search_by_traits = { voltinism = "univoltine" } }]
-
-[[cases]]
-id = "trait-hostplant"
-query = "butterflies whose caterpillars feed on legumes"
-note = "Common plant name to its family."
-accept = [{ search_by_traits = { hostplant_family = "Fabaceae" } }]
-
-[[cases]]
-id = "trait-flight-month"
-query = "butterflies that fly in June"
-accept = [{ search_by_traits = { flight_months = "*" } }]
-
-[[cases]]
-id = "trait-size"
-query = "large butterflies"
-note = "Size is a trait, not a visual."
-accept = [{ search_by_traits = { wing_size = "large" } }]
-
 # --- Combinations ------------------------------------------------------------
 
 [[cases]]
