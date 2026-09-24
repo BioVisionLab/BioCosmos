@@ -11,7 +11,7 @@ import {
   toVoltinismCode,
 } from "@/lib/leptraits";
 
-import { useMemo, type ReactNode } from "react";
+import { Children, useMemo, type ReactNode } from "react";
 
 import { LepTraitDataSourceInfo } from "@/components/Attribution";
 import {
@@ -33,176 +33,203 @@ import { NoData } from "@/components/NoData";
 import { IconContainer } from "@/components/IconContainer";
 
 const valueClass =
-  "font-semibold text-deep-mocha-700 dark:text-deep-mocha-200 text-lg";
+  "font-semibold text-deep-mocha-700 dark:text-deep-mocha-200 text-base sm:text-lg";
 const labelClass =
-  "font-normal text-lg text-deep-mocha-700 dark:text-deep-mocha-200";
+  "font-normal text-base sm:text-lg text-deep-mocha-700 dark:text-deep-mocha-200";
+// Every icon-and-value row, so the cards line up with one another.
+const rowClass = "flex min-w-0 items-center gap-2 px-3 py-1";
 // Colour lives in the icon primitive now, so a call site says only how big.
 const commonIconClass = "w-12 h-12 m-2";
+
+const hasText = (v: unknown): v is string =>
+  typeof v === "string" && v.trim() !== "";
+const hasNumber = (v: unknown): v is number =>
+  typeof v === "number" && !Number.isNaN(v);
+
+/**
+ * One category of traits: a heading over a grid of cards that is one column
+ * on a phone and two from `sm` up.
+ *
+ * Renders nothing when every card in it was skipped for lack of data, so a
+ * species without, say, host plant records does not show an empty heading.
+ */
+function TraitSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  const cards = Children.toArray(children).filter(Boolean);
+  if (cards.length === 0) {
+    return null;
+  }
+  return (
+    <section className="mb-8">
+      <h3 className="mb-3 border-b border-deep-mocha-300 pb-2 text-xl font-semibold dark:border-deep-mocha-700">
+        {title}
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2">{cards}</div>
+    </section>
+  );
+}
+
+/**
+ * A single trait: its name, then the icon-and-value row the trait renders.
+ *
+ * `min-w-0` lets long values (host plant families, affinities) wrap inside
+ * the grid track instead of stretching it.
+ *
+ * @param wide Spans both columns, for content that needs the full measure.
+ */
+function TraitCard({
+  title,
+  wide = false,
+  children,
+}: {
+  title: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`min-w-0 rounded-xl border border-deep-mocha-200 bg-white/50 py-3 dark:border-deep-mocha-700 dark:bg-deep-mocha-800/40 ${
+        wide ? "sm:col-span-2" : ""
+      }`}
+    >
+      <h4 className="mb-2 px-3 text-base font-medium text-deep-mocha-800 sm:text-lg dark:text-deep-mocha-100">
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
 
 function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits || noTraitData(traits)) {
     return <NoData text="No trait data available." />;
   }
-  const containerClasses = "relative rounded-xl p-2 overflow-hidden";
-  const boxClasses = containerClasses.replace("my-2", "");
-  const lineClasses =
-    "border-t border-deep-mocha-300 dark:border-deep-mocha-700 my-2";
-  const gridClasses = "grid gap-2 md:grid-cols-2 transition-all mb-4";
-  const categoryClasses = "text-xl font-semibold mt-2";
   return (
     <div>
-      <h3 className={categoryClasses}>Morphology</h3>
-      <div className={lineClasses} />
-      <div className={gridClasses}>
-        <div className={`${boxClasses} md:col-span-2 h-fit`}>
-          <h3 className="text-xl">Wingspan</h3>
-          <div className="space-y-2">
-            <WingspanCard
-              upper_male={traits.wingspan_upper_male}
-              upper_female={traits.wingspan_upper_female}
-              upper_unspecified={traits.wingspan_upper_unspecified}
-              lower_male={traits.wingspan_lower_male}
-              lower_female={traits.wingspan_lower_female}
-              lower_unspecified={traits.wingspan_lower_unspecified}
-            />
-          </div>
-        </div>
-      </div>
-      <h3 className={categoryClasses}>Life History</h3>
-      <div className={lineClasses} />
-      <div className={gridClasses}>
-        {/* Each small card is its own grid item (no wrapping flex) */}
-        {typeof traits.voltinism === "string" &&
-          traits.voltinism.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Voltinism</h3>
-              <Voltinism voltinism={traits.voltinism} />
-            </div>
-          )}
-        {typeof traits.diapause_stage === "string" &&
-          traits.diapause_stage.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Diapause Stage</h3>
-              <DiapauseStage diapause={traits.diapause_stage} />
-            </div>
-          )}
-        {typeof traits.oviposition_style === "string" &&
-          traits.oviposition_style.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Oviposition Style</h3>
-              <OvipositionStyle style={traits.oviposition_style} />
-            </div>
-          )}
-      </div>
-      <h3 className={categoryClasses}>Habitats</h3>
-      <div className={lineClasses} />
-      <div className={gridClasses}>
-        {typeof traits.canopy_affinity === "string" &&
-          traits.canopy_affinity.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Canopy Affinity</h3>
-              <Affinity
-                affinity={traits.canopy_affinity}
-                icon={<CanopyIcon className={commonIconClass} />}
-              />
-            </div>
-          )}
-        {typeof traits.edge_affinity === "string" &&
-          traits.edge_affinity.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Edge Affinity</h3>
-              <Affinity
-                affinity={traits.edge_affinity}
-                icon={<EdgeForestIcon className={commonIconClass} />}
-              />
-            </div>
-          )}
-        {typeof traits.moisture_affinity === "string" &&
-          traits.moisture_affinity.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Moisture Affinity</h3>
-              <Affinity
-                affinity={traits.moisture_affinity}
-                icon={<MoistureIcon className={commonIconClass} />}
-              />
-            </div>
-          )}
-        {typeof traits.disturbance_affinity === "string" &&
-          traits.disturbance_affinity.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Disturbance Affinity</h3>
-              <Affinity
-                affinity={traits.disturbance_affinity}
-                icon={<DisturbanceIcon className={commonIconClass} />}
-              />
-            </div>
-          )}
-      </div>
-      <h3 className={categoryClasses}>Resources</h3>
-      <div className={lineClasses} />
-      <div className={gridClasses}>
-        {/* Each small card is its own grid item (no wrapping flex) */}
-        {typeof traits.number_of_hostplant_families === "number" &&
-          !Number.isNaN(traits.number_of_hostplant_families) && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Number of Host Plant Families</h3>
-              <NumberOfHostPlants count={traits.number_of_hostplant_families} />
-            </div>
-          )}
-        {typeof traits.sole_hostplant_family === "string" &&
-          traits.sole_hostplant_family.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Sole Host Plant Family</h3>
-              <HostPlantFamilies families={traits.sole_hostplant_family} />
-            </div>
-          )}
-        {typeof traits.primary_hostplant_family === "string" &&
-          traits.primary_hostplant_family.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Primary Host Plant Family</h3>
-              <HostPlantFamilies families={traits.primary_hostplant_family} />
-            </div>
-          )}
-        {typeof traits.secondary_hostplant_family === "string" &&
-          traits.secondary_hostplant_family.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Secondary Host Plant Family</h3>
-              <HostPlantFamilies families={traits.secondary_hostplant_family} />
-            </div>
-          )}
-        {typeof traits.equal_hostplant_family === "string" &&
-          traits.equal_hostplant_family.trim() !== "" && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Equal Host Plant Family</h3>
-              <HostPlantFamilies families={traits.equal_hostplant_family} />
-            </div>
-          )}
-        {typeof traits.number_of_hostplant_accounts === "number" &&
-          !Number.isNaN(traits.number_of_hostplant_accounts) && (
-            <div className={boxClasses}>
-              <h3 className="text-xl m-2">Number of Host Plant Accounts</h3>
-              <HostPlantAccount count={traits.number_of_hostplant_accounts} />
-            </div>
-          )}
-      </div>
-      <h3 className={categoryClasses}>Phenology</h3>
-      <div className={lineClasses} />
-      {typeof traits.flight_duration === "number" &&
-        !Number.isNaN(traits.flight_duration) && (
-          <div className={boxClasses}>
-            <h3 className="text-xl m-2">Flight Duration</h3>
-            <FlightDuration duration={traits.flight_duration} />
-          </div>
+      <TraitSection title="Morphology">
+        <TraitCard title="Wingspan" wide>
+          <WingspanCard
+            upper_male={traits.wingspan_upper_male}
+            upper_female={traits.wingspan_upper_female}
+            upper_unspecified={traits.wingspan_upper_unspecified}
+            lower_male={traits.wingspan_lower_male}
+            lower_female={traits.wingspan_lower_female}
+            lower_unspecified={traits.wingspan_lower_unspecified}
+          />
+        </TraitCard>
+      </TraitSection>
+
+      <TraitSection title="Life History">
+        {hasText(traits.voltinism) && (
+          <TraitCard title="Voltinism">
+            <Voltinism voltinism={traits.voltinism} />
+          </TraitCard>
         )}
-      <div className={boxClasses}>
-        <h3 className="text-xl m-2">Adult Presence</h3>
-        <div className="flex items-start gap-2 px-3 py-1">
-          <IconContainer>
-            <AdultPresenceIcon className={commonIconClass} />
-          </IconContainer>
-          <MonthPresence traits={traits} />
-        </div>
-      </div>
+        {hasText(traits.diapause_stage) && (
+          <TraitCard title="Diapause Stage">
+            <DiapauseStage diapause={traits.diapause_stage} />
+          </TraitCard>
+        )}
+        {hasText(traits.oviposition_style) && (
+          <TraitCard title="Oviposition Style">
+            <OvipositionStyle style={traits.oviposition_style} />
+          </TraitCard>
+        )}
+      </TraitSection>
+
+      <TraitSection title="Habitats">
+        {hasText(traits.canopy_affinity) && (
+          <TraitCard title="Canopy Affinity">
+            <Affinity
+              affinity={traits.canopy_affinity}
+              icon={<CanopyIcon className={commonIconClass} />}
+            />
+          </TraitCard>
+        )}
+        {hasText(traits.edge_affinity) && (
+          <TraitCard title="Edge Affinity">
+            <Affinity
+              affinity={traits.edge_affinity}
+              icon={<EdgeForestIcon className={commonIconClass} />}
+            />
+          </TraitCard>
+        )}
+        {hasText(traits.moisture_affinity) && (
+          <TraitCard title="Moisture Affinity">
+            <Affinity
+              affinity={traits.moisture_affinity}
+              icon={<MoistureIcon className={commonIconClass} />}
+            />
+          </TraitCard>
+        )}
+        {hasText(traits.disturbance_affinity) && (
+          <TraitCard title="Disturbance Affinity">
+            <Affinity
+              affinity={traits.disturbance_affinity}
+              icon={<DisturbanceIcon className={commonIconClass} />}
+            />
+          </TraitCard>
+        )}
+      </TraitSection>
+
+      <TraitSection title="Resources">
+        {hasNumber(traits.number_of_hostplant_families) && (
+          <TraitCard title="Number of Host Plant Families">
+            <NumberOfHostPlants count={traits.number_of_hostplant_families} />
+          </TraitCard>
+        )}
+        {hasText(traits.sole_hostplant_family) && (
+          <TraitCard title="Sole Host Plant Family">
+            <HostPlantFamilies families={traits.sole_hostplant_family} />
+          </TraitCard>
+        )}
+        {hasText(traits.primary_hostplant_family) && (
+          <TraitCard title="Primary Host Plant Family">
+            <HostPlantFamilies families={traits.primary_hostplant_family} />
+          </TraitCard>
+        )}
+        {hasText(traits.secondary_hostplant_family) && (
+          <TraitCard title="Secondary Host Plant Family">
+            <HostPlantFamilies families={traits.secondary_hostplant_family} />
+          </TraitCard>
+        )}
+        {hasText(traits.equal_hostplant_family) && (
+          <TraitCard title="Equal Host Plant Family">
+            <HostPlantFamilies families={traits.equal_hostplant_family} />
+          </TraitCard>
+        )}
+        {hasNumber(traits.number_of_hostplant_accounts) && (
+          <TraitCard title="Number of Host Plant Accounts">
+            <HostPlantAccount count={traits.number_of_hostplant_accounts} />
+          </TraitCard>
+        )}
+      </TraitSection>
+
+      <TraitSection title="Phenology">
+        {hasNumber(traits.flight_duration) && (
+          <TraitCard title="Flight Duration">
+            <FlightDuration duration={traits.flight_duration} />
+          </TraitCard>
+        )}
+        <TraitCard title="Adult Presence" wide>
+          <div className={rowClass}>
+            {/* The strip needs the width more than the icon does, so the
+                icon steps aside on a narrow card. */}
+            <div className="hidden sm:block">
+              <IconContainer>
+                <AdultPresenceIcon className={commonIconClass} />
+              </IconContainer>
+            </div>
+            <MonthPresence traits={traits} />
+          </div>
+        </TraitCard>
+      </TraitSection>
+
       <div className="w-full flex justify-center items-center mt-12 mb-6">
         <LepTraitDataSourceInfo />
       </div>
@@ -228,7 +255,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
   // Only render if we have data
   if (Object.keys(presentAbsentMap).length === 0) {
     return (
-      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 m-2">
+      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
         No month presence data available.
       </p>
     );
@@ -236,44 +263,57 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
 
   if (isAbsentAllYear(presentAbsentMap)) {
     return (
-      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400 m-2">
+      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
         No data available.
       </p>
     );
   }
 
+  // Twelve equal columns that shrink with the card. The labels are sized
+  // against the strip itself (a container query), not the screen: below
+  // 24rem the three-letter names no longer fit a column, so each month drops
+  // to its initial and the full name stays for screen readers.
   return (
-    <div>
-      <div className="w-full h-16 flex mt-2 mx-4">
-        <table className="w-full h-full table-auto">
-          <thead>
-            <tr>
-              {Object.keys(presentAbsentMap).map((month) => (
-                <th key={month} className={labelClass}>
-                  {month}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {Object.entries(presentAbsentMap).map(([month, isPresent]) => (
-                <td
-                  key={month}
-                  className={`h-5 w-5 border border-deep-mocha-300 dark:border-deep-mocha-700 ${
-                    isPresent
-                      ? "bg-hunter-green-600 dark:bg-hunter-green-400"
-                      : "bg-deep-mocha-200/50 dark:bg-deep-mocha-800/50"
-                  }`}
-                >
-                  <span className="sr-only">
-                    {month}: {isPresent ? "Present" : "Absent"}
-                  </span>
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
+    <div className="@container min-w-0 flex-1">
+      <ol
+        className="grid grid-cols-12 gap-0.5 @sm:gap-1"
+        aria-label="Months when adults are present"
+      >
+        {Object.entries(presentAbsentMap).map(([month, isPresent]) => (
+          <li key={month} className="flex min-w-0 flex-col items-center gap-1">
+            <span
+              aria-hidden="true"
+              className={`h-6 w-full rounded-sm @sm:h-8 ${
+                isPresent
+                  ? "bg-hunter-green-600 dark:bg-hunter-green-400"
+                  : "border border-deep-mocha-300 bg-deep-mocha-200/50 dark:border-deep-mocha-700 dark:bg-deep-mocha-800/50"
+              }`}
+            />
+            <span
+              aria-hidden="true"
+              className="text-xs leading-none text-deep-mocha-600 dark:text-deep-mocha-300"
+            >
+              <span className="@sm:hidden">{month.charAt(0)}</span>
+              <span className="hidden @sm:inline">{month}</span>
+            </span>
+            <span className="sr-only">
+              {month}: {isPresent ? "present" : "absent"}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div
+        aria-hidden="true"
+        className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-deep-mocha-600 dark:text-deep-mocha-300"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-3 rounded-sm bg-hunter-green-600 dark:bg-hunter-green-400" />
+          Present
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-3 rounded-sm border border-deep-mocha-300 bg-deep-mocha-200/50 dark:border-deep-mocha-700 dark:bg-deep-mocha-800/50" />
+          Absent
+        </span>
       </div>
     </div>
   );
@@ -295,7 +335,7 @@ function WingspanCard({
   lower_unspecified: number | null | undefined;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1">
+    <div className={rowClass}>
       <IconContainer>
         <WingspanIcon className="w-20 h-20 m-1" size="lg" />
       </IconContainer>
@@ -389,7 +429,7 @@ function FlightDuration({
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1">
+    <div className={rowClass}>
       <IconContainer>
         {icon ?? <FlightDurationIcon className={commonIconClass} />}
       </IconContainer>
@@ -418,7 +458,7 @@ function Affinity({
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1">
+    <div className={rowClass}>
       <IconContainer>
         {icon ?? <CanopyIcon className={commonIconClass} />}
       </IconContainer>
@@ -440,7 +480,7 @@ function Voltinism({ voltinism }: { voltinism: string | null | undefined }) {
   const voltinismLabel = parseVoltinism(voltinism);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className={rowClass}>
       <IconContainer>
         <VoltinismIcon
           className={commonIconClass}
@@ -470,7 +510,7 @@ function DiapauseStage({ diapause }: { diapause: string | null | undefined }) {
   const diapauseLabel = parseDiapauseStage(diapause);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className={rowClass}>
       <IconContainer>
         <DiapauseIcon
           className={commonIconClass}
@@ -498,7 +538,7 @@ function OvipositionStyle({ style }: { style: string | null | undefined }) {
   const styleLabel = parseOvipositionStyle(style);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className={rowClass}>
       <IconContainer>
         <OvipositionIcon
           className={commonIconClass}
@@ -519,7 +559,7 @@ function NumberOfHostPlants({ count }: { count: number | null | undefined }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className={rowClass}>
       <IconContainer>
         <HostPlantFamiliesIcon className={commonIconClass} />
       </IconContainer>
@@ -554,7 +594,7 @@ function HostPlantFamilies({
   const familyList = families.split(",").map((f) => f.trim());
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className={rowClass}>
       <IconContainer>
         {icon ?? <HostPlantFamilyIcon className={commonIconClass} />}
       </IconContainer>
@@ -574,7 +614,7 @@ function HostPlantAccount({ count }: { count: number | null | undefined }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
+    <div className={rowClass}>
       <IconContainer>
         <HostPlantAccountsIcon className={commonIconClass} />
       </IconContainer>
