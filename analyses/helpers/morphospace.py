@@ -14,7 +14,9 @@ import pandas as pd
 import yaml
 from matplotlib.colors import to_rgba
 from matplotlib.lines import Line2D
+from matplotlib.markers import MarkerStyle
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
+from matplotlib.path import Path as MarkerPath
 from PIL import Image
 
 from analyses.helpers.publication import (
@@ -44,6 +46,19 @@ FRAME_FILL = "#f3f1f1"
 GROUP_COLORS = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#a6761d")
 GROUP_MARKERS = ("o", "s", "^", "D", "v", "P")
 OTHER_COLOR = "#bdbdbd"
+# A group mean's marker size, and the share of its width the white center of a
+# hollow (ventral) mean takes.
+MEAN_SIZE = 200
+HOLLOW_SCALE = 0.52
+# A triangle's is smaller: at the circle's share its band is visibly thinner,
+# and at the circle's band thickness the white all but disappears.
+TRIANGLE_HOLLOW_SCALE = 0.42
+# The vertices matplotlib draws `^` and `v` from, centered on their bounding
+# box rather than on the triangle.
+TRIANGLE_VERTICES = {
+    "^": np.array([[0.0, 1.0], [-1.0, -1.0], [1.0, -1.0]]),
+    "v": np.array([[0.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]),
+}
 # Points shrink and thin out past this many, as on the site.
 DENSE = 2000
 # Outer side of the square frame around each axis-end image, and the padding
@@ -246,6 +261,29 @@ def draw_group(ax, rows: pd.DataFrame, color: str, marker: str, *, size: float, 
         )
 
 
+def hollow_center(marker: str) -> tuple[str | MarkerStyle, float]:
+    """The white center of a hollow mean, and its scatter size.
+
+    A symmetric marker shrinks about its own center, which leaves an even ring.
+    A triangle would shrink about its bounding-box center instead, leaving the
+    band thick at the apex and thin along the base, so it is shrunk about its
+    incenter, the point equally far from all three sides.
+    """
+    vertices = TRIANGLE_VERTICES.get(marker)
+    if vertices is None:
+        return marker, MEAN_SIZE * HOLLOW_SCALE**2
+    # Each vertex weighted by the length of the side opposite it.
+    opposite = np.linalg.norm(np.roll(vertices, -1, axis=0) - np.roll(vertices, 1, axis=0), axis=1)
+    incenter = opposite @ vertices / opposite.sum()
+    inset = TRIANGLE_HOLLOW_SCALE * (vertices - incenter) + incenter
+    # Matplotlib scales a path marker by its largest coordinate without
+    # recentering it, so the size is set to keep the inset in the outer
+    # triangle's units.
+    extent = float(np.abs(inset).max())
+    path = MarkerPath(np.vstack([inset, inset[:1]]), closed=True)
+    return MarkerStyle(path), MEAN_SIZE * extent**2
+
+
 def draw_group_means(ax, rows: pd.DataFrame, color: str, marker: str) -> None:
     """A group's mean dorsal and mean ventral position, joined, drawn over its points."""
     means = pd.DataFrame(rows.groupby("side")[["pc1", "pc2"]].mean()).reindex(list(SIDES))
@@ -261,27 +299,28 @@ def draw_group_means(ax, rows: pd.DataFrame, color: str, marker: str) -> None:
     )
     ax.plot(means["pc1"], means["pc2"], color=color, linewidth=1.8, zorder=6)
     for side in SIDES:
-        filled = side == "dorsal"
         # A dark outline keeps the mean readable over its own group's points.
         ax.scatter(
             means.loc[side, "pc1"],
             means.loc[side, "pc2"],
-            s=200,
+            s=MEAN_SIZE,
             marker=marker,
-            facecolors=color if filled else SURFACE,
+            facecolors=color,
             edgecolors=AXIS_COLOR,
             linewidths=1.4,
             zorder=7,
         )
-        if not filled:
+        if side == "ventral":
+            # Hollowed from inside the filled marker, so the colored ring
+            # meets the outline with no white gap between them.
+            center, size = hollow_center(marker)
             ax.scatter(
                 means.loc[side, "pc1"],
                 means.loc[side, "pc2"],
-                s=95,
-                marker=marker,
-                facecolors="none",
-                edgecolors=color,
-                linewidths=2.4,
+                s=size,
+                marker=center,
+                facecolors=SURFACE,
+                edgecolors="none",
                 zorder=8,
             )
 
