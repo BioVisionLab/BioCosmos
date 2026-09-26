@@ -64,6 +64,8 @@ class ImageMetaRetrieval:
                 "uuid",
                 "uri",
                 "class_dv",
+                # As recorded; the panels map male and female to symbols.
+                "sex",
                 "lat",
                 "lon",
                 "source_db",

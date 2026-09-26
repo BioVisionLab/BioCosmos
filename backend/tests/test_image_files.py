@@ -67,6 +67,7 @@ class TestImageMetaRetrieval:
             "uuid": ["abc-123"],
             "uri": ["https://example.com/img.png"],
             "class_dv": ["dorsal"],
+            "sex": ["male"],
             "lat": [40.7],
             "lon": [-74.0],
             "source_db": ["MCZ"],
@@ -83,6 +84,7 @@ class TestImageMetaRetrieval:
         assert "license" in meta
         assert "internal_field" not in meta
         assert meta["source_db"] == "MCZ"
+        assert meta["sex"] == "male"
 
     def _meta_with_provenance(self, fake_request, holder):
         meta_df = pl.DataFrame({"uuid": ["abc-123"], "source_db": ["gbif"]})

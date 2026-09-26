@@ -17,6 +17,8 @@ import {
 
 export interface SpecimenImageMeta {
   class_dv?: string | null;
+  /** The sex as recorded in the occurrence data. */
+  sex?: string | null;
   lat?: number | null;
   lon?: number | null;
   source_db?: string | null;
@@ -89,6 +91,34 @@ export function localityOf(
 ): SpecimenLocality | null {
   if (!meta) return null;
   return normalizeSpecimenLocality(meta.locality);
+}
+
+/** The recorded sex, with the spellings the occurrence data uses for each. */
+const SEX_SYMBOLS: Record<string, { symbol: string; label: string }> = {
+  male: { symbol: "♂", label: "Male" },
+  m: { symbol: "♂", label: "Male" },
+  "1 male": { symbol: "♂", label: "Male" },
+  female: { symbol: "♀", label: "Female" },
+  f: { symbol: "♀", label: "Female" },
+  "1 female": { symbol: "♀", label: "Female" },
+};
+
+/**
+ * Read the sex off a metadata payload as a symbol, with its name for screen
+ * readers and tooltips. A value with no symbol (indeterminate, mixed, not
+ * shown, …) is returned as written, with `isSymbol` false so callers can size
+ * the two differently. Null when nothing was recorded.
+ */
+export function sexOf(
+  meta: SpecimenImageMeta | null | undefined,
+): { display: string; label: string; isSymbol: boolean } | null {
+  const raw = typeof meta?.sex === "string" ? meta.sex.trim() : "";
+  if (!raw) return null;
+  const mapped = SEX_SYMBOLS[raw.toLowerCase()];
+  if (mapped) {
+    return { display: mapped.symbol, label: mapped.label, isSymbol: true };
+  }
+  return { display: raw, label: raw, isSymbol: false };
 }
 
 /** Read the coordinate validation off a metadata payload. */

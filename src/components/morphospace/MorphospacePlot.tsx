@@ -1468,9 +1468,6 @@ function XAxisEnds({
   return (
     <div className="mt-2 ml-12 flex flex-wrap items-center justify-between gap-2">
       {end(`Low ${axis.toUpperCase()}`, low, "text-left")}
-      <span className={`text-xs ${MUTED_TEXT}`} aria-hidden>
-        ← {axis.toUpperCase()} →
-      </span>
       {end(`High ${axis.toUpperCase()}`, high, "text-right")}
     </div>
   );

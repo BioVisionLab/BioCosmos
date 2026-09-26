@@ -12,12 +12,14 @@ import {
   localityOf,
   nameWasUpdated,
   provenanceOf,
+  sexOf,
   taxonomyOf,
 } from "@/lib/imageMetadata";
 import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
 import {
   CoordinateRegionRow,
   METADATA_LABEL,
+  METADATA_SYMBOL,
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
@@ -110,6 +112,7 @@ function SpecimenImageModal({
 
   const [meta, setMeta] = useState<SpecimenImageMeta | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
+  const sex = sexOf(meta);
   const [loadedIds, setLoadedIds] = useState<Set<string>>(new Set());
   // Ids whose full image failed to load. Kept apart from `loadedIds` so a
   // failure shows the no-image placeholder, not the browser's broken image.
@@ -338,6 +341,18 @@ function SpecimenImageModal({
                               ? meta.class_dv.charAt(0).toUpperCase() +
                                 meta.class_dv.slice(1)
                               : meta.class_dv}
+                          </span>
+                        </div>
+                      )}
+                      {sex && (
+                        <div>
+                          <span className={METADATA_LABEL}>Sex: </span>
+                          <span
+                            className={`${METADATA_VALUE} ${sex.isSymbol ? METADATA_SYMBOL : ""}`}
+                            title={sex.label}
+                            aria-label={sex.label}
+                          >
+                            {sex.display}
                           </span>
                         </div>
                       )}

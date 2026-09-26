@@ -14,6 +14,7 @@ import {
   localityOf,
   nameWasUpdated,
   provenanceOf,
+  sexOf,
   taxonomyOf,
 } from "@/lib/imageMetadata";
 import { SpecimenLocality } from "@/lib/geoValidation";
@@ -21,6 +22,7 @@ import {
   CoordinateRegionRow,
   METADATA_EMPTY,
   METADATA_LABEL,
+  METADATA_SYMBOL,
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
@@ -275,6 +277,7 @@ export default function ImageMetadata({
   const locality = localityOf(meta);
   const coordinates = coordinatesOf(meta);
   const provenance = provenanceOf(meta);
+  const sex = sexOf(meta);
 
   return (
     <div className="p-5 bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl text-sm text-deep-mocha-700 dark:text-deep-mocha-400 leading-3.5">
@@ -298,6 +301,22 @@ export default function ImageMetadata({
                     ? meta.class_dv.toLowerCase()
                     : "—"}
                 </span>
+              </div>
+
+              {/* Below the view, not beside it. */}
+              <div className="col-start-1 flex items-center min-w-0">
+                <span className={METADATA_LABEL}>Sex:</span>
+                {sex ? (
+                  <span
+                    className={`ml-1 truncate ${METADATA_VALUE} ${sex.isSymbol ? METADATA_SYMBOL : ""}`}
+                    title={sex.label}
+                    aria-label={sex.label}
+                  >
+                    {sex.display}
+                  </span>
+                ) : (
+                  <span className={`ml-1 ${METADATA_EMPTY}`}>—</span>
+                )}
               </div>
 
               {/* Locality first, then the coordinate and the verdict on it:
