@@ -10,7 +10,7 @@ import lancedb
 import numpy as np
 import pyarrow as pa
 import pytest
-from lancedb.index import IvfHnswPq
+from lancedb.index import IvfFlat, IvfHnswPq
 
 from app.database.lance import LanceDB
 from app.database.lance_migration import MigrationError, _retrain, migrate
@@ -147,7 +147,7 @@ class TestRetrain:
         )
         index.name = "unicom_embeddings_idx"
 
-        _retrain(table, index, "unicom_embeddings")
+        _retrain(table, index, "unicom_embeddings", "IvfHnswPq")
 
         (column,) = table.create_index.call_args.args
         kwargs = table.create_index.call_args.kwargs
@@ -160,6 +160,22 @@ class TestRetrain:
         assert (config.m, config.ef_construction) == (20, 300)
         assert kwargs["replace"] is True
         assert kwargs["name"] == "unicom_embeddings_idx"
+
+    def test_configured_type_replaces_the_existing_type(self):
+        table = MagicMock()
+        table.count_rows.return_value = 640_000
+        table.schema.field.return_value.type.list_size = 768
+        index = MagicMock(
+            index_type="IvfHnswPq", index_details={"metric_type": "COSINE"}
+        )
+        index.name = "unicom_embeddings_idx"
+
+        _retrain(table, index, "unicom_embeddings", "IvfFlat")
+
+        config = table.create_index.call_args.kwargs["config"]
+        assert isinstance(config, IvfFlat)
+        assert config.distance_type == "cosine"
+        assert config.num_partitions == 800
 
     def test_a_dry_run_lists_vector_indexes_to_retrain(self):
         table = MagicMock()
@@ -175,7 +191,7 @@ class TestRetrain:
         report = _run(table, "static/webp", reindex=True)
 
         assert report.steps == [
-            "retrain IvfHnswPq index 'unicom_embeddings_idx' on 'unicom_embeddings'"
+            "rebuild unicom_embeddings_idx on 'unicom_embeddings' as IvfPq"
         ]
         table.create_index.assert_not_called()
 

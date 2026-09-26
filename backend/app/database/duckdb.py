@@ -128,7 +128,7 @@ class DuckDBClient:
             """
         )
         logger.info(f"Table '{table_name}' created or replaced.")
-    
+
     def create_if_not_exists_parquet(self, table_name: str, parquet_path: str):
         """Create a table from a Parquet file if it does not exist.
         Args:

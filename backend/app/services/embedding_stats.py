@@ -32,9 +32,7 @@ _CACHE: list[dict] | None = None
 _CACHE_LOCK = threading.Lock()
 
 
-def _summarize(
-    name: str, dimensions: int, images: int, values: np.ndarray
-) -> dict:
+def _summarize(name: str, dimensions: int, images: int, values: np.ndarray) -> dict:
     """Build a five-number summary with Tukey whiskers for one model."""
     q1, median, q3 = (float(q) for q in np.percentile(values, [25, 50, 75]))
     minimum = float(values.min())
@@ -91,9 +89,7 @@ class EmbeddingStatsService:
 
         chunk = max(SAMPLE_SIZE // SAMPLE_CHUNKS, 1)
         stride = total // SAMPLE_CHUNKS
-        frames = [
-            self._read_chunk(i * stride, chunk) for i in range(SAMPLE_CHUNKS)
-        ]
+        frames = [self._read_chunk(i * stride, chunk) for i in range(SAMPLE_CHUNKS)]
         populated = [f for f in frames if not f.is_empty()]
         return pl.concat(populated) if populated else pl.DataFrame()
 
@@ -139,8 +135,6 @@ class EmbeddingStatsService:
                     self._flatten(frame, UNICOM_COLUMN),
                 ),
             ]
-            logger.info(
-                f"Computed embedding distributions from {frame.height} images."
-            )
+            logger.info(f"Computed embedding distributions from {frame.height} images.")
             _CACHE = distributions
             return distributions

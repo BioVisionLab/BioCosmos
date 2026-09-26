@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
     "/search/db",
     tags=["Conventional Search"],
 )
-async def search_db(request: Request, q: str, field: str = "all", page: int = 1, limit: int = 50):
+async def search_db(
+    request: Request, q: str, field: str = "all", page: int = 1, limit: int = 50
+):
     """Endpoint for conventional database search.
 
     Expects a query parameter 'q' for the value to search.
@@ -28,7 +30,9 @@ async def search_db(request: Request, q: str, field: str = "all", page: int = 1,
         limit (int, optional): The maximum number of results to return. Defaults to 50.
     """
     # Placeholder implementation
-    logger.info(f"Searching database for taxon: {q} in field: {field} page: {page} with limit {limit}")
+    logger.info(
+        f"Searching database for taxon: {q} in field: {field} page: {page} with limit {limit}"
+    )
     if not q or q.strip() == "":
         logger.warning("Empty taxon search query received")
         return JSONResponse(

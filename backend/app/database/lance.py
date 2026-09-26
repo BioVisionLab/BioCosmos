@@ -1,11 +1,22 @@
+import dataclasses
 import logging
 import math
 import time
 from typing import Literal
 
 import lancedb
+import lancedb.index
 from lancedb import DBConnection
-from lancedb.index import BTree, IvfPq
+from lancedb.index import (
+    BTree,
+    IvfFlat,
+    IvfHnswFlat,
+    IvfHnswPq,
+    IvfHnswSq,
+    IvfPq,
+    IvfRq,
+    IvfSq,
+)
 
 from ..configs.config import get_lance_db_path
 from .model import LanceSchema
@@ -33,6 +44,45 @@ DIMS_PER_SUB_VECTOR = 8
 # Columns from the collection's original layout, which stored every image's
 # bytes in the table. Images are served from disk now and nothing reads these.
 LEGACY_COLUMNS = ("img_bytes", "file_format", "original_size")
+
+
+VectorIndexConfig = (
+    IvfFlat | IvfSq | IvfPq | IvfRq | IvfHnswFlat | IvfHnswSq | IvfHnswPq
+)
+
+
+def vector_index_config(
+    index_type: str,
+    *,
+    rows: int,
+    dims: int,
+    metric: str = "cosine",
+    details: dict | None = None,
+) -> VectorIndexConfig:
+    """Create the selected index with settings suited to this table."""
+    details = details or {}
+    compression = details.get("compression") or {}
+    hnsw = details.get("hnsw") or {}
+    settings = {
+        "distance_type": metric,
+        "num_partitions": min(
+            MAX_PARTITIONS, int(math.sqrt(max(rows, MIN_ROWS_FOR_INDEX)))
+        ),
+        "num_sub_vectors": compression.get("num_sub_vectors")
+        or max(1, dims // DIMS_PER_SUB_VECTOR),
+        "num_bits": compression.get("num_bits"),
+        "m": hnsw.get("max_connections"),
+        "ef_construction": hnsw.get("construction_ef"),
+    }
+    config_class = getattr(lancedb.index, index_type)
+    accepted = {item.name for item in dataclasses.fields(config_class)}
+    return config_class(
+        **{
+            key: value
+            for key, value in settings.items()
+            if key in accepted and value is not None
+        }
+    )
 
 
 class LanceDB:
@@ -125,6 +175,7 @@ class LanceDB:
         vector_column: str,
         *,
         metric: Literal["l2", "cosine", "dot"] = "cosine",
+        index_type: str = "IvfPq",
     ) -> bool:
         """Build an ANN index on a vector column if it does not have one.
 
@@ -190,30 +241,22 @@ class LanceDB:
                 )
                 return False
 
-            num_partitions = min(MAX_PARTITIONS, int(math.sqrt(rows)))
-            num_sub_vectors = max(1, dims // DIMS_PER_SUB_VECTOR)
+            config = vector_index_config(
+                index_type, rows=rows, dims=dims, metric=metric
+            )
 
             logger.info(
-                "Building a %s vector index on %s.%s (%d rows, %d dims, "
-                "%d partitions, %d sub-vectors). This runs once and can take "
-                "several minutes.",
+                "Building a %s %s vector index on %s.%s (%d rows, %d dims). "
+                "This runs once and can take several minutes.",
                 metric,
+                index_type,
                 collection_name,
                 vector_column,
                 rows,
                 dims,
-                num_partitions,
-                num_sub_vectors,
             )
             started = time.monotonic()
-            table.create_index(
-                vector_column,
-                config=IvfPq(
-                    distance_type=metric,
-                    num_partitions=num_partitions,
-                    num_sub_vectors=num_sub_vectors,
-                ),
-            )
+            table.create_index(vector_column, config=config)
             logger.info(
                 "Vector index on %s.%s built in %.1fs.",
                 collection_name,

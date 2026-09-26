@@ -691,6 +691,25 @@ class SearchIndexConfig:
             "search_index.build_vector",
         )
 
+    @property
+    def vector_type(self) -> str:
+        """LanceDB index type for new and explicitly rebuilt vector indexes."""
+        supported = {
+            "IvfFlat",
+            "IvfSq",
+            "IvfPq",
+            "IvfRq",
+            "IvfHnswFlat",
+            "IvfHnswSq",
+            "IvfHnswPq",
+        }
+        value = self._search_index_config.get("vector_type", "IvfPq")
+        if not isinstance(value, str) or value not in supported:
+            raise ValueError(
+                f"search_index.vector_type must be one of {', '.join(sorted(supported))}"
+            )
+        return value
+
 
 class OpenAIConfig:
     def __init__(self):

@@ -16,8 +16,6 @@ from .clip import ClipEmbedder
 from .images import quote_sql
 
 
-
-
 class ImageEmbedder:
     """Class to handle image embedding operations.
     Include methods for adding, updating, and deleting image data, metadata, and embeddings.

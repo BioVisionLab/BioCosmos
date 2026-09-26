@@ -25,9 +25,7 @@ MIN_CANDIDATES = 200
 class SimilarSpeciesRow(BaseModel):
     """One card in the visually-similar panel."""
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     img_id: str
     # The name as recorded, for display next to the accepted one.
@@ -82,9 +80,7 @@ def binomial_record_key(species: str) -> str:
     return pl.select(recorded_binomial_key(pl.lit(species))).item()
 
 
-def similar_species_row(
-    candidate: dict, record: dict | None, species_key: str
-) -> dict:
+def similar_species_row(candidate: dict, record: dict | None, species_key: str) -> dict:
     """Shape one card the way the payload declares it."""
     return {
         "imgId": candidate["imgId"],
@@ -167,9 +163,7 @@ class VisuallySimilarSpeciesPayload(BaseModel):
     A class to represent visually similar species data.
     """
 
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     dorsal: list[SimilarSpeciesRow]
     ventral: list[SimilarSpeciesRow]
@@ -189,9 +183,7 @@ class SpeciesSimilarity:
         self.lance_db = request.app.state.lance_db
         self.duck_db = request.app.state.duck_db
         self.limit = limit
-        self.candidate_limit = max(
-            limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES
-        )
+        self.candidate_limit = max(limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATES)
         # One lookup for both sides; it caches its own table probe.
         self.taxonomy = OccurrenceTaxonomy(duckdb_client=self.duck_db)
         self.pages = SpeciesPageResolver(self.duck_db)
@@ -217,9 +209,7 @@ class SpeciesSimilarity:
         try:
             image_ids = self._get_image_ids_for_species(species_name)
             if image_ids is None or image_ids.is_empty():
-                logger.info(
-                    f"No image IDs found for species: {species_name}"
-                )
+                logger.info(f"No image IDs found for species: {species_name}")
                 return None
             # The taxa this species' own records resolve to, so a neighbour
             # that is this same species under another spelling — a subspecies
@@ -276,34 +266,13 @@ class SpeciesSimilarity:
             if similar_images is None or similar_images.is_empty():
                 logger.info("No similar images found.")
                 return []
-            return self._resolve_accepted(
-                similar_images, species_name, exclude_keys
-            )
+            return self._resolve_accepted(similar_images, species_name, exclude_keys)
         except Exception as e:
             logger.error(
                 f"Error retrieving similar images: {e}",
                 exc_info=True,
             )
             return []
-
-    # def _get_similar_images_all_morphotypes(
-    #     self,
-    #     species_images: pl.DataFrame,
-    #     species_name: str,
-    # ) -> list[dict]:
-    #     try:
-    #         image_ids = self._get_image_ids(species_images)
-    #         similar_images = self._get_similar_images(
-    #             species_name=species_name,
-    #             image_ids=image_ids,
-    #         )
-    #         return similar_images
-    #     except Exception as e:
-    #         logger.error(
-    #             f"Error retrieving all morphotype similar images: {e}",
-    #             exc_info=True,
-    #         )
-    #         return []
 
     def _get_similar_images_by_side(
         self,
@@ -364,9 +333,7 @@ class SpeciesSimilarity:
             list[dict]: List of similar images not belonging to the query species.
         """
         filtered_images = similar_images.filter(
-            pl.col("species")
-            .str.to_lowercase()
-            .str.replace_all(" ", "_", literal=True)
+            pl.col("species").str.to_lowercase().str.replace_all(" ", "_", literal=True)
             != species_name.lower().replace(" ", "_")
         )
         if filtered_images is None or filtered_images.is_empty():
@@ -376,9 +343,7 @@ class SpeciesSimilarity:
             return []
         return filtered_images.to_dicts()
 
-    def _get_image_ids_for_species(
-        self, species_name: str
-    ) -> pl.DataFrame | None:
+    def _get_image_ids_for_species(self, species_name: str) -> pl.DataFrame | None:
         """
         Get image IDs for a given species.
         Args:
@@ -388,15 +353,11 @@ class SpeciesSimilarity:
         """
         try:
             meta_service = ImageMetaService(duckdb=self.duck_db)
-            image_meta: pl.DataFrame | None = (
-                meta_service.get_image_meta_by_species(
-                    species=species_name
-                )
+            image_meta: pl.DataFrame | None = meta_service.get_image_meta_by_species(
+                species=species_name
             )
             if image_meta is None or image_meta.is_empty():
-                logger.info(
-                    f"No images found for species: {species_name}"
-                )
+                logger.info(f"No images found for species: {species_name}")
                 return None
             # Need to remove .png extension if present
             return image_meta
@@ -435,6 +396,4 @@ class SpeciesSimilarity:
         Returns:
             list[str]: List of image IDs.
         """
-        return (
-            image_meta.select(pl.col("img_id")).to_series().to_list()
-        )
+        return image_meta.select(pl.col("img_id")).to_series().to_list()

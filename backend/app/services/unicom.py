@@ -31,13 +31,14 @@ UNICOM_MODELS = {
 
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks)."""
-    def __init__(self, drop_prob: float = 0., scale_by_keep: bool = True):
+
+    def __init__(self, drop_prob: float = 0.0, scale_by_keep: bool = True):
         super(DropPath, self).__init__()
         self.drop_prob = drop_prob
         self.scale_by_keep = scale_by_keep
 
     def forward(self, x):
-        if self.drop_prob == 0. or not self.training:
+        if self.drop_prob == 0.0 or not self.training:
             return x
         keep_prob = 1 - self.drop_prob
         shape = (x.shape[0],) + (1,) * (x.ndim - 1)
@@ -45,6 +46,7 @@ class DropPath(nn.Module):
         if keep_prob > 0.0 and self.scale_by_keep:
             random_tensor.div_(keep_prob)
         return x * random_tensor
+
 
 class PatchEmbedding(nn.Module):
     def __init__(
@@ -99,9 +101,7 @@ class Attention(nn.Module):
 
     def forward(self, x):
         device_type = x.device.type
-        with torch.amp.autocast(
-            device_type=device_type, enabled=True
-        ):
+        with torch.amp.autocast(device_type=device_type, enabled=True):
             B, L, D = x.shape
             qkv = (
                 self.qkv(x)
@@ -113,12 +113,10 @@ class Attention(nn.Module):
             q, k, v = qkv[0], qkv[1], qkv[2]
             # q B, heads, L, head_dim
 
-            attn_output = F.scaled_dot_product_attention(
-                q, k, v, None, dropout_p=0.0
-            )
-            attn_output = (
-                attn_output.permute(2, 0, 1, 3).contiguous()
-            )  # [seq_length, batch_size, num_heads, head_dim]
+            attn_output = F.scaled_dot_product_attention(q, k, v, None, dropout_p=0.0)
+            attn_output = attn_output.permute(
+                2, 0, 1, 3
+            ).contiguous()  # [seq_length, batch_size, num_heads, head_dim]
             attn_output = attn_output.view(
                 L, B, -1
             )  # [seq_length, batch_size, embedding_dim]
@@ -150,15 +148,13 @@ class Block(nn.Module):
         else:
             self.drop_path = nn.Identity()
         self.mlp = Mlp(dim, dim * mlp_ratio)
-        self.extra_gflops = (
-            num_heads * patch_n * (dim // num_heads) * patch_n * 2
-        ) / (1000**3)
+        self.extra_gflops = (num_heads * patch_n * (dim // num_heads) * patch_n * 2) / (
+            1000**3
+        )
 
     def forward_impl(self, x):
         device_type = x.device.type
-        with torch.amp.autocast(
-            device_type=device_type, enabled=True
-        ):
+        with torch.amp.autocast(device_type=device_type, enabled=True):
             x = x + self.drop_path(self.attn(self.norm1(x)))
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
@@ -189,12 +185,8 @@ class VisionTransformer(nn.Module):
             in_channels,
             dim,
         )
-        self.pos_embed = nn.Parameter(
-            torch.zeros(1, self.patch_embed.num_patches, dim)
-        )
-        dpr = [
-            x.item() for x in torch.linspace(0, drop_path_rate, depth)
-        ]
+        self.pos_embed = nn.Parameter(torch.zeros(1, self.patch_embed.num_patches, dim))
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
 
         self.blocks = nn.ModuleList(
             [
@@ -240,9 +232,7 @@ class VisionTransformer(nn.Module):
         for func in self.blocks:
             x = func(x)
         x = self.norm(x.float())
-        return torch.reshape(
-            x, (B, self.patch_embed.num_patches * self.dim)
-        )
+        return torch.reshape(x, (B, self.patch_embed.num_patches * self.dim))
 
     def forward(self, x):
         x = self.forward_features(x)
@@ -281,10 +271,8 @@ class UnicomModel:
             )
 
             # 2. Load the checkpoint safely
-            state_dict = torch.load(
-                model_path, map_location="cpu", weights_only=True
-            )
-            
+            state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
+
             # 3. Convert FP16 checkpoint weights to FP32
             state_dict_fp32 = {k: v.float() for k, v in state_dict.items()}
 
@@ -293,16 +281,20 @@ class UnicomModel:
             model = model.to(config.device).eval()
 
             # 5. Build the transform explicitly inline
-            transform = transforms.Compose([
-                transforms.Resize(336, interpolation=transforms.InterpolationMode.BICUBIC),
-                transforms.CenterCrop(336),
-                cls._convert_image_to_rgb,
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=(0.48145466, 0.4578275, 0.40821073),
-                    std=(0.26862954, 0.26130258, 0.27577711),
-                ),
-            ])
+            transform = transforms.Compose(
+                [
+                    transforms.Resize(
+                        336, interpolation=transforms.InterpolationMode.BICUBIC
+                    ),
+                    transforms.CenterCrop(336),
+                    cls._convert_image_to_rgb,
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=(0.48145466, 0.4578275, 0.40821073),
+                        std=(0.26862954, 0.26130258, 0.27577711),
+                    ),
+                ]
+            )
 
             logger.info(
                 f"UNICOM model and transform loaded and moved to {config.device} successfully"
@@ -398,25 +390,21 @@ class UnicomImageEmbedder:
             )
             return None
 
-    def batch_get_embeddings(
-        self, images: list[PILImage]
-    ) -> list[np.ndarray]:
+    def batch_get_embeddings(self, images: list[PILImage]) -> list[np.ndarray]:
         """Get embeddings for a batch of PIL Images."""
         if self.model is None:
             self.logger.error("UNICOM model not available for image embedding.")
             return []
         try:
-            inputs = torch.stack(
-                [self.transform(img) for img in images]
-            ).to(self.device)
+            inputs = torch.stack([self.transform(img) for img in images]).to(
+                self.device
+            )
             with torch.no_grad():
                 features = self.model(inputs)
             features /= features.norm(dim=-1, keepdim=True)
             return list(features.cpu().numpy())
         except Exception as e:
-            self.logger.error(
-                f"Error processing batch: {e}", exc_info=True
-            )
+            self.logger.error(f"Error processing batch: {e}", exc_info=True)
             return []
 
     def get_embedding(self, image: PILImage) -> np.ndarray | None:
@@ -425,15 +413,11 @@ class UnicomImageEmbedder:
             self.logger.error("UNICOM model not available for image embedding.")
             return None
         try:
-            tensor = (
-                self.transform(image).unsqueeze(0).to(self.device)
-            )
+            tensor = self.transform(image).unsqueeze(0).to(self.device)
             with torch.no_grad():
                 features = self.model(tensor)
             features /= features.norm(dim=-1, keepdim=True)
             return features.cpu().numpy().squeeze()
         except Exception as e:
-            self.logger.error(
-                f"Could not process image: {e}", exc_info=True
-            )
+            self.logger.error(f"Could not process image: {e}", exc_info=True)
             return None

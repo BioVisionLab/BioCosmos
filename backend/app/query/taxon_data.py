@@ -1,12 +1,10 @@
 from app.services.metadata import ImageMetaStats
-from app.services.metadata import ImageMetaService
 import logging
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.col import ColTaxonSearch
 from ..services.gbif import GbifPersistData
@@ -285,8 +283,12 @@ class TaxonSearch:
                 taxonomy_validation.get_validated_family_count()
             )
             count_species: int | None = img_meta_stats.get_species_count()
-            source_db_count: dict[str, int] | None = img_meta_stats.get_source_db_count()
-            entries_by_family: dict[str, int] | None = img_meta_stats.count_images_per_family()
+            source_db_count: dict[str, int] | None = (
+                img_meta_stats.get_source_db_count()
+            )
+            entries_by_family: dict[str, int] | None = (
+                img_meta_stats.count_images_per_family()
+            )
             entries_by_family_validated: dict[str, int] | None = (
                 taxonomy_validation.count_images_per_validated_family()
             )

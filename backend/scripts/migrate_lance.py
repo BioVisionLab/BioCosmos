@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import lancedb
 
-from app.configs.config import ImageConfig, get_lance_db_path
+from app.configs.config import ImageConfig, SearchIndexConfig, get_lance_db_path
 from app.database.lance_migration import MigrationError, migrate
 
 
@@ -41,7 +41,7 @@ def main():
     parser.add_argument(
         "--reindex",
         action="store_true",
-        help="retrain the vector indexes (minutes per index)",
+        help="rebuild existing vector indexes using search_index.vector_type",
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -55,6 +55,7 @@ def main():
             apply=args.apply,
             drop_legacy_columns=args.drop_legacy_columns,
             reindex=args.reindex,
+            vector_type=SearchIndexConfig().vector_type,
         )
     except MigrationError as error:
         print(f"Refused: {error}", file=sys.stderr)

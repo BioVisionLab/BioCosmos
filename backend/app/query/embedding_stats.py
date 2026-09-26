@@ -36,9 +36,7 @@ class EmbeddingSummary(BaseModel):
 
 
 class EmbeddingStatsPayload(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True
-    )
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     distributions: list[EmbeddingSummary]
 
@@ -60,7 +58,5 @@ class EmbeddingDistribution:
             )
             return payload.model_dump(by_alias=True)
         except Exception as e:
-            logger.error(
-                f"Error fetching embedding distributions: {e}", exc_info=True
-            )
+            logger.error(f"Error fetching embedding distributions: {e}", exc_info=True)
             return None

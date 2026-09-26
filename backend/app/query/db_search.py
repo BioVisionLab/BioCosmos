@@ -1,5 +1,4 @@
 import logging
-import polars as pl
 
 from pydantic import BaseModel
 from fastapi import Request
@@ -45,14 +44,31 @@ class DbSearchPayload(BaseModel):
     limit: int = 50
 
     @classmethod
-    def from_data(cls, query: str, results: list[dict], specimens: list[dict] | None = None, total_specimens: int = 0, page: int = 1, limit: int = 50):
+    def from_data(
+        cls,
+        query: str,
+        results: list[dict],
+        specimens: list[dict] | None = None,
+        total_specimens: int = 0,
+        page: int = 1,
+        limit: int = 50,
+    ):
         """ """
-        return cls(query=query, results=results, specimens=specimens or [], total_specimens=total_specimens, page=page, limit=limit)
+        return cls(
+            query=query,
+            results=results,
+            specimens=specimens or [],
+            total_specimens=total_specimens,
+            page=page,
+            limit=limit,
+        )
 
     @classmethod
     def empty(cls, query: str):
         """ """
-        return cls(query=query, results=[], specimens=[], total_specimens=0, page=1, limit=50)
+        return cls(
+            query=query, results=[], specimens=[], total_specimens=0, page=1, limit=50
+        )
 
 
 class TextToDbSearch:
@@ -86,8 +102,10 @@ class TextToDbSearch:
             logger.warning("Empty query provided for text to database search.")
             return None
 
-        logger.info(f"Performing text to database search for query: {self.query} in field: {self.field}")
-        
+        logger.info(
+            f"Performing text to database search for query: {self.query} in field: {self.field}"
+        )
+
         meta_service = ImageMetaService(duckdb=self.request.app.state.duck_db)
 
         valid_fields = [
@@ -119,54 +137,65 @@ class TextToDbSearch:
             field = "all"
 
         q_param = f"%{self.query.replace('_', ' ')}%"
-        
+
         try:
             if field == "coordinate":
                 parsed = self.parse_coordinate(self.query)
                 if not parsed:
                     logger.info(f"Invalid coordinate format or values: {self.query}")
                     return DbSearchPayload.empty(query=self.query).model_dump()
-                
+
                 lat, lon = parsed
                 lat_delta = 50000.0 / 111100.0
                 cos_lat = max(math.cos(math.radians(lat)), 0.01)
                 lon_delta = lat_delta / cos_lat
-                
+
                 lat_min, lat_max = lat - lat_delta, lat + lat_delta
                 lon_min, lon_max = lon - lon_delta, lon + lon_delta
-                
-                results_df, specimens_df, total_specimens = meta_service.search_by_coordinate(
-                    lat_min, lat_max, lon_min, lon_max, self.limit, self.offset
+
+                results_df, specimens_df, total_specimens = (
+                    meta_service.search_by_coordinate(
+                        lat_min, lat_max, lon_min, lon_max, self.limit, self.offset
+                    )
                 )
             elif field != "all":
-                results_df, specimens_df, total_specimens = meta_service.search_by_field(
-                    field, q_param, self.limit, self.offset
+                results_df, specimens_df, total_specimens = (
+                    meta_service.search_by_field(
+                        field, q_param, self.limit, self.offset
+                    )
                 )
             else:
                 search_fields = [
                     f for f in valid_fields if f not in TARGETED_ONLY_FIELDS
                 ]
-                results_df, specimens_df, total_specimens = meta_service.search_all_fields(
-                    search_fields, q_param, self.limit, self.offset
+                results_df, specimens_df, total_specimens = (
+                    meta_service.search_all_fields(
+                        search_fields, q_param, self.limit, self.offset
+                    )
                 )
-                
+
             if results_df.is_empty():
                 logger.info(f"No results found for query: {self.query}")
                 return DbSearchPayload.empty(query=self.query).model_dump()
-            
+
             pages = SpeciesPageResolver(self.request.app.state.duck_db)
-            db_results = self._process_results(
-                results_df, field, valid_fields, pages
-            )
+            db_results = self._process_results(results_df, field, valid_fields, pages)
             db_specimens = self._process_specimens(
                 specimens_df, field, valid_fields, pages
             )
 
-            logger.info(f"Found {len(db_results)} unique species, total {total_specimens} specimens (showing page {self.page}) for query: {self.query}")
+            logger.info(
+                f"Found {len(db_results)} unique species, total {total_specimens} specimens (showing page {self.page}) for query: {self.query}"
+            )
             return DbSearchPayload.from_data(
-                query=self.query, results=db_results, specimens=db_specimens, total_specimens=total_specimens, page=self.page, limit=self.limit
+                query=self.query,
+                results=db_results,
+                specimens=db_specimens,
+                total_specimens=total_specimens,
+                page=self.page,
+                limit=self.limit,
             ).model_dump()
-            
+
         except Exception as e:
             logger.error(f"Error performing db search: {e}", exc_info=True)
             raise e
@@ -204,9 +233,9 @@ class TextToDbSearch:
             if cleaned_species in seen_species:
                 continue
             seen_species.add(cleaned_species)
-            
+
             matched_cols = []
-            
+
             if field != "all":
                 if row.get("match_field"):
                     matched_cols.append(field)
@@ -214,19 +243,21 @@ class TextToDbSearch:
                 for col in valid_fields:
                     if row.get(f"match_{col}"):
                         matched_cols.append(col)
-            
+
             if not matched_cols:
                 matched_cols = [field] if field != "all" else ["species"]
-            
+
             score = self.calculate_score(cleaned_species, matched_cols, self.query)
-            
-            db_results.append({
-                "species": cleaned_species,
-                "species_key": cleaned_species,
-                "matched_fields": matched_cols,
-                "score": score
-            })
-        
+
+            db_results.append(
+                {
+                    "species": cleaned_species,
+                    "species_key": cleaned_species,
+                    "matched_fields": matched_cols,
+                    "score": score,
+                }
+            )
+
         db_results.sort(key=lambda x: x["score"], reverse=True)
         return db_results
 
@@ -248,7 +279,7 @@ class TextToDbSearch:
             if pages.available()
             else None
         )
-            
+
         search_fields = [f for f in valid_fields if f not in TARGETED_ONLY_FIELDS]
         directory = self._institution_directory(specimens_df)
         for row in specimens_df.iter_rows(named=True):
@@ -261,7 +292,9 @@ class TextToDbSearch:
                 query_lower = self.query.lower().replace("_", " ")
                 for col in search_fields:
                     val = row.get(col)
-                    if val is not None and query_lower in str(val).lower().replace("_", " "):
+                    if val is not None and query_lower in str(val).lower().replace(
+                        "_", " "
+                    ):
                         matched_cols.append(col)
             holder = directory.get(row.get("institution_code") or "", {})
             # We return kingdom, phylum, class, order just in case we need it in the future.
@@ -270,67 +303,69 @@ class TextToDbSearch:
             # The taxonomy fields come from the colharmonize run and are None
             # until one has been loaded. Only the codes travel per row; their
             # descriptions are served once by GET /taxonomy/codes.
-            db_specimens.append({
-                "img_id": row["img_id"],
-                "species": row["species"],
-                "species_key": (
-                    page_keys.get(row["img_id"])
-                    if page_keys is not None
-                    else self.binomial_or_none(row["species"])
-                ),
-                "family": row["family"],
-                "common_name": row["common_name"],
-                "sex": row["sex"],
-                "life_stage": row["life_stage"],
-                "class_dv": row["class_dv"],
-                "lat": row["lat"],
-                "lon": row["lon"],
-                "source_db": row["source_db"],
-                "kingdom": row["kingdom"],
-                "phylum": row["phylum"],
-                "class": row["class"],
-                "order": row["order"],
-                "update_status": row.get("update_status"),
-                "match_method": row.get("match_method"),
-                "display_accepted_name": row.get("display_accepted_name"),
-                "accepted_name": row.get("accepted_name"),
-                "accepted_rank": row.get("accepted_rank"),
-                "accepted_authorship": row.get("accepted_authorship"),
-                "accepted_family": row.get("accepted_family"),
-                "candidate_count": row.get("candidate_count"),
-                # The written locality, joined from gbif_meta. None for the
-                # ~7% of occurrences with no GBIF record, and for every row
-                # until the locality table has been built.
-                "country": row.get("country"),
-                "country_code": row.get("country_code"),
-                "state_province": row.get("state_province"),
-                "county": row.get("county"),
-                "municipality": row.get("municipality"),
-                "locality": row.get("locality"),
-                "verbatim_locality": row.get("verbatim_locality"),
-                # Coordinate validation against GADM. None until
-                # `geoharmonize integrate` has been run. Only the codes travel
-                # per row; their descriptions are served once by
-                # GET /geography/codes.
-                "validation_status": row.get("validation_status"),
-                "coordinate_check": row.get("coordinate_check"),
-                "country_check": row.get("country_check"),
-                "adm1_check": row.get("adm1_check"),
-                "reference_country": row.get("reference_country"),
-                "reference_adm1": row.get("reference_adm1"),
-                # Who holds the specimen and its catalog number, from the
-                # provenance table; the full name and website only when
-                # instharmonize resolved the code. None until those tables
-                # have been built.
-                "institution_code": row.get("institution_code"),
-                "catalog_number": row.get("catalog_number"),
-                "institution_name": holder.get("name"),
-                "institution_homepage": holder.get("homepage"),
-                # LepTraits for the record's accepted species. None until the
-                # trait index is built, and for species LepTraits lacks.
-                **{name: row.get(name) for name in SPECIMEN_TRAIT_COLUMNS},
-                "matched_fields": matched_cols
-            })
+            db_specimens.append(
+                {
+                    "img_id": row["img_id"],
+                    "species": row["species"],
+                    "species_key": (
+                        page_keys.get(row["img_id"])
+                        if page_keys is not None
+                        else self.binomial_or_none(row["species"])
+                    ),
+                    "family": row["family"],
+                    "common_name": row["common_name"],
+                    "sex": row["sex"],
+                    "life_stage": row["life_stage"],
+                    "class_dv": row["class_dv"],
+                    "lat": row["lat"],
+                    "lon": row["lon"],
+                    "source_db": row["source_db"],
+                    "kingdom": row["kingdom"],
+                    "phylum": row["phylum"],
+                    "class": row["class"],
+                    "order": row["order"],
+                    "update_status": row.get("update_status"),
+                    "match_method": row.get("match_method"),
+                    "display_accepted_name": row.get("display_accepted_name"),
+                    "accepted_name": row.get("accepted_name"),
+                    "accepted_rank": row.get("accepted_rank"),
+                    "accepted_authorship": row.get("accepted_authorship"),
+                    "accepted_family": row.get("accepted_family"),
+                    "candidate_count": row.get("candidate_count"),
+                    # The written locality, joined from gbif_meta. None for the
+                    # ~7% of occurrences with no GBIF record, and for every row
+                    # until the locality table has been built.
+                    "country": row.get("country"),
+                    "country_code": row.get("country_code"),
+                    "state_province": row.get("state_province"),
+                    "county": row.get("county"),
+                    "municipality": row.get("municipality"),
+                    "locality": row.get("locality"),
+                    "verbatim_locality": row.get("verbatim_locality"),
+                    # Coordinate validation against GADM. None until
+                    # `geoharmonize integrate` has been run. Only the codes travel
+                    # per row; their descriptions are served once by
+                    # GET /geography/codes.
+                    "validation_status": row.get("validation_status"),
+                    "coordinate_check": row.get("coordinate_check"),
+                    "country_check": row.get("country_check"),
+                    "adm1_check": row.get("adm1_check"),
+                    "reference_country": row.get("reference_country"),
+                    "reference_adm1": row.get("reference_adm1"),
+                    # Who holds the specimen and its catalog number, from the
+                    # provenance table; the full name and website only when
+                    # instharmonize resolved the code. None until those tables
+                    # have been built.
+                    "institution_code": row.get("institution_code"),
+                    "catalog_number": row.get("catalog_number"),
+                    "institution_name": holder.get("name"),
+                    "institution_homepage": holder.get("homepage"),
+                    # LepTraits for the record's accepted species. None until the
+                    # trait index is built, and for species LepTraits lacks.
+                    **{name: row.get(name) for name in SPECIMEN_TRAIT_COLUMNS},
+                    "matched_fields": matched_cols,
+                }
+            )
         return db_specimens
 
     def _institution_directory(self, specimens_df) -> dict[str, dict]:
@@ -367,7 +402,10 @@ class TextToDbSearch:
     @staticmethod
     def parse_coordinate(query: str) -> tuple[float, float] | None:
         import re
-        match = re.search(r"^\s*([+-]?\d+(?:\.\d+)?)\s*[\s,;]\s*([+-]?\d+(?:\.\d+)?)\s*$", query)
+
+        match = re.search(
+            r"^\s*([+-]?\d+(?:\.\d+)?)\s*[\s,;]\s*([+-]?\d+(?:\.\d+)?)\s*$", query
+        )
         if match:
             try:
                 lat = float(match.group(1))
@@ -382,21 +420,23 @@ class TextToDbSearch:
     def calculate_score(species: str, matched_fields: list[str], query: str) -> float:
         query = query.lower()
         species_lower = species.lower().replace("_", " ")
-        
+
         if query == species_lower or query.replace(" ", "_") == species_lower:
             return 1.0
-        
-        if species_lower.startswith(query) or species_lower.replace(" ", "_").startswith(query):
+
+        if species_lower.startswith(query) or species_lower.replace(
+            " ", "_"
+        ).startswith(query):
             return 0.95
-            
+
         if "species" in matched_fields:
             return 0.9
-            
+
         if "common_name" in matched_fields:
             return 0.85
-            
+
         taxonomic_fields = {"family", "class", "order", "phylum", "kingdom"}
         if any(f in taxonomic_fields for f in matched_fields):
             return 0.8
-            
+
         return 0.7

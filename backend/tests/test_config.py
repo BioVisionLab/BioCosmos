@@ -498,6 +498,31 @@ class TestSearchIndexConfig:
 
         assert SearchIndexConfig().build_vector is False
 
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_vector_type_defaults_to_ivf_pq(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().vector_type == "IvfPq"
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"vector_type": "IvfHnswPq"}},
+    )
+    def test_reads_vector_type(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().vector_type == "IvfHnswPq"
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"vector_type": "typo"}},
+    )
+    def test_rejects_unknown_vector_type(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        with pytest.raises(ValueError, match="search_index.vector_type"):
+            _ = SearchIndexConfig().vector_type
+
 
 class TestNcbiConfig:
     @pytest.mark.parametrize(

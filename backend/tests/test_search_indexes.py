@@ -130,6 +130,7 @@ class TestBuildSearchIndexes:
     def _config(self, *, build_vector: bool):
         config = MagicMock()
         config.build_vector = build_vector
+        config.vector_type = "IvfPq"
         return config
 
     def test_the_default_start_builds_no_index(self):
@@ -170,8 +171,8 @@ class TestBuildSearchIndexes:
             build_search_indexes(app)
 
         assert app.state.lance_db.ensure_vector_index.call_args_list == [
-            (("nymphalidae", "unicom_embeddings"),),
-            (("nymphalidae", "clip_embeddings"),),
+            (("nymphalidae", "unicom_embeddings"), {"index_type": "IvfPq"}),
+            (("nymphalidae", "clip_embeddings"), {"index_type": "IvfPq"}),
         ]
         app.state.lance_db.ensure_scalar_index.assert_called_once_with(
             "nymphalidae", "img_id"

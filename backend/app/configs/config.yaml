@@ -147,12 +147,16 @@ embedder:
 # row instead of probing partitions. Turning it on is a deliberate, occasional
 # act.
 search_index:
-  # Build the LanceDB IVF-PQ indexes on unicom_embeddings and clip_embeddings.
+  # Build LanceDB indexes on unicom_embeddings and clip_embeddings.
   # Training one is minutes of work and only goes stale when the embeddings
   # themselves change, so this is once per dataset, not once per boot. The
   # build itself is idempotent: with this on and an index already present, it
   # is a no-op.
   build_vector: false
+  # Type for new indexes and migrate_lance.py --reindex. Existing indexes are
+  # left alone on startup. Options: IvfFlat, IvfSq, IvfPq, IvfRq,
+  # IvfHnswFlat, IvfHnswSq, IvfHnswPq.
+  vector_type: IvfHnswSq
 openai:
   # OpenAI model to use for text summarization and other multi-modal tasks
   # Available models:

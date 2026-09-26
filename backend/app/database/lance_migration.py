@@ -12,8 +12,7 @@ a dry run reports exactly what an applied run would do. In order:
    only other copy.
 4. Compact the many small fragments left by batched ingests.
 5. Build a BTREE index on `img_id`, which every image lookup filters on.
-6. Optionally retrain the vector indexes, keeping each one's type and
-   quantization, to replace index metadata written by older LanceDB releases.
+6. Optionally rebuild existing vector indexes using the configured type.
 
 Nothing here prunes the versions the migration creates: LanceDB keeps them for
 seven days, so `table.restore(<starting version>)` undoes the run until then.
@@ -21,25 +20,17 @@ seven days, so `table.restore(<starting version>)` undoes the run until then.
 
 from __future__ import annotations
 
-import dataclasses
 import logging
-import math
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 
-import lancedb.index
 from lancedb.background_loop import LOOP
 from lancedb.index import BTree, IndexConfig
 from lancedb.table import LanceTable, Table
 
-from .lance import (
-    DIMS_PER_SUB_VECTOR,
-    LEGACY_COLUMNS,
-    MAX_PARTITIONS,
-    MIN_ROWS_FOR_INDEX,
-)
+from .lance import LEGACY_COLUMNS, vector_index_config
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +73,7 @@ def migrate(
     apply: bool = False,
     drop_legacy_columns: bool = False,
     reindex: bool = False,
+    vector_type: str = "IvfPq",
 ) -> MigrationReport:
     """Run every needed step, or with `apply=False` only report them."""
     report = MigrationReport(start_version=int(table.version), applied=apply)
@@ -91,6 +83,7 @@ def migrate(
         image_format=image_format,
         drop_legacy_columns=drop_legacy_columns,
         reindex=reindex,
+        vector_type=vector_type,
     )
     for description, action in steps:
         report.steps.append(description)
@@ -107,6 +100,7 @@ def plan(
     image_format: str,
     drop_legacy_columns: bool,
     reindex: bool,
+    vector_type: str,
 ) -> list[Step]:
     """The steps `table` needs, in order, each with the call that performs it.
 
@@ -168,8 +162,8 @@ def plan(
             (column,) = index.columns
             steps.append(
                 (
-                    f"retrain {index.index_type} index '{index.name}' on '{column}'",
-                    partial(_retrain, table, index, column),
+                    f"rebuild {index.name} on '{column}' as {vector_type}",
+                    partial(_retrain, table, index, column, vector_type),
                 )
             )
 
@@ -218,27 +212,16 @@ def _missing_images(table: Table, processed_dir: str, image_format: str) -> list
     ]
 
 
-def _retrain(table: Table, index: IndexConfig, column: str) -> None:
-    """Rebuild one vector index with its current type and settings."""
+def _retrain(table: Table, index: IndexConfig, column: str, vector_type: str) -> None:
+    """Replace one existing vector index using the configured type."""
     details = index.index_details or {}
-    hnsw = details.get("hnsw") or {}
-    compression = details.get("compression") or {}
     rows = table.count_rows()
     dims = table.schema.field(column).type.list_size
-    settings = {
-        "distance_type": str(details.get("metric_type", "cosine")).lower(),
-        "num_partitions": min(
-            MAX_PARTITIONS, int(math.sqrt(max(rows, MIN_ROWS_FOR_INDEX)))
-        ),
-        "num_sub_vectors": compression.get("num_sub_vectors")
-        or max(1, dims // DIMS_PER_SUB_VECTOR),
-        "num_bits": compression.get("num_bits"),
-        "m": hnsw.get("max_connections"),
-        "ef_construction": hnsw.get("construction_ef"),
-    }
-    config_class = getattr(lancedb.index, index.index_type)
-    accepted = {f.name for f in dataclasses.fields(config_class)}
-    config = config_class(
-        **{k: v for k, v in settings.items() if k in accepted and v is not None}
+    config = vector_index_config(
+        vector_type,
+        rows=rows,
+        dims=dims,
+        metric=str(details.get("metric_type", "cosine")).lower(),
+        details=details if index.index_type == vector_type else None,
     )
     table.create_index(column, config=config, replace=True, name=index.name)
