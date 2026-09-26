@@ -117,35 +117,35 @@ class ImageMetaConfig:
         return self._image_meta_config.get("table", "image_meta")
 
 
-class UmapDataConfig:
+class MorphospaceConfig:
+    """Tables written offline by `morphospace integrate`; read-only here."""
+
     def __init__(self):
         config = load_config()
-        self._umap_data_config = config.get("umap_data", {})
+        self._morphospace_config = config.get("morphospace", {})
+
+    def _table(self, name: str) -> str:
+        return self._morphospace_config.get(f"{name}_table", f"morphospace_{name}")
 
     @property
-    def path(self) -> str:
-        parent_dir = os.getenv("UMAP_DIR", ".")
-        file_name = self._umap_data_config.get("file", "umap_embeddings.csv")
-        full_path = os.path.join(parent_dir, file_name)
-        if not os.path.exists(full_path):
-            logger.info(f"Failed to find UMAP data file at: {full_path}")
-        return full_path
+    def scope_table(self) -> str:
+        return self._table("scope")
 
     @property
-    def skip(self) -> bool:
-        skip = self._umap_data_config.get("skip", False)
-        if isinstance(skip, bool):
-            return skip
-        if isinstance(skip, str):
-            return skip.lower() in ["true", "1", "yes"]
-        logger.info(
-            f"UMAP skip config is not a valid boolean: {skip}. Falling back to False."
-        )
-        return False
+    def points_table(self) -> str:
+        return self._table("points")
 
     @property
-    def table(self) -> str:
-        return self._umap_data_config.get("table", "umap_embeddings")
+    def species_table(self) -> str:
+        return self._table("species")
+
+    @property
+    def disparity_table(self) -> str:
+        return self._table("disparity")
+
+    @property
+    def extremes_table(self) -> str:
+        return self._table("extremes")
 
 
 class GbifConfig:

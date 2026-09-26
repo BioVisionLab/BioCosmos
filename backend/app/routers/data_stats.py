@@ -3,13 +3,11 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from ..database.model import UmapEmbedding
 from ..query.country_diversity import CountryDiversity
 from ..query.embedding_stats import (
     EmbeddingDistribution,
     EmbeddingStatsPayload,
 )
-from ..query.specimen_data import SpeciesUmap
 from ..query.taxon_data import TaxonSearch
 from .http_cache import NO_STORE, SIMILARITY_CACHE_CONTROL, cached_json
 
@@ -35,48 +33,6 @@ async def get_taxon_counts(request: Request):
         return JSONResponse(
             content={
                 "message": f"An error occurred while fetching taxon counts: {str(e)}"
-            },
-            status_code=500,
-        )
-
-
-def get_species_umap(request: Request) -> UmapEmbedding:
-    return SpeciesUmap(request=request)
-
-
-@router.get(
-    "/stats/umap/{species}",
-    tags=["Data Statistics"],
-    response_model=UmapEmbedding,
-)
-async def get_umap_stats(
-    species: str,
-    service: UmapEmbedding = Depends(get_species_umap),
-):
-    """
-    Get UMAP statistics for a given species.
-    """
-    logger.info(f"Received UMAP stats request for species: {species}")
-    try:
-        data = service.get_umap_embeddings(species)
-        if data is None:
-            logger.info(f"No UMAP stats found for species: {species}")
-            return JSONResponse(
-                content={
-                    "message": f"No UMAP statistics found for species: {species}"
-                },
-                status_code=404,
-            )
-        logger.info(f"UMAP stats found for species {species}: {data}")
-        return JSONResponse(content=data, status_code=200)
-    except Exception as e:
-        logger.error(
-            f"Error fetching UMAP stats for species {species}: {e}",
-            exc_info=True,
-        )
-        return JSONResponse(
-            content={
-                "message": f"An error occurred while fetching UMAP stats for species {species}: {str(e)}"
             },
             status_code=500,
         )

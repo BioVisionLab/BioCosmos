@@ -82,6 +82,13 @@ def load_settings(root: Path | None = None) -> Settings:
         "coordinates": config["locality"]["coordinates_table"],
         "taxonomy": config["col"]["occurrence_status_table"],
         "matches": config["col"]["matches_table"],
+        # Written by `morphospace integrate`; see packages/morphospace.
+        **{
+            f"morphospace_{name}": config.get("morphospace", {}).get(
+                f"{name}_table", f"morphospace_{name}"
+            )
+            for name in ("scope", "points", "species", "disparity", "extremes")
+        },
     }
     return Settings(database.resolve(), output.resolve(), tables)
 
@@ -127,8 +134,9 @@ def table(
     except duckdb.Error as error:
         raise AnalysisError(
             f"Missing prepared table {identifier}. Prepare it outside the notebooks; "
-            "the backend prepares metadata/locality/taxonomy and geoharmonize integrate "
-            "prepares coordinate validation."
+            "the backend prepares metadata/locality/taxonomy, geoharmonize integrate "
+            "prepares coordinate validation, and morphospace integrate prepares the "
+            "morphospace tables."
         ) from error
     missing = set(required) - columns
     if missing:

@@ -30,12 +30,17 @@ image_metadata:
   format: "parquet"
   # Skip image metadata ingestion if set to true
   skip: true
-# UMAP configuration for visualizing image embeddings
-umap_data:
-  file: "umap-nymphalidae-embeddings-all.csv"
-  table: "umap_embeddings"
-  # Skip UMAP ingestion if set to true
-  skip: true
+# Dorso-ventral morphospaces of the UNICOM embeddings, written by
+# `morphospace integrate` (packages/morphospace), never by the backend. Absent
+# until that has been run once with the backend stopped; the endpoints answer
+# 404 and the pages leave the section out. The analyses notebooks read the
+# same names.
+morphospace:
+  scope_table: "morphospace_scope"
+  points_table: "morphospace_points"
+  species_table: "morphospace_species"
+  disparity_table: "morphospace_disparity"
+  extremes_table: "morphospace_extremes"
 gbif:
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"

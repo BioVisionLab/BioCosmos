@@ -137,7 +137,8 @@ run its pipelines. Do not use pip or maintain a second requirements file.
   Relative input directories resolve from `backend/`, matching a backend launched there.
   Neither configuration is edited or printed, and backend startup code is not imported.
 - The backend must already have prepared image metadata, GBIF, locality, and taxonomy tables.
-  Coordinate validation must already exist from `geoharmonize integrate`.
+  Coordinate validation must already exist from `geoharmonize integrate`, and the
+  morphospace tables from `morphospace integrate` (`packages/morphospace`).
 - DuckDB must be readable. Stop the backend before opening a database it holds for writing,
   or set `DUCK_DIR` to an existing offline snapshot. Notebooks never stop services or copy
   a live database. Missing tables/columns, empty populations, or duplicate primary keys
@@ -151,6 +152,7 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 | `data_summary.ipynb` | `dataset_overview`: dorso-ventral (A), image providers (B), source aggregators (C), family (D), top ten accepted species (E), validated-coordinate grid (F), species diversity by validated country (G) |
 | `harmonization.ipynb` | `harmonization_metrics`: coordinate-validation outcomes and match methods for images and unique input taxa |
 | `index_perf.ipynb` | `indexing_benchmark`: recorded index latency versus recall@10 |
+| `morphospace.ipynb` | `morphospace`: dorso-ventral morphospace of species centroids (A), genus disparity dorsal against ventral (B), genus dorso-ventral integration (C), intraspecific dispersion against dorso-ventral divergence (D) |
 
 **Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
 qualitative palette set by `publication_style()`. Bars are one colour: each bar is a labelled
@@ -245,6 +247,15 @@ input-taxon keys, including unresolved outcomes. Unreferenced matching rows are 
 Input taxa are not accepted species. Images lacking an input-taxon key appear as
 unclassified in image panels but cannot be counted as distinct input taxa.
 
+**Morphospace.** Every number comes from one integrated `morphospace run`, whose
+`run_id` the notebook prints; the notebook recomputes nothing. Panel A draws the scope
+named by `SCOPE_RANK`/`SCOPE_KEY` (the whole collection by default, or one family). Colour
+follows the family in the whole collection and the genus inside a family; beyond the six
+richest groups everything is grey rather than a cycled colour. Disparity (B) is rarefied
+so genera of different richness compare; integration (C) needs five species seen from
+both sides, and its p-value is omitted above the run's permutation limit. See
+`packages/morphospace/README.md` for every definition.
+
 **Benchmark.** Use the existing CSV; exclude `Flat (brute-force)` as in the original
 notebook, while retaining `No Index (baseline)`. No performance measurements are rerun.
 
@@ -264,8 +275,8 @@ uv run --project analyses ruff format --check analyses
 
 Tests use a small synthetic DuckDB containing duplicate GBIF records, conflicting
 institution attribution, subspecies/genus matches, unknowns, and invalid coordinates.
-They check denominators, join cardinality, read-only behavior, and execute all three
-notebooks in real Jupyter kernels. Executed test notebooks and figures go to
+They check denominators, join cardinality, read-only behavior, and execute every
+notebook in real Jupyter kernels. Executed test notebooks and figures go to
 `analyses/results/fixture-validation/`; these are **synthetic checks, not publication data**.
 Source notebooks remain unexecuted with no stale outputs. Inspect actual-data exports
 before publication, especially institution labels and any large unresolved categories.
