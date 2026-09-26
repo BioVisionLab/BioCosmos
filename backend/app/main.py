@@ -251,7 +251,9 @@ def run_data_ingestion(app: FastAPI):
     logger.info("LepTraits data ingested.")
     GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
-    ImageMetaService(app.state.duck_db).ingest()
+    image_meta_service = ImageMetaService(app.state.duck_db)
+    image_meta_service.ingest()
+    image_meta_service.apply_exclusions()
 
     # CoL supplies the taxonomy backbone, and the colharmonize run resolves
     # each occurrence against it. Both run after image_meta, which the

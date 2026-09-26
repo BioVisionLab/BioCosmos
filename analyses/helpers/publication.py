@@ -33,6 +33,8 @@ class Settings:
     database: Path
     output: Path
     tables: dict[str, str]
+    # Recorded families the backend's image_meta view leaves out, lowercased.
+    exclude_families: tuple[str, ...] = ()
 
 
 def project_root(start: Path | None = None) -> Path:
@@ -90,7 +92,18 @@ def load_settings(root: Path | None = None) -> Settings:
             for name in ("scope", "points", "species", "disparity", "extremes")
         },
     }
-    return Settings(database.resolve(), output.resolve(), tables)
+    exclude_families = tuple(
+        sorted(
+            {
+                str(name).strip().lower()
+                for name in config["image_metadata"].get("exclude_families") or []
+                if str(name).strip()
+            }
+        )
+    )
+    return Settings(
+        database.resolve(), output.resolve(), tables, exclude_families
+    )
 
 
 @contextmanager
@@ -180,11 +193,37 @@ def counts(connection, query: str, population: str) -> pd.DataFrame:
 
 
 def image_table(connection, settings: Settings, extra=()) -> str:
+    guard = ("family",) if settings.exclude_families else ()
     identifier = table(
-        connection, settings, "images", ("img_id", *extra)
+        connection, settings, "images", ("img_id", *guard, *extra)
     )
     unique_key(connection, identifier, "img_id")
+    excluded_families(connection, settings, identifier)
     return identifier
+
+
+def excluded_families(connection, settings: Settings, identifier: str) -> None:
+    """Refuse an image table that still holds a family the backend excludes.
+
+    The backend publishes image_meta as a view without these families (see
+    image_metadata.exclude_families in config.yaml). A database the backend has
+    not reopened since the exclusion was added still has the raw table, and
+    every figure drawn from it would count the excluded records.
+    """
+    if not settings.exclude_families:
+        return
+    placeholders = ", ".join("?" for _ in settings.exclude_families)
+    leaked = connection.execute(
+        f"SELECT count(*) FROM {identifier} "
+        f"WHERE lower(trim(family)) IN ({placeholders})",
+        list(settings.exclude_families),
+    ).fetchone()[0]
+    if leaked:
+        raise AnalysisError(
+            f"{identifier} still holds {leaked:,} records of excluded families "
+            f"{list(settings.exclude_families)}. Restart the backend once so it "
+            "publishes image_meta as the filtered view."
+        )
 
 
 # How the recorded aggregator keys print. A record carried by several aggregators

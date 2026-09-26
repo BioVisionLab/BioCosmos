@@ -25,3 +25,4 @@ harmonize-core = { workspace = true }
 colharmonize = { workspace = true }
 instharmonize = { workspace = true }
 morphospace = { workspace = true }
+similarity = { workspace = true }

@@ -146,6 +146,14 @@ def test_species_percentiles_within_genus(api):
     assert math.isclose(body["dvDivergencePercentile"]["family"], 0.0)
 
 
+def test_species_alone_in_its_genus_has_no_genus_percentile(api):
+    body = api.get("/morphospace/species/euploea_core").json()
+    assert body["sides"]["dorsal"]["percentile"]["genus"] is None
+    assert body["dvDivergencePercentile"]["genus"] is None
+    # Its family still has others to rank against.
+    assert body["sides"]["dorsal"]["percentile"]["family"] is not None
+
+
 def test_species_without_a_ventral_side(api):
     body = api.get("/morphospace/species/Danaus gilippus").json()
     assert body["sides"]["ventral"] is None

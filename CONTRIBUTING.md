@@ -67,7 +67,6 @@ biocosmos/
 │   │       ├── umap.py         # UMAP dimensionality reduction
 │   │       └── unicom.py       # UNICOM model integration
 │   ├── scripts/                # Maintained backend data-processing scripts
-│   │   └── precompute_similarity.py # Precompute species similarity in DuckDB
 │   ├── tests/                  # Backend tests
 │   ├── Dockerfile              # Backend Dockerfile
 │   └── pyproject.toml          # Backend dependencies (uv workspace member)
@@ -287,7 +286,7 @@ Data preparation uses the harmonization packages and maintained backend scripts:
 
 - **colharmonize** (`packages/colharmonize/`): Match occurrence species names against a Catalogue of Life release.
 - **geoharmonize** (`packages/geoharmonize/`): Validate occurrence coordinates against GADM geography. `geoharmonize integrate` writes the coordinate-validation table read by the backend.
-- **Backend scripts** (`backend/scripts/`): `precompute_similarity.py` computes per-species visual similarity from existing LanceDB embeddings and DuckDB metadata, then stores the results in DuckDB.
+- **similarity** (`packages/similarity/`): Compute per-species visual similarity from existing LanceDB embeddings and DuckDB metadata, then store the results in the `species_similarity` table.
 
 Sync all packages first:
 
@@ -364,11 +363,10 @@ the integration command to rebuild it.
 Stop the backend before either CLI accesses the live database. DuckDB permits
 only one writer, and the API keeps the file open read-write while it runs.
 
-To precompute similarity with existing embeddings and metadata:
+To precompute similarity with existing embeddings and metadata (backend stopped):
 
 ```bash
-cd backend
-uv run python scripts/precompute_similarity.py --lance-dir lance_db_lite --duck-dir duck_db
+uv run similarity run --db "$DUCK_DIR/biocosmos.duckdb" --lance-dir "$LANCE_DIR/biocosmos.lance"
 ```
 
 After rebuilding embeddings, set `search_index.build_vector: true` in
@@ -441,7 +439,7 @@ cleared from the server. Decide how a cached response will be retired
   week, and `agent_cache.py` holds agent searches for 15 minutes. Restarting
   the backend empties them.
 - **Precomputed DuckDB tables.** Built by
-  `backend/scripts/precompute_similarity.py` and `geoharmonize integrate`, and
+  `similarity run` and `geoharmonize integrate`, and
   kept until you rerun them.
 
 ### Choosing an invalidation mechanism

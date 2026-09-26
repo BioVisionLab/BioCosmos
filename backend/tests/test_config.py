@@ -181,6 +181,34 @@ class TestImageMetaConfig:
         cfg = ImageMetaConfig()
         assert cfg.table == "image_meta"
 
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_source_table_and_exclusions_default(self, _mock):
+        from app.configs.config import ImageMetaConfig
+
+        cfg = ImageMetaConfig()
+        assert cfg.source_table == "image_meta_source"
+        assert cfg.exclude_families == []
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            **MOCK_CONFIG,
+            "image_metadata": {
+                **MOCK_CONFIG["image_metadata"],
+                "exclude_families": [" Castniidae ", "castniidae", ""],
+            },
+        },
+    )
+    def test_exclude_families_normalized(self, _mock):
+        from app.configs.config import ImageMetaConfig
+
+        assert ImageMetaConfig().exclude_families == ["castniidae"]
+
+    def test_shipped_config_excludes_castniidae(self):
+        from app.configs.config import ImageMetaConfig
+
+        assert "castniidae" in ImageMetaConfig().exclude_families
+
     @patch(
         "app.configs.config.load_config",
         return_value={

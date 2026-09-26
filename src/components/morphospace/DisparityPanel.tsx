@@ -92,7 +92,7 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
     Math.max(...rows.map(([, d]) => d.rarefiedHigh ?? d.rarefiedMean ?? 0)) *
     1.1;
   const W = 320,
-    rowH = 28,
+    rowH = 40,
     left = 64,
     right = 56;
   const x = (v: number) => left + (v / max) * (W - left - right);
@@ -144,6 +144,15 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
               >
                 {(d.rarefiedMean ?? 0).toFixed(3)}
               </text>
+              {/* How many species the side's disparity is drawn from. */}
+              <text
+                x={x(d.rarefiedLow ?? 0)}
+                y={y + 15}
+                dominantBaseline="middle"
+                className="fill-deep-mocha-600 dark:fill-deep-mocha-400 text-[10px] tabular-nums"
+              >
+                {d.nSpecies.toLocaleString()} species
+              </text>
             </g>
           );
         })}
@@ -188,6 +197,7 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
   const p = (v: number) => pad + ((v - min) / (max - min)) * (S - pad - 8);
   const flip = (v: number) => S - p(v);
   const above = genera.filter((g) => g.ventral > g.dorsal).length;
+  const below = genera.filter((g) => g.ventral < g.dorsal).length;
   const active = genera.find((g) => g.name === hovered);
   return (
     <figure className="morphospace-viz">
@@ -293,8 +303,8 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
       </div>
       <figcaption className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 max-w-xs">
         {above} of {genera.length} genera lie above the dashed line indicates
-        greater disparity on the ventral side than on the dorsal side, and vice
-        versa. Each point represent a genus with ≥3 species.
+        greater disparity on the ventral side than on the dorsal side, and{" "}
+        {below} lie below it. Each point represent a genus with ≥3 species.
       </figcaption>
     </figure>
   );

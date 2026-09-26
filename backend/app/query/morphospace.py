@@ -276,8 +276,12 @@ class MorphospaceQuery:
         table = self.config.species_table
 
         def rank(column: str, partition: str) -> str:
+            # A species measured alone in its scope ranks against nothing, so
+            # it has no percentile rather than percent_rank's 0.
+            window = f"(PARTITION BY {partition}, {column} IS NULL)"
             return (
-                f"CASE WHEN {column} IS NULL THEN NULL ELSE percent_rank() OVER "
+                f"CASE WHEN {column} IS NULL OR count(*) OVER {window} < 2 THEN NULL "
+                f"ELSE percent_rank() OVER "
                 f"(PARTITION BY {partition}, {column} IS NULL ORDER BY {column}) END"
             )
 

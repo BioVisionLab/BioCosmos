@@ -114,7 +114,21 @@ class ImageMetaConfig:
 
     @property
     def table(self) -> str:
+        """The filtered view every reader queries."""
         return self._image_meta_config.get("table", "image_meta")
+
+    @property
+    def source_table(self) -> str:
+        """The raw ingested table the view is defined over."""
+        return self._image_meta_config.get("source_table", "image_meta_source")
+
+    @property
+    def exclude_families(self) -> list[str]:
+        """Recorded families left out of the view, lowercased and trimmed."""
+        families = self._image_meta_config.get("exclude_families") or []
+        if isinstance(families, str):
+            families = [families]
+        return sorted({str(f).strip().lower() for f in families if str(f).strip()})
 
 
 class MorphospaceConfig:

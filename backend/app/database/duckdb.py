@@ -187,6 +187,19 @@ class DuckDBClient:
         present = {row[0] for row in rows}
         return [name for name in table_names if name not in present]
 
+    def table_type(self, table_name: str) -> str | None:
+        """'BASE TABLE', 'VIEW', or None when no such object exists."""
+        with self.lock:
+            row = self.conn.execute(
+                """
+                SELECT table_type FROM information_schema.tables
+                WHERE table_name = ?
+                LIMIT 1
+                """,
+                [table_name],
+            ).fetchone()
+        return row[0] if row else None
+
     def table_exists(self, table_name: str) -> bool:
         """Whether a table has been created in this database."""
         return not self.missing_tables([table_name])

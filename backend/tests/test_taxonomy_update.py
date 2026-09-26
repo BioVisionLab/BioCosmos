@@ -632,3 +632,38 @@ class TestAcceptedKey:
 
         monkeypatch.setattr(memory_duckdb, "execute_prepared_to_pl", fail)
         assert service.get_for_images(["img1", "img2"]) == {}
+
+
+def test_harmonizes_the_filtered_view(memory_duckdb, col_fixture_dir, tmp_path):
+    """Excluded families never reach the per-occurrence status table."""
+    from app.services.metadata import ImageMetaService
+
+    seed_occurrences(memory_duckdb)
+    memory_duckdb.execute_prepared(
+        "INSERT INTO image_meta VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            "moth",
+            "castnia_invaria",
+            "Castniidae",
+            None,
+            None,
+            None,
+            None,
+            "species",
+            "accepted",
+        ],
+    )
+    meta = ImageMetaService(memory_duckdb)
+    meta.table = "image_meta"
+    meta.source_table = "image_meta_source"
+    meta.exclude_families = ["castniidae"]
+    meta.apply_exclusions()
+
+    service = build_service(memory_duckdb, col_fixture_dir, tmp_path)
+    assert service.ensure() is True
+    total, moths = memory_duckdb.execute(
+        "SELECT count(*), count(*) FILTER (WHERE img_id = 'moth') "
+        "FROM image_meta_taxonomy"
+    ).fetchone()
+    assert (total, moths) == (len(OCCURRENCES), 0)
+    assert status_for(memory_duckdb, "img1")["update_status"] == "MATCHED"

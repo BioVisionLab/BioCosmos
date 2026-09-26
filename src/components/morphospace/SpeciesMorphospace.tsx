@@ -8,7 +8,6 @@ import {
   SIDES,
   fetchScopeMorphospace,
   fetchSpeciesMorphospace,
-  formatPercent,
   type ScopeMorphospace,
   type SpeciesMorphospace as SpeciesPayload,
 } from "@/lib/morphospace";
@@ -22,7 +21,13 @@ function rankText(
   scope: string | null | undefined,
 ) {
   if (value == null || !scope) return undefined;
-  return `higher than ${formatPercent(value)} of ${scope}`;
+  // The percentile is the share of the other species below this one, so
+  // its ends read as ranks rather than "higher than 0%" or "100%".
+  if (value <= 0) return `lowest in ${scope}`;
+  if (value >= 1) return `highest in ${scope}`;
+  // Keep a near-end value from rounding onto an end it is not at.
+  const percent = Math.min(99, Math.max(1, Math.round(value * 100)));
+  return `higher than ${percent}% of ${scope}`;
 }
 
 /**

@@ -25,7 +25,13 @@ images:
 image_metadata:
   # file: "data_meta-nymphalidae_whole_specimen-v250613.csv"
   file: "combined_meta_table_v2025_05_07.parquet"
+  # Every reader queries `table`, a view over `source_table` that drops the
+  # families below. The raw rows (and their images and embeddings) stay in
+  # `source_table`; queries and analyses never see them.
   table: "image_meta"
+  source_table: "image_meta_source"
+  # Castniidae are moths that were imaged with the butterflies.
+  exclude_families: ["Castniidae"]
   # Support csv or parquet
   format: "parquet"
   # Skip image metadata ingestion if set to true
