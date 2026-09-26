@@ -561,12 +561,29 @@ class TestHigherTaxonEndpoints:
     def test_order_overview_carries_the_ingestion_etag(self, MockOrder, MockState):
         """A re-ingest changes the ETag, retiring the thirty-day entry early."""
         MockOrder.return_value.overview = AsyncMock(return_value=OVERVIEW)
-        MockState.return_value.get.return_value = "fp1"
+        import hashlib
+
+        fingerprints = {"col_taxonomy": "fp1", "col_taxonomy_update": "up1"}
+        MockState.return_value.get.side_effect = fingerprints.get
         with patch.object(app.state, "duck_db", object(), create=True):
             response = client.get("/order/lepidoptera")
+        matches = hashlib.sha256(b"up1").hexdigest()[:12]
         assert response.headers["etag"] == (
-            f'W/"order:lepidoptera:fp1:v{OVERVIEW_PAYLOAD_VERSION}"'
+            f'W/"order:lepidoptera:fp1:{matches}:v{OVERVIEW_PAYLOAD_VERSION}"'
         )
+
+    @patch("app.routers.species_data.IngestionState")
+    @patch("app.routers.species_data.OrderOverview")
+    def test_a_new_taxonomy_update_changes_the_etag(self, MockOrder, MockState):
+        """Excluding a family rematches taxa without touching the backbone."""
+        MockOrder.return_value.overview = AsyncMock(return_value=OVERVIEW)
+        etags = []
+        for update in ("up1", "up2"):
+            fingerprints = {"col_taxonomy": "fp1", "col_taxonomy_update": update}
+            MockState.return_value.get.side_effect = fingerprints.get
+            with patch.object(app.state, "duck_db", object(), create=True):
+                etags.append(client.get("/order/lepidoptera").headers["etag"])
+        assert etags[0] != etags[1]
 
     @patch("app.routers.species_data.OrderOverview")
     def test_a_missing_order_is_not_cached(self, MockOrder):

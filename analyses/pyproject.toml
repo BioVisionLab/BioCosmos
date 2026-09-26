@@ -17,14 +17,11 @@ dependencies = [
   "jupyterlab>=4",
   "pyproj>=3.8.0",
   "pycountry>=24.6,<25",
+  "lancedb>=0.39.0",
 ]
 
 [project.optional-dependencies]
-indexing = [
-    "lancedb==0.39.0",
-    "numpy>=2",
-    "pyarrow>=18",
-]
+indexing = ["lancedb==0.39.0", "numpy>=2", "pyarrow>=18"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.12"]

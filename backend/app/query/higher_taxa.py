@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 # the full thirty days.
 #
 # 2: images resolved only to genus rank no longer count anywhere.
-OVERVIEW_PAYLOAD_VERSION = 2
+# 3: excluded families (Castniidae) no longer count or link anywhere.
+OVERVIEW_PAYLOAD_VERSION = 3
 
 _ORDER_GROUPING_RANKS = ("suborder", "superfamily")
 _FAMILY_GROUPING_RANKS = ("subfamily", "tribe", "subtribe")

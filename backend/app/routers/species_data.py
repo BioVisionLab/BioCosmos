@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from typing import Annotated, Literal
 
@@ -26,6 +27,7 @@ from ..query.species_similarity import (
 )
 from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
 from ..services.col import ColTaxonSearch
+from ..services.taxonomy_update import UPDATE_SOURCE_KEY as TAXONOMY_UPDATE_KEY
 from ..services.crossref import CrossrefClient, get_crossref_client
 from ..services.genetics import GeneticsBusy, GeneticsSummary, get_genetics_summary
 from ..services.literature import LiteratureSearch
@@ -446,16 +448,23 @@ def _overview_etag(request: Request, rank: str, key: str) -> str | None:
 
     A re-ingestion changes the backbone fingerprint, which changes every
     higher-taxon ETag at once — the only way to retire a thirty-day cache
-    entry early once a shared cache sits in front of this service.
-    OVERVIEW_PAYLOAD_VERSION does the same for a change in the code.
+    entry early once a shared cache sits in front of this service. The
+    taxonomy update's fingerprint is folded in too: the counts are built from
+    its per-image matches, which change with the occurrences and the excluded
+    families while the backbone stays put. OVERVIEW_PAYLOAD_VERSION does the
+    same for a change in the code.
     """
     try:
-        fingerprint = IngestionState(request.app.state.duck_db).get("col_taxonomy")
+        state = IngestionState(request.app.state.duck_db)
+        fingerprint = state.get("col_taxonomy")
+        update = state.get(TAXONOMY_UPDATE_KEY)
     except Exception:  # noqa: BLE001 - an ETag is never worth failing a request
         return None
     if not fingerprint:
         return None
-    return f"{rank}:{key}:{fingerprint}:v{OVERVIEW_PAYLOAD_VERSION}"
+    # The update fingerprint is long and punctuated; a digest keeps the header short.
+    matches = hashlib.sha256(str(update).encode()).hexdigest()[:12] if update else "none"
+    return f"{rank}:{key}:{fingerprint}:{matches}:v{OVERVIEW_PAYLOAD_VERSION}"
 
 
 @router.get("/order/{order_name}", tags=["Species Data"])

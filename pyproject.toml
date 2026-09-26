@@ -26,3 +26,20 @@ colharmonize = { workspace = true }
 instharmonize = { workspace = true }
 morphospace = { workspace = true }
 similarity = { workspace = true }
+
+# Read by Pylance and by Pyright run from the repository root. Setting
+# `exclude` replaces Pyright's defaults, so the first three restore them.
+[tool.pyright]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "show",
+    "tools",
+    "public",
+    "reports",
+    "backend/static",
+    "backend/tsne_outputs",
+    "analyses/data",
+    "analyses/results",
+]

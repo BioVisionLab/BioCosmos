@@ -5,6 +5,7 @@ No ingestion, harmonization, application startup, or source database writes occu
 
 from __future__ import annotations
 
+import json
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -588,6 +589,14 @@ def publication_style(palette: str = DEFAULT_PALETTE) -> None:
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
+            "font.size": 18,
+            "axes.titlesize": 20,
+            "axes.labelsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
+            "legend.fontsize": 18,
+            "legend.title_fontsize": 18,
+            "figure.titlesize": 22,
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
             "svg.fonttype": "none",
@@ -640,7 +649,7 @@ def bar_plot(
             xytext=(5, 0),
             textcoords="offset points",
             va="center",
-            fontsize=9,
+            fontsize=18,
         )
     if selected.empty:
         ax.text(
@@ -658,7 +667,7 @@ def bar_plot(
     ax.set_title(
         panel_title(frame, title, exclude, excluded),
         loc="left",
-        fontsize=11,
+        fontsize=20,
     )
     sns.despine(ax=ax)
     return ax
@@ -717,7 +726,7 @@ def pie_plot(
         loc="center left",
         bbox_to_anchor=(0.98, 0.5),
         frameon=False,
-        fontsize=9,
+        fontsize=18,
         handlelength=1,
         handleheight=1,
     )
@@ -725,7 +734,7 @@ def pie_plot(
         plt.setp(legend.get_texts(), fontstyle="italic")
     ax.set_aspect("equal")
     ax.set_title(
-        panel_title(frame, title, (), 0), loc="left", fontsize=11
+        panel_title(frame, title, (), 0), loc="left", fontsize=20
     )
     return ax
 
@@ -795,6 +804,10 @@ def panel_left(ax) -> float:
     ]
     if wedges:
         return min(wedge.get_window_extent().x0 for wedge in wedges)
+    if not ax.axison:
+        # A map drawn without its axis keeps tick labels that are never drawn;
+        # they must not pull its title off to the left.
+        return box.x0
     labels = [
         label.get_window_extent().x0
         for label in ax.get_yticklabels()
@@ -846,7 +859,7 @@ def align_panel_titles(axes) -> None:
             ax.set_title(
                 title + padding,
                 loc="left",
-                fontsize=11,
+                fontsize=20,
                 x=(left - box.x0) / box.width,
             )
 
@@ -904,13 +917,28 @@ def export_figure(
 
 
 def benchmark_data(root: Path | None = None) -> pd.DataFrame:
-    frame = pd.read_csv(
-        project_root(root) / "analyses/data/indexing_benchmark.csv"
+    """Load the newest completed index benchmark, never a partial or curated CSV."""
+    runs = project_root(root) / "analyses/results/indexing"
+    for manifest_path in sorted(runs.glob("*/run.json"), reverse=True):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if manifest.get("status") != "complete":
+            continue
+        if manifest.get("config", {}).get("top_k") != 10:
+            raise AnalysisError(f"{manifest_path} must use top_k=10 for recall@10")
+        csv_path = manifest_path.parent / "indexing_benchmark.csv"
+        if not csv_path.is_file():
+            raise AnalysisError(f"Completed benchmark is missing {csv_path}")
+        frame = pd.read_csv(csv_path)
+        required = {"index", "model", "avg_ms", "recall@10"}
+        if not required.issubset(frame):
+            raise AnalysisError(f"{csv_path} requires columns {sorted(required)}")
+        # Preserve the figure's exclusion while retaining the unindexed baseline.
+        frame = frame.loc[frame["index"] != "Flat (brute-force)"].copy()
+        frame.attrs["source_run"] = str(manifest_path.parent)
+        return frame
+    raise AnalysisError(
+        f"No completed index benchmark in {runs}. Run analyses/benchmarks/image_indexing.ipynb first."
     )
-    required = {"index", "model", "avg_ms", "recall@10"}
-    if not required.issubset(frame):
-        raise AnalysisError(
-            f"Benchmark CSV requires {sorted(required)}"
-        )
-    # Preserve the existing figure's exclusion. The 'No Index (baseline)' series stays.
-    return frame.loc[frame["index"] != "Flat (brute-force)"].copy()

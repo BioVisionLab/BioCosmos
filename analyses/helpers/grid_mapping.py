@@ -164,6 +164,6 @@ def grid_legend(ax, grid, column):
     ax.legend(
         handles=[Patch(facecolor=ZERO_COLOR, label="Validated images, no accepted species")],
         loc="lower left",
-        fontsize=8,
+        fontsize=18,
         frameon=False,
     )

@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -176,6 +176,7 @@ dependencies = [
     { name = "harmonize-core" },
     { name = "ipykernel" },
     { name = "jupyterlab" },
+    { name = "lancedb" },
     { name = "matplotlib" },
     { name = "nbclient" },
     { name = "nbformat" },
@@ -206,6 +207,7 @@ requires-dist = [
     { name = "harmonize-core", directory = "../packages/harmonize-core" },
     { name = "ipykernel", specifier = ">=6" },
     { name = "jupyterlab", specifier = ">=4" },
+    { name = "lancedb", specifier = ">=0.39.0" },
     { name = "lancedb", marker = "extra == 'indexing'", specifier = "==0.39.0" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "nbclient", specifier = ">=0.10" },
