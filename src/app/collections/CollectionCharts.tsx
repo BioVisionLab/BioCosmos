@@ -131,7 +131,10 @@ function familyColorMap(
     .map((key) => toSentenceCase(key));
   const uniqueSorted = Array.from(new Set(names)).sort();
   const colorByName = new Map(
-    uniqueSorted.map((name, idx) => [name, FAMILY_COLORS[idx % FAMILY_COLORS.length]])
+    uniqueSorted.map((name, idx) => [
+      name,
+      FAMILY_COLORS[idx % FAMILY_COLORS.length],
+    ]),
   );
   return (name: string) => colorByName.get(name) ?? AXIS_TICK_FILL;
 }
@@ -151,7 +154,8 @@ function FamilyPieChart({
         return {
           name,
           value,
-          percentage: total > 0 ? ((value / total) * 100).toFixed(1) + "%" : "0%",
+          percentage:
+            total > 0 ? ((value / total) * 100).toFixed(1) + "%" : "0%",
           fill: colorFor(name),
         };
       })
@@ -190,35 +194,35 @@ function FamilyPieChart({
     // pushing its own labels off the edge.
     <ChartScroll minWidth={480}>
       <ResponsiveContainer width="100%" height={440}>
-      <PieChart margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          outerRadius="68%"
-          innerRadius="32%"
-          paddingAngle={2}
-          label={renderLabel}
-          labelLine={renderLabelLine}
-          animationDuration={800}
-          animationEasing="ease-out"
-          stroke="none"
-        />
-        <Tooltip content={<ChartTooltip isPie />} />
-        <Legend
-          verticalAlign="bottom"
-          iconType="circle"
-          iconSize={10}
-          wrapperStyle={{ paddingTop: 16 }}
-          formatter={(value: string) => (
-            <span className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300">
-              {value}
-            </span>
-          )}
-        />
-      </PieChart>
+        <PieChart margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius="68%"
+            innerRadius="32%"
+            paddingAngle={2}
+            label={renderLabel}
+            labelLine={renderLabelLine}
+            animationDuration={800}
+            animationEasing="ease-out"
+            stroke="none"
+          />
+          <Tooltip content={<ChartTooltip isPie />} />
+          <Legend
+            verticalAlign="bottom"
+            iconType="circle"
+            iconSize={10}
+            wrapperStyle={{ paddingTop: 16 }}
+            formatter={(value: string) => (
+              <span className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300">
+                {value}
+              </span>
+            )}
+          />
+        </PieChart>
       </ResponsiveContainer>
     </ChartScroll>
   );
@@ -245,62 +249,65 @@ function TopSpeciesBarChart({
     // The name gutter plus a bar long enough to compare: below this the
     // species names were the first thing the card clipped.
     <ChartScroll minWidth={520}>
-      <ResponsiveContainer width="100%" height={Math.max(400, data.length * 44)}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
-        barCategoryGap="20%"
+      <ResponsiveContainer
+        width="100%"
+        height={Math.max(400, data.length * 44)}
       >
-        <defs>
-          <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor={BAR_GRADIENT_END} />
-            <stop offset="100%" stopColor={BAR_GRADIENT_START} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid
-          horizontal={false}
-          strokeDasharray="3 3"
-          stroke="#d1c7c7"
-          strokeOpacity={0.4}
-        />
-        <XAxis
-          type="number"
-          tickFormatter={(v: number) => v.toLocaleString()}
-          tick={{
-            fontSize: 12,
-            fill: "#8b7474",
-          }}
-          axisLine={{ stroke: "#d1c7c7", strokeOpacity: 0.5 }}
-          tickLine={false}
-        />
-        <YAxis
-          type="category"
-          dataKey="name"
-          width={180}
-          tick={<ItalicTick />}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip
-          content={<ChartTooltip />}
-          cursor={{ fill: "rgba(62,173,193,0.08)" }}
-        />
-        <Bar
-          dataKey="count"
-          fill="url(#barGradient)"
-          radius={[0, 6, 6, 0]}
-          animationDuration={800}
-          animationEasing="ease-out"
-          label={{
-            position: "right",
-            formatter: (v: unknown) =>
-              typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
-            fontSize: 12,
-            fill: "#8b7474",
-          }}
-        />
-      </BarChart>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 4, right: 40, bottom: 4, left: 8 }}
+          barCategoryGap="20%"
+        >
+          <defs>
+            <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={BAR_GRADIENT_END} />
+              <stop offset="100%" stopColor={BAR_GRADIENT_START} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            horizontal={false}
+            strokeDasharray="3 3"
+            stroke="#d1c7c7"
+            strokeOpacity={0.4}
+          />
+          <XAxis
+            type="number"
+            tickFormatter={(v: number) => v.toLocaleString()}
+            tick={{
+              fontSize: 12,
+              fill: "#8b7474",
+            }}
+            axisLine={{ stroke: "#d1c7c7", strokeOpacity: 0.5 }}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={180}
+            tick={<ItalicTick />}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={{ fill: "rgba(62,173,193,0.08)" }}
+          />
+          <Bar
+            dataKey="count"
+            fill="url(#barGradient)"
+            radius={[0, 6, 6, 0]}
+            animationDuration={800}
+            animationEasing="ease-out"
+            label={{
+              position: "right",
+              formatter: (v: unknown) =>
+                typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
+              fontSize: 12,
+              fill: "#8b7474",
+            }}
+          />
+        </BarChart>
       </ResponsiveContainer>
     </ChartScroll>
   );
@@ -318,18 +325,24 @@ function InstitutionBarChart({
 }) {
   const data = useMemo(() => {
     const total = Object.values(institutionCounts).reduce((a, b) => a + b, 0);
-    const sorted = Object.entries(institutionCounts).sort((a, b) => b[1] - a[1]);
+    const sorted = Object.entries(institutionCounts).sort(
+      (a, b) => b[1] - a[1],
+    );
     const shown = sorted.slice(0, INSTITUTION_BAR_LIMIT);
     const rest = sorted.slice(INSTITUTION_BAR_LIMIT);
     const restCount = rest.reduce((sum, [, count]) => sum + count, 0);
 
     const rows = shown.map(([name, count]) => ({ name, count }));
     if (rest.length > 0) {
-      rows.push({ name: `+${rest.length} more institutions`, count: restCount });
+      rows.push({
+        name: `+${rest.length} more institutions`,
+        count: restCount,
+      });
     }
     return rows.map((row) => ({
       ...row,
-      percentage: total > 0 ? ((row.count / total) * 100).toFixed(1) + "%" : "0%",
+      percentage:
+        total > 0 ? ((row.count / total) * 100).toFixed(1) + "%" : "0%",
     }));
   }, [institutionCounts]);
 
@@ -342,59 +355,68 @@ function InstitutionBarChart({
 
   return (
     <ChartScroll minWidth={Math.max(480, axisWidth + 260)}>
-      <ResponsiveContainer width="100%" height={Math.max(360, data.length * 40)}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 4, right: 48, bottom: 4, left: 8 }}
-        barCategoryGap="20%"
+      <ResponsiveContainer
+        width="100%"
+        height={Math.max(360, data.length * 40)}
       >
-        <defs>
-          <linearGradient id="institutionBarGradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor={BAR_GRADIENT_END} />
-            <stop offset="100%" stopColor={BAR_GRADIENT_START} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid
-          horizontal={false}
-          strokeDasharray="3 3"
-          stroke={GRID_STROKE}
-          strokeOpacity={0.4}
-        />
-        <XAxis
-          type="number"
-          tickFormatter={(v: number) => v.toLocaleString()}
-          tick={{ fontSize: 12, fill: AXIS_TICK_FILL }}
-          axisLine={{ stroke: GRID_STROKE, strokeOpacity: 0.5 }}
-          tickLine={false}
-        />
-        <YAxis
-          type="category"
-          dataKey="name"
-          width={axisWidth}
-          tick={<InstitutionTick />}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip
-          content={<ChartTooltip />}
-          cursor={{ fill: "rgba(62,173,193,0.08)" }}
-        />
-        <Bar
-          dataKey="count"
-          fill="url(#institutionBarGradient)"
-          radius={[0, 6, 6, 0]}
-          animationDuration={800}
-          animationEasing="ease-out"
-          label={{
-            position: "right",
-            formatter: (v: unknown) =>
-              typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
-            fontSize: 12,
-            fill: "#8b7474",
-          }}
-        />
-      </BarChart>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 4, right: 48, bottom: 4, left: 8 }}
+          barCategoryGap="20%"
+        >
+          <defs>
+            <linearGradient
+              id="institutionBarGradient"
+              x1="0"
+              y1="0"
+              x2="1"
+              y2="0"
+            >
+              <stop offset="0%" stopColor={BAR_GRADIENT_END} />
+              <stop offset="100%" stopColor={BAR_GRADIENT_START} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            horizontal={false}
+            strokeDasharray="3 3"
+            stroke={GRID_STROKE}
+            strokeOpacity={0.4}
+          />
+          <XAxis
+            type="number"
+            tickFormatter={(v: number) => v.toLocaleString()}
+            tick={{ fontSize: 12, fill: AXIS_TICK_FILL }}
+            axisLine={{ stroke: GRID_STROKE, strokeOpacity: 0.5 }}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={axisWidth}
+            tick={<InstitutionTick />}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={{ fill: "rgba(62,173,193,0.08)" }}
+          />
+          <Bar
+            dataKey="count"
+            fill="url(#institutionBarGradient)"
+            radius={[0, 6, 6, 0]}
+            animationDuration={800}
+            animationEasing="ease-out"
+            label={{
+              position: "right",
+              formatter: (v: unknown) =>
+                typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
+              fontSize: 12,
+              fill: "#8b7474",
+            }}
+          />
+        </BarChart>
       </ResponsiveContainer>
     </ChartScroll>
   );
@@ -450,8 +472,8 @@ function CountryTooltip({
         {item.name}
       </p>
       <p className="text-deep-mocha-600 dark:text-deep-mocha-300">
-        {item.species.toLocaleString()} species ·{" "}
-        {item.images.toLocaleString()} images
+        {item.species.toLocaleString()} species · {item.images.toLocaleString()}{" "}
+        images
       </p>
     </div>
   );
@@ -512,59 +534,62 @@ function TopCountriesBarChart({
 
   return (
     <ChartScroll minWidth={480}>
-      <ResponsiveContainer width="100%" height={Math.max(360, data.length * 40)}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 4, right: 48, bottom: 4, left: 8 }}
-        barCategoryGap="20%"
+      <ResponsiveContainer
+        width="100%"
+        height={Math.max(360, data.length * 40)}
       >
-        <defs>
-          <linearGradient id="countryBarGradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor={BAR_GRADIENT_END} />
-            <stop offset="100%" stopColor={BAR_GRADIENT_START} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid
-          horizontal={false}
-          strokeDasharray="3 3"
-          stroke={GRID_STROKE}
-          strokeOpacity={0.4}
-        />
-        <XAxis
-          type="number"
-          tickFormatter={(v: number) => v.toLocaleString()}
-          tick={{ fontSize: 12, fill: AXIS_TICK_FILL }}
-          axisLine={{ stroke: GRID_STROKE, strokeOpacity: 0.5 }}
-          tickLine={false}
-        />
-        <YAxis
-          type="category"
-          dataKey="name"
-          width={150}
-          tick={<CountryTick data={data} />}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip
-          content={<CountryTooltip />}
-          cursor={{ fill: "rgba(62,173,193,0.08)" }}
-        />
-        <Bar
-          dataKey="species"
-          fill="url(#countryBarGradient)"
-          radius={[0, 6, 6, 0]}
-          animationDuration={800}
-          animationEasing="ease-out"
-          label={{
-            position: "right",
-            formatter: (v: unknown) =>
-              typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
-            fontSize: 12,
-            fill: AXIS_TICK_FILL,
-          }}
-        />
-      </BarChart>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 4, right: 48, bottom: 4, left: 8 }}
+          barCategoryGap="20%"
+        >
+          <defs>
+            <linearGradient id="countryBarGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={BAR_GRADIENT_END} />
+              <stop offset="100%" stopColor={BAR_GRADIENT_START} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            horizontal={false}
+            strokeDasharray="3 3"
+            stroke={GRID_STROKE}
+            strokeOpacity={0.4}
+          />
+          <XAxis
+            type="number"
+            tickFormatter={(v: number) => v.toLocaleString()}
+            tick={{ fontSize: 12, fill: AXIS_TICK_FILL }}
+            axisLine={{ stroke: GRID_STROKE, strokeOpacity: 0.5 }}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={150}
+            tick={<CountryTick data={data} />}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            content={<CountryTooltip />}
+            cursor={{ fill: "rgba(62,173,193,0.08)" }}
+          />
+          <Bar
+            dataKey="species"
+            fill="url(#countryBarGradient)"
+            radius={[0, 6, 6, 0]}
+            animationDuration={800}
+            animationEasing="ease-out"
+            label={{
+              position: "right",
+              formatter: (v: unknown) =>
+                typeof v === "number" ? v.toLocaleString() : String(v ?? ""),
+              fontSize: 12,
+              fill: AXIS_TICK_FILL,
+            }}
+          />
+        </BarChart>
       </ResponsiveContainer>
     </ChartScroll>
   );
@@ -635,25 +660,29 @@ export default function CollectionCharts({
           <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
             Every image, grouped by the family recorded at ingestion.
           </p>
-          <FamilyPieChart entriesByFamily={entriesByFamily} colorFor={colorFor} />
-        </div>
-      )}
-
-      {entriesByFamilyValidated && Object.keys(entriesByFamilyValidated).length > 0 && (
-        <div className={cardClasses}>
-          <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
-            Family Breakdown — After Validation
-          </h3>
-          <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
-            Images whose family the taxonomy harmonization resolved with
-            confidence against the Catalogue of Life backbone.
-          </p>
           <FamilyPieChart
-            entriesByFamily={entriesByFamilyValidated}
+            entriesByFamily={entriesByFamily}
             colorFor={colorFor}
           />
         </div>
       )}
+
+      {entriesByFamilyValidated &&
+        Object.keys(entriesByFamilyValidated).length > 0 && (
+          <div className={cardClasses}>
+            <h3 className="text-xl font-semibold mb-1 text-deep-mocha-900 dark:text-white">
+              Family Breakdown — After Validation
+            </h3>
+            <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
+              Images whose family the taxonomy harmonization resolved with
+              confidence against the Catalogue of Life backbone.
+            </p>
+            <FamilyPieChart
+              entriesByFamily={entriesByFamilyValidated}
+              colorFor={colorFor}
+            />
+          </div>
+        )}
 
       {topTenSpecies && Object.keys(topTenSpecies).length > 0 && (
         <div className={cardClasses}>
@@ -702,7 +731,8 @@ export default function CollectionCharts({
               href="/collections/country"
               className="text-pacific-blue-600 dark:text-pacific-blue-400 hover:underline"
             >
-              See all {countryDiversity.countries.length.toLocaleString()} countries →
+              See all {countryDiversity.countries.length.toLocaleString()}{" "}
+              countries →
             </Link>
           </p>
         </div>

@@ -85,6 +85,7 @@ def _seed(client, *, coordinates: bool = True, provenance: bool = True):
 )
 def test_one_point_per_specimen(memory_duckdb, name):
     payload = SpeciesCoordinates(_seed(memory_duckdb)).get(name)
+    assert payload is not None
 
     assert payload["total"] == 2
     assert payload["truncated"] is False
@@ -111,6 +112,7 @@ def test_one_point_per_specimen(memory_duckdb, name):
 def test_without_optional_tables_keeps_shape(memory_duckdb):
     client = _seed(memory_duckdb, coordinates=False, provenance=False)
     payload = SpeciesCoordinates(client).get("danaus_plexippus")
+    assert payload is not None
 
     assert len(payload["points"]) == 2
     for point in payload["points"]:
@@ -133,6 +135,7 @@ def test_recorded_locality_prefers_the_locality_table(memory_duckdb):
         ["b", "Indonesia (recorded)", None],
     )
     payload = SpeciesCoordinates(client).get("danaus_plexippus")
+    assert payload is not None
     points = {point["imgId"]: point for point in payload["points"]}
 
     assert points["b"]["recordedCountry"] == "Indonesia (recorded)"
@@ -143,6 +146,7 @@ def test_recorded_locality_prefers_the_locality_table(memory_duckdb):
 
 def test_truncation_is_reported(memory_duckdb):
     payload = SpeciesCoordinates(_seed(memory_duckdb), limit=1).get("danaus_plexippus")
+    assert payload is not None
 
     assert payload["total"] == 2
     assert payload["truncated"] is True

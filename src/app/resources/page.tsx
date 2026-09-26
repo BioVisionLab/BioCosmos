@@ -106,9 +106,9 @@ export default function ResourcesPage() {
       >
         <h2 className="text-2xl font-semibold">Taxonomy Matching</h2>
         <p>
-          Museum records carry the name a specimen was filed under, which may
-          be decades old, misspelled, or since synonymized. Every recorded
-          name on this site is therefore matched automatically against a{" "}
+          Museum records carry the name a specimen was filed under, which may be
+          decades old, misspelled, or since synonymized. Every recorded name on
+          this site is therefore matched automatically against a{" "}
           <a
             href={COL_URL}
             target="_blank"
@@ -117,31 +117,30 @@ export default function ResourcesPage() {
           >
             Catalogue of Life
           </a>{" "}
-          release, across the whole collection and with no manual curation
-          step.
+          release, across the whole collection and with no manual curation step.
         </p>
         <AutomatedCheckNote>
           This match is made by software, not by a curator, and it does not
           always succeed. A name can go unmatched or ambiguous because the
-          Catalogue of Life release does not cover it yet, because the
-          recorded family conflicts with the recorded name, or simply
-          because two accepted taxa are equally good candidates.{" "}
+          Catalogue of Life release does not cover it yet, because the recorded
+          family conflicts with the recorded name, or simply because two
+          accepted taxa are equally good candidates.{" "}
           <strong className="font-semibold">
-            An outcome other than &ldquo;matched&rdquo; says the check could
-            not decide — not that the record is wrong.
+            An outcome other than &ldquo;matched&rdquo; says the check could not
+            decide — not that the record is wrong.
           </strong>{" "}
-          Nothing is overwritten: the name exactly as the institution entered
-          it is kept and shown beside the accepted name, along with the
-          method and the runner-up candidates, so you can compare them and
-          judge for yourself.
+          Nothing is overwritten: the name exactly as the institution entered it
+          is kept and shown beside the accepted name, along with the method and
+          the runner-up candidates, so you can compare them and judge for
+          yourself.
         </AutomatedCheckNote>
         <p>
-          Names are normalized first — underscores become spaces, whitespace
-          is collapsed, case is folded, and parenthetical subgenera are
-          dropped. Matching then cascades from species to subspecies to
-          genus, and a match made at a coarser rank says so. A name recorded
-          at some other rank, or one that cannot be read as a binomial, is
-          not matched at all and carries a reason instead.
+          Names are normalized first — underscores become spaces, whitespace is
+          collapsed, case is folded, and parenthetical subgenera are dropped.
+          Matching then cascades from species to subspecies to genus, and a
+          match made at a coarser rank says so. A name recorded at some other
+          rank, or one that cannot be read as a binomial, is not matched at all
+          and carries a reason instead.
         </p>
 
         <h3 className="text-lg font-semibold pt-2">Outcome</h3>
@@ -161,11 +160,11 @@ export default function ResourcesPage() {
 
         <h3 className="text-lg font-semibold pt-2">How a match is made</h3>
         <p>
-          Candidates are gathered by seven methods and scored; the strongest
-          is listed first. A spelling or fuzzy match only counts as matched
-          when it is the sole candidate, or when it beats the runner-up by a
-          clear scoring margin — otherwise the result is ambiguous rather
-          than a guess.
+          Candidates are gathered by seven methods and scored; the strongest is
+          listed first. A spelling or fuzzy match only counts as matched when it
+          is the sole candidate, or when it beats the runner-up by a clear
+          scoring margin — otherwise the result is ambiguous rather than a
+          guess.
         </p>
         <CodeTable
           head={["Method", "Rule"]}
@@ -176,9 +175,9 @@ export default function ResourcesPage() {
           }))}
         />
         <p className="text-sm">
-          A method shown as <em>Subspecies ·</em> or <em>Genus ·</em> means
-          the species-rank pass found nothing and the match was made at that
-          coarser rank instead.
+          A method shown as <em>Subspecies ·</em> or <em>Genus ·</em> means the
+          species-rank pass found nothing and the match was made at that coarser
+          rank instead.
         </p>
 
         <h3 className="text-lg font-semibold pt-2">
@@ -215,20 +214,20 @@ export default function ResourcesPage() {
       >
         <h2 className="text-2xl font-semibold">Coordinate Matching</h2>
         <p>
-          A specimen records its origin twice: once in words (country, state
-          or province, locality) and once as a latitude and longitude. Those
-          are two independent claims, and they can disagree — a transcription
-          error, a swapped sign, or a coordinate added later from a different
+          A specimen records its origin twice: once in words (country, state or
+          province, locality) and once as a latitude and longitude. Those are
+          two independent claims, and they can disagree — a transcription error,
+          a swapped sign, or a coordinate added later from a different
           gazetteer. Every coordinate on this site is checked automatically
           against the locality written beside it.
         </p>
         <AutomatedCheckNote>
-          This check is made by software against a fixed set of boundaries,
-          and a disagreement is not by itself an error. A coordinate on a
-          coastline or a national border can fall just outside the polygon
-          it belongs to; a province may have been renamed or subdivided since
-          the specimen was catalogued; a locality may have been recorded at
-          country resolution while the coordinate is precise.{" "}
+          This check is made by software against a fixed set of boundaries, and
+          a disagreement is not by itself an error. A coordinate on a coastline
+          or a national border can fall just outside the polygon it belongs to;
+          a province may have been renamed or subdivided since the specimen was
+          catalogued; a locality may have been recorded at country resolution
+          while the coordinate is precise.{" "}
           <strong className="font-semibold">
             A mismatch is a prompt to look, not a verdict that the record is
             wrong.
@@ -247,19 +246,19 @@ export default function ResourcesPage() {
           >
             GADM
           </a>{" "}
-          administrative boundaries to find which region it actually falls
-          in. That region is then compared with the country and state or
-          province the record wrote down. A region is only reported when
-          exactly one matched, so &ldquo;outside every boundary&rdquo; and
-          &ldquo;where several regions meet&rdquo; stay distinct outcomes
-          rather than both reading as a blank.
+          administrative boundaries to find which region it actually falls in.
+          That region is then compared with the country and state or province
+          the record wrote down. A region is only reported when exactly one
+          matched, so &ldquo;outside every boundary&rdquo; and &ldquo;where
+          several regions meet&rdquo; stay distinct outcomes rather than both
+          reading as a blank.
         </p>
 
         <h3 className="text-lg font-semibold pt-2">Verdict</h3>
         <p>
           The checks are applied in the order below and the first one that
-          applies is the verdict, so a record whose country <em>and</em>{" "}
-          state both disagree is reported as a country mismatch.
+          applies is the verdict, so a record whose country <em>and</em> state
+          both disagree is reported as a country mismatch.
         </p>
         <CodeTable
           head={["Verdict", "Meaning"]}
@@ -313,9 +312,9 @@ export default function ResourcesPage() {
         </details>
 
         <p className="text-sm">
-          Coordinate validation runs offline against a fixed GADM release and
-          is recorded per specimen, so a verdict shown here always refers to
-          the boundary data it was computed from.
+          Coordinate validation runs offline against a fixed GADM release and is
+          recorded per specimen, so a verdict shown here always refers to the
+          boundary data it was computed from.
         </p>
         <GadmAttribution />
       </section>

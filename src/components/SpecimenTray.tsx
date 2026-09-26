@@ -1,5 +1,8 @@
 import SpecimenCell from "@/components/SpecimenCell";
-import { HERO_SPECIMENS, type FeaturedSpeciesItem } from "@/lib/featuredSpecies";
+import {
+  HERO_SPECIMENS,
+  type FeaturedSpeciesItem,
+} from "@/lib/featuredSpecies";
 import { imageUrlById } from "@/lib/images";
 import { speciesUrlFromName, toBinomialName } from "@/lib/names";
 

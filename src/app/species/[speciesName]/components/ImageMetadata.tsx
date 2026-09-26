@@ -119,9 +119,7 @@ function LocalityBlock({ locality }: { locality: SpecimenLocality | null }) {
     <div className="col-span-2 flex flex-wrap items-baseline gap-1 min-w-0 leading-normal">
       <span className="whitespace-nowrap">Locality:</span>
       {locality?.display ? (
-        <span className={`min-w-0 ${METADATA_VALUE}`}>
-          {locality.display}
-        </span>
+        <span className={`min-w-0 ${METADATA_VALUE}`}>{locality.display}</span>
       ) : (
         <span className={METADATA_EMPTY}>—</span>
       )}
@@ -294,9 +292,7 @@ export default function ImageMetadata({
           <>
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
               <div className="flex items-center min-w-0">
-                <span className={METADATA_LABEL}>
-                  View:
-                </span>
+                <span className={METADATA_LABEL}>View:</span>
                 <span className={`ml-1 truncate capitalize ${METADATA_VALUE}`}>
                   {typeof meta.class_dv === "string"
                     ? meta.class_dv.toLowerCase()
@@ -313,9 +309,7 @@ export default function ImageMetadata({
                   full-precision pair, and a truncated coordinate is a wrong
                   one. It wraps at the comma rather than being cut off. */}
               <div className="col-span-2 sm:col-span-1 flex flex-wrap items-baseline gap-x-1 min-w-0 leading-normal">
-                <span className={METADATA_LABEL}>
-                  Coordinates:
-                </span>
+                <span className={METADATA_LABEL}>Coordinates:</span>
                 <span className={`min-w-0 break-words ${METADATA_VALUE}`}>
                   {meta.lat || meta.lon
                     ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}`

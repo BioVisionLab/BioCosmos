@@ -1,0 +1,23 @@
+# Prettier formats the frontend: src/, the root config files and scripts/*.mjs.
+# It also skips everything in .gitignore (dependencies, builds, .env files,
+# data, generated maplibre worker, bundled images).
+
+# Python virtualenvs. uv ignores them from inside, which Prettier cannot see.
+.venv/
+
+# Python side: Ruff formats these.
+backend/
+packages/
+analyses/
+# Outdated and unused.
+tools/
+# Generated run artifacts.
+reports/
+# Lockfiles and generated or vendored assets.
+bun.lock
+uv.lock
+public/
+# Documentation and CI config keep their hand-written layout.
+*.md
+.github/
+.claude/

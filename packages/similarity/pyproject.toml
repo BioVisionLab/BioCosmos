@@ -13,7 +13,7 @@ authors = [{ name = "Haryo Handika" }]
 dependencies = [
     "harmonize-core",
     "duckdb>=1.3.1",
-    "lancedb>=0.24.1",
+    "lancedb>=0.39.0",
     "numpy>=2",
     "polars[pyarrow]>=1.31.0",
     "typer>=0.15,<1",

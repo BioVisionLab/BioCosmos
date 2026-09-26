@@ -1,8 +1,10 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypeScript from "eslint-config-next/typescript";
+import eslintConfigPrettier from "eslint-config-prettier/flat";
 
 /**
- * Flat config, run through the ESLint CLI (`bun run lint`).
+ * Flat config, run through the ESLint CLI (`bun run lint`, which then runs
+ * `prettier --check`).
  *
  * `next lint` was removed in Next 16, so the shareable configs are imported
  * directly rather than pulled in through `FlatCompat`. Both already ignore
@@ -26,6 +28,9 @@ const eslintConfig = [
   },
   ...nextCoreWebVitals,
   ...nextTypeScript,
+  // Last, so it switches off every stylistic rule above that would fight
+  // Prettier. Formatting is Prettier's job (`bun run format`).
+  eslintConfigPrettier,
 ];
 
 export default eslintConfig;

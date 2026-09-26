@@ -161,7 +161,15 @@ export function Detail({ children }: { children: ReactNode }) {
 export const DASHED: CSSProperties = { strokeDasharray: "var(--bc-dash)" };
 
 /** A filled marker — a club, an eye, a hub. Rare, and always the subject. */
-export function Dot({ cx, cy, r = 0.8 }: { cx: number; cy: number; r?: number }) {
+export function Dot({
+  cx,
+  cy,
+  r = 0.8,
+}: {
+  cx: number;
+  cy: number;
+  r?: number;
+}) {
   return (
     <circle
       cx={cx}

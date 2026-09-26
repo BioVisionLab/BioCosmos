@@ -16,253 +16,281 @@ There are many ways to contribute to BioCosmos, from writing code and documentat
 
 ## Pull Request Workflow
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Fork the repository and branch from `main`
+   (`git checkout -b feature/amazing-feature`). Only `main` may be merged into
+   `release`, which deploys the site.
+2. Make your change, with tests for any changed router, query, or service.
+3. Run the [checks](#checks-before-a-pull-request) for the parts you touched.
+4. Commit with a short, imperative subject (`Fix image rendering.`). Keep
+   generated datasets out of code commits.
+5. Push the branch and open a pull request against `main`. Explain the problem
+   and the solution, link related issues, list the commands you ran, and
+   include screenshots for visible UI changes.
+
+Never commit `.env` or `.env.local` files, API keys, DuckDB or LanceDB files,
+model weights, images, or anything generated under `reports/`.
 
 ## Project Structure
 
 ```text
-biocosmos/
-├── backend/                  # Python backend (FastAPI)
-│   ├── duck_db/                # DuckDB database files (git-ignored)
-│   ├── lance_db_lite/          # LanceDB vector database files (git-ignored)
-│   ├── data/                   # Metadata files: parquet, CSV, TSV (git-ignored)
-│   ├── static/                 # Processed images, thumbnails, tiles (git-ignored)
-│   ├── app/                    # Core application code
-│   │   ├── main.py             # FastAPI entrypoint
-│   │   ├── configs/            # Configuration files and settings
-│   │   ├── database/           # Database models and connections
-│   │   │   ├── duckdb.py       # DuckDB operations
-│   │   │   ├── lance.py        # LanceDB operations
-│   │   │   └── model.py        # Data models
-│   │   ├── query/              # Database query logic
-│   │   │   ├── agent_query.py          # Agent query parsing
-│   │   │   ├── db_search.py            # DuckDB SQL text search
-│   │   │   ├── image_files.py          # Image path retrieval
-│   │   │   ├── image_search.py         # Vector database searches
-│   │   │   ├── precomputed_similarity.py # Precomputed visual similarity
-│   │   │   ├── species_similarity.py   # Runtime visual similarity
-│   │   │   ├── specimen_data.py        # Specimen and UMAP queries
-│   │   │   └── taxon_data.py           # Taxonomic query service
-│   │   ├── routers/            # API endpoints
-│   │   │   ├── agent_search.py # Agentic search endpoints
-│   │   │   ├── data_stats.py   # Statistics endpoints
-│   │   │   ├── db_search.py    # Database search endpoints
-│   │   │   ├── image_retrieval.py  # Image serving endpoints
-│   │   │   ├── ml_search.py    # ML-based search endpoints
-│   │   │   ├── species_data.py # Species data endpoints
-│   │   │   └── text_summarization.py  # AI summarization endpoints
-│   │   └── services/           # Business logic and ML services
-│   │       ├── agent.py        # Agentic search and automation logic
-│   │       ├── clip.py         # CLIP model integration
-│   │       ├── embedder.py     # Embedder base classes and operations
-│   │       ├── gbif.py         # GBIF API integration
-│   │       ├── images.py       # Image processing and management
-│   │       ├── leptraits.py    # Trait data processing
-│   │       ├── metadata.py     # Metadata ingestion/query services
-│   │       ├── openai.py       # OpenAI API integration
-│   │       ├── umap.py         # UMAP dimensionality reduction
-│   │       └── unicom.py       # UNICOM model integration
-│   ├── scripts/                # Maintained backend data-processing scripts
-│   ├── tests/                  # Backend tests
-│   ├── Dockerfile              # Backend Dockerfile
-│   └── pyproject.toml          # Backend dependencies (uv workspace member)
-├── packages/                 # Offline data-harmonization tools (uv workspace members)
-│   ├── harmonize-core/         # Shared DuckDB, config, output, reporting primitives
-│   ├── colharmonize/           # Catalogue of Life taxonomy matching CLI
-│   └── geoharmonize/           # GADM coordinate validation CLI
-├── reports/                  # Generated run artifacts and manifests (git-ignored)
-├── pyproject.toml            # uv workspace root
-├── uv.lock                   # Single lockfile for backend and packages
-├── src/                      # Next.js frontend
-│   ├── app/                    # App Router pages and layouts
-│   │   ├── page.tsx            # Home page
-│   │   ├── layout.tsx          # Root layout
-│   │   ├── about/              # About page
-│   │   ├── api/                # API proxy route handlers
-│   │   ├── collections/        # Collections pages
-│   │   ├── family/             # Family taxonomy pages
-│   │   ├── genus/              # Genus taxonomy pages
-│   │   ├── resources/          # Resources page
-│   │   ├── search/             # Search results page
-│   │   ├── species/            # Species detail pages
-│   │   └── visualization/      # t-SNE visualization page
+BioCosmos/
+├── src/                      # Next.js 16 frontend (App Router, TypeScript, Tailwind 4)
+│   ├── app/                    # Pages: species, genus, family, order, search, collections, ...
+│   │   └── api/                # Route handlers that proxy the backend (API_HOST)
 │   ├── components/             # React components
-│   │   ├── ui/                 # UI components (buttons, dialogs, etc.)
-│   │   ├── Attribution.tsx     # Data attribution
-│   │   ├── HomePage.tsx        # Homepage content
-│   │   ├── ImageSearch.tsx     # Image search interface
-│   │   ├── SearchBar.tsx       # Navigation search bar
-│   │   ├── SpeciesMap.tsx      # MapLibre geographic maps
-│   │   └── ...                 # Other components
-│   └── lib/                    # Helper functions and utilities
-│       ├── backend.ts          # Backend status verification
-│       ├── types.ts            # TypeScript types
-│       └── ...                 # Other utilities
+│   └── lib/                    # Data fetching and helpers
 ├── public/                   # Static assets
-│   ├── images/                 # Species images (git-ignored)
-│   ├── dataset-metadata/       # Metadata files
-├── tools/                    # Outdated, unused code; not part of data preparation
-├── scripts/                  # Convenience runner scripts
-│   ├── run_backend.sh          # Start backend (Linux/macOS)
-│   ├── run_backend_prod.sh     # Start backend in production mode (Linux/macOS)
-│   ├── run_backend.ps1         # Start backend (Windows)
-│   ├── run_frontend.sh         # Start frontend (Linux/macOS)
-│   └── run_frontend.ps1        # Start frontend (Windows)
-├── docker-compose.yml        # Docker Compose configuration
-├── Dockerfile.frontend       # Frontend Dockerfile
-├── package.json              # Frontend dependencies
-├── tsconfig.json             # TypeScript configuration
-└── tailwind.config.ts        # Tailwind CSS configuration
+│   ├── geo/                    # Country geometry (backend/scripts/export_country_geometry.py)
+│   ├── maplibre/               # MapLibre worker, copied at dev/build time (git-ignored)
+│   └── images/                 # Source images for ingestion (git-ignored)
+├── backend/                  # FastAPI service (uv workspace member)
+│   ├── app/
+│   │   ├── main.py             # Entrypoint; startup ingestion and table builds
+│   │   ├── configs/            # config.yaml, settings, LLM prompts
+│   │   ├── database/           # DuckDB and LanceDB clients, models, Lance migration
+│   │   ├── routers/            # HTTP endpoints (keep them thin)
+│   │   ├── query/              # Data access
+│   │   └── services/           # Domain logic and external/ML integrations
+│   ├── scripts/                # Maintained maintenance and export scripts
+│   ├── tests/                  # Backend pytest suite
+│   ├── static/webp/            # Processed images and thumbnails (git-ignored)
+│   └── Dockerfile              # Built with the repository root as context
+├── packages/                 # Python tools (uv workspace members)
+│   ├── harmonize-core/         # Shared DuckDB, config, and reporting primitives
+│   ├── colharmonize/           # Catalogue of Life name matching (also used by the backend)
+│   ├── geoharmonize/           # GADM coordinate validation
+│   ├── instharmonize/          # Institution code resolution (used by the backend)
+│   ├── morphospace/            # Precomputed UNICOM morphospaces
+│   ├── similarity/             # Precomputed visually similar species
+│   └── plannerbench/           # Agent-search planner benchmarks
+├── analyses/                 # Publication notebooks and index benchmarks (separate uv project)
+├── reports/                  # Generated run artifacts (git-ignored)
+├── scripts/                  # Launch helpers (run_backend.sh, run_frontend.sh, ...)
+├── tools/                    # Outdated and unused; do not use
+├── pyproject.toml, uv.lock   # uv workspace root and its single lockfile
+├── package.json, bun.lock    # Frontend dependencies
+├── docker-compose.yml        # Both services, GPU-enabled backend
+└── Dockerfile.frontend
 ```
 
 ## Local Development Setup
 
 ### Prerequisites
 
-- **Bun** (recommended), **Yarn**,  or **Node.js** (v18+)
-- **Python** (v3.12 or higher)
-- **uv** - Modern Python package manager (recommended)
 - **Git**
-- **Docker** and **Docker Compose** (optional, for containerized deployment)
-- **OpenAI API Key** (optional, for agentic search functionality)
+- **Bun 1.3.11** (pinned in `package.json`). Bun runs the build scripts, so a
+  separate Node.js install is optional.
+- **Python 3.12+** and **[uv](https://docs.astral.sh/uv/)**:
 
-### Manual Setup (Development)
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
 
-If you prefer to run the services manually without Docker, follow these steps:
+- **Hardware:** the backend loads the CLIP and UNICOM models at every start.
+  A CUDA or Apple-silicon GPU is used automatically when present; a CPU works
+  but embedding images is slow. Plan for tens of gigabytes of disk for the full
+  collection (the image embeddings alone are about 15 GB).
+- **Network on first start:** CLIP (`openai/clip-vit-base-patch32`) downloads
+  from Hugging Face into `~/.cache/huggingface`, and the UNICOM weights into
+  `~/.cache/unicom`. The backend also fetches LepTraits from GitHub and
+  resolves institution codes against GBIF; both degrade gracefully offline.
+- **Optional:** Docker with Docker Compose (and the NVIDIA container toolkit
+  for the GPU reservation in `docker-compose.yml`); an OpenAI-compatible LLM
+  endpoint for agentic search and summaries.
 
-1. **Clone the Repository**
+### 1. Clone and install
 
-    ```bash
-    git clone <repository-url>
-    cd biocosmos
-    ```
+```bash
+git clone <repository-url>
+cd BioCosmos
+bun install
+uv sync --all-packages
+```
 
-2. **Install Frontend Dependencies**
+`uv sync --all-packages` installs the backend and every package in
+`packages/` into one `.venv` from the root `uv.lock`. Add `--dev` for pytest
+and Ruff.
 
-    ```bash
-    bun install
-    ```
+### 2. Obtain the data
 
-3. **Set Up Python Environment**
+The repository ships no data. You need:
 
-    We use [uv](https://docs.astral.sh/uv/) for fast, reliable Python dependency management:
+| Input | Where it goes | Used for |
+| ----- | ------------- | -------- |
+| Specimen images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`), any folder depth | `$IMAGE_DIR` | Embeddings, processed images, thumbnails. The file name without its extension is the image ID and must match `img_id` in the metadata. |
+| Image metadata (`image_metadata.file` in `config.yaml`, currently a parquet file) | `$IMAGE_META_DIR` | `image_meta` |
+| GBIF occurrence download (`gbif.file`, a TSV) | `$GBIF_DIR` | Locality and provenance |
+| Extracted Catalogue of Life ColDP release (`NameUsage.tsv`, plus optional `VernacularName.tsv`, `TypeMaterial.tsv`, `Reference.tsv`) | `$COL_DIR` | Taxonomy. Optional, but without it the site has no classification. |
+| GADM 4.1 GeoPackage (`gadm_410-levels.gpkg`) | `$GADM_DIR` | Offline coordinate validation only |
 
-    **Install uv:**
+If a maintainer gives you prebuilt `biocosmos.duckdb` and `biocosmos.lance`
+files, put them in `$DUCK_DIR` and `$LANCE_DIR`, together with the processed
+images in `backend/static/webp/`, and skip the first build below.
 
-    ```bash
-    # On macOS/Linux
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+### 3. Configure the environment
 
-    # Or via pip
-    pip install uv
-    ```
+**Frontend:** create `.env.local` in the repository root:
 
-    **Install the Python workspace dependencies from the repository root:**
+```bash
+API_HOST=http://127.0.0.1:8000
+```
 
-    ```bash
-    uv sync --all-packages
-    ```
+**Backend:** create `backend/.env`. Use absolute paths: the backend runs from
+`backend/`, while the package CLIs run from the repository root, so relative
+paths would point at different directories.
 
-4. **Environment Configuration**
+```bash
+# Required. The backend refuses to start without these.
+DUCK_DIR=/absolute/path/to/BioCosmos/backend/duck_db
+LANCE_DIR=/absolute/path/to/BioCosmos/backend/lance_db_lite
+IMAGE_DIR=/absolute/path/to/BioCosmos/public/images
+IMAGE_META_DIR=/absolute/path/to/BioCosmos/backend/data
+GBIF_DIR=/absolute/path/to/BioCosmos/backend/data
 
-    **Frontend** - Create a `.env.local` file in the root directory:
+# Optional, but required for Catalogue of Life taxonomy. A directory
+# containing an extracted ColDP NameUsage.tsv, not the file itself.
+COL_DIR=/absolute/path/to/catalogue-of-life-col-dp
 
-    ```bash
-    API_HOST=http://127.0.0.1:8000
-    ```
+# Recommended: contact address sent to CrossRef for the Literature tab.
+# Without it, requests use CrossRef's slower anonymous public pool.
+# CROSSREF_MAILTO=you@example.org
 
-    **Backend** - Create `backend/.env`. Use absolute paths: the backend helper
-    runs from `backend/`, while the harmonization CLIs run from the repository
-    root, so relative paths otherwise refer to different directories.
+# Recommended: contact address and API key for NCBI (Genetics tab).
+# The email falls back to CROSSREF_MAILTO. Without a key, NCBI allows
+# 3 requests per second instead of 10.
+# NCBI_EMAIL=you@example.org
+# NCBI_API_KEY=your_ncbi_api_key
 
-    ```bash
-    DUCK_DIR=/absolute/path/to/BioCosmos/backend/duck_db
-    LANCE_DIR=/absolute/path/to/BioCosmos/backend/lance_db_lite
-    IMAGE_DIR=/absolute/path/to/BioCosmos/public/images
-    IMAGE_META_DIR=/absolute/path/to/BioCosmos/backend/data
-    GBIF_DIR=/absolute/path/to/BioCosmos/backend/data
-    UMAP_DIR=/absolute/path/to/BioCosmos/backend/data
+# Optional: OpenAI-compatible LLM endpoint for agentic search and summaries.
+# LLM_API_URL=your_llm_endpoint
+# LLM_API_KEY=your_api_key
+```
 
-    # Optional, but required for Catalogue of Life ingestion and matching.
-    # This directory must contain an extracted ColDP NameUsage.tsv.
-    COL_DIR=/absolute/path/to/catalogue-of-life-col-dp
+The backend opens `$DUCK_DIR/biocosmos.duckdb` and
+`$LANCE_DIR/biocosmos.lance`, creating the directories if needed. Keep `.env`
+files out of Git.
 
-    # Recommended: contact address sent to CrossRef for the Literature tab.
-    # Without it, requests use CrossRef's slower anonymous public pool.
-    # CROSSREF_MAILTO=you@example.org
+For the offline package commands, load `backend/.env` into your shell from the
+repository root and set the GADM path:
 
-    # Recommended: contact address and API key for NCBI (Genetics tab).
-    # The email falls back to CROSSREF_MAILTO. Without a key, NCBI allows
-    # 3 requests per second instead of 10.
-    # NCBI_EMAIL=you@example.org
-    # NCBI_API_KEY=your_ncbi_api_key
+```bash
+set -a
+source backend/.env
+set +a
+export GADM_DIR=/absolute/path/to/gadm
+```
 
-    # Optional: Custom LLM service
-    # LLM_API_URL=your_llm_endpoint
-    # LLM_API_KEY=your_api_key
-    ```
+### 4. First build: ingest the data
 
-    `DUCK_DIR` is a directory; the backend opens
-    `$DUCK_DIR/biocosmos.duckdb`. `COL_DIR` is also a directory, not the path
-    to `NameUsage.tsv` itself. Keep `.env` files and credentials out of Git.
+Startup ingestion is controlled by `backend/app/configs/config.yaml`. The
+checked-in defaults assume the databases already exist, so for a first build
+from raw data set these to `false`:
 
-    The offline geography workflow also needs a directory containing
-    `gadm_410-levels.gpkg`. `GADM_DIR` is a shell variable used by the commands
-    below, not a backend setting. From the repository root, load
-    `backend/.env` into the current shell and set the GADM path:
+| Setting | Ingests |
+| ------- | ------- |
+| `image_metadata.skip` | The metadata file into `image_meta_source`, published as the `image_meta` view |
+| `gbif.skip` | The GBIF occurrences into `gbif_meta` |
+| `embedder.skip` | Every image in `$IMAGE_DIR`: CLIP and UNICOM embeddings into LanceDB, and processed images and thumbnails into `backend/static/webp/` |
 
-    ```bash
-    set -a
-    source backend/.env
-    set +a
-    export GADM_DIR=/absolute/path/to/gadm
-    ```
+Taxonomy (`col`), traits (`leptrait`), locality, provenance, and institutions
+stay on. Each is guarded by a fingerprint, so a later start with unchanged
+inputs costs almost nothing. To try the pipeline on a sample first, set
+`images.limit` to a small number; the embedder skips images it already has.
+Tune `embedder.device` and `embedder.batch_size` to your hardware.
 
-5. **Prepare the Dataset**
+Then start the backend and wait for `Application startup completed
+successfully.` in the log:
 
-    Organize your butterfly images in the appropriate directory structure under `public/images/`.
+```bash
+./scripts/run_backend.sh
+```
 
-6. **Prepare Data with the Maintained Tools**
+Embedding the full collection takes hours, even on a GPU. Once it finishes, set
+the three `skip` settings back to `true`, so later starts don't re-read the
+sources.
 
-    Follow [Data Preparation](#data-preparation) for `colharmonize`, `geoharmonize`, and the scripts under `backend/scripts/`. The root `tools/` directory is outdated and unused.
+### 5. Build the derived data
 
-7. **Start the Services**
+With the backend **stopped** (DuckDB allows one writer, and the API keeps the
+file open), run these from the repository root. Each writes a table the
+backend only reads; until it exists, the matching section of the site is
+hidden or empty.
 
-    **Option A - Using convenience scripts:**
+1. **Vector indexes.** Set `search_index.build_vector: true`, start the backend
+   once, then set it back to `false`. Without the IVF-PQ indexes, similarity
+   search falls back to a brute-force scan: correct, but seconds rather than
+   milliseconds.
+2. **Coordinate validation** (`main.image_meta_coordinates`). See
+   [Data Preparation](#data-preparation): the backend must have built
+   `main.image_meta_locality` first.
+3. **Visually similar species** (`species_similarity`):
 
-    ```bash
-    # Terminal 1 - Backend
-    ./scripts/run_backend.sh
+   ```bash
+   uv run similarity run --db "$DUCK_DIR/biocosmos.duckdb" --lance-dir "$LANCE_DIR/biocosmos.lance"
+   ```
 
-    # Terminal 2 - Frontend
-    ./scripts/run_frontend.sh
-    ```
+4. **Morphospaces** (the `morphospace_*` tables):
 
-    **Option B - Manual commands:**
+   ```bash
+   uv run morphospace run --db "$DUCK_DIR/biocosmos.duckdb" --lance-dir "$LANCE_DIR/biocosmos.lance"
+   uv run morphospace integrate --db "$DUCK_DIR/biocosmos.duckdb" --replace
+   ```
 
-    **Terminal 1 - Backend:**
+5. **Country geometry** (`public/geo/countries-110m.json`, already committed;
+   regenerate it only when the country lookup changes):
 
-    ```bash
-    cd backend
-    uv run --env-file .env -- fastapi dev
-    # Or: uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-    ```
+   ```bash
+   cd backend && uv run python scripts/export_country_geometry.py
+   ```
 
-    **Terminal 2 - Frontend:**
+Rerun steps 1, 3, and 4 whenever the embeddings change, and steps 3 and 4
+whenever the image metadata or `image_metadata.exclude_families` changes (see
+`AGENTS.md`).
 
-    ```bash
-    bun dev
-    ```
+#### Upgrading an existing LanceDB collection
 
-8. **Access the Application**
+Collections built before images moved to disk keep the image bytes in the
+table and lack `img_path`. The backend logs a warning at startup when this
+applies. With the backend stopped:
 
-    - **Frontend**: [http://localhost:3000](http://localhost:3000)
-    - **Backend API**: [http://localhost:8000](http://localhost:8000)
-    - **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+```bash
+cd backend
+uv run --env-file .env python scripts/migrate_lance.py
+uv run --env-file .env python scripts/migrate_lance.py --apply
+```
+
+The first command is a dry run that lists the steps. `--drop-legacy-columns`
+also removes the stored image bytes, and is refused unless every image is in
+`backend/static/webp/`. `--reindex` retrains the vector indexes. LanceDB keeps
+the previous versions for seven days, so `table.restore(<version>)` can undo a
+run until then.
+
+### 6. Run the application
+
+```bash
+# Terminal 1: backend (FastAPI dev server with reload, port 8000)
+./scripts/run_backend.sh
+
+# Terminal 2: frontend (Next.js with Turbopack, port 3000)
+bun run dev
+```
+
+`./scripts/run_backend.sh` is `cd backend && uv run --env-file .env -- fastapi dev`.
+Windows users can use the `.ps1` equivalents in `scripts/`.
+
+- **Frontend:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:8000](http://localhost:8000)
+- **API documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### 7. Production build
+
+```bash
+bun run build      # type-checks and builds the frontend
+bun run start      # serves the build on port 3000
+./scripts/run_backend_prod.sh
+```
+
+Both `dev` and `build` first copy the MapLibre worker into `public/maplibre/`.
 
 ## Data Management
 
@@ -287,6 +315,7 @@ Data preparation uses the harmonization packages and maintained backend scripts:
 - **colharmonize** (`packages/colharmonize/`): Match occurrence species names against a Catalogue of Life release.
 - **geoharmonize** (`packages/geoharmonize/`): Validate occurrence coordinates against GADM geography. `geoharmonize integrate` writes the coordinate-validation table read by the backend.
 - **similarity** (`packages/similarity/`): Compute per-species visual similarity from existing LanceDB embeddings and DuckDB metadata, then store the results in the `species_similarity` table.
+- **morphospace** (`packages/morphospace/`): Precompute the dorso-ventral morphospaces of the UNICOM embeddings that the species, genus, and family pages draw. See [packages/morphospace/README.md](packages/morphospace/README.md).
 
 Sync all packages first:
 
@@ -295,7 +324,7 @@ uv sync --all-packages
 ```
 
 Run every command in this section from the repository root. The examples assume
-the absolute path variables from [Environment Configuration](#environment-configuration)
+the absolute path variables from [Configure the environment](#3-configure-the-environment)
 are exported in the current shell. The required reference inputs are:
 
 - An extracted Catalogue of Life ColDP release at `$COL_DIR`, including
@@ -369,10 +398,6 @@ To precompute similarity with existing embeddings and metadata (backend stopped)
 uv run similarity run --db "$DUCK_DIR/biocosmos.duckdb" --lance-dir "$LANCE_DIR/biocosmos.lance"
 ```
 
-After rebuilding embeddings, set `search_index.build_vector: true` in
-`backend/app/configs/config.yaml` for the next backend start so the LanceDB
-IVF-PQ indexes are retrained against them, then set it back to `false`.
-
 See [packages/README.md](packages/README.md) and [reports/README.md](reports/README.md)
 for the package details and generated artifact contract.
 
@@ -380,42 +405,65 @@ Everything in the root `tools/` directory is outdated and unused. Do not use tho
 
 ## Testing
 
-### Backend Tests
+### Checks before a pull request
 
-Run pytest in the backend directory:
+CI runs the backend and package suites on pull requests that touch `backend/`,
+`packages/`, `pyproject.toml`, or `uv.lock`. There is no frontend test
+harness, so run the build and lint for UI work and describe what you checked
+by hand in the pull request.
+
+**Backend** (always from `backend/`, which resolves `static/` relatively):
 
 ```bash
 cd backend
-uv run pytest
+uv run pytest -q
+uv run ruff check .
+uv run ruff format --check .
 ```
 
-### Frontend Linting
-
-Run ESLint to check for frontend issues:
+**Packages** (100-character lines, Python 3.12):
 
 ```bash
-bun lint
+uv run --package harmonize-core pytest packages/harmonize-core/tests -q
+uv run --package colharmonize pytest packages/colharmonize/tests -q
+uv run --package geoharmonize pytest packages/geoharmonize/tests -q
+uv run --package instharmonize pytest packages/instharmonize/tests -q
+uv run --package morphospace pytest packages/morphospace/tests -q
+uv run --package similarity pytest packages/similarity/tests -q
+uv run --package plannerbench pytest packages/plannerbench/tests -q
+uv run ruff check packages/ && uv run ruff format --check packages/
 ```
+
+**Frontend:**
+
+```bash
+bun run lint
+bun run build
+```
+
+Ruff and ESLint already report findings on `main`, so compare against the
+baseline and don't add new ones rather than expecting a clean run.
 
 ## Development Tips
 
 ### Backend Development
 
-- **Hot Reload**: Use `--reload` flag with uvicorn or run `fastapi dev` for auto-restart on code changes.
-- **API Docs**: FastAPI automatically generates interactive API documentation at `/docs`.
-- **Logging**: Configure logging levels in `backend/app/configs/config.yaml`.
-- **Search index**: `search_index.build_vector` in `backend/app/configs/config.yaml` is `false`, so an ordinary start builds no vector index and similarity search falls back to a brute-force cosine scan. Set it `true` for one boot after the embeddings are rebuilt, then back to `false` — training the index is minutes of work that a restart does not invalidate. Startup logs which path it took.
-- **Dependencies**: Add new packages with `uv add <package>`.
-- **Environment Variables**: Backend reads from `backend/.env` file for configuration.
-- **Convenience Scripts**: Use `scripts/run_backend.sh` for quick startup.
+- **Hot reload:** `fastapi dev` (used by `run_backend.sh`) restarts on code changes. Startup reloads the ML models, so a restart takes a while.
+- **API docs:** FastAPI generates interactive documentation at `/docs`.
+- **Configuration:** everything except paths and secrets lives in `backend/app/configs/config.yaml`; LLM prompts are in `backend/app/configs/prompts/`.
+- **Excluded families:** `image_meta` is a view that drops `image_metadata.exclude_families`. Always query `image_meta`, never `image_meta_source`.
+- **Search index:** `search_index.build_vector` is `false`, so an ordinary start builds no vector index. Set it `true` for one boot after the embeddings are rebuilt, then back to `false`. Startup logs which path it took.
+- **Dependencies:** add them to the right workspace member, e.g. `uv add --package backend <package>`, and commit the updated root `uv.lock`.
+- **Agent planner:** after changing a planner prompt or tool argument model, re-export the spec (`cd backend && uv run python scripts/export_planner_spec.py`) and compare models with `plannerbench`; see [packages/plannerbench/README.md](packages/plannerbench/README.md).
+- **Analyses:** `analyses/` is a separate uv project for the publication notebooks and index benchmarks; see [analyses/README.md](analyses/README.md). Its `lancedb` pin must match the root lockfile.
 
 ### Frontend Development
 
-- **TypeScript**: All components use TypeScript for type safety.
-- **Tailwind CSS**: Utility-first styling with custom theme configuration.
-- **Dark Mode**: Theme handled by `next-themes` with system preference detection.
-- **API Integration**: Next.js route handlers in `src/app/api/` proxy requests to the backend.
-- **Convenience Scripts**: Use `scripts/run_frontend.sh` for quick startup.
+- **TypeScript:** strict mode; use the `@/` alias for imports from `src/`.
+- **Tailwind CSS 4:** utility-first styling with the theme in `src/app/globals.css` and `tailwind.config.ts`.
+- **Dark mode:** handled by `next-themes` with system preference detection.
+- **API integration:** route handlers in `src/app/api/` proxy requests to the backend at `API_HOST`. They forward the backend's `Cache-Control`; see [Caching and Cache Invalidation](#caching-and-cache-invalidation).
+- **Lint and format:** `bun run lint` runs ESLint and then `prettier --check`. `bun run format` formats the frontend with Prettier, and `bun run lint:fix` applies ESLint's fixable subset as well. `next lint` no longer exists in Next 16; the scripts call ESLint with `eslint.config.mjs`.
 
 ## Caching and Cache Invalidation
 
@@ -531,54 +579,42 @@ and defaults. The old frontend and new backend can be live at the same time.
 
 ## Deployment
 
-### Docker Deployment
+### Docker Compose
 
-The project includes Docker configurations for easy deployment:
+`docker-compose.yml` builds both images and mounts the data directories from
+`backend/` and `public/images` into the backend container. The backend
+reserves an NVIDIA GPU; remove the `deploy` block to run it on CPU. Container
+paths are set in the compose file, and `backend/.env` is read only for the
+optional secrets (LLM, CrossRef, NCBI).
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Run in detached mode
-docker-compose up -d
-
-# Stop services
-docker-compose down
+docker compose up --build      # build and run
+docker compose up -d           # run in the background
+docker compose down            # stop
 ```
 
-### Podman / Docker (Manual Container Runs)
+### Podman / Docker (manual container runs)
 
-If you don't have `docker-compose`, you can run the containers manually:
-
-**Step 1: Create a shared network**
+Both images build with the **repository root** as the context: the backend
+needs the workspace `pyproject.toml`, `uv.lock`, and `packages/`.
 
 ```bash
 docker network create biocosmos
-```
 
-**Step 2: Build the images**
-
-```bash
-# From project root
-docker build -t biocosmos-backend ./backend
+docker build -t biocosmos-backend -f backend/Dockerfile .
 docker build -t biocosmos-frontend -f Dockerfile.frontend .
-```
 
-**Step 3: Run the backend**
-
-```bash
 docker run -d \
   --name backend \
   --network biocosmos \
-  -p 8000:80 \
+  -p 8000:8000 \
+  --env-file ./backend/.env \
   -e DUCK_DIR=/app/duck_db \
   -e LANCE_DIR=/app/lance_db \
   -e IMAGE_DIR=/app/images \
   -e IMAGE_META_DIR=/app/data \
   -e GBIF_DIR=/app/data \
   -e COL_DIR=/app/data/col \
-  -e UMAP_DIR=/app/data \
-  --env-file ./backend/.env \
   -v ./backend/duck_db:/app/duck_db:Z \
   -v ./backend/lance_db_lite:/app/lance_db:Z \
   -v ./backend/data:/app/data:Z \
@@ -586,18 +622,19 @@ docker run -d \
   -v ./backend/static:/app/static:Z \
   -v ./public/images:/app/images:Z \
   biocosmos-backend
-```
 
-**Step 4: Run the frontend**
-
-```bash
 docker run -d \
   --name frontend \
   --network biocosmos \
   -p 3000:3000 \
-  -e API_HOST=http://backend:80 \
+  -e API_HOST=http://backend:8000 \
   biocosmos-frontend
 ```
+
+The `-e` flags come after `--env-file`, so the container paths override the
+host paths in `backend/.env`. In a container, set `col.cache_dir` in
+`config.yaml` so the 3.6 GB Catalogue of Life index persists under `DUCK_DIR`
+rather than the container's home directory.
 
 ## API Endpoints
 
@@ -645,14 +682,18 @@ For complete backend API documentation, visit [http://localhost:8000/docs](http:
 
 ## Coding Standards
 
+Use American English spelling in code, comments, UI copy, and documentation.
+
 ### Frontend
 
-- We use [ESLint](https://eslint.org/) for linting. Please run `bun lint` before committing.
-- Code is formatted automatically on commit using pre-commit hooks.
+- Two-space indentation, `PascalCase` for components and interfaces, `camelCase` for functions and variables, and Next.js route conventions such as `[speciesName]/page.tsx`.
+- Format with Prettier (`bun run format`), and run `bun run lint` and `bun run build` before opening a pull request.
 
-### Backend
+### Backend and packages
 
-- We use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting.
-- Please run `ruff check .` and `ruff format .` in the `backend` directory before committing.
+- Four-space indentation, `snake_case` modules and functions, and typed FastAPI/Pydantic interfaces.
+- Keep route handlers thin; put reusable logic in `query/` or `services/`.
+- Lint and format with [Ruff](https://github.com/astral-sh/ruff): `uv run ruff check .` and `uv run ruff format --check .` in `backend/`, and the same commands on `packages/` from the root.
+- Add tests as `test_<feature>.py`, with shared fixtures in `backend/tests/conftest.py`.
 
 We look forward to your contributions!

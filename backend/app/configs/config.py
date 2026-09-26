@@ -564,11 +564,12 @@ class EmbedderConfig:
     def device(self) -> str:
         device = self._embedder_config.get("device", "default")
         valid_devices = ["default", "cpu", "cuda", "mps"]
-        default = (
-            torch.accelerator.current_accelerator().type
+        accelerator = (
+            torch.accelerator.current_accelerator()
             if torch.accelerator.is_available()
-            else "cpu"
+            else None
         )
+        default = accelerator.type if accelerator is not None else "cpu"
         if device not in valid_devices:
             logger.info(
                 f"Invalid embedder device '{device}'. Falling back to 'default'."
@@ -591,6 +592,8 @@ class EmbedderConfig:
                 else:
                     logger.info("MPS not available. Falling back to 'cpu'.")
                     return default
+            case _:
+                return default
 
     @property
     def batch_size(self) -> int:

@@ -185,6 +185,7 @@ class TestNames:
             mito_report("Panthera leo", "NC_028302.1"),
         ]
         reference = choose_reference(reports, "Panthera leo")
+        assert reference is not None
         assert reference.refseq_accession == "NC_028302.1"
         assert reference.organism_name == "Panthera leo"
 
@@ -192,6 +193,7 @@ class TestNames:
         reference = choose_reference(
             [mito_report("Panthera leo persica")], "Panthera leo"
         )
+        assert reference is not None
         assert reference.organism_name == "Panthera leo persica"
         assert reference.gene_count == 37
 
@@ -202,29 +204,37 @@ class TestNames:
         assembly = to_assembly(
             genome_report("Danaus plexippus", reference=True, annotated=True)
         )
+        assert assembly is not None
         assert assembly.is_reference is True
         # Datasets sends the length as a string.
         assert assembly.genome_size == 245173502
         assert assembly.contig_n50 == 3940764
         assert assembly.gc_percent == 32.0
+        assert assembly.annotation is not None
         assert assembly.annotation.protein_coding == 12804
         assert assembly.annotation.pseudogenes is None
         assert assembly.annotation.busco_complete == pytest.approx(0.9947)
 
     def test_best_assembly_is_most_complete_then_most_contiguous(self):
         reports = [
-            genome_report("Morpho helenor", "GCA_1", level="Contig", contig_n50=9e7),
+            genome_report(
+                "Morpho helenor", "GCA_1", level="Contig", contig_n50=90_000_000
+            ),
             genome_report("Morpho helenor", "GCA_2", level="Scaffold", contig_n50=10),
             genome_report("Morpho helenor", "GCA_3", level="Scaffold", contig_n50=20),
         ]
-        assert choose_assembly(reports, "Morpho helenor").accession == "GCA_3"
+        best = choose_assembly(reports, "Morpho helenor")
+        assert best is not None
+        assert best.accession == "GCA_3"
 
     def test_best_assembly_prefers_the_species_own(self):
         reports = [
             genome_report("Morpho helenor peleides", "GCA_1", level="Chromosome"),
             genome_report("Morpho helenor", "GCA_2", level="Contig"),
         ]
-        assert choose_assembly(reports, "Morpho helenor").accession == "GCA_2"
+        best = choose_assembly(reports, "Morpho helenor")
+        assert best is not None
+        assert best.accession == "GCA_2"
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +248,7 @@ class TestGeneticsSummary:
             counts={"CYTB[gene]": 21, "complete genome": 0, "mitochondrion": 23}
         )
         payload = asyncio.run(fake.summary().summarize("rattus_everetti"))
+        assert payload is not None
 
         assert payload.species == "Rattus everetti"
         assert payload.gene_types == {}
@@ -258,13 +269,16 @@ class TestGeneticsSummary:
             counts={"complete genome": 19, "mitochondrion": 343},
         )
         payload = asyncio.run(fake.summary().summarize("Panthera leo"))
+        assert payload is not None
         assert payload.gene_types == {"PROTEIN_CODING": 19491, "tRNA": 713}
+        assert payload.mitochondrion.reference is not None
         assert payload.mitochondrion.reference.length == 17044
         assert payload.mitochondrion.complete_genome_count == 19
 
     def test_skips_the_breakdown_when_there_is_nothing_mitochondrial(self):
         fake = FakeNcbi()
         payload = asyncio.run(fake.summary().summarize("Fooia barus"))
+        assert payload is not None
         # Gene counts, reference genome, assembly count, organelle report,
         # one esearch: nothing else.
         assert len(fake.requests) == 5
@@ -281,6 +295,8 @@ class TestGeneticsSummary:
             assemblies=[reference, genome_report("Danaus plexippus", "GCA_9")],
         )
         payload = asyncio.run(fake.summary().summarize("Danaus plexippus"))
+        assert payload is not None
+        assert payload.nuclear.assembly is not None
         assert payload.nuclear.assembly.accession == "GCF_018135715.1"
         assert payload.nuclear.assembly.is_reference is True
         assert payload.nuclear.assembly_count == 2
@@ -295,6 +311,8 @@ class TestGeneticsSummary:
             ]
         )
         payload = asyncio.run(fake.summary().summarize("Morpho helenor"))
+        assert payload is not None
+        assert payload.nuclear.assembly is not None
         assert payload.nuclear.assembly.accession == "GCA_2"
         assert payload.nuclear.assembly.is_reference is False
         assert payload.nuclear.assembly_count == 2
@@ -304,6 +322,7 @@ class TestGeneticsSummary:
     def test_a_failed_call_makes_the_result_partial(self):
         fake = FakeNcbi(counts={"mitochondrion": 5}, fail="/counts")
         payload = asyncio.run(fake.summary().summarize("Rattus everetti"))
+        assert payload is not None
         assert payload.partial is True
         assert payload.gene_types is None
         assert payload.mitochondrion.sequence_count == 5
@@ -315,6 +334,7 @@ class TestGeneticsSummary:
         client._min_interval = 0.05
         summary = GeneticsSummary(client, deadline=0.35)
         payload = asyncio.run(summary.summarize("Rattus everetti"))
+        assert payload is not None
         assert payload.partial is True
         assert payload.mitochondrion.sequence_count == 5
         assert len(payload.mitochondrion.markers) < len(MITOCHONDRIAL_MARKERS)

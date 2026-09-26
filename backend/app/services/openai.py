@@ -17,6 +17,8 @@ class AiSummary:
             raise ValueError(
                 "OpenAI API key and base URL must be provided."
             )
+        if config.model is None:
+            raise ValueError("OpenAI model must be provided.")
         client = OpenAI(
             base_url=config.api_url, api_key=config.api_key
         )
@@ -25,14 +27,15 @@ class AiSummary:
 
     def summarize_text(
         self, prompt: str, word_limit: int = 250
-    ) -> str:
+    ) -> str | None:
         """
         Generate text using the OpenAI API.
         Args:
             prompt (str): The input prompt for text generation.
             model (str): The model to use for text generation.
         Returns:
-            str: The generated text.
+            str | None: The generated text, or None when the model returned
+            no content.
         """
         original_text = prompt
         logger.info(f"Generating summary for prompt: {prompt}")

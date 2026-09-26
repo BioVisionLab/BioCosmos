@@ -66,10 +66,7 @@ export interface GeoCodeDescriptions {
 }
 
 export type GeoCodeKind =
-  | "validationStatus"
-  | "coordinateCheck"
-  | "countryCheck"
-  | "adm1Check";
+  "validationStatus" | "coordinateCheck" | "countryCheck" | "adm1Check";
 
 /**
  * Used only when `/api/geography/codes` cannot be reached, so a hint still

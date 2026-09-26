@@ -245,9 +245,8 @@ class SpeciesSimilarity:
                 if side in (None, "ventral")
                 else []
             )
-            payload = VisuallySimilarSpeciesPayload(
-                dorsal=dorsal,
-                ventral=ventral,
+            payload = VisuallySimilarSpeciesPayload.model_validate(
+                {"dorsal": dorsal, "ventral": ventral}
             )
             return payload.model_dump(by_alias=True)
         except Exception as e:
@@ -264,7 +263,7 @@ class SpeciesSimilarity:
         exclude_keys: set[str],
     ) -> list[dict]:
         try:
-            similar_images: pl.DataFrame = ImagePersistData(
+            similar_images: pl.DataFrame | None = ImagePersistData(
                 lance_db=self.lance_db,
                 duckdb=self.duck_db,
             ).find_similar_images(

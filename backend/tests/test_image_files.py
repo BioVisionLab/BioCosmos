@@ -99,6 +99,7 @@ class TestImageMetaRetrieval:
             MockDirectory.return_value.get.return_value = holder
             meta = ImageMetaRetrieval(request=fake_request).get_meta_by_id("img-001")
             MockDirectory.return_value.get.assert_called_once_with("MCZ")
+        assert meta is not None
         return meta
 
     def test_holder_carries_its_resolved_name_and_website(self, fake_request):

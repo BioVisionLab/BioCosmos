@@ -95,7 +95,8 @@ export default function FeaturedRail({
     const rail = railRef.current;
     if (!rail) return;
     const max = rail.scrollWidth - rail.clientWidth;
-    const visible = rail.scrollWidth > 0 ? rail.clientWidth / rail.scrollWidth : 1;
+    const visible =
+      rail.scrollWidth > 0 ? rail.clientWidth / rail.scrollWidth : 1;
     const progress = max > 0 ? rail.scrollLeft / max : 0;
     setThumb({ width: visible * 100, offset: progress * (1 - visible) * 100 });
     setEdges({ start: rail.scrollLeft <= 1, end: rail.scrollLeft >= max - 1 });
@@ -112,7 +113,9 @@ export default function FeaturedRail({
     const card = rail?.querySelector("li");
     if (!rail || !card) return;
     const gap = parseFloat(getComputedStyle(rail).columnGap) || 0;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     rail.scrollBy({
       left: direction * STEP_CARDS * (card.getBoundingClientRect().width + gap),
       behavior: reduce ? "auto" : "smooth",
@@ -147,10 +150,15 @@ export default function FeaturedRail({
       {/* Always one line, so the section does not move when a failure
           message replaces the rail's contents. */}
       <p className="mt-1 h-5 text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
-        {!species && !pending ? "Featured species are temporarily unavailable." : " "}
+        {!species && !pending
+          ? "Featured species are temporarily unavailable."
+          : " "}
       </p>
       <div className="mt-2 flex items-center gap-4">
-        <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-deep-mocha-300/60 dark:bg-deep-mocha-700" aria-hidden="true">
+        <div
+          className="h-0.5 flex-1 overflow-hidden rounded-full bg-deep-mocha-300/60 dark:bg-deep-mocha-700"
+          aria-hidden="true"
+        >
           <span
             className="block h-full rounded-full bg-deep-mocha-600 transition-transform duration-150 dark:bg-deep-mocha-300"
             style={{

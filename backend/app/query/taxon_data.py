@@ -103,7 +103,7 @@ class TaxonStatPayload(BaseModel):
                 code: InstitutionInfo(**info)
                 for code, info in (institution_directory or {}).items()
             },
-            topTenSpecies=top_ten_species if top_ten_species is not None else [],
+            topTenSpecies=top_ten_species if top_ten_species is not None else {},
         )
 
 
@@ -122,7 +122,7 @@ class SpeciesPayload(BaseModel):
         cls,
         species_id: str,
         taxonomy: dict,
-        traits: dict,
+        traits: dict | None,
     ):
         """
         Create a SpeciesPayload instance from the provided data.
@@ -293,7 +293,7 @@ class TaxonSearch:
             institution_counts: dict[str, int] | None = (
                 img_meta_stats.get_institution_counts()
             )
-            top_ten_species: list[str] | None = img_meta_stats.get_top_ten_species()
+            top_ten_species: dict | None = img_meta_stats.get_top_ten_species()
             institution_directory = InstitutionDirectory(
                 self.request.app.state.duck_db
             ).get_all()
@@ -434,7 +434,7 @@ class TaxonSearch:
             )
             return None
 
-    def _generate_prompt(self, taxon_data: dict, traits: dict) -> str:
+    def _generate_prompt(self, taxon_data: dict, traits: dict | None) -> str:
         """
         Generate a prompt for the AI summarization service based on taxon data and traits.
 

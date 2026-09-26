@@ -115,9 +115,11 @@ def get_app_settings() -> AppSettings:
     Raises an EnvironmentError if required settings are missing.
     """
     try:
-        return AppSettings()
+        # pydantic-settings fills the fields from the environment at runtime,
+        # but its typed constructor still lists them as required arguments.
+        return AppSettings()  # pyright: ignore[reportCallIssue]
     except ValidationError as e:
-        missing_vars = [err["loc"][0] for err in e.errors() if "loc" in err]
+        missing_vars = [str(err["loc"][0]) for err in e.errors() if "loc" in err]
         error_message = f"Missing or invalid required environment variables: {', '.join(missing_vars)}"
         logger.error(error_message)
         raise EnvironmentError(error_message) from e
@@ -142,6 +144,17 @@ def initialize_lance(app: FastAPI):
     """Initializes and attaches the database to the app state."""
     logger.info("Initializing LanceDB...")
     app.state.lance_db = LanceDB()
+    table = ImageConfig().table
+    problems = app.state.lance_db.schema_problems(table)
+    if problems:
+        logger.warning(
+            "LanceDB collection '%s' predates the current layout (%s). "
+            "Similarity search still works; species images and new ingests do "
+            "not. Run `uv run --env-file .env python scripts/migrate_lance.py` "
+            "from backend/ with the backend stopped.",
+            table,
+            "; ".join(problems),
+        )
     logger.info("LanceDB initialized successfully.")
 
 
@@ -325,6 +338,7 @@ def build_search_indexes(app: FastAPI):
         image_config = ImageConfig()
         for column in ("unicom_embeddings", "clip_embeddings"):
             app.state.lance_db.ensure_vector_index(image_config.table, column)
+        app.state.lance_db.ensure_scalar_index(image_config.table, "img_id")
     except Exception:
         # `ensure_vector_index` already swallows its own failures, so reaching
         # here means the config or the collection handle is broken rather than

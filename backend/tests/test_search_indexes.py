@@ -10,9 +10,11 @@ in the app ever ran a BM25 query, so both indexes were built on every start
 and read by nothing.
 """
 
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+from lancedb import DBConnection
 
 
 class _FakeIndex:
@@ -32,7 +34,9 @@ class TestEnsureVectorIndex:
         from app.database.lance import LanceDB
 
         db = LanceDB.__new__(LanceDB)
-        db.db = {"images": table} if table is not None else {}
+        # The index build only looks a collection up by name.
+        tables = {"images": table} if table is not None else {}
+        db.db = cast(DBConnection, tables)
         return db
 
     def _table(self, *, rows, indices=(), dims=768):
@@ -49,12 +53,13 @@ class TestEnsureVectorIndex:
             is True
         )
 
-        kwargs = table.create_index.call_args.kwargs
-        assert kwargs["metric"] == "cosine"
-        assert kwargs["vector_column_name"] == "unicom_embeddings"
+        (column,) = table.create_index.call_args.args
+        config = table.create_index.call_args.kwargs["config"]
+        assert column == "unicom_embeddings"
+        assert config.distance_type == "cosine"
         # sqrt(640_000) == 800, and 768 dims at 8 per sub-vector.
-        assert kwargs["num_partitions"] == 800
-        assert kwargs["num_sub_vectors"] == 96
+        assert config.num_partitions == 800
+        assert config.num_sub_vectors == 96
 
     def test_is_idempotent_across_restarts(self):
         """Training is minutes of work; a restart does not invalidate it."""
@@ -81,18 +86,21 @@ class TestEnsureVectorIndex:
 
         huge = self._table(rows=10**12)
         self._lance(huge).ensure_vector_index("images", "unicom_embeddings")
-        assert huge.create_index.call_args.kwargs["num_partitions"] == MAX_PARTITIONS
+        assert (
+            huge.create_index.call_args.kwargs["config"].num_partitions
+            == MAX_PARTITIONS
+        )
 
         # No floor is needed, because the smallest collection that gets an
         # index at all already lands well clear of a degenerate partitioning.
         small = self._table(rows=MIN_ROWS_FOR_INDEX)
         self._lance(small).ensure_vector_index("images", "unicom_embeddings")
-        assert small.create_index.call_args.kwargs["num_partitions"] == 70
+        assert small.create_index.call_args.kwargs["config"].num_partitions == 70
 
     def test_clip_width_also_divides_evenly(self):
         table = self._table(rows=640_000, dims=512)
         self._lance(table).ensure_vector_index("images", "clip_embeddings")
-        assert table.create_index.call_args.kwargs["num_sub_vectors"] == 64
+        assert table.create_index.call_args.kwargs["config"].num_sub_vectors == 64
 
     def test_a_failed_build_does_not_raise(self):
         """An unindexed column is slow, not broken."""
@@ -165,6 +173,9 @@ class TestBuildSearchIndexes:
             (("nymphalidae", "unicom_embeddings"),),
             (("nymphalidae", "clip_embeddings"),),
         ]
+        app.state.lance_db.ensure_scalar_index.assert_called_once_with(
+            "nymphalidae", "img_id"
+        )
 
     def test_a_skipped_build_says_which_flag_turned_it_off(self, caplog):
         """The whole readiness story, since there is no separate reporter.

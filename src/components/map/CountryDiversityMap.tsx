@@ -13,10 +13,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { getBasemapAttribution, loadLightBasemapStyle } from "@/lib/map";
 import { addProjectionToggle, keepProjection } from "@/lib/mapProjection";
 import { configureMapLibreWorker } from "@/lib/maplibreWorker";
-import {
-  countryHref,
-  type CountryDiversityRow,
-} from "@/lib/countryDiversity";
+import { countryHref, type CountryDiversityRow } from "@/lib/countryDiversity";
 import { speciesScale, type SpeciesScale } from "./speciesScale";
 
 /**
@@ -39,7 +36,11 @@ const WORLD: [[number, number], [number, number]] = [
 ];
 
 function colorExpression(scale: SpeciesScale): ExpressionSpecification {
-  const step: unknown[] = ["step", ["feature-state", "species"], scale.colors[0]];
+  const step: unknown[] = [
+    "step",
+    ["feature-state", "species"],
+    scale.colors[0],
+  ];
   scale.breaks.slice(1).forEach((lower, index) => {
     step.push(lower, scale.colors[index + 1]);
   });
@@ -208,7 +209,9 @@ export default function CountryDiversityMap({
             {
               id: "background",
               type: "background",
-              paint: { "background-color": initialDark ? "#1c1717" : "#f5f5f4" },
+              paint: {
+                "background-color": initialDark ? "#1c1717" : "#f5f5f4",
+              },
             },
           ],
         }),
@@ -236,7 +239,10 @@ export default function CountryDiversityMap({
         });
         mapRef.current = map;
         map.touchZoomRotate.disableRotation();
-        map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+        map.addControl(
+          new NavigationControl({ showCompass: false }),
+          "top-right",
+        );
         addProjectionToggle(map);
 
         const popup = new Popup({
@@ -251,11 +257,17 @@ export default function CountryDiversityMap({
         const setHover = (code: string | null) => {
           if (hovered === code) return;
           if (hovered) {
-            map.setFeatureState({ source: SOURCE_ID, id: hovered }, { hover: false });
+            map.setFeatureState(
+              { source: SOURCE_ID, id: hovered },
+              { hover: false },
+            );
           }
           hovered = code;
           if (code) {
-            map.setFeatureState({ source: SOURCE_ID, id: code }, { hover: true });
+            map.setFeatureState(
+              { source: SOURCE_ID, id: code },
+              { hover: true },
+            );
           }
         };
 
@@ -263,7 +275,8 @@ export default function CountryDiversityMap({
           rowsRef.current.find((row) => row.countryCode === code);
 
         const onMove = (event: MapLayerMouseEvent) => {
-          const code = event.features?.[0]?.properties?.code as string | undefined;
+          const code = event.features?.[0]?.properties?.code as
+            string | undefined;
           if (!code) return;
           map.getCanvas().style.cursor = rowFor(code) ? "pointer" : "";
           setHover(code);
@@ -278,7 +291,8 @@ export default function CountryDiversityMap({
           popup.remove();
         };
         const onClick = (event: MapLayerMouseEvent) => {
-          const code = event.features?.[0]?.properties?.code as string | undefined;
+          const code = event.features?.[0]?.properties?.code as
+            string | undefined;
           const row = code ? rowFor(code) : undefined;
           if (!code) return;
           if (noHover) {
@@ -334,7 +348,9 @@ export default function CountryDiversityMap({
     rowsRef.current = countries;
     const map = mapRef.current;
     if (!map?.getLayer(FILL_LAYER)) return;
-    const color = colorExpression(speciesScale(countries, themeRef.current ?? false));
+    const color = colorExpression(
+      speciesScale(countries, themeRef.current ?? false),
+    );
     map.setPaintProperty(FILL_LAYER, "fill-color", color);
     map.setPaintProperty(MARKER_LAYER, "circle-color", color);
     applyCounts(map, countries);

@@ -68,7 +68,13 @@ function computeDistancePercent(distance: number) {
   return Math.max(0, Math.min(100, Math.round(similarity * 100)));
 }
 
-function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolNames?: string[] }) {
+function MLSearchResultCard({
+  data,
+  toolNames,
+}: {
+  data: MlResultItems;
+  toolNames?: string[];
+}) {
   // Building the URL needs no I/O. Resolving it synchronously lets a grid
   // restored from cache paint straight from the browser's immutable image
   // cache instead of flashing a spinner per card.
@@ -94,51 +100,53 @@ function MLSearchResultCard({ data, toolNames }: { data: MlResultItems; toolName
   return (
     <div className="bg-deep-mocha-200 dark:bg-deep-mocha-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center min-h-[200px] w-full min-w-0">
       <MaybeSpeciesLink
-          speciesKey={data.speciesKey}
-          className="flex flex-col items-center justify-between h-full w-full gap-2"
+        speciesKey={data.speciesKey}
+        className="flex flex-col items-center justify-between h-full w-full gap-2"
+      >
+        <div className="flex flex-1 items-center justify-center w-full">
+          <div className="relative aspect-square w-full max-w-32">
+            {imageFailed ? (
+              <NoImage />
+            ) : (
+              <Image
+                src={imageUrl}
+                alt={`Image of ${data.species}`}
+                fill
+                sizes={`${IMAGE_SIZE}px`}
+                className="object-contain"
+                onError={() => setImageFailed(true)}
+                unoptimized
+              />
+            )}
+          </div>
+        </div>
+
+        <h2
+          className={`text-sm text-center italic w-full ${toolNames ? "break-words text-deep-mocha-800 dark:text-deep-mocha-100" : "truncate text-deep-mocha-400"}`}
         >
-          <div className="flex flex-1 items-center justify-center w-full">
-            <div className="relative aspect-square w-full max-w-32">
-              {imageFailed ? (
-                <NoImage />
-              ) : (
-                <Image
-                  src={imageUrl}
-                  alt={`Image of ${data.species}`}
-                  fill
-                  sizes={`${IMAGE_SIZE}px`}
-                  className="object-contain"
-                  onError={() => setImageFailed(true)}
-                  unoptimized
-                />
+          {speciesName}
+        </h2>
+
+        <div className="flex flex-col gap-1 items-center w-full">
+          {toolNames && <SemanticFunctionBadges toolNames={toolNames} />}
+          {!toolNames && data.score !== undefined && (
+            <span
+              className={getMatchPillClass(computeMatchPercent(data.score))}
+            >
+              Match: {computeMatchPercent(data.score)}%
+            </span>
+          )}
+          {!toolNames && data.distance !== undefined && (
+            <span
+              className={getMatchPillClass(
+                computeDistancePercent(data.distance),
               )}
-            </div>
-          </div>
-
-          <h2 className={`text-sm text-center italic w-full ${toolNames ? "break-words text-deep-mocha-800 dark:text-deep-mocha-100" : "truncate text-deep-mocha-400"}`}>
-            {speciesName}
-          </h2>
-
-          <div className="flex flex-col gap-1 items-center w-full">
-            {toolNames && <SemanticFunctionBadges toolNames={toolNames} />}
-            {!toolNames && data.score !== undefined && (
-              <span
-                className={getMatchPillClass(computeMatchPercent(data.score))}
-              >
-                Match: {computeMatchPercent(data.score)}%
-              </span>
-            )}
-            {!toolNames && data.distance !== undefined && (
-              <span
-                className={getMatchPillClass(
-                  computeDistancePercent(data.distance),
-                )}
-              >
-                Match: {computeDistancePercent(data.distance)}%
-              </span>
-            )}
-          </div>
-        </MaybeSpeciesLink>
+            >
+              Match: {computeDistancePercent(data.distance)}%
+            </span>
+          )}
+        </div>
+      </MaybeSpeciesLink>
     </div>
   );
 }

@@ -250,6 +250,7 @@ class TestLocalityDisplay:
 class TestReaders:
     def test_locality_block_carries_a_display_line(self, built):
         block = OccurrenceLocality(built).get_for_image("i1")
+        assert block is not None
         assert block["display"] == "Serra do Caraca, Ouro Preto, Minas Gerais, Brazil"
         assert block["countryCode"] == "BR"
 

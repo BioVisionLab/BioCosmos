@@ -47,7 +47,10 @@ export default function CodeTable({
         {/* Redundant once every row carries its own label. */}
         <thead className="hidden sm:table-header-group">
           <tr className="border-b border-deep-mocha-300 dark:border-deep-mocha-700">
-            <th scope="col" className="py-2 pr-4 font-semibold whitespace-nowrap">
+            <th
+              scope="col"
+              className="py-2 pr-4 font-semibold whitespace-nowrap"
+            >
               {head[0]}
             </th>
             <th scope="col" className="py-2 font-semibold">

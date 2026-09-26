@@ -51,9 +51,10 @@ type Bounds = [[number, number], [number, number]];
  * instead, at a world zoom. The median, not the mean: a few outliers across
  * the antimeridian would drag a mean into the ocean.
  */
-function initialView(
-  points: SpeciesCoordinatePoint[],
-): { bounds: Bounds | null; center: [number, number] } {
+function initialView(points: SpeciesCoordinatePoint[]): {
+  bounds: Bounds | null;
+  center: [number, number];
+} {
   const world: [number, number] = [0, 20];
   if (points.length === 0) return { bounds: null, center: world };
   let west = 180;

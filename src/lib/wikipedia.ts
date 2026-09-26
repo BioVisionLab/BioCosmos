@@ -108,7 +108,10 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
       parsedData.push(current);
     }
     // The taxobox
-    else if (element.tagName === "TABLE" && element.classList.contains("infobox")) {
+    else if (
+      element.tagName === "TABLE" &&
+      element.classList.contains("infobox")
+    ) {
       // The first row names the taxon; it becomes the card title instead.
       const titleRow = element.querySelector("tr");
       const title = titleRow?.querySelector("th")?.textContent?.trim();
@@ -196,7 +199,10 @@ function alignRankColons(infobox: HTMLElement) {
     const cells = Array.from(row.children);
     if (cells.length !== 2 || cells[0].tagName !== "TD") return;
     const label = cells[0] as HTMLElement;
-    const walker = label.ownerDocument.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+    const walker = label.ownerDocument.createTreeWalker(
+      label,
+      NodeFilter.SHOW_TEXT,
+    );
     let last: Text | null = null;
     while (walker.nextNode()) {
       const text = walker.currentNode as Text;

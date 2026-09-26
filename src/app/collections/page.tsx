@@ -1,4 +1,3 @@
-
 import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchTaxonStats } from "@/lib/metaStats";
 import CollectionCharts from "./CollectionCharts";
@@ -80,10 +79,10 @@ export default async function CollectionsPage() {
       >
         <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
         <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
-          Image and metadata are provided by museum institutions and
-          aggregated by data aggregators (GBIF, Ecdysis, and SCANBUGS). A
-          record published to more than one aggregator is counted under
-          &quot;Multiple Sources&quot; rather than a single one.
+          Image and metadata are provided by museum institutions and aggregated
+          by data aggregators (GBIF, Ecdysis, and SCANBUGS). A record published
+          to more than one aggregator is counted under &quot;Multiple
+          Sources&quot; rather than a single one.
         </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {sourceStats.map((s) => (
@@ -95,10 +94,10 @@ export default async function CollectionsPage() {
       <section aria-label="Collection visualizations" className="mt-12">
         <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
         <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
-          Proportion of image entries across butterfly families before and
-          after taxonomy validation, the top ten most-represented species in
-          the collection, the holding institutions behind the collection, and
-          the ten countries with the most species recorded.
+          Proportion of image entries across butterfly families before and after
+          taxonomy validation, the top ten most-represented species in the
+          collection, the holding institutions behind the collection, and the
+          ten countries with the most species recorded.
         </p>
         <CollectionCharts
           entriesByFamily={data?.entriesByFamily ?? null}

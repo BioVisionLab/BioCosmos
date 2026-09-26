@@ -2,9 +2,11 @@
 
 import json
 from types import SimpleNamespace
+from typing import cast
 
 import polars as pl
 import pytest
+from fastapi import Request
 from app.routers import agent_search as router_module
 from app.services.agent import (
     AgentConfigurationError,
@@ -15,6 +17,11 @@ from app.services.agent import (
 )
 from app.services.agent_cache import agent_search_cache
 from app.services.agent_tools import AgentWarning
+
+
+def fake_request() -> Request:
+    """The router only forwards the request to the (faked) service."""
+    return cast(Request, SimpleNamespace())
 
 
 def response_json(response):
@@ -58,7 +65,7 @@ def ranked_rows(count):
 
 @pytest.mark.asyncio
 async def test_router_rejects_missing_and_oversized_queries():
-    request = SimpleNamespace()
+    request = fake_request()
 
     missing = await router_module.agent_search(request, None)
     oversized = await router_module.agent_search(request, "x" * 501)
@@ -99,7 +106,7 @@ async def test_router_preserves_results_and_adds_partial_warnings(monkeypatch):
         lambda request: FakeService(),
     )
 
-    response = await router_module.agent_search(SimpleNamespace(), "blue in Brazil")
+    response = await router_module.agent_search(fake_request(), "blue in Brazil")
     body = response_json(response)
 
     assert response.status_code == 200
@@ -137,7 +144,7 @@ async def test_router_maps_typed_errors(monkeypatch, error, status_code):
         lambda request: FakeService(),
     )
 
-    response = await router_module.agent_search(SimpleNamespace(), "blue")
+    response = await router_module.agent_search(fake_request(), "blue")
 
     assert response.status_code == status_code
     assert "error" in response_json(response)
@@ -147,7 +154,7 @@ async def test_router_maps_typed_errors(monkeypatch, error, status_code):
 async def test_router_pages_results_without_rerunning_search(monkeypatch):
     calls = install_fake_service(monkeypatch, ranked_rows(40))
 
-    first = response_json(await router_module.agent_search(SimpleNamespace(), "blue"))
+    first = response_json(await router_module.agent_search(fake_request(), "blue"))
 
     assert first["total"] == 40
     assert first["offset"] == 0
@@ -158,7 +165,7 @@ async def test_router_pages_results_without_rerunning_search(monkeypatch):
 
     second = response_json(
         await router_module.agent_search(
-            SimpleNamespace(), search_id=first["searchId"], offset=35
+            fake_request(), search_id=first["searchId"], offset=35
         )
     )
 
@@ -174,16 +181,14 @@ async def test_router_pages_results_without_rerunning_search(monkeypatch):
 async def test_router_reuses_cached_query_unless_refreshed(monkeypatch):
     calls = install_fake_service(monkeypatch, ranked_rows(3))
 
-    first = response_json(await router_module.agent_search(SimpleNamespace(), "Blue"))
-    repeat = response_json(
-        await router_module.agent_search(SimpleNamespace(), "  blue ")
-    )
+    first = response_json(await router_module.agent_search(fake_request(), "Blue"))
+    repeat = response_json(await router_module.agent_search(fake_request(), "  blue "))
 
     assert calls == ["Blue"]
     assert repeat["searchId"] == first["searchId"]
 
     refreshed = response_json(
-        await router_module.agent_search(SimpleNamespace(), "blue", refresh=True)
+        await router_module.agent_search(fake_request(), "blue", refresh=True)
     )
 
     assert calls == ["Blue", "blue"]
@@ -192,7 +197,7 @@ async def test_router_reuses_cached_query_unless_refreshed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_router_rejects_unknown_search_id():
-    response = await router_module.agent_search(SimpleNamespace(), search_id="gone")
+    response = await router_module.agent_search(fake_request(), search_id="gone")
 
     assert response.status_code == 410
     assert "error" in response_json(response)
@@ -203,9 +208,7 @@ async def test_router_clamps_offset_and_limit(monkeypatch):
     install_fake_service(monkeypatch, ranked_rows(50))
 
     body = response_json(
-        await router_module.agent_search(
-            SimpleNamespace(), "blue", offset=-5, limit=1000
-        )
+        await router_module.agent_search(fake_request(), "blue", offset=-5, limit=1000)
     )
 
     assert body["offset"] == 0
@@ -224,6 +227,6 @@ async def test_router_does_not_cache_failures(monkeypatch):
         "AgentSearchService",
         lambda request: FailingService(),
     )
-    await router_module.agent_search(SimpleNamespace(), "blue")
+    await router_module.agent_search(fake_request(), "blue")
 
     assert agent_search_cache.get_by_query("blue") is None

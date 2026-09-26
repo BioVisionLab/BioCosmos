@@ -32,7 +32,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${plexMono.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${plexMono.variable}`}
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         <ThemeProvider
           attribute="class"

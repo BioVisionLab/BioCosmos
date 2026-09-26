@@ -24,14 +24,14 @@ export async function GET(request: Request) {
   if (!species) {
     return NextResponse.json(
       { error: "Query parameter 'species' is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (side && side !== "dorsal" && side !== "ventral") {
     return NextResponse.json(
       { error: "Query parameter 'side' must be 'dorsal' or 'ventral'" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -42,28 +42,25 @@ export async function GET(request: Request) {
     : `${SIMILARITY_SERVICE_URL}/${encodeURIComponent(species)}/similar`;
 
   try {
-    const response = await fetch(
-      upstream,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        // Either the reader leaving or the deadline passing releases the
-        // upstream socket. `request.signal` alone would not cover a backend
-        // that simply never answers.
-        signal: AbortSignal.any([
-          request.signal,
-          AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        ]),
-      }
-    );
+    const response = await fetch(upstream, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      // Either the reader leaving or the deadline passing releases the
+      // upstream socket. `request.signal` alone would not cover a backend
+      // that simply never answers.
+      signal: AbortSignal.any([
+        request.signal,
+        AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      ]),
+    });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error(
         `Error fetching similarity data: ${response.status} - ${JSON.stringify(
-          errorData
-        )}`
+          errorData,
+        )}`,
       );
       return NextResponse.json(
         {
@@ -71,7 +68,7 @@ export async function GET(request: Request) {
             errorData.error || response.statusText
           }`,
         },
-        { status: response.status, headers: { "Cache-Control": "no-store" } }
+        { status: response.status, headers: { "Cache-Control": "no-store" } },
       );
     }
     const similarityData: SimilarSpeciesList = await response.json();
@@ -80,8 +77,7 @@ export async function GET(request: Request) {
     // cached at all.
     return NextResponse.json(similarityData, {
       headers: {
-        "Cache-Control":
-          response.headers.get("Cache-Control") ?? "no-store",
+        "Cache-Control": response.headers.get("Cache-Control") ?? "no-store",
       },
     });
   } catch (error) {
@@ -90,18 +86,18 @@ export async function GET(request: Request) {
     if (error instanceof DOMException && error.name === "AbortError") {
       return NextResponse.json(
         { error: "Similarity search timed out" },
-        { status: 504, headers: { "Cache-Control": "no-store" } }
+        { status: 504, headers: { "Cache-Control": "no-store" } },
       );
     }
     console.error(
       `Error fetching similarity data for species ${species}:`,
-      error
+      error,
     );
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
       { error: `Failed to fetch similarity data: ${errorMessage}` },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

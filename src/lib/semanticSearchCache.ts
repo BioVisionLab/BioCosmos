@@ -45,7 +45,10 @@ function readStorage(key: string): CachedSemanticSearch | null {
 function writeStorage(key: string, entry: CachedSemanticSearch | null) {
   try {
     if (entry) {
-      window.sessionStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(entry));
+      window.sessionStorage.setItem(
+        STORAGE_PREFIX + key,
+        JSON.stringify(entry),
+      );
     } else {
       window.sessionStorage.removeItem(STORAGE_PREFIX + key);
     }
@@ -80,7 +83,8 @@ function setCachedSearch(
   const next: CachedSemanticSearch = {
     ...entry,
     scrollY: entry.scrollY ?? previous?.scrollY ?? 0,
-    savedAt: previous?.searchId === entry.searchId ? previous.savedAt : Date.now(),
+    savedAt:
+      previous?.searchId === entry.searchId ? previous.savedAt : Date.now(),
   };
   memory.delete(key);
   memory.set(key, next);

@@ -172,6 +172,9 @@ class TaxonomyUpdateService:
             FROM (SELECT DISTINCT {columns} FROM {self.image_meta_table})
             """
         ).fetchone()
+        # An aggregate without GROUP BY always yields one row.
+        if row is None:
+            return "0:0"
         return f"{row[0]}:{row[1]}"
 
     # -- the run ----------------------------------------------------------
@@ -689,9 +692,9 @@ class OccurrenceTaxonomy:
             return set()
         if result is None or result.is_empty():
             return set()
-        keys = {accepted_key(row) for row in result.to_dicts()}
-        keys.discard(None)
-        return keys
+        return {
+            key for row in result.to_dicts() if (key := accepted_key(row)) is not None
+        }
 
     def _candidates(self, input_taxon_key: str | None) -> list[dict]:
         """Return the runner-up candidates for a taxon, best first.

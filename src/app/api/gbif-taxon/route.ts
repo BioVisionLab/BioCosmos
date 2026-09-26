@@ -86,7 +86,9 @@ async function matchTaxon(name: string): Promise<number | null> {
     { method: "GET", headers: { Accept: "application/json" } },
   );
   if (!response.ok) {
-    throw new Error(`GBIF match failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `GBIF match failed: ${response.status} ${response.statusText}`,
+    );
   }
 
   const match: GbifMatch = await response.json();

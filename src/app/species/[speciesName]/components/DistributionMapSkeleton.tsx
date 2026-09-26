@@ -54,10 +54,28 @@ export function MapAreaPlaceholder({ msg }: { msg?: string }) {
         preserveAspectRatio="none"
       >
         {[30, 60, 90, 120, 150].map((y) => (
-          <line key={`lat-${y}`} x1="0" x2="360" y1={y} y2={y} stroke="currentColor" strokeWidth="0.4" vectorEffect="non-scaling-stroke" />
+          <line
+            key={`lat-${y}`}
+            x1="0"
+            x2="360"
+            y1={y}
+            y2={y}
+            stroke="currentColor"
+            strokeWidth="0.4"
+            vectorEffect="non-scaling-stroke"
+          />
         ))}
         {[45, 90, 135, 180, 225, 270, 315].map((x) => (
-          <line key={`lon-${x}`} y1="0" y2="180" x1={x} x2={x} stroke="currentColor" strokeWidth="0.4" vectorEffect="non-scaling-stroke" />
+          <line
+            key={`lon-${x}`}
+            y1="0"
+            y2="180"
+            x1={x}
+            x2={x}
+            stroke="currentColor"
+            strokeWidth="0.4"
+            vectorEffect="non-scaling-stroke"
+          />
         ))}
       </svg>
       {msg && (

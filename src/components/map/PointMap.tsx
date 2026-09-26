@@ -150,38 +150,41 @@ export default function PointMap({
     );
   }, []);
 
-  const addPointsLayer = useCallback((map: MapLibreMap) => {
-    addUnderlay(map);
-    if (!map.getSource(SOURCE_ID)) {
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: featureCollectionRef.current,
-      });
-    }
+  const addPointsLayer = useCallback(
+    (map: MapLibreMap) => {
+      addUnderlay(map);
+      if (!map.getSource(SOURCE_ID)) {
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: featureCollectionRef.current,
+        });
+      }
 
-    if (!map.getLayer(LAYER_ID)) {
-      map.addLayer({
-        id: LAYER_ID,
-        type: "circle",
-        source: SOURCE_ID,
-        paint: {
-          "circle-radius": [
-            "coalesce",
-            ["get", "radius"],
-            circleRadiusRef.current,
-          ],
-          "circle-color": ["get", "color"],
-          "circle-opacity": 0.85,
-          "circle-stroke-width": 1,
-          "circle-stroke-color": [
-            "coalesce",
-            ["get", "strokeColor"],
-            "rgba(255,255,255,0.7)",
-          ],
-        },
-      });
-    }
-  }, [addUnderlay]);
+      if (!map.getLayer(LAYER_ID)) {
+        map.addLayer({
+          id: LAYER_ID,
+          type: "circle",
+          source: SOURCE_ID,
+          paint: {
+            "circle-radius": [
+              "coalesce",
+              ["get", "radius"],
+              circleRadiusRef.current,
+            ],
+            "circle-color": ["get", "color"],
+            "circle-opacity": 0.85,
+            "circle-stroke-width": 1,
+            "circle-stroke-color": [
+              "coalesce",
+              ["get", "strokeColor"],
+              "rgba(255,255,255,0.7)",
+            ],
+          },
+        });
+      }
+    },
+    [addUnderlay],
+  );
 
   // Create the map once. Theme and data changes are applied in place below.
   useEffect(() => {
@@ -212,14 +215,14 @@ export default function PointMap({
         : {}),
       minZoom,
       maxZoom,
-      attributionControl: { compact: true, customAttribution: getBasemapAttribution() },
+      attributionControl: {
+        compact: true,
+        customAttribution: getBasemapAttribution(),
+      },
     });
     mapRef.current = map;
 
-    map.addControl(
-      new NavigationControl({ showCompass: false }),
-      "top-right",
-    );
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     addProjectionToggle(map);
 
     const popup = new Popup({

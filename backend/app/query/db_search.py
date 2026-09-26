@@ -45,7 +45,7 @@ class DbSearchPayload(BaseModel):
     limit: int = 50
 
     @classmethod
-    def from_data(cls, query: str, results: list[dict], specimens: list[dict] = None, total_specimens: int = 0, page: int = 1, limit: int = 50):
+    def from_data(cls, query: str, results: list[dict], specimens: list[dict] | None = None, total_specimens: int = 0, page: int = 1, limit: int = 50):
         """ """
         return cls(query=query, results=results, specimens=specimens or [], total_specimens=total_specimens, page=page, limit=limit)
 

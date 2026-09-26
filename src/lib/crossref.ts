@@ -143,7 +143,9 @@ function toResult(work: ApiWork, genera: string[]): CrossRefResult {
 function groupByYear(works: CrossRefResult[]): PublicationsByYear {
   const grouped: PublicationsByYear = {};
   for (const work of works) {
-    const key = work.published_year ? String(work.published_year) : "Unknown Year";
+    const key = work.published_year
+      ? String(work.published_year)
+      : "Unknown Year";
     (grouped[key] ??= []).push(work);
   }
   return grouped;
@@ -175,7 +177,8 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
   ]);
 
   const species = data.species.map((w) => toResult(w, genera));
-  const genusRelated = data.genusRelated?.map((w) => toResult(w, genera)) ?? null;
+  const genusRelated =
+    data.genusRelated?.map((w) => toResult(w, genera)) ?? null;
   return {
     acceptedName: data.acceptedName,
     genus: data.genus,

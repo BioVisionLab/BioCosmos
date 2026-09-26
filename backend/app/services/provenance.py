@@ -93,12 +93,14 @@ class ProvenanceService:
         is edited in place, so a row-count change is exactly when a rebuild
         is warranted.
         """
-        occurrences = self.db_client.execute(
+        occurrences_row = self.db_client.execute(
             f"SELECT count(*) FROM {self.image_meta_table}"
-        ).fetchone()[0]
-        gbif = self.db_client.execute(
+        ).fetchone()
+        occurrences = occurrences_row[0] if occurrences_row is not None else 0
+        gbif_row = self.db_client.execute(
             f"SELECT count(*) FROM {self.gbif_table}"
-        ).fetchone()[0]
+        ).fetchone()
+        gbif = gbif_row[0] if gbif_row is not None else 0
         return f"{occurrences}:{gbif}:v{PROVENANCE_SCHEMA_VERSION}"
 
     def _table_is_current(self) -> bool:

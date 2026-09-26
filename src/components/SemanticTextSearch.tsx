@@ -30,7 +30,9 @@ export default function SemanticSearchBar() {
   };
 
   return (
-    <div className={`${SEARCH_PANEL} flex flex-col items-center justify-center`}>
+    <div
+      className={`${SEARCH_PANEL} flex flex-col items-center justify-center`}
+    >
       <div className="mb-4 text-center text-deep-mocha-700 dark:text-deep-mocha-300 text-sm">
         <SemanticSearchDescription />
       </div>

@@ -13,6 +13,7 @@ from ..configs.config import EmbedderConfig, ImageConfig
 from ..database.lance import LanceDB
 from .unicom import UnicomImageEmbedder
 from .clip import ClipEmbedder
+from .images import quote_sql
 
 
 
@@ -192,7 +193,10 @@ class ImageEmbedder:
     def _insert_batch_to_db(self, data: pl.DataFrame):
         """Insert a batch of data into the database."""
         try:
-            arrow_table = data.to_arrow().cast(self.db_table.schema)
+            # `cast` matches fields by position, and a column added by a
+            # migration lands at the end of the table's schema.
+            schema = self.db_table.schema
+            arrow_table = data.to_arrow().select(schema.names).cast(schema)
             self.db_table.merge_insert("img_id").when_not_matched_insert_all().execute(
                 arrow_table
             )
@@ -207,7 +211,7 @@ class ImageEmbedder:
         try:
             exists = (
                 self.db_table.search()
-                .where(f"img_id == '{img_id}'")
+                .where(f"img_id = {quote_sql(img_id)}")
                 .limit(1)
                 .to_polars()
                 .is_empty()
@@ -246,7 +250,7 @@ class ImageEmbedder:
                 if self.max_resolution and max(img.size) > self.max_resolution:
                     img.thumbnail(
                         (self.max_resolution, self.max_resolution),
-                        resample=Image.LANCZOS,
+                        resample=Image.Resampling.LANCZOS,
                     )
                 # Save full-resolution image
                 ext = self.config.format
@@ -258,7 +262,7 @@ class ImageEmbedder:
                 thumb = img.copy()
                 thumb.thumbnail(
                     (self.thumbnail_resolution, self.thumbnail_resolution),
-                    resample=Image.LANCZOS,
+                    resample=Image.Resampling.LANCZOS,
                 )
                 thumb_path = os.path.join(
                     self.thumbnail_dir, f"{img_id}_thumbnail.{ext}"
@@ -312,8 +316,8 @@ class ImageEmbedder:
         )
         return batches
 
-    def _get_all_clip_embeddings(self, img_paths: list[str]) -> list[np.ndarray]:
-        return self.clip.batch_get_embeddings(img_paths)
+    def _get_all_clip_embeddings(self, images: list[PILImage]) -> list[np.ndarray]:
+        return self.clip.batch_get_embeddings(images)
 
-    def _get_all_unicom_embeddings(self, img_paths: list[str]) -> list[np.ndarray]:
-        return self.unicom.batch_get_embeddings(img_paths)
+    def _get_all_unicom_embeddings(self, images: list[PILImage]) -> list[np.ndarray]:
+        return self.unicom.batch_get_embeddings(images)

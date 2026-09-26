@@ -104,10 +104,8 @@ async def fetch_species_biology(
         or an error message.
     """
     logger.info("Received taxon search request")
-    scientific_name = (
-        scientific_name.strip().lower() if scientific_name else None
-    )
-    if scientific_name is None or scientific_name == "":
+    scientific_name = scientific_name.strip().lower() if scientific_name else ""
+    if scientific_name == "":
         logger.warning("Taxon search query is empty")
         return JSONResponse(
             content={

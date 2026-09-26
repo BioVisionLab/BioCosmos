@@ -418,7 +418,9 @@ class TestAppSettings:
 
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValidationError):
-                AppSettings(_env_file=None)
+                # pydantic-settings accepts `_env_file` at runtime, but its
+                # dataclass_transform signature lists only the model fields.
+                AppSettings(_env_file=None)  # pyright: ignore[reportCallIssue]
 
 
 class TestLocalityConfig:

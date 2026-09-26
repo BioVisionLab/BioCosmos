@@ -50,11 +50,9 @@ export default function TaxonomyTreeControls({
       items.forEach((item) => {
         item.hidden = false;
       });
-      root
-        .querySelectorAll<HTMLDetailsElement>("details")
-        .forEach((node) => {
-          node.open = node.dataset.defaultOpen === "true";
-        });
+      root.querySelectorAll<HTMLDetailsElement>("details").forEach((node) => {
+        node.open = node.dataset.defaultOpen === "true";
+      });
       return;
     }
 
@@ -70,16 +68,19 @@ export default function TaxonomyTreeControls({
       while (node && node !== root) {
         if (node instanceof HTMLLIElement) {
           node.hidden = false;
-          const disclosure = node.querySelector<HTMLDetailsElement>(":scope > details");
+          const disclosure =
+            node.querySelector<HTMLDetailsElement>(":scope > details");
           if (disclosure) disclosure.open = true;
         }
         node = node.parentElement;
       }
       // Descendants of a match come with it: a subfamily that matches shows
       // the genera under it.
-      item.querySelectorAll<HTMLLIElement>("li[data-taxon-name]").forEach((child) => {
-        child.hidden = false;
-      });
+      item
+        .querySelectorAll<HTMLLIElement>("li[data-taxon-name]")
+        .forEach((child) => {
+          child.hidden = false;
+        });
     });
   };
 

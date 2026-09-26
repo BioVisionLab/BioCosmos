@@ -30,7 +30,7 @@ const SearchSwitcher = ({
   const [mode, setMode] = useState(tabData[1].id);
   const baseBtn =
     "px-4 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-hunter-green-500 focus:ring-offset-2 dark:focus:ring-offset-deep-mocha-900";
-  
+
   // One selected look for every mode, matching the one panel they share
   // below. The modes used to wear three different fills — two gradients and
   // a green — so the tab strip changed colour as well as selection.
@@ -45,7 +45,7 @@ const SearchSwitcher = ({
       className={`flex flex-col w-full ${align === "start" ? "items-start" : "items-center"} ${className}`}
     >
       <div className="flex items-center gap-3 mt-2">
-        <div 
+        <div
           className="flex rounded-full border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white/70 dark:bg-deep-mocha-800/70 backdrop-blur"
           role="tablist"
           aria-label="Search Modes"

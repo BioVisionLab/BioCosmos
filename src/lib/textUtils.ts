@@ -19,7 +19,8 @@ function toAuthorNameCase(str: string) {
         return word
           .split("-")
           .map(
-            (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+            (part) =>
+              part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
           )
           .join("-");
       } else {
@@ -39,7 +40,7 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&apos;|&#39;/g, "'")
     .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
+      String.fromCharCode(parseInt(hex, 16)),
     );
 }
 

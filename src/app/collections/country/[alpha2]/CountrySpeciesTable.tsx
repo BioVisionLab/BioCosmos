@@ -41,7 +41,11 @@ const COLUMNS: DataTableColumn<CountrySpeciesRow>[] = [
 const filterText = (row: CountrySpeciesRow) => row.species;
 const rowKey = (row: CountrySpeciesRow) => row.species;
 
-export default function CountrySpeciesTable({ rows }: { rows: CountrySpeciesRow[] }) {
+export default function CountrySpeciesTable({
+  rows,
+}: {
+  rows: CountrySpeciesRow[];
+}) {
   return (
     <DataTable
       rows={rows}

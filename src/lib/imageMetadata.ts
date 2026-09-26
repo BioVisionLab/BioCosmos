@@ -63,9 +63,7 @@ export function taxonomyOf(
  * What to show in place of the recorded name: the accepted binomial, else the
  * genus the match resolved to, else nothing.
  */
-export function acceptedDisplayName(
-  update: TaxonUpdate | null,
-): string | null {
+export function acceptedDisplayName(update: TaxonUpdate | null): string | null {
   if (!update) return null;
   return update.displayAcceptedName ?? update.acceptedSpeciesName ?? null;
 }

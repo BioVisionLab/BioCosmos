@@ -15,7 +15,8 @@
   --font-mono: var(--font-geist-mono);
   /* Landing headings, and the mono used for specimen labels and eyebrows. */
   --font-display: "Poppins", "Segoe UI", system-ui, sans-serif;
-  --font-label: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-label:
+    var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   --color-frozen-water-50: #e5ffff;
   --color-frozen-water-100: #ccffff;
@@ -173,7 +174,10 @@ body {
 }
 
 /* Attribute prefixes so the corner anchors (top-left, bottom-right, ...) match too. */
-.dark .umap-dark-map [class*="maplibregl-popup-anchor-top"] .maplibregl-popup-tip {
+.dark
+  .umap-dark-map
+  [class*="maplibregl-popup-anchor-top"]
+  .maplibregl-popup-tip {
   border-bottom-color: #3a3c41;
 }
 
@@ -184,17 +188,11 @@ body {
   border-top-color: #3a3c41;
 }
 
-.dark
-  .umap-dark-map
-  .maplibregl-popup-anchor-left
-  .maplibregl-popup-tip {
+.dark .umap-dark-map .maplibregl-popup-anchor-left .maplibregl-popup-tip {
   border-right-color: #3a3c41;
 }
 
-.dark
-  .umap-dark-map
-  .maplibregl-popup-anchor-right
-  .maplibregl-popup-tip {
+.dark .umap-dark-map .maplibregl-popup-anchor-right .maplibregl-popup-tip {
   border-left-color: #3a3c41;
 }
 
@@ -214,7 +212,8 @@ body {
 .species-map-popup[class*="maplibregl-popup-anchor-top"] .maplibregl-popup-tip {
   border-bottom-color: #ffffff;
 }
-.species-map-popup[class*="maplibregl-popup-anchor-bottom"] .maplibregl-popup-tip {
+.species-map-popup[class*="maplibregl-popup-anchor-bottom"]
+  .maplibregl-popup-tip {
   border-top-color: #ffffff;
 }
 .species-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
@@ -244,7 +243,9 @@ body {
   color: var(--color-deep-mocha-600);
   background-color: rgb(255 255 255 / 0.85);
   box-shadow: 0 1px 2px rgb(28 23 23 / 0.12);
-  transition: background-color 150ms, color 150ms;
+  transition:
+    background-color 150ms,
+    color 150ms;
 }
 
 .species-map-popup .maplibregl-popup-close-button::before {
@@ -663,7 +664,12 @@ body {
     12px 12px,
     60px 60px,
     60px 60px;
-  mask-image: linear-gradient(transparent, #000 4rem, #000 calc(100% - 5rem), transparent);
+  mask-image: linear-gradient(
+    transparent,
+    #000 4rem,
+    #000 calc(100% - 5rem),
+    transparent
+  );
 }
 
 .dark .bc-graph-paper::before {

@@ -26,11 +26,13 @@ def pages_resolving(keys=None, missing=()):
 class TestVisuallySimilarSpeciesPayload:
 
     def test_serializes_to_camel_case(self):
-        payload = VisuallySimilarSpeciesPayload(
-            dorsal=[
-                {"species": "a", "speciesKey": "a_b", "imgId": "1", "distance": 0.1}
-            ],
-            ventral=[],
+        payload = VisuallySimilarSpeciesPayload.model_validate(
+            {
+                "dorsal": [
+                    {"species": "a", "speciesKey": "a_b", "imgId": "1", "distance": 0.1}
+                ],
+                "ventral": [],
+            }
         )
         data = payload.model_dump(by_alias=True)
         assert "dorsal" in data
@@ -168,6 +170,7 @@ class TestSpeciesSimilarity:
         sim = self._make_instance(fake_request)
         result = sim.find_similar_species("danaus plexippus", "dorsal")
 
+        assert result is not None
         assert result["ventral"] == []
         assert len(result["dorsal"]) == 1
         assert MockPersist.return_value.find_similar_images.call_count == 1
@@ -190,7 +193,13 @@ class TestResolvingToAcceptedTaxa:
         sim.pages = pages or pages_resolving()
         return sim
 
-    def _record(self, img_id, key, name="Vanessa cardui", rank="species"):
+    def _record(
+        self,
+        img_id: str,
+        key: str | None,
+        name: str | None = "Vanessa cardui",
+        rank: str | None = "species",
+    ):
         return {
             "img_id": img_id,
             "accepted_key": key,
@@ -364,7 +373,7 @@ class TestResolvingToAcceptedTaxa:
             "updateStatus",
         }
         # It must survive the route's response model.
-        VisuallySimilarSpeciesPayload(dorsal=rows, ventral=[])
+        VisuallySimilarSpeciesPayload.model_validate({"dorsal": rows, "ventral": []})
 
 
 

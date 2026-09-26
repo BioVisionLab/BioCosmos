@@ -1041,9 +1041,10 @@ class ColTaxonSearch:
             (basionym.get("authorship") or "").strip() or None if basionym else None
         )
         return ColNomenclature(
+            # `taxonomy_detail` only gets here for a taxon with a species.
             acceptedName=accepted.get("scientific_name")
             or taxon.get("scientificName")
-            or taxon.get("species"),
+            or taxon["species"],
             authorship=authorship,
             nameStatus=(accepted.get("name_status") or "").strip() or None,
             originalCombination=basionym.get("scientific_name") if basionym else None,

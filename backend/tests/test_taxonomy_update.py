@@ -305,7 +305,6 @@ class TestOccurrenceTaxonomy:
         service = OccurrenceTaxonomy.__new__(OccurrenceTaxonomy)
         service.status_table = "image_meta_taxonomy"
         service.candidates_table = "col_taxonomy_candidates"
-        service.image_meta_table = "image_meta"
         service.db_client = client
         return service
 
@@ -387,7 +386,6 @@ class TestOccurrenceTaxonomy:
         service = OccurrenceTaxonomy.__new__(OccurrenceTaxonomy)
         service.status_table = "image_meta_taxonomy"
         service.candidates_table = "col_taxonomy_candidates"
-        service.image_meta_table = "image_meta"
         service.db_client = memory_duckdb
         # Before any run, the panel simply omits the block.
         assert service.get_for_image("img1") is None
@@ -400,7 +398,6 @@ class TestOccurrenceTaxonomy:
         service = OccurrenceTaxonomy.__new__(OccurrenceTaxonomy)
         service.status_table = "image_meta_taxonomy"
         service.candidates_table = "col_taxonomy_candidates"
-        service.image_meta_table = "image_meta"
         service.db_client = memory_duckdb
 
         probes = []

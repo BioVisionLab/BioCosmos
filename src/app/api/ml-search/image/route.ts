@@ -12,12 +12,12 @@ export async function POST(request: Request) {
     if (!image) {
       return NextResponse.json(
         { error: "Image file is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     console.log(
-      `Forwarding image search "${image.name}" (${image.type}) to ${IMAGE_SEARCH}`
+      `Forwarding image search "${image.name}" (${image.type}) to ${IMAGE_SEARCH}`,
     );
 
     // Create a new FormData object to send to FastAPI
@@ -46,15 +46,15 @@ export async function POST(request: Request) {
         /* Ignore parsing errors */
       }
       console.error(
-        `Error from BIOCOSMOS BACKEND service (${response.status}): ${errorBody}`
+        `Error from BIOCOSMOS BACKEND service (${response.status}): ${errorBody}`,
       );
       if (errorBody.includes("Invalid file type")) {
         throw new Error(
-          "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, WEBP."
+          "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, WEBP.",
         );
       } else {
         throw new Error(
-          `BIOCOSMOS BACKEND service failed with status ${response.status}`
+          `BIOCOSMOS BACKEND service failed with status ${response.status}`,
         );
       }
     }
@@ -64,15 +64,15 @@ export async function POST(request: Request) {
     if (!Array.isArray(results)) {
       console.error(
         "Unexpected response format from BIOCOSMOS BACKEND service. Expected an array.",
-        results
+        results,
       );
       throw new Error(
-        "Invalid response format from BIOCOSMOS BACKEND service."
+        "Invalid response format from BIOCOSMOS BACKEND service.",
       );
     }
 
     console.log(
-      `Received ${results.length} results from BIOCOSMOS BACKEND service.`
+      `Received ${results.length} results from BIOCOSMOS BACKEND service.`,
     );
 
     return NextResponse.json(results);

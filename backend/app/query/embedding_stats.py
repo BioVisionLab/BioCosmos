@@ -55,7 +55,9 @@ class EmbeddingDistribution:
             ).get_distributions()
             if distributions is None:
                 return None
-            payload = EmbeddingStatsPayload(distributions=distributions)
+            payload = EmbeddingStatsPayload.model_validate(
+                {"distributions": distributions}
+            )
             return payload.model_dump(by_alias=True)
         except Exception as e:
             logger.error(

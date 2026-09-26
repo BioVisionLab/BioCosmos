@@ -4,7 +4,9 @@ import logging
 
 from pydantic import BaseModel
 from fastapi import Request
-from typing import List
+from typing import List, cast, overload
+
+from lancedb.query import LanceVectorQueryBuilder
 
 from ..services.metadata import ImageMetaService
 from ..database.duckdb import DuckDBClient
@@ -47,6 +49,14 @@ NPROBES = 20
 REFINE_FACTOR = 10
 
 
+def quote_sql(value: object) -> str:
+    """Quote a value as a LanceDB SQL string literal.
+
+    Image IDs arrive in URL paths, so a quote in one must not end the literal.
+    """
+    return "'" + str(value).replace("'", "''") + "'"
+
+
 class SpeciesImage(BaseModel):
     """Class to represent species image data."""
 
@@ -85,7 +95,8 @@ class ImagePersistData:
         try:
             results = (
                 self.db_table.search()
-                .where(f"img_id == '{img_id}'")
+                .where(f"img_id = {quote_sql(img_id)}")
+                .select(["img_path"])
                 .limit(1)
                 .to_polars()
             )
@@ -352,6 +363,8 @@ class ImagePersistData:
                 if results.is_empty():
                     break
                 merged_results = self._merge_result_with_metadata(results)
+                if merged_results is None:
+                    raise RuntimeError("Could not attach metadata to the results.")
                 if excluded and "species" in merged_results.columns:
                     # A subspecies of the reference is the same species.
                     key = self._species_key_expr(pl.col("species"))
@@ -473,13 +486,16 @@ class ImagePersistData:
         Projecting to `img_id` keeps LanceDB from materializing the stored
         image bytes and both embedding columns for every candidate.
         """
+        # A search with a query vector always builds a vector query.
+        vector_query = cast(
+            LanceVectorQueryBuilder,
+            self.db_table.search(query_vector, vector_column_name=vector_column_name),
+        )
         search = (
-            self.db_table.search(
-                query_vector,
-                vector_column_name=vector_column_name,
-            )
-            .distance_type("cosine")
-            .select(["img_id"])
+            vector_query.distance_type("cosine")
+            # `_distance` is named explicitly: LanceDB still adds it to a
+            # projection that leaves it out, but warns that it will stop.
+            .select(["img_id", "_distance"])
             # Both are no-ops on an unindexed column and only take effect once
             # the IVF-PQ index exists. `nprobes` buys recall back from
             # partitioning; `refine_factor` re-ranks the shortlist against the
@@ -550,9 +566,7 @@ class ImagePersistData:
 
     @staticmethod
     def _quote_ids(image_ids: list[str]) -> str:
-        return ", ".join(
-            f"'{str(img_id).replace(chr(39), chr(39) * 2)}'" for img_id in image_ids
-        )
+        return ", ".join(quote_sql(img_id) for img_id in image_ids)
 
     def _query_unicom_embeddings(self, image_ids: list[str]) -> np.ndarray | None:
         """Fetch the UNICOM embeddings for the given image IDs in bulk.
@@ -601,7 +615,13 @@ class ImagePersistData:
             self.logger.error(f"Error merging results with metadata: {e}")
             return results
 
-    def _filter_by_species(self, results: pl.DataFrame) -> pl.DataFrame:
+    @overload
+    def _filter_by_species(self, results: pl.DataFrame) -> pl.DataFrame: ...
+
+    @overload
+    def _filter_by_species(self, results: None) -> None: ...
+
+    def _filter_by_species(self, results: pl.DataFrame | None) -> pl.DataFrame | None:
         """Keep the nearest image of each species page, and only those.
 
         Each row gains a `speciesKey`: the page it links to. An image whose

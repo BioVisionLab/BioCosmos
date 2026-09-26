@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   if (!species) {
     return NextResponse.json(
       { error: "Query parameter 'species' is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -24,14 +24,14 @@ export async function GET(request: Request) {
         headers: {
           Accept: "application/json",
         },
-      }
+      },
     );
     if (!response.ok) {
       const errorData = await response.json();
       console.error(
         `Error fetching taxonomy data: ${response.status} - ${JSON.stringify(
-          errorData
-        )}`
+          errorData,
+        )}`,
       );
       return NextResponse.json(
         {
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
             errorData.error || response.statusText
           }`,
         },
-        { status: response.status }
+        { status: response.status },
       );
     }
     const taxonomyData: SpeciesData = await response.json();
@@ -47,13 +47,13 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error(
       `Error fetching taxonomy data for species ${species}:`,
-      error
+      error,
     );
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
       { error: `Failed to fetch taxonomy data: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

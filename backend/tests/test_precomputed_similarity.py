@@ -23,11 +23,11 @@ def pages_resolving(keys=None, missing=()):
 class TestPrecomputedSpeciesSimilarity:
     """Unit tests for precomputed similarity lookups."""
 
-    def _make_instance(self, fake_request, limit=10, resolved=None):
+    def _make_instance(self, fake_request, limit=10, resolved=None, excluded_keys=None):
         sim = PrecomputedSpeciesSimilarity(request=fake_request, limit=limit)
         sim.taxonomy = MagicMock()
         sim.taxonomy.get_for_images.return_value = resolved or {}
-        sim.taxonomy.accepted_keys_for_species.return_value = set()
+        sim.taxonomy.accepted_keys_for_species.return_value = excluded_keys or set()
         sim.pages = pages_resolving()
         return sim
 
@@ -195,7 +195,13 @@ class TestPrecomputedSpeciesSimilarity:
 
         duck.execute_prepared_to_pl = query
 
-    def _record(self, img_id, key, name="Vanessa cardui", rank="species"):
+    def _record(
+        self,
+        img_id: str,
+        key: str | None,
+        name: str | None = "Vanessa cardui",
+        rank: str | None = "species",
+    ):
         return {
             "img_id": img_id,
             "accepted_key": key,
@@ -215,7 +221,9 @@ class TestPrecomputedSpeciesSimilarity:
             "img-001": self._record("img-001", "COL:2"),
         })
 
-        row = sim.find_similar_species("danaus plexippus")["dorsal"][0]
+        result = sim.find_similar_species("danaus plexippus")
+        assert result is not None
+        row = result["dorsal"][0]
 
         assert row["acceptedName"] == "Vanessa cardui"
         assert row["species"] == "vanessa_carduii"
@@ -234,7 +242,9 @@ class TestPrecomputedSpeciesSimilarity:
         })
         sim.pages = pages_resolving({"typo": "vanessa_cardui"}, missing={"orphan"})
 
-        dorsal = sim.find_similar_species("danaus plexippus")["dorsal"]
+        result = sim.find_similar_species("danaus plexippus")
+        assert result is not None
+        dorsal = result["dorsal"]
 
         assert [row["speciesKey"] for row in dorsal] == ["vanessa_cardui"]
 
@@ -250,7 +260,9 @@ class TestPrecomputedSpeciesSimilarity:
             "near": self._record("near", "COL:2"),
         })
 
-        dorsal = sim.find_similar_species("danaus plexippus")["dorsal"]
+        result = sim.find_similar_species("danaus plexippus")
+        assert result is not None
+        dorsal = result["dorsal"]
 
         assert len(dorsal) == 1
         assert dorsal[0]["imgId"] == "near"
@@ -270,10 +282,11 @@ class TestPrecomputedSpeciesSimilarity:
         sim = self._make_instance(fake_request, resolved={
             "sub": self._record("sub", "COL:1", "Danaus plexippus"),
             "other": self._record("other", "COL:2"),
-        })
-        sim.taxonomy.accepted_keys_for_species.return_value = {"COL:1"}
+        }, excluded_keys={"COL:1"})
 
-        dorsal = sim.find_similar_species("danaus plexippus")["dorsal"]
+        result = sim.find_similar_species("danaus plexippus")
+        assert result is not None
+        dorsal = result["dorsal"]
 
         assert [row["imgId"] for row in dorsal] == ["other"]
 
@@ -289,7 +302,9 @@ class TestPrecomputedSpeciesSimilarity:
             "good": self._record("good", "COL:2"),
         })
 
-        dorsal = sim.find_similar_species("danaus plexippus")["dorsal"]
+        result = sim.find_similar_species("danaus plexippus")
+        assert result is not None
+        dorsal = result["dorsal"]
 
         assert [row["imgId"] for row in dorsal] == ["good"]
 
@@ -302,7 +317,9 @@ class TestPrecomputedSpeciesSimilarity:
         ])
         sim = self._make_instance(fake_request, resolved={})
 
-        row = sim.find_similar_species("danaus plexippus")["dorsal"][0]
+        result = sim.find_similar_species("danaus plexippus")
+        assert result is not None
+        row = result["dorsal"][0]
 
         assert row["acceptedName"] is None
         assert row["species"] == "vanessa_cardui"
@@ -357,6 +374,7 @@ class TestSideScopedLookup:
         )
 
         assert seen == ["dorsal"]
+        assert result is not None
         assert len(result["dorsal"]) == 1
         assert result["ventral"] == []
 

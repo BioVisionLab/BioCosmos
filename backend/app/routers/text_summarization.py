@@ -20,8 +20,8 @@ async def summarize_text(request: Request, species_name: str):
         dict: A dictionary containing the summarized text or an error message.
     """
     logger.info("Received text summarization request")
-    species_name = species_name.strip() if species_name else None
-    if species_name is None or species_name == "":
+    species_name = species_name.strip() if species_name else ""
+    if species_name == "":
         logger.warning("Text summarization query is empty")
         return {
             "error": "Query parameter 'species_name' is required and cannot be empty."

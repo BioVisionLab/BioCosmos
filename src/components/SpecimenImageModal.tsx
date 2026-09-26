@@ -289,7 +289,9 @@ function SpecimenImageModal({
                       neighbors never show this at all. */}
                   <div
                     className={`absolute inset-0 flex items-center justify-center bg-deep-mocha-100 dark:bg-deep-mocha-900 rounded-xl transition-opacity ${
-                      imageLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                      imageLoaded
+                        ? "opacity-0 pointer-events-none"
+                        : "opacity-100"
                     }`}
                   >
                     <ImageLoading size={250} />
@@ -330,9 +332,7 @@ function SpecimenImageModal({
                     <>
                       {meta?.class_dv && (
                         <div>
-                          <span className={METADATA_LABEL}>
-                            View:{" "}
-                          </span>
+                          <span className={METADATA_LABEL}>View: </span>
                           <span className={METADATA_VALUE}>
                             {typeof meta.class_dv === "string"
                               ? meta.class_dv.charAt(0).toUpperCase() +
@@ -346,18 +346,14 @@ function SpecimenImageModal({
                           empty, and in this order, so this panel and the one
                           under the species gallery read the same way. */}
                       <div>
-                        <span className={METADATA_LABEL}>
-                          Locality:{" "}
-                        </span>
+                        <span className={METADATA_LABEL}>Locality: </span>
                         <span className={METADATA_VALUE}>
                           {localityOf(meta)?.display ?? "—"}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span>
-                          <span className={METADATA_LABEL}>
-                            Coordinates:{" "}
-                          </span>
+                          <span className={METADATA_LABEL}>Coordinates: </span>
                           <span className={METADATA_VALUE}>
                             {meta?.lat || meta?.lon
                               ? `${meta?.lat ?? "—"}, ${meta?.lon ?? "—"}`
@@ -378,7 +374,6 @@ function SpecimenImageModal({
                       </div>
                       <CoordinateRegionRow validation={coordinatesOf(meta)} />
 
-
                       {/* The same taxonomic update the species-page panel
                           shows, so the two views never disagree. */}
                       {(() => {
@@ -391,9 +386,7 @@ function SpecimenImageModal({
                           // species-page panel separates its taxonomy block.
                           <div className="mt-1 pt-2 border-t border-deep-mocha-200 dark:border-deep-mocha-700 flex flex-col gap-1">
                             <div className="flex flex-wrap items-start gap-2">
-                              <span className={METADATA_LABEL}>
-                                Taxonomy:
-                              </span>
+                              <span className={METADATA_LABEL}>Taxonomy:</span>
                               <TaxonStatusBadge update={taxonomy} showMethod />
                               <MatchingHelpLink
                                 section="taxonomy-matching"

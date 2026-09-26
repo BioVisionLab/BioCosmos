@@ -7,7 +7,11 @@ import {
   GbifTaxonResult,
   SpeciesCoordinates,
 } from "@/lib/map";
-import SpeciesMap, { MARKER_COLORS, markerKind, MarkerKind } from "@/components/SpeciesMap";
+import SpeciesMap, {
+  MARKER_COLORS,
+  markerKind,
+  MarkerKind,
+} from "@/components/SpeciesMap";
 import { DistributionMapSkeleton } from "./DistributionMapSkeleton";
 
 interface SpeciesDistributionProps {
@@ -41,7 +45,6 @@ const MARKER_LABELS: Record<MarkerKind, string> = {
 };
 
 const numberFormat = new Intl.NumberFormat();
-
 
 function Swatch({ color }: { color: string }) {
   return (

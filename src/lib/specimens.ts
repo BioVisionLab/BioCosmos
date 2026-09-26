@@ -4,18 +4,21 @@ export interface SpecimenData {
 }
 
 async function fetchSpecimenData(
-  speciesName: string
+  speciesName: string,
 ): Promise<SpecimenData | null> {
   // Normalize species name to match the external API's expected format:
   // trim, lowercase, and replace all whitespace with underscores.
-  const speciesNameEncoded = speciesName.trim().toLowerCase().replace(/\s+/g, "_");
+  const speciesNameEncoded = speciesName
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
   const response = await fetch(
-    `/api/specimens?species=${encodeURIComponent(speciesNameEncoded)}`
+    `/api/specimens?species=${encodeURIComponent(speciesNameEncoded)}`,
   );
 
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch specimen stats. Status: ${response.status}`
+      `Failed to fetch specimen stats. Status: ${response.status}`,
     );
   }
 
@@ -32,7 +35,8 @@ async function fetchSpecimenData(
     else if (typeof raw.image_count === "number") imageCounts = raw.image_count;
     else if (typeof raw.count === "number") imageCounts = raw.count;
     else if (typeof raw.total === "number") imageCounts = raw.total;
-    else if (Array.isArray((raw as any).specimens)) imageCounts = (raw as any).specimens.length;
+    else if (Array.isArray((raw as any).specimens))
+      imageCounts = (raw as any).specimens.length;
   }
 
   const specimenData: SpecimenData = {
@@ -45,7 +49,7 @@ async function fetchSpecimenData(
   if (imageCounts === 0) {
     try {
       const metaResp = await fetch(
-        `/api/images/metadata?scientificName=${encodeURIComponent(speciesNameEncoded)}`
+        `/api/images/metadata?scientificName=${encodeURIComponent(speciesNameEncoded)}`,
       );
       if (metaResp.ok) {
         const meta = await metaResp.json();

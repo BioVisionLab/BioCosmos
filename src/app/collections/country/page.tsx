@@ -21,12 +21,12 @@ export default async function CountryDiversityPage() {
       <h1 className="text-3xl font-bold mb-6">Species Diversity by Country</h1>
 
       <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
-        Distinct accepted species recorded in each country. A record counts
-        when its coordinate falls in exactly one GADM region and nothing
-        contradicts that region&apos;s country: either the recorded country
-        was validated, or no country was recorded and it is imputed from the
-        coordinate (&quot;Imputed images&quot;). Subspecies group with their
-        species; records identified only to genus are left out.
+        Distinct accepted species recorded in each country. A record counts when
+        its coordinate falls in exactly one GADM region and nothing contradicts
+        that region&apos;s country: either the recorded country was validated,
+        or no country was recorded and it is imputed from the coordinate
+        (&quot;Imputed images&quot;). Subspecies group with their species;
+        records identified only to genus are left out.
       </p>
 
       {data === null && (

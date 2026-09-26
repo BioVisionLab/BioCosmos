@@ -2,7 +2,7 @@ import logging
 import os
 import re
 
-from typing import Optional, Annotated, List
+from typing import TYPE_CHECKING, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from lancedb.pydantic import LanceModel, Vector
@@ -72,8 +72,17 @@ LEPTRAIT_MAPPING = {
     "DateCreated": "date_created",
 }
 
-UnicomVector = Annotated[List[float], Vector(unicom.get_unicom_ndims())]
-ClipVector = Annotated[List[float], Vector(clip.get_clip_ndims())]
+# `Vector(n)` must be the annotation itself. Wrapped in `Annotated[List[float],
+# ...]` it is ignored and the column comes out as a variable-length list of
+# doubles, which LanceDB cannot build a vector index on. `Vector(n)` builds its
+# type at runtime, which a type checker cannot follow, so checkers see the
+# plain list it validates as.
+if TYPE_CHECKING:
+    UnicomVector = list[float]
+    ClipVector = list[float]
+else:
+    UnicomVector = Vector(unicom.get_unicom_ndims())
+    ClipVector = Vector(clip.get_clip_ndims())
 
 
 class LanceSchema(LanceModel):
@@ -93,42 +102,6 @@ class LanceSchema(LanceModel):
     # species: str
     clip_embeddings: ClipVector
     unicom_embeddings: UnicomVector
-
-
-class ImageMetadata(BaseModel):
-    path: str
-
-    @property
-    def image_filename(self):
-        return os.path.basename(self.path)
-
-    @property
-    def species_folder(self):
-        return os.path.basename(os.path.dirname(self.path))
-
-    @property
-    def unique_id(self):
-        return f"{self.species_folder}_{self.image_filename}"
-
-    def to_dict(self):
-        return {
-            "species_folder": self.species_folder,
-            "image_filename": self.image_filename,
-        }
-
-    def from_dict(cls, data: dict):
-        return cls(path=os.path.join(data["species_folder"], data["image_filename"]))
-
-    def __repr__(self):
-        return f"ImageMetadata(species_folder={self.species_folder}, image_filename={self.image_filename})"
-
-
-class ImageData(BaseModel):
-    embedding: list[float]
-    metadata: ImageMetadata
-
-    def __repr__(self):
-        return f"ImageData(unique_id={self.metadata.unique_id}, embedding={self.embedding}, metadata={self.metadata})"
 
 
 # Ranks rendered by the classification panel, coarsest first.
@@ -213,8 +186,10 @@ class ColTaxonomy(BaseModel):
     phylum: str = ""
     subphylum: str | None = None
     # `class` is a Python keyword, so the field is declared under an alias and
-    # must be dumped `by_alias=True` to reach the frontend as `class`.
-    taxonClass: str = Field("", alias="class")
+    # must be dumped `by_alias=True` to reach the frontend as `class`. The
+    # alias is split into its two halves so that type checkers, which read a
+    # plain `alias` as the constructor's keyword, still accept `taxonClass=`.
+    taxonClass: str = Field("", validation_alias="class", serialization_alias="class")
     subclass: str | None = None
     order: str = ""
     suborder: str | None = None

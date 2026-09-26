@@ -58,7 +58,9 @@ export default function Navigation() {
       <div className="md:hidden flex items-center gap-2">
         {/* Reachable without opening the menu: the theme is page chrome,
             not a destination. */}
-        <div className={`flex h-11 w-11 items-center justify-center rounded-lg backdrop-blur-lg [&>button]:h-full [&>button]:w-full [&>button]:rounded-lg ${mobileSurface}`}>
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-lg backdrop-blur-lg [&>button]:h-full [&>button]:w-full [&>button]:rounded-lg ${mobileSurface}`}
+        >
           <ThemeToggle />
         </div>
         <button

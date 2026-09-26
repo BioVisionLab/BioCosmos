@@ -10,6 +10,7 @@ from torch.nn.init import trunc_normal_
 from torchvision import transforms
 from PIL import Image
 from pathlib import Path
+from typing import cast
 from PIL.Image import Image as PILImage
 
 from ..configs.config import EmbedderConfig
@@ -221,7 +222,7 @@ class VisionTransformer(nn.Module):
         self.apply(self._init_weights)
         self.extra_gflops = 0.0
         for _block in self.blocks:
-            self.extra_gflops += _block.extra_gflops
+            self.extra_gflops += cast(Block, _block).extra_gflops
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):

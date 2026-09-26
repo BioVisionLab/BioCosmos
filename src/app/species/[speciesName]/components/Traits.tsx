@@ -13,9 +13,7 @@ import {
 
 import { useMemo, type ReactNode } from "react";
 
-import {
-  LepTraitDataSourceInfo,
-} from "@/components/Attribution";
+import { LepTraitDataSourceInfo } from "@/components/Attribution";
 import {
   AdultPresenceIcon,
   CanopyIcon,
@@ -187,7 +185,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
   // within a mount today.
   const presentAbsentMap = useMemo(
     () => (traits ? parseMonthPresence(traits) : {}),
-    [traits]
+    [traits],
   );
 
   if (!traits) {

@@ -108,7 +108,7 @@ class ImageToImageSearch:
             image.verify()  # This will raise an exception if the image is not valid
             return True
         except (IOError, SyntaxError) as e:
-            self.logger.error(
+            logger.error(
                 f"Invalid image data: {e}",
                 exc_info=True,
             )
