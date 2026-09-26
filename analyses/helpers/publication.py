@@ -79,6 +79,9 @@ def load_settings(root: Path | None = None) -> Settings:
         )
     tables = {
         "images": config["image_metadata"]["table"],
+        "excluded": config["image_metadata"].get(
+            "excluded_table", "image_meta_excluded"
+        ),
         "gbif": config["gbif"]["table"],
         "locality": config["locality"]["table"],
         "coordinates": config["locality"]["coordinates_table"],
@@ -205,13 +208,17 @@ def image_table(connection, settings: Settings, extra=()) -> str:
 def excluded_families(connection, settings: Settings, identifier: str) -> None:
     """Refuse an image table that still holds a family the backend excludes.
 
-    The backend publishes image_meta as a view without these families (see
-    image_metadata.exclude_families in config.yaml). A database the backend has
-    not reopened since the exclusion was added still has the raw table, and
-    every figure drawn from it would count the excluded records.
+    The backend publishes image_meta as a view without these families, by
+    recorded and by harmonized family (see image_metadata.exclude_families in
+    config.yaml). A database the backend has not reopened since the exclusion
+    was added still has the raw table, and every figure drawn from it would
+    count the excluded records.
     """
     if not settings.exclude_families:
         return
+    # Written by the backend's taxonomy update: images whose harmonized family
+    # is excluded although their recorded one is not.
+    table(connection, settings, "excluded", ("img_id",))
     placeholders = ", ".join("?" for _ in settings.exclude_families)
     leaked = connection.execute(
         f"SELECT count(*) FROM {identifier} "

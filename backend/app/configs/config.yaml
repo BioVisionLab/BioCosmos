@@ -25,11 +25,16 @@ images:
 image_metadata:
   # file: "data_meta-nymphalidae_whole_specimen-v250613.csv"
   file: "combined_meta_table_v2025_05_07.parquet"
-  # Every reader queries `table`, a view over `source_table` that drops the
-  # families below. The raw rows (and their images and embeddings) stay in
-  # `source_table`; queries and analyses never see them.
+  # Every reader queries `table`, a view that drops the families below by
+  # both the recorded and the harmonized family. The raw rows (and their
+  # images and embeddings) stay in `source_table`; queries and analyses never
+  # see them. `input_table` drops only the recorded families and is what the
+  # taxonomy harmonizer reads; it writes the images it resolves to an
+  # excluded family into `excluded_table`.
   table: "image_meta"
   source_table: "image_meta_source"
+  input_table: "image_meta_input"
+  excluded_table: "image_meta_excluded"
   # Castniidae are moths that were imaged with the butterflies.
   exclude_families: ["Castniidae"]
   # Support csv or parquet

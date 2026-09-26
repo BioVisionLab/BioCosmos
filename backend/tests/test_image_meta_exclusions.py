@@ -30,6 +30,8 @@ def service(client, exclude=("castniidae",), skip=True) -> ImageMetaService:
     svc = ImageMetaService(client)
     svc.table = "image_meta"
     svc.source_table = "image_meta_source"
+    svc.input_table = "image_meta_input"
+    svc.excluded_table = "image_meta_excluded"
     svc.exclude_families = list(exclude)
     svc.skip_ingestion = skip
     return svc
@@ -45,6 +47,8 @@ def test_legacy_table_moves_to_source_and_view_excludes(memory_duckdb):
     service(memory_duckdb).apply_exclusions()
 
     assert memory_duckdb.table_type("image_meta") == "VIEW"
+    assert memory_duckdb.table_type("image_meta_input") == "VIEW"
+    assert memory_duckdb.table_type("image_meta_excluded") == "BASE TABLE"
     assert memory_duckdb.table_type("image_meta_source") == "BASE TABLE"
     # Case and whitespace variants are caught; an unknown family is kept.
     assert ids(memory_duckdb, "image_meta") == ["img1", "img4", "img5"]
@@ -106,3 +110,27 @@ def test_ingest_writes_the_source_table(memory_duckdb, tmp_path):
 
     assert memory_duckdb.table_type("image_meta_source") == "BASE TABLE"
     assert ids(memory_duckdb, "image_meta") == ["img1", "img4", "img5"]
+
+
+def test_excluded_images_leave_the_view(memory_duckdb):
+    """Images the harmonizer resolved to an excluded family are dropped too."""
+    seed(memory_duckdb, "image_meta_source")
+    service(memory_duckdb).apply_exclusions()
+    memory_duckdb.execute(
+        "CREATE OR REPLACE TABLE image_meta_excluded AS "
+        "SELECT 'img5' AS img_id, 'Castniidae' AS accepted_family"
+    )
+    assert ids(memory_duckdb, "image_meta") == ["img1", "img4"]
+    # The harmonizer's input still has it.
+    assert "img5" in ids(memory_duckdb, "image_meta_input")
+
+
+def test_existing_excluded_rows_survive_a_restart(memory_duckdb):
+    seed(memory_duckdb, "image_meta_source")
+    svc = service(memory_duckdb)
+    svc.apply_exclusions()
+    memory_duckdb.execute(
+        "INSERT INTO image_meta_excluded VALUES ('img5', 'Castniidae')"
+    )
+    svc.apply_exclusions()
+    assert ids(memory_duckdb, "image_meta") == ["img1", "img4"]

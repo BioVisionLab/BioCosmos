@@ -14,7 +14,7 @@ from ..configs.config import (
     LocalityConfig,
     ProvenanceConfig,
 )
-from ..database.duckdb import DuckDBClient
+from ..database.duckdb import DuckDBClient, family_kept_sql
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +277,8 @@ class ImageMetaService:
         config = ImageMetaConfig()
         self.table = config.table
         self.source_table = config.source_table
+        self.input_table = config.input_table
+        self.excluded_table = config.excluded_table
         self.exclude_families = config.exclude_families
         self.path = config.path
         self.format = config.format
@@ -350,9 +352,20 @@ class ImageMetaService:
         Every reader (the API, the derived tables, the similarity package,
         morphospace and the analyses notebooks) queries `self.table`, so a
         family left out here is left out everywhere, while its images and
-        embeddings stay on disk. Runs on every startup, including when
-        ingestion is skipped, and recreates the view so it tracks the source
-        schema.
+        embeddings stay on disk. A family is excluded by the recorded name and
+        by the harmonized one, since a moth filed under a butterfly family is
+        only caught once it has been matched:
+
+        - `input_table`: the source minus recorded excluded families. The
+          taxonomy harmonizer reads this, so its fingerprint never depends on
+          its own output.
+        - `excluded_table`: images the harmonizer resolved to an excluded
+          family, written by TaxonomyUpdateService. Created empty here.
+        - `table`: `input_table` minus `excluded_table`.
+
+        Runs on every startup, including when ingestion is skipped, and
+        recreates the views so they track the source schema. Views bind at
+        query time, so a rebuilt `excluded_table` takes effect at once.
         """
         self._migrate_legacy_table()
         if self.db_client.table_type(self.source_table) is None:
@@ -361,19 +374,30 @@ class ImageMetaService:
                 f"'{self.table}' view not created."
             )
             return
-        condition = "TRUE"
-        if self.exclude_families:
-            # DDL takes no parameters, so the names are inlined as literals.
-            literals = ", ".join(
-                "'" + name.replace("'", "''") + "'" for name in self.exclude_families
-            )
-            condition = f"family IS NULL OR lower(trim(family)) NOT IN ({literals})"
         with self.db_client.lock:
-            self.db_client.conn.execute(
+            conn = self.db_client.conn
+            conn.execute(
+                f"""
+                CREATE OR REPLACE VIEW {self.input_table} AS
+                SELECT * FROM {self.source_table}
+                WHERE {family_kept_sql("family", self.exclude_families)}
+                """
+            )
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {self.excluded_table} (
+                    img_id VARCHAR, accepted_family VARCHAR
+                )
+                """
+            )
+            conn.execute(
                 f"""
                 CREATE OR REPLACE VIEW {self.table} AS
-                SELECT * FROM {self.source_table}
-                WHERE {condition}
+                SELECT * FROM {self.input_table} AS i
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM {self.excluded_table} AS x
+                    WHERE x.img_id = i.img_id
+                )
                 """
             )
         logger.info(

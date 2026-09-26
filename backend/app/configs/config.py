@@ -123,6 +123,16 @@ class ImageMetaConfig:
         return self._image_meta_config.get("source_table", "image_meta_source")
 
     @property
+    def input_table(self) -> str:
+        """The source minus recorded excluded families; the harmonizer's input."""
+        return self._image_meta_config.get("input_table", "image_meta_input")
+
+    @property
+    def excluded_table(self) -> str:
+        """Images the harmonizer resolved to an excluded family."""
+        return self._image_meta_config.get("excluded_table", "image_meta_excluded")
+
+    @property
     def exclude_families(self) -> list[str]:
         """Recorded families left out of the view, lowercased and trimmed."""
         families = self._image_meta_config.get("exclude_families") or []

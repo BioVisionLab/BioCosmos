@@ -25,7 +25,7 @@ from colharmonize.sources import ColSource, TaxonOccurrenceSource
 from harmonize_core.errors import HarmonizeError
 
 from ..configs.config import ColConfig, ImageMetaConfig
-from ..database.duckdb import DuckDBClient
+from ..database.duckdb import DuckDBClient, family_kept_sql
 from ..database.ingestion_state import IngestionState, file_fingerprint
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 UPDATE_SOURCE_KEY = "col_taxonomy_update"
 ATTACH_ALIAS = "taxonomy_update_source"
 SCRATCH_TABLE = "occurrence_taxa"
+# Every image with its resolved match, before excluded families are split off.
+RESOLVED_TABLE = "taxonomy_update_resolved"
 
 # Bumped whenever the shape of the per-occurrence status table changes.
 #
@@ -107,7 +109,13 @@ class TaxonomyUpdateService:
         self.candidates_table = config.candidates_table
         self.variants_table = config.variants_table
         self.status_table = config.occurrence_status_table
-        self.image_meta_table = ImageMetaConfig().table
+        image_meta = ImageMetaConfig()
+        # The harmonizer reads the source minus recorded excluded families,
+        # never the published view: that view drops what this run excludes,
+        # and matching it would feed the result back into the fingerprint.
+        self.image_meta_table = image_meta.input_table
+        self.excluded_table = image_meta.excluded_table
+        self.exclude_families = image_meta.exclude_families
         self.db_client = duckdb_client
 
     # -- entry point ------------------------------------------------------
@@ -137,6 +145,7 @@ class TaxonomyUpdateService:
 
         fingerprint = (
             f"{release}|{self._occurrence_fingerprint()}|v{STATUS_SCHEMA_VERSION}"
+            f"|exclude:{','.join(self.exclude_families)}"
         )
         state = IngestionState(self.db_client)
         if state.is_current(UPDATE_SOURCE_KEY, fingerprint) and self._tables_exist():
@@ -338,7 +347,7 @@ class TaxonomyUpdateService:
         recorded_rank = self._recorded_rank_projection()
         self.db_client.execute(
             f"""
-            CREATE OR REPLACE TABLE {self.status_table} AS
+            CREATE OR REPLACE TEMP TABLE {RESOLVED_TABLE} AS
             SELECT
                 occurrence.img_id,
                 -- The occurrence's own name and rank, kept here so that every
@@ -385,6 +394,29 @@ class TaxonomyUpdateService:
             LEFT JOIN {self.matches_table} AS matches USING (input_taxon_key)
             """
         )
+        # An image resolved to an excluded family (a moth recorded under a
+        # butterfly family) leaves the status table, and the image_meta view
+        # drops it through the excluded table.
+        kept = family_kept_sql("accepted_family", self.exclude_families)
+        try:
+            self.db_client.execute(
+                f"CREATE OR REPLACE TABLE {self.excluded_table} AS "
+                f"SELECT img_id, accepted_family FROM {RESOLVED_TABLE} WHERE NOT {kept}"
+            )
+            self.db_client.execute(
+                f"CREATE OR REPLACE TABLE {self.status_table} AS "
+                f"SELECT * FROM {RESOLVED_TABLE} WHERE {kept}"
+            )
+        finally:
+            self.db_client.execute(f"DROP TABLE IF EXISTS {RESOLVED_TABLE}")
+        excluded = self.db_client.execute(
+            f"SELECT count(*) FROM {self.excluded_table}"
+        ).fetchone()[0]
+        if excluded:
+            logger.info(
+                f"{excluded} occurrences resolved to an excluded family "
+                f"{self.exclude_families}; left out of every query."
+            )
         self.db_client.execute(
             f"CREATE INDEX IF NOT EXISTS image_meta_taxonomy_img_idx "
             f"ON {self.status_table} (img_id)"
@@ -401,7 +433,8 @@ class TaxonomyUpdateService:
             f"""
             SELECT
                 (SELECT count(*) FROM {self.image_meta_table}) AS occurrences,
-                (SELECT count(*) FROM {self.status_table}) AS classified
+                (SELECT count(*) FROM {self.status_table})
+                    + (SELECT count(*) FROM {self.excluded_table}) AS classified
             """
         ).pl()
         if result.is_empty():

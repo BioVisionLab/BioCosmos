@@ -106,6 +106,8 @@ def build_service(client, col_dir, tmp_path, **overrides) -> TaxonomyUpdateServi
     service.variants_table = "col_taxon_variants"
     service.status_table = "image_meta_taxonomy"
     service.image_meta_table = "image_meta"
+    service.excluded_table = "image_meta_excluded"
+    service.exclude_families = []
     service.db_client = client
     for key, value in overrides.items():
         setattr(service, key, value)
@@ -631,36 +633,94 @@ class TestAcceptedKey:
         assert service.get_for_images(["img1", "img2"]) == {}
 
 
-def test_harmonizes_the_filtered_view(memory_duckdb, col_fixture_dir, tmp_path):
-    """Excluded families never reach the per-occurrence status table."""
-    from app.services.metadata import ImageMetaService
 
-    seed_occurrences(memory_duckdb)
-    memory_duckdb.execute_prepared(
-        "INSERT INTO image_meta VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            "moth",
-            "castnia_invaria",
-            "Castniidae",
-            None,
-            None,
-            None,
-            None,
-            "species",
-            "accepted",
-        ],
-    )
-    meta = ImageMetaService(memory_duckdb)
-    meta.table = "image_meta"
-    meta.source_table = "image_meta_source"
-    meta.exclude_families = ["castniidae"]
-    meta.apply_exclusions()
+class TestExcludedFamilies:
+    """Families are excluded by the recorded name and by the harmonized one."""
 
-    service = build_service(memory_duckdb, col_fixture_dir, tmp_path)
-    assert service.ensure() is True
-    total, moths = memory_duckdb.execute(
-        "SELECT count(*), count(*) FILTER (WHERE img_id = 'moth') "
-        "FROM image_meta_taxonomy"
-    ).fetchone()
-    assert (total, moths) == (len(OCCURRENCES), 0)
-    assert status_for(memory_duckdb, "img1")["update_status"] == "MATCHED"
+    @staticmethod
+    def publish(client, families):
+        from app.services.metadata import ImageMetaService
+
+        meta = ImageMetaService(client)
+        meta.table = "image_meta"
+        meta.source_table = "image_meta_source"
+        meta.input_table = "image_meta_input"
+        meta.excluded_table = "image_meta_excluded"
+        meta.exclude_families = families
+        meta.apply_exclusions()
+
+    @staticmethod
+    def ids(client, table):
+        rows = client.execute(f"SELECT img_id FROM {table} ORDER BY img_id").fetchall()
+        return [row[0] for row in rows]
+
+    def harmonize(self, client, col_dir, tmp_path, families):
+        service = build_service(
+            client,
+            col_dir,
+            tmp_path,
+            image_meta_table="image_meta_input",
+            exclude_families=families,
+        )
+        return service, service.ensure()
+
+    def test_recorded_family_never_reaches_the_harmonizer(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        seed_occurrences(memory_duckdb)
+        memory_duckdb.execute(
+            "INSERT INTO image_meta VALUES ('moth', 'castnia_invaria', "
+            "'Castniidae', NULL, NULL, NULL, NULL, 'species', 'accepted')"
+        )
+        self.publish(memory_duckdb, ["castniidae"])
+        _, rebuilt = self.harmonize(
+            memory_duckdb, col_fixture_dir, tmp_path, ["castniidae"]
+        )
+        assert rebuilt is True
+        assert "moth" not in self.ids(memory_duckdb, "image_meta_taxonomy")
+        assert "moth" not in self.ids(memory_duckdb, "image_meta")
+        assert status_for(memory_duckdb, "img1")["update_status"] == "MATCHED"
+
+    def test_harmonized_family_is_dropped_everywhere(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        """A record filed under another family is caught once it is matched.
+
+        img1-img4 all resolve into Nymphalidae (see TestTaxonomyValidationStats)
+        though nothing filters them by their recorded family.
+        """
+        seed_occurrences(memory_duckdb)
+        self.publish(memory_duckdb, ["nymphalidae"])
+        # Recorded as nymphalidae too, so relabel them to prove the harmonized
+        # family alone is enough.
+        memory_duckdb.execute("UPDATE image_meta_source SET family = 'papilionidae'")
+        self.harmonize(memory_duckdb, col_fixture_dir, tmp_path, ["nymphalidae"])
+
+        # Which images still resolve there depends on the relabeled evidence;
+        # the straight hit and the synonym always do.
+        excluded = self.ids(memory_duckdb, "image_meta_excluded")
+        assert {"img1", "img3"} <= set(excluded)
+        assert not set(excluded) & set(self.ids(memory_duckdb, "image_meta_taxonomy"))
+        # The view picks up the rebuilt excluded table without being recreated.
+        remaining = set(self.ids(memory_duckdb, "image_meta"))
+        kept = set(self.ids(memory_duckdb, "image_meta_input")) - set(excluded)
+        assert remaining == kept
+        assert memory_duckdb.execute(
+            "SELECT count(*) FROM image_meta_taxonomy "
+            "WHERE lower(accepted_family) = 'nymphalidae'"
+        ).fetchone() == (0,)
+        assert len(self.ids(memory_duckdb, "image_meta_source")) == len(OCCURRENCES)
+
+    def test_changing_the_exclusions_forces_a_rebuild(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        seed_occurrences(memory_duckdb)
+        self.publish(memory_duckdb, [])
+        _, rebuilt = self.harmonize(memory_duckdb, col_fixture_dir, tmp_path, [])
+        assert rebuilt is True
+        _, rebuilt = self.harmonize(memory_duckdb, col_fixture_dir, tmp_path, [])
+        assert rebuilt is False
+        _, rebuilt = self.harmonize(
+            memory_duckdb, col_fixture_dir, tmp_path, ["nymphalidae"]
+        )
+        assert rebuilt is True

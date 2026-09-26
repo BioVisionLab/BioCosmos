@@ -10,6 +10,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def family_kept_sql(column: str, families: list[str]) -> str:
+    """A predicate true when `column` is not one of the excluded `families`.
+
+    `families` are already lowercased and trimmed (ImageMetaConfig does it).
+    DDL takes no parameters, so the names are inlined as escaped literals.
+    """
+    if not families:
+        return "TRUE"
+    literals = ", ".join("'" + name.replace("'", "''") + "'" for name in families)
+    return f"({column} IS NULL OR lower(trim({column})) NOT IN ({literals}))"
+
+
 class DuckDBClient:
     """
     A simple DuckDB client wrapper.
