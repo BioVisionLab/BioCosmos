@@ -131,3 +131,29 @@ def test_cli_run_and_integrate(collection, tmp_path):
     assert "main.morphospace_points" in integrated.output
     inspected = runner.invoke(app, ["inspect", *common, "--min-images", "2"])
     assert "seen from both sides: 10" in inspected.output
+
+
+def test_labels_leave_out_excluded_families(collection):
+    from morphospace.sources import load_labels
+
+    connection = duckdb.connect(str(collection.database))
+    try:
+        connection.execute(
+            "INSERT INTO image_meta VALUES ('moth_d', 'castnia_x', 'dorsal'), "
+            "('moth_v', 'castnia_x', 'ventral')"
+        )
+        connection.execute(
+            "INSERT INTO image_meta_taxonomy VALUES "
+            "('moth_d', 'MATCHED', 'Castnia x', 'Castnia x', 'Castniidae'), "
+            "('moth_v', 'MATCHED', 'Castnia x', 'Castnia x', ' castniidae ')"
+        )
+    finally:
+        connection.close()
+
+    everything = load_labels(collection.database)
+    assert {"moth_d", "moth_v"} <= set(everything.img_id)
+    filtered = load_labels(
+        collection.database, exclude_families=MorphospaceParameters().exclude_families
+    )
+    assert not {"moth_d", "moth_v"} & set(filtered.img_id)
+    assert len(filtered) == len(everything) - 2

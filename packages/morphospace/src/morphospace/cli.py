@@ -47,7 +47,12 @@ def inspect_command(
 ) -> None:
     """Count what a run would cover, without reading any embedding."""
     try:
-        labels = load_labels(db, image_table=image_table, taxonomy_table=taxonomy_table)
+        labels = load_labels(
+            db,
+            image_table=image_table,
+            taxonomy_table=taxonomy_table,
+            exclude_families=MorphospaceParameters().exclude_families,
+        )
     except HarmonizeError as exc:
         raise _fail(exc) from exc
     index = build_index(labels)

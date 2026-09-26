@@ -26,6 +26,9 @@ class MorphospaceParameters(FrozenModel):
     permutation_max_species: int = Field(default=2000, ge=3)
     batch_size: int = Field(default=50_000, ge=1)
     seed: int = 42
+    # Harmonized families left out of every morphospace, lowercased on read.
+    # Castniidae are moths imaged with the butterflies.
+    exclude_families: tuple[str, ...] = ("Castniidae",)
 
 
 class MorphospaceRunManifest(FrozenModel):

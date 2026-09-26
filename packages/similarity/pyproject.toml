@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "similarity"
+version = "0.1.0"
+description = "Precomputed visually similar species from UNICOM image embeddings"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Haryo Handika" }]
+dependencies = [
+    "harmonize-core",
+    "duckdb>=1.3.1",
+    "lancedb>=0.24.1",
+    "numpy>=2",
+    "polars[pyarrow]>=1.31.0",
+    "typer>=0.15,<1",
+]
+
+[project.scripts]
+similarity = "similarity.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "ruff>=0.11,<1",
+]
+
+[tool.uv.sources]
+harmonize-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/similarity"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

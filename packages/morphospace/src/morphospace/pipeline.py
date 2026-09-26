@@ -84,7 +84,12 @@ def execute_run(
     rng = np.random.default_rng(parameters.seed)
 
     with progress.step("Read image sides and harmonized taxa"):
-        labels = load_labels(database, image_table=image_table, taxonomy_table=taxonomy_table)
+        labels = load_labels(
+            database,
+            image_table=image_table,
+            taxonomy_table=taxonomy_table,
+            exclude_families=parameters.exclude_families,
+        )
         if len(labels) == 0:
             raise SourceValidationError("No image has a side and a matched accepted species.")
         index = build_index(labels)
