@@ -535,6 +535,23 @@ def morphospace_axes(container):
     return ax_a, x_strip, ax_b
 
 
+def pca_axes(container):
+    """Axes for panel A on its own, in a figure or subfigure with constrained layout.
+
+    Returns the plot and the strip below it for its x-axis ends, laid out as in
+    `morphospace_axes` without panel B's column.
+    """
+    height = container.bbox.height / container.canvas.figure.dpi
+    plot_height = max(height - PANEL_DECORATIONS - X_STRIP_HEIGHT, X_STRIP_HEIGHT)
+    grid = container.add_gridspec(
+        2, 2, width_ratios=PANEL_COLUMNS[:2], height_ratios=(plot_height, X_STRIP_HEIGHT)
+    )
+    ax = container.add_subplot(grid[0, 1])
+    x_strip = container.add_subplot(grid[1, 1])
+    x_strip.set_axis_off()
+    return ax, x_strip
+
+
 def axis_ends(container, ax, x_strip, extremes: pd.DataFrame, root: Path | None = None):
     """Panel A's representative images at both ends of both axes.
 
