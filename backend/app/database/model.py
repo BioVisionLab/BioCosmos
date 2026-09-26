@@ -638,43 +638,6 @@ class LepTraitData(BaseModel):
             return None
 
 
-class UmapEmbedding(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    img_id: str
-    umap_x: float
-    umap_y: float
-    lat: Optional[float]
-    lon: Optional[float]
-    class_dv: Optional[str]
-    cluster_label: Optional[int]
-    # The specimen record behind the point, as the distribution map shows it.
-    # Null until the provenance, institution and coordinate tables exist.
-    source_db: str | None = None
-    catalog_number: str | None = None
-    institution_code: str | None = None
-    institution_name: str | None = None
-    validation_status: str | None = None
-    recorded_country: str | None = None
-    recorded_adm1: str | None = None
-    reference_country: str | None = None
-    reference_adm1: str | None = None
-
-    def __repr__(self):
-        return f"UmapEmbedding(species={self.species}, umap_x={self.umap_x}, umap_y={self.umap_y})"
-
-
-class UmapData(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-    species: str
-    cluster_counts: int
-    umap_embeddings: list[UmapEmbedding]
-
-    def __repr__(self):
-        return f"UmapData(species={self.species}, umap_embeddings_count={len(self.umap_embeddings)})"
-
-
 class ImageMetadata(BaseModel):
     """
     Metadata for an image file.

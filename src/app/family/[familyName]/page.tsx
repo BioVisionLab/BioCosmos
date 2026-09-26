@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
+import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
 import TaxonBreadcrumb from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
@@ -76,6 +77,12 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           images={pickRepresentatives(taxon.images, REPRESENTATIVE_IMAGE_LIMIT)}
         />
       </section>
+
+      <MorphospaceSection
+        rank="family"
+        name={taxon.name}
+        headingId="family-morphospace"
+      />
 
       <section
         aria-labelledby="family-tree"

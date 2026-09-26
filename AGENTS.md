@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-BioCosmos is a full-stack biodiversity image platform. The Next.js App Router frontend lives in `src/app/`; reusable React components belong in `src/components/`, and API/data helpers in `src/lib/`. Static assets and generated public metadata live under `public/`. The FastAPI service is in `backend/app/`, organized into `routers/` (HTTP endpoints), `query/` (data access), `services/` (external and ML integrations), and `database/`. Backend tests are in `backend/tests/`. Use `colharmonize`, `geoharmonize`, and scripts under `backend/scripts/` for data preparation, and `scripts/` for local launch helpers. Everything under the root `tools/` directory is outdated and unused; do not use it for data preparation or recommend it in setup instructions. `packages/` holds the Python harmonization tools (`harmonize-core`, `colharmonize`, `geoharmonize`, `instharmonize`) and `plannerbench`, which benchmarks LLMs as the agent-search planner; `reports/` holds their generated run artifacts, which are gitignored.
+BioCosmos is a full-stack biodiversity image platform. The Next.js App Router frontend lives in `src/app/`; reusable React components belong in `src/components/`, and API/data helpers in `src/lib/`. Static assets and generated public metadata live under `public/`. The FastAPI service is in `backend/app/`, organized into `routers/` (HTTP endpoints), `query/` (data access), `services/` (external and ML integrations), and `database/`. Backend tests are in `backend/tests/`. Use `colharmonize`, `geoharmonize`, and scripts under `backend/scripts/` for data preparation, and `scripts/` for local launch helpers. Everything under the root `tools/` directory is outdated and unused; do not use it for data preparation or recommend it in setup instructions. `packages/` holds the Python harmonization tools (`harmonize-core`, `colharmonize`, `geoharmonize`, `instharmonize`), `morphospace`, which precomputes the dorso-ventral morphospaces of the UNICOM embeddings that the species, genus and family pages draw, and `plannerbench`, which benchmarks LLMs as the agent-search planner; `reports/` holds their generated run artifacts, which are gitignored.
 
 ## Build, Test, and Development Commands
 
@@ -15,12 +15,15 @@ BioCosmos is a full-stack biodiversity image platform. The Next.js App Router fr
 - `cd backend && uv run pytest -q`: run the backend suite exactly as CI does. It must run from `backend/`, which resolves `static/` relatively.
 - `uv run --package <name> pytest packages/<name>/tests -q`: run one harmonization package's suite.
 - `uv run colharmonize --help` / `uv run geoharmonize --help`: the harmonization CLIs, for tuning and for the CSV/plot exports. The backend harmonizes taxonomy itself at startup, so `colharmonize` is not needed for the site to work. `geoharmonize integrate` is: it writes the coordinate-validation table the backend only reads. Stop the backend before running either against the live DuckDB: DuckDB allows a single writer, so the CLI cannot attach — even read-only — while the API holds the file open. See [`reports/README.md`](reports/README.md).
+- `uv run morphospace run --db <duckdb> --lance-dir <lance>`, then `uv run morphospace integrate --db <duckdb> --replace` with the backend stopped: rebuild the morphospace tables after the embeddings or the taxonomy change. See [`packages/morphospace/README.md`](packages/morphospace/README.md).
 - `cd backend && uv run python scripts/export_planner_spec.py`, then `uv run --env-file backend/.env plannerbench run -m <model> -m <model>`: compare planner models for agent search against the production prompt. Re-export the spec after changing a planner prompt or tool argument model. See [`packages/plannerbench/README.md`](packages/plannerbench/README.md).
 - `docker-compose up --build`: build and run both services together.
 
 ## Coding Style & Naming Conventions
 
 TypeScript is strict. Follow the existing two-space indentation, use `PascalCase` for React components and interfaces, `camelCase` for functions and variables, and Next.js route conventions such as `[speciesName]/page.tsx`. Prefer the `@/` alias for imports from `src/`. Python uses four spaces, `snake_case` modules/functions, and typed FastAPI/Pydantic interfaces. Run ESLint for frontend changes and `cd backend && uv run ruff check . && uv run ruff format --check .` for backend changes. For `packages/`, run `uv run ruff check packages/ && uv run ruff format --check packages/`; those packages use a 100-character line length and target Python 3.12. Keep route handlers thin; place reusable domain logic in `query/` or `services/`.
+
+Always use American English spelling and usage (for example, `color`, `harmonize`, `behavior`) in code, identifiers, comments, docstrings, UI copy, documentation, and commit or PR text.
 
 ## Testing Guidelines
 

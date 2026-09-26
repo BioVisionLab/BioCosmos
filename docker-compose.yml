@@ -24,7 +24,6 @@ services:
       - IMAGE_META_DIR=/app/data
       - GBIF_DIR=/app/data
       - COL_DIR=/app/data/col
-      - UMAP_DIR=/app/data
     env_file:
       # Optional — create ./backend/.env for LLM_API_URL / LLM_API_KEY secrets
       - path: ./backend/.env

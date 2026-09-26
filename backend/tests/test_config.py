@@ -379,7 +379,6 @@ class TestAppSettings:
             IMAGE_DIR=".",
             IMAGE_META_DIR=".",
             GBIF_DIR=".",
-            UMAP_DIR=".",
             COL_DIR=None,
         )
         assert settings.COL_DIR is None

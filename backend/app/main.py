@@ -13,7 +13,6 @@ from .services.unicom import UnicomModel
 from .database.lance import LanceDB
 from .services.clip import ClipModel
 from .services.embedder import ImageEmbedder
-from .services.umap import SpeciesImageUmap
 from .services.metadata import ImageMetaService
 from .services.gbif import GbifPersistData
 from .configs.config import (
@@ -40,6 +39,7 @@ from .routers import (
     agent_search,
     taxonomy,
     geography,
+    morphospace,
 )
 
 
@@ -94,7 +94,6 @@ class AppSettings(BaseSettings):
     IMAGE_DIR: str
     IMAGE_META_DIR: str
     GBIF_DIR: str
-    UMAP_DIR: str
     # Optional on purpose. A deployment without the Catalogue of Life release
     # still serves everything but the classification panel, so a missing
     # COL_DIR must not stop the service booting. run_data_ingestion logs what
@@ -252,7 +251,6 @@ def run_data_ingestion(app: FastAPI):
     logger.info("LepTraits data ingested.")
     GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
-    SpeciesImageUmap(app.state.duck_db).ingest()
     ImageMetaService(app.state.duck_db).ingest()
 
     # CoL supplies the taxonomy backbone, and the colharmonize run resolves
@@ -421,6 +419,7 @@ app.include_router(db_search.router)
 app.include_router(agent_search.router)
 app.include_router(taxonomy.router)
 app.include_router(geography.router)
+app.include_router(morphospace.router)
 
 
 @app.get("/")

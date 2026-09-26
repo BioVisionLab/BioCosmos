@@ -21,27 +21,6 @@ export interface SpeciesData {
   traits: LepTraits;
 }
 
-export interface SpeciesImageUmap {
-  imgId: string;
-  umapX: number;
-  umapY: number;
-  lat: number;
-  lon: number;
-  classDv: string;
-  clusterLabel?: number;
-  // The specimen record behind the point; null until the backend's
-  // provenance, institution and coordinate tables exist.
-  sourceDb?: string | null;
-  catalogNumber?: string | null;
-  institutionCode?: string | null;
-  institutionName?: string | null;
-  validationStatus?: string | null;
-  recordedCountry?: string | null;
-  recordedAdm1?: string | null;
-  referenceCountry?: string | null;
-  referenceAdm1?: string | null;
-}
-
 /**
  * Derive the genus and species from a route slug such as
  * `zeuxidia_amethystus`. Useful for painting the page header before the
@@ -96,25 +75,4 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
   }
 }
 
-async function fetchSpeciesImageUmap(
-  species: string
-): Promise<SpeciesImageUmap[] | null> {
-  try {
-    const response = await fetch(
-      `/api/stats/umap?species=${encodeURIComponent(species)}`
-    );
-    if (!response.ok) {
-      console.error(
-        `Failed to fetch UMAP data for ${species}: ${response.statusText}`
-      );
-      return null;
-    }
-    const data = await response.json();
-    return data["umapEmbeddings"] || null;
-  } catch (error) {
-    console.error(`Error fetching UMAP data for ${species}:`, error);
-    return null;
-  }
-}
-
-export { getSpeciesData, parseSpeciesSlug, fetchSpeciesImageUmap };
+export { getSpeciesData, parseSpeciesSlug };

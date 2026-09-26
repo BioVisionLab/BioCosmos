@@ -15,6 +15,9 @@ reports/
   geography/<run_id>/             written by `geoharmonize validate`
     coordinate_run.json
     coordinate_validation.duckdb
+  morphospace/<run_id>/           written by `morphospace run`
+    morphospace_run.json
+    morphospace.duckdb
   planner/
     planner_spec.json             written by backend/scripts/export_planner_spec.py
     <run_id>/                     written by `plannerbench run`
