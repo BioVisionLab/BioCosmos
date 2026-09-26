@@ -23,6 +23,8 @@ BioCosmos is a full-stack biodiversity image platform. The Next.js App Router fr
 
 TypeScript is strict. Follow the existing two-space indentation, use `PascalCase` for React components and interfaces, `camelCase` for functions and variables, and Next.js route conventions such as `[speciesName]/page.tsx`. Prefer the `@/` alias for imports from `src/`. Python uses four spaces, `snake_case` modules/functions, and typed FastAPI/Pydantic interfaces. Run ESLint for frontend changes and `cd backend && uv run ruff check . && uv run ruff format --check .` for backend changes. For `packages/`, run `uv run ruff check packages/ && uv run ruff format --check packages/`; those packages use a 100-character line length and target Python 3.12. Keep route handlers thin; place reusable domain logic in `query/` or `services/`.
 
+Always use American English spelling and usage (for example, `color`, `harmonize`, `behavior`) in code, identifiers, comments, docstrings, UI copy, documentation, and commit or PR text.
+
 ## Testing Guidelines
 
 Pytest is the active test framework. Name files `test_<feature>.py`, keep shared fixtures in `backend/tests/conftest.py`, and add regression coverage for changed routers, queries, or services. CI runs the backend and `packages/` suites for changes under `backend/**`, `packages/**`, or the root `pyproject.toml`/`uv.lock`; there is no configured frontend test harness or coverage threshold, so at minimum run lint and build for UI work and describe manual verification in the PR.
