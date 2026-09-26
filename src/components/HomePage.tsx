@@ -70,7 +70,7 @@ const CREDENTIALS = [
 
 /**
  * The top of the landing page, as a collection drawer: the copy and the
- * search on the left, on millimetre graph paper, and a unit tray of the day's
+ * search on the left, on millimeter graph paper, and a unit tray of the day's
  * featured specimens on the right.
  *
  * The band runs the full width of the screen (`bc-bleed`), and on a desktop
@@ -92,7 +92,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
       className="bc-bleed bc-graph-paper -mt-4 border-b border-deep-mocha-200/80 dark:border-deep-mocha-800"
       aria-label="Lepiverse"
     >
-      <div className="[padding-inline:var(--bc-gutter)]">
+      <div className="px-(--bc-gutter)">
         <div
           className={`${LANDING_CONTAINER} @container grid items-center gap-10 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:gap-14 lg:py-16`}
         >
@@ -106,7 +106,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               className="bc-rise font-display text-[clamp(2rem,1.25rem+2.8vw,3.4rem)] font-semibold leading-[1.08] tracking-tight text-balance text-deep-mocha-900 dark:text-deep-mocha-50"
               style={{ animationDelay: "90ms" }}
             >
-              Explore <em className="bc-key">butterfly diversity</em> and their
+              Explore <em className="bc-key">butterfly diversity</em>and their
               fascinating <em className="bc-key bc-key-blue">coloration</em>
             </p>
 
@@ -123,8 +123,9 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
                 modern machine learning
               </strong>
               . We clean, validate, and harmonize records from museums and
-              aggregators, and use computer vision to extract traits and
-              evolutionary patterns from specimen images.
+              aggregators, and use computer vision to extract the complex
+              coloration and present it in a way that is scientifically
+              meaningful and visually compelling.
             </p>
 
             {/* relative z-10: bc-rise leaves a transform behind, which makes
