@@ -13,7 +13,7 @@ import { useInView } from "@/lib/useInView";
 
 export function MorphospaceIntro() {
   return (
-    <p className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300 max-w-2xl mb-4">
+    <p className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
       Variation in species coloration mapped onto the latent space. Each species
       is represented by two points, one for its dorsal side and one for its
       ventral side. The farther apart the dorsal and ventral points are, the

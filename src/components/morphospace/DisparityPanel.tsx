@@ -348,14 +348,15 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
           />
         </div>
         <SideDisparityChart disparity={data.disparity} />
-        <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 max-w-prose">
-          Morphological integration is the Mantel correlation between pairwise
-          differences in dorsal and ventral coloration, ranging from −1 to 1.
-          Values near 1 indicate similar patterns of variation across both
-          surfaces; values near 0 indicate largely independent variation;
-          negative values indicate opposing patterns. As a rough guide, |r|
+        {/* As a rough guide, |r|
           below 0.2 is little or no integration, 0.2–0.4 weak, 0.4–0.7 moderate,
-          and ≥0.7 strong. The permutation p-value tests whether the observed
+          and ≥0.7 strong.  */}
+        <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
+          Dorso-ventral integration use Mantel test to correlate pairwise
+          differences in dorsal and ventral coloration. Values near 1 indicate
+          similar patterns of variation across both surfaces; values near 0
+          indicate largely independent variation; negative values indicate
+          opposing patterns. The permutation p-value tests whether the observed
           correlation is greater than expected by chance.
         </p>
       </div>

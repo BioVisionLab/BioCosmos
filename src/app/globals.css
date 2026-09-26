@@ -311,13 +311,279 @@ body {
   border-left-color: var(--color-deep-mocha-800);
 }
 
-.dynamic-content a {
-  text-decoration: underline;
-  color: #b0b2b5;
+/* Cleaned Wikipedia HTML on the species Wikipedia tab. The parser strips
+ * inline styles, so these rules are all the article carries: body text in the
+ * card's colors, links in the info-panel blue, figures floated beside the
+ * text, and the taxobox laid out like the Taxonomy tab's fact tables. */
+.wiki-content {
+  line-height: 1.65;
+  overflow-wrap: break-word;
 }
 
-.dynamic-content a:hover {
-  color: #b0b2b5;
+.wiki-content::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.wiki-content p {
+  margin-bottom: 0.75rem;
+}
+
+.wiki-content p:last-child {
+  margin-bottom: 0;
+}
+
+.wiki-content a {
+  color: var(--color-pacific-blue-700);
+  text-decoration: underline;
+  text-decoration-color: rgb(37 104 116 / 0.4);
+  text-underline-offset: 2px;
+}
+
+.wiki-content a:hover {
+  color: var(--color-pacific-blue-800);
+  text-decoration-color: currentColor;
+}
+
+.dark .wiki-content a {
+  color: var(--color-pacific-blue-300);
+  text-decoration-color: rgb(139 206 218 / 0.4);
+}
+
+.dark .wiki-content a:hover {
+  color: var(--color-pacific-blue-200);
+}
+
+/* An image link carries no underline. */
+.wiki-content a:has(> img) {
+  text-decoration: none;
+}
+
+.wiki-content .mw-heading {
+  clear: both;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.wiki-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-deep-mocha-900);
+}
+
+.wiki-content h4,
+.wiki-content h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-deep-mocha-800);
+}
+
+.dark .wiki-content h3 {
+  color: var(--color-deep-mocha-100);
+}
+
+.dark .wiki-content h4,
+.dark .wiki-content h5 {
+  color: var(--color-deep-mocha-200);
+}
+
+.wiki-content ul,
+.wiki-content ol {
+  margin: 0 0 0.75rem 1.25rem;
+}
+
+.wiki-content ul {
+  list-style: disc;
+}
+
+.wiki-content ol {
+  list-style: decimal;
+}
+
+.wiki-content li {
+  margin-bottom: 0.25rem;
+}
+
+.wiki-content .div-col {
+  column-width: 16rem;
+  column-gap: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.wiki-content blockquote {
+  margin: 0 0 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid rgb(62 173 193 / 0.4);
+  font-style: italic;
+  color: var(--color-deep-mocha-600);
+}
+
+.dark .wiki-content blockquote {
+  color: var(--color-deep-mocha-400);
+}
+
+.wiki-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.wiki-content figure {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 1rem;
+}
+
+.wiki-content figcaption {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-deep-mocha-500);
+}
+
+.dark .wiki-content figcaption {
+  color: var(--color-deep-mocha-400);
+}
+
+@media (min-width: 640px) {
+  .wiki-content figure {
+    float: right;
+    clear: right;
+    max-width: 250px;
+    margin: 0.25rem 0 1rem 1.25rem;
+  }
+
+  .wiki-content figure.mw-halign-left {
+    float: left;
+    clear: left;
+    margin: 0.25rem 1.25rem 1rem 0;
+  }
+}
+
+/* Wide tables scroll inside the card instead of stretching it. */
+.wiki-content .wiki-table-scroll {
+  clear: both;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.wiki-content .wiki-table-scroll table {
+  width: 100%;
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+
+.wiki-content .wiki-table-scroll th,
+.wiki-content .wiki-table-scroll td {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-deep-mocha-200);
+  text-align: left;
+  vertical-align: top;
+}
+
+.wiki-content .wiki-table-scroll th {
+  background: rgb(62 173 193 / 0.12);
+  font-weight: 600;
+}
+
+.dark .wiki-content .wiki-table-scroll th,
+.dark .wiki-content .wiki-table-scroll td {
+  border-color: var(--color-deep-mocha-700);
+}
+
+/* The taxobox: every block centered under a small mono label, and rank rows
+ * set as label/value pairs meeting at the center line. */
+.wiki-content table.infobox {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wiki-content table.infobox td {
+  padding: 0.125rem 0;
+  vertical-align: top;
+}
+
+.wiki-content table.infobox td[colspan] {
+  text-align: center;
+}
+
+.wiki-content table.infobox td[colspan] img {
+  margin: 0 auto;
+}
+
+.wiki-content table.infobox tr > td:first-child:not([colspan]) {
+  padding-right: 0.75rem;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Rank rows: label, colon and value each get a column, as in the Taxonomy
+ * tab's fact tables. The label and value columns split the width evenly, so
+ * the colons line up on the card's center line under the centered labels. */
+.wiki-content table.infobox tr > td:first-child:has(+ .wiki-rank-colon) {
+  width: 50%;
+  padding-right: 0;
+  text-align: right;
+}
+
+.wiki-content table.infobox .wiki-rank-colon {
+  padding: 0.125rem 0.375rem;
+  font-weight: 500;
+}
+
+.wiki-content table.infobox .wiki-rank-colon + td {
+  width: 50%;
+}
+
+.wiki-content table.infobox th {
+  padding: 1rem 0 0.375rem;
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--color-deep-mocha-500);
+}
+
+.wiki-content table.infobox th div {
+  text-align: inherit;
+}
+
+.dark .wiki-content table.infobox th {
+  color: var(--color-deep-mocha-400);
+}
+
+.wiki-content table.infobox th a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.wiki-content table.infobox tr:first-child th {
+  padding-top: 0;
+}
+
+/* Centered lists (synonyms) drop their bullets, which would sit at the
+ * card's left edge, away from the names. */
+.wiki-content table.infobox td[colspan] ul {
+  list-style: none;
+  margin: 0;
+}
+
+.wiki-content table.infobox small {
+  font-size: 0.75rem;
+}
+
+/* The IUCN status bars are black line art; invert them on dark, as Wikipedia
+ * does with its own skin-invert-image class. */
+.dark .wiki-content .skin-invert-image img {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* The taxon identifiers, one database per line. */
+.wiki-content ul.wiki-identifiers {
+  list-style: none;
+  margin: 0;
 }
 
 /* Hide scrollbar but keep scrollable */

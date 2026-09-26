@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
+import NoImage from "@/components/NoImage";
 import { imageUrlById } from "@/lib/images";
 import type { AxisExtreme, ScopeMorphospace, Side } from "@/lib/morphospace";
 import { speciesPageHref } from "@/lib/taxonSlug";
@@ -1246,10 +1247,10 @@ function RepresentativeImage({
   if (!imgId || failed) {
     return (
       <span
-        className={`${frame} grid place-items-center text-center text-[10px] leading-tight ${MUTED_TEXT}`}
+        className={`${frame} relative block`}
         style={{ width: size, height: size }}
       >
-        No image
+        <NoImage className="text-center text-[10px] leading-tight [&>svg]:h-4 [&>svg]:w-4" />
       </span>
     );
   }
@@ -1325,7 +1326,9 @@ function HoverCard({
         {yKey.toUpperCase()} {points[yKey][index].toFixed(3)}
       </p>
       {linked && (
-        <p className={`mt-0.5 ${MUTED_TEXT}`}>Click to open the species page</p>
+        <p className={`mt-0.5 ${MUTED_TEXT}`}>
+          Click the point to open the species page
+        </p>
       )}
     </div>
   );
