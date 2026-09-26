@@ -99,7 +99,7 @@ export default function TextSearch() {
           value={field}
           onChange={setField}
           groups={FIELD_GROUPS}
-          className="w-full max-w-[220px]"
+          className="w-full min-w-0 max-w-[220px]"
         />
       </div>
 

@@ -54,9 +54,13 @@ export async function fetchFeaturedSpecies(): Promise<FeaturedSpecies | null> {
       `${API_HOST}/species/featured?limit=${HERO_SPECIMENS + FEATURED_RAIL}`,
       { next: { revalidate: 60 * 60 * 24 } },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`Featured species request failed: HTTP ${response.status}`);
+      return null;
+    }
     return await response.json();
-  } catch {
+  } catch (error) {
+    console.error("Failed to fetch featured species:", error);
     return null;
   }
 }

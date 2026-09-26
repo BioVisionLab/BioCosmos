@@ -70,7 +70,7 @@ const SearchSwitcher = ({
       {/* Every panel sits in the same grid cell, the hidden ones kept in
           layout but invisible, so the cell takes the height of the tallest
           mode and switching tabs leaves the box the same size. */}
-      <div className="mt-5 mb-6 w-full max-w-2xl grid">
+      <div className="mt-5 mb-6 w-full max-w-2xl grid grid-cols-1">
         {tabData.map((tab) => (
           <div
             key={tab.id}
@@ -79,7 +79,7 @@ const SearchSwitcher = ({
             aria-labelledby={`tab-${tab.id}`}
             aria-hidden={mode !== tab.id}
             inert={mode !== tab.id}
-            className={`col-start-1 row-start-1 ${mode === tab.id ? "" : "invisible"}`}
+            className={`col-start-1 row-start-1 min-w-0 ${mode === tab.id ? "" : "invisible"}`}
           >
             {tab.content}
           </div>
