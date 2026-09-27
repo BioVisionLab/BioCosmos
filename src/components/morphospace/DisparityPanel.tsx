@@ -199,6 +199,11 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
   const above = genera.filter((g) => g.ventral > g.dorsal).length;
   const below = genera.filter((g) => g.ventral < g.dorsal).length;
   const active = genera.find((g) => g.name === hovered);
+  // A side's rarefied disparity needs at least `rarefyK` species, so that, not
+  // the scope minimum, is the smallest genus the plot can show.
+  const rarefyK = data.children
+    .flatMap((g) => [g.disparity.dorsal, g.disparity.ventral])
+    .find((d) => d?.rarefiedMean != null)?.rarefyK;
   return (
     <figure className="morphospace-viz">
       <div className="relative inline-block">
@@ -304,9 +309,28 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
       <figcaption className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 max-w-xs">
         {above} of {genera.length} genera lie above the dashed line indicates
         greater disparity on the ventral side than on the dorsal side, and{" "}
-        {below} lie below it. Each point represent a genus with ≥3 species.
+        {below} lie below it. Each point represent a genus with ≥{rarefyK}{" "}
+        species.
       </figcaption>
     </figure>
+  );
+}
+
+/** What the genus scatter's axes measure, set across the panel's full width. */
+function GenusDisparityNote({ data }: { data: ScopeMorphospace }) {
+  const rarefyK = data.children
+    .flatMap((g) => [g.disparity.dorsal, g.disparity.ventral])
+    .find((d) => d?.rarefiedMean != null)?.rarefyK;
+  if (rarefyK == null) return null;
+  return (
+    <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
+      In the genus plot, the x-axis is each genus&apos;s dorsal disparity and
+      the y-axis its ventral disparity. The spread of its species&apos; color
+      pattern on each side is measured as the sum of variances of the species
+      centroids in the full embedding, averaged over random subsets of {rarefyK}{" "}
+      species using rarefaction to account for differences in sample size. Only
+      genera with at least {rarefyK} species imaged on each side are plotted.
+    </p>
   );
 }
 
@@ -369,6 +393,7 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
           opposing patterns. The permutation p-value tests whether the observed
           correlation is greater than expected by chance.
         </p>
+        {scope.rank === "family" && <GenusDisparityNote data={data} />}
       </div>
       {scope.rank === "family" && <GenusDisparityScatter data={data} />}
     </div>
