@@ -720,10 +720,8 @@ export default function CollectionCharts({
             Top 10 Countries by Species Diversity
           </h3>
           <p className="mb-4 text-sm text-deep-mocha-600 dark:text-deep-mocha-300">
-            Distinct accepted species recorded per country. Countries come from
-            the coordinate validation against GADM, not from recorded locality
-            text; where no country was recorded it is imputed from the
-            coordinate.
+            Species diversity by country in the collection. Only records with a
+            valid species and locality information are included.
           </p>
           <TopCountriesBarChart countries={countryDiversity.countries} />
           <p className="mt-3 text-sm">

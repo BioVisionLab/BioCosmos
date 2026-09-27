@@ -48,7 +48,7 @@ export default async function CollectionsPage() {
   ];
 
   return (
-    <main className="w-full max-w-7xl 2xl:max-w-[88rem] mx-auto py-8">
+    <main className="w-full max-w-7xl 2xl:max-w352 mx-auto py-8">
       <BackLink />
       <h1 className="text-3xl font-bold mb-6">Collections</h1>
 
@@ -82,7 +82,7 @@ export default async function CollectionsPage() {
           Image and metadata are provided by museum institutions and aggregated
           by data aggregators (GBIF, Ecdysis, and SCANBUGS). A record published
           to more than one aggregator is counted under &quot;Multiple
-          Sources&quot; rather than a single one.
+          Sources&quot;.
         </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {sourceStats.map((s) => (
@@ -123,7 +123,7 @@ function CollectionCard({
   return (
     <article
       key={label}
-      className="rounded-lg p-4 sm:p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
+      className="rounded-lg p-4 sm:p-6 bg-linear-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
     >
       <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-deep-mocha-900 dark:text-white">
         {value.toLocaleString()}

@@ -122,10 +122,11 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               <strong className="font-semibold text-deep-mocha-900 dark:text-deep-mocha-50">
                 modern machine learning
               </strong>
-              . We clean, validate, and harmonize records from museums and
-              aggregators, and use computer vision to extract the complex
-              coloration and present it in a way that is scientifically
-              meaningful and visually compelling.
+              . We clean, validate, and harmonize records from natural history
+              museums. We use computer vision to analyze complex color patterns
+              and integrate publicly available information on genetics,
+              morphology, distribution, and taxonomy, providing you with a
+              comprehensive resource for butterfly research and education.
             </p>
 
             {/* relative z-10: bc-rise leaves a transform behind, which makes

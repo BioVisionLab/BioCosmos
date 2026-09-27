@@ -22,6 +22,7 @@ import {
 } from "@/lib/matchingDocs";
 import CodeTable from "./CodeTable";
 import BackLink from "@/components/BackLink";
+import Link from "next/link";
 
 const COL_URL = "https://www.catalogueoflife.org/";
 const COL_TAXONOMY_URL = "https://github.com/hhandika/col-taxonomy";
@@ -58,8 +59,14 @@ export default function ResourcesPage() {
         <h2 className="text-2xl font-semibold">Primary Data</h2>
         <p>
           Primary data consists of butterfly images and their associated
-          metadata. These datasets are courtesy of museum providers and our
-          research collaborators. We downloaded the metadata from data
+          metadata. These datasets are courtesy of{" "}
+          <Link
+            href="/collections/providers"
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
+          >
+            museum providers
+          </Link>{" "}
+          and our research collaborators. We downloaded the metadata from data
           agregators (mainly{" "}
           <a
             href="https://www.gbif.org/"
