@@ -15,10 +15,7 @@ import {
 } from "@/lib/dbSearch";
 import { fetchSpeciesThumbnail, imageUrlById } from "@/lib/images";
 import { safeWebUrl } from "@/lib/imageMetadata";
-import {
-  cleanSpeciesName,
-  toBinomialName,
-} from "@/lib/names";
+import { cleanSpeciesName, toBinomialName } from "@/lib/names";
 import { speciesPageHref } from "@/lib/taxonSlug";
 import { FlaskConical } from "lucide-react";
 import SearchFieldSelect, {
@@ -692,10 +689,7 @@ function DbSearchResults({
                             <TaxonStatusBadge
                               update={{
                                 updateStatus: specimen.update_status as
-                                  | "MATCHED"
-                                  | "AMBIGUOUS"
-                                  | "UNMATCHED"
-                                  | null,
+                                  "MATCHED" | "AMBIGUOUS" | "UNMATCHED" | null,
                                 matchMethod: specimen.match_method,
                               }}
                               compact

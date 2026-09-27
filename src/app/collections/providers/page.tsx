@@ -1,4 +1,3 @@
-
 import { fetchTaxonStats } from "@/lib/metaStats";
 import ProvidersTable from "./ProvidersTable";
 import BackLink from "@/components/BackLink";
@@ -20,9 +19,9 @@ export default async function ProvidersPage() {
       <p className="mb-6 text-deep-mocha-700 dark:text-deep-mocha-300">
         Every holding institution behind the collection, with the number of
         images sourced from each. &quot;Unknown&quot; covers images with no
-        institution on record — either they were not sourced from GBIF, or
-        the record itself carries no institution code. Full names and websites
-        are matched from public records in the{" "}
+        institution on record — either they were not sourced from GBIF, or the
+        record itself carries no institution code. Full names and websites are
+        matched from public records in the{" "}
         <a
           href="https://scientific-collections.gbif.org"
           target="_blank"

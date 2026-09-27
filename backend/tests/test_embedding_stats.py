@@ -1,9 +1,12 @@
 """Tests for the embedding distribution service and query layer."""
 
+from typing import cast
+
 import polars as pl
 import pytest
 from unittest.mock import MagicMock, patch
 
+from app.database.lance import LanceDB
 from app.query.embedding_stats import EmbeddingDistribution
 from app.services import embedding_stats as stats_module
 from app.services.embedding_stats import EmbeddingStatsService
@@ -41,7 +44,7 @@ def _make_service(frame: pl.DataFrame | None = None) -> EmbeddingStatsService:
     lance_db = FakeLanceDB(table)
     with patch("app.services.embedding_stats.ImageConfig") as MockConfig:
         MockConfig.return_value.table = "nymphalidae"
-        return EmbeddingStatsService(lance_db=lance_db)
+        return EmbeddingStatsService(lance_db=cast(LanceDB, lance_db))
 
 
 # ===========================================================================

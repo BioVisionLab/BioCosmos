@@ -181,6 +181,34 @@ class TestImageMetaConfig:
         cfg = ImageMetaConfig()
         assert cfg.table == "image_meta"
 
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_source_table_and_exclusions_default(self, _mock):
+        from app.configs.config import ImageMetaConfig
+
+        cfg = ImageMetaConfig()
+        assert cfg.source_table == "image_meta_source"
+        assert cfg.exclude_families == []
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            **MOCK_CONFIG,
+            "image_metadata": {
+                **MOCK_CONFIG["image_metadata"],
+                "exclude_families": [" Castniidae ", "castniidae", ""],
+            },
+        },
+    )
+    def test_exclude_families_normalized(self, _mock):
+        from app.configs.config import ImageMetaConfig
+
+        assert ImageMetaConfig().exclude_families == ["castniidae"]
+
+    def test_shipped_config_excludes_castniidae(self):
+        from app.configs.config import ImageMetaConfig
+
+        assert "castniidae" in ImageMetaConfig().exclude_families
+
     @patch(
         "app.configs.config.load_config",
         return_value={
@@ -390,7 +418,9 @@ class TestAppSettings:
 
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValidationError):
-                AppSettings(_env_file=None)
+                # pydantic-settings accepts `_env_file` at runtime, but its
+                # dataclass_transform signature lists only the model fields.
+                AppSettings(_env_file=None)  # pyright: ignore[reportCallIssue]
 
 
 class TestLocalityConfig:
@@ -467,6 +497,31 @@ class TestSearchIndexConfig:
         from app.configs.config import SearchIndexConfig
 
         assert SearchIndexConfig().build_vector is False
+
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_vector_type_defaults_to_ivf_pq(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().vector_type == "IvfPq"
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"vector_type": "IvfHnswPq"}},
+    )
+    def test_reads_vector_type(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        assert SearchIndexConfig().vector_type == "IvfHnswPq"
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={**MOCK_CONFIG, "search_index": {"vector_type": "typo"}},
+    )
+    def test_rejects_unknown_vector_type(self, _mock):
+        from app.configs.config import SearchIndexConfig
+
+        with pytest.raises(ValueError, match="search_index.vector_type"):
+            _ = SearchIndexConfig().vector_type
 
 
 class TestNcbiConfig:

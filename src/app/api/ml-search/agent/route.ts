@@ -61,15 +61,12 @@ export async function GET(request: Request) {
   );
 
   try {
-    const response = await fetch(
-      `${AGENT_SEARCH}?${backendParams}`,
-      {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        // Stop the backend work when the browser abandons the search.
-        signal: request.signal,
-      },
-    );
+    const response = await fetch(`${AGENT_SEARCH}?${backendParams}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      // Stop the backend work when the browser abandons the search.
+      signal: request.signal,
+    });
 
     // Forward the backend's status (400 bad query, 502 planner failure,
     // 504 planner timeout, ...) instead of flattening everything to 503.

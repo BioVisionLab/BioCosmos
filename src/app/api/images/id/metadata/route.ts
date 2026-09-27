@@ -8,7 +8,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   const imageId = searchParams.get("imageId");
 
   if (!imageId) {
-    return NextResponse.json({ error: "Query parameter 'imageId' is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Query parameter 'imageId' is required" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -16,12 +19,20 @@ export async function GET(request: Request): Promise<NextResponse> {
     const response = await fetch(metaUri, { method: "GET" });
     if (!response.ok) {
       const err = await response.text();
-      return NextResponse.json({ error: `Failed to fetch image metadata: ${response.statusText} ${err}` }, { status: response.status });
+      return NextResponse.json(
+        {
+          error: `Failed to fetch image metadata: ${response.statusText} ${err}`,
+        },
+        { status: response.status },
+      );
     }
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: `Failed to fetch image metadata: ${msg}` }, { status: 500 });
+    return NextResponse.json(
+      { error: `Failed to fetch image metadata: ${msg}` },
+      { status: 500 },
+    );
   }
 }

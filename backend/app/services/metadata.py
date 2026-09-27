@@ -14,7 +14,7 @@ from ..configs.config import (
     LocalityConfig,
     ProvenanceConfig,
 )
-from ..database.duckdb import DuckDBClient
+from ..database.duckdb import DuckDBClient, family_kept_sql
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +276,10 @@ class ImageMetaService:
     def __init__(self, duckdb: DuckDBClient):
         config = ImageMetaConfig()
         self.table = config.table
+        self.source_table = config.source_table
+        self.input_table = config.input_table
+        self.excluded_table = config.excluded_table
+        self.exclude_families = config.exclude_families
         self.path = config.path
         self.format = config.format
         self.skip_ingestion = config.skip
@@ -295,25 +299,111 @@ class ImageMetaService:
 
     def ingest(self):
         """
-        Ingest image metadata into the database.
+        Ingest image metadata into the raw source table.
+
+        Readers never query the source table; `apply_exclusions` publishes
+        it as the filtered `self.table` view.
         """
         if self.skip_ingestion:
             logger.info("Skipping image metadata ingestion as per configuration.")
             return
+        # A database from before the view existed holds the raw rows under
+        # `self.table`; move them first so the new rows do not land beside them.
+        self._migrate_legacy_table()
         try:
             if self.format == "csv":
                 self.db_client.create_or_replace_table_csv(
-                    table_name=self.table, csv_path=self.path
+                    table_name=self.source_table, csv_path=self.path
                 )
             elif self.format == "parquet":
                 self.db_client.create_or_replace_parquet(
-                    table_name=self.table, parquet_path=self.path
+                    table_name=self.source_table, parquet_path=self.path
                 )
             else:
                 raise ValueError(f"Unsupported format: {self.format}")
         except Exception as e:
-            logger.error(f"Failed to ingest image metadata into '{self.table}': {e}")
+            logger.error(
+                f"Failed to ingest image metadata into '{self.source_table}': {e}"
+            )
             raise e
+
+    def _migrate_legacy_table(self) -> None:
+        """Rename a raw `self.table` left by an older database to the source."""
+        if self.db_client.table_type(self.table) != "BASE TABLE":
+            return
+        with self.db_client.lock:
+            if self.db_client.table_type(self.source_table) is None:
+                logger.info(
+                    f"Moving raw image metadata '{self.table}' to "
+                    f"'{self.source_table}'."
+                )
+                self.db_client.conn.execute(
+                    f"ALTER TABLE {self.table} RENAME TO {self.source_table}"
+                )
+            else:
+                raise RuntimeError(
+                    f"Both '{self.table}' and '{self.source_table}' are tables. "
+                    f"Drop the stale one; '{self.table}' must be the filtered view."
+                )
+
+    def apply_exclusions(self) -> None:
+        """Publish the source rows as the `self.table` view, minus excluded families.
+
+        Every reader (the API, the derived tables, the similarity package,
+        morphospace and the analyses notebooks) queries `self.table`, so a
+        family left out here is left out everywhere, while its images and
+        embeddings stay on disk. A family is excluded by the recorded name and
+        by the harmonized one, since a moth filed under a butterfly family is
+        only caught once it has been matched:
+
+        - `input_table`: the source minus recorded excluded families. The
+          taxonomy harmonizer reads this, so its fingerprint never depends on
+          its own output.
+        - `excluded_table`: images the harmonizer resolved to an excluded
+          family, written by TaxonomyUpdateService. Created empty here.
+        - `table`: `input_table` minus `excluded_table`.
+
+        Runs on every startup, including when ingestion is skipped, and
+        recreates the views so they track the source schema. Views bind at
+        query time, so a rebuilt `excluded_table` takes effect at once.
+        """
+        self._migrate_legacy_table()
+        if self.db_client.table_type(self.source_table) is None:
+            logger.info(
+                f"No image metadata source '{self.source_table}'; "
+                f"'{self.table}' view not created."
+            )
+            return
+        with self.db_client.lock:
+            conn = self.db_client.conn
+            conn.execute(
+                f"""
+                CREATE OR REPLACE VIEW {self.input_table} AS
+                SELECT * FROM {self.source_table}
+                WHERE {family_kept_sql("family", self.exclude_families)}
+                """
+            )
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {self.excluded_table} (
+                    img_id VARCHAR, accepted_family VARCHAR
+                )
+                """
+            )
+            conn.execute(
+                f"""
+                CREATE OR REPLACE VIEW {self.table} AS
+                SELECT * FROM {self.input_table} AS i
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM {self.excluded_table} AS x
+                    WHERE x.img_id = i.img_id
+                )
+                """
+            )
+        logger.info(
+            f"Image metadata view '{self.table}' excludes families: "
+            f"{self.exclude_families or 'none'}."
+        )
 
     def get_image_count_by_species(self, scientific_name: str) -> int | None:
         """

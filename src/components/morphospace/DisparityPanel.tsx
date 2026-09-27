@@ -92,7 +92,7 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
     Math.max(...rows.map(([, d]) => d.rarefiedHigh ?? d.rarefiedMean ?? 0)) *
     1.1;
   const W = 320,
-    rowH = 28,
+    rowH = 40,
     left = 64,
     right = 56;
   const x = (v: number) => left + (v / max) * (W - left - right);
@@ -144,6 +144,15 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
               >
                 {(d.rarefiedMean ?? 0).toFixed(3)}
               </text>
+              {/* How many species the side's disparity is drawn from. */}
+              <text
+                x={x(d.rarefiedLow ?? 0)}
+                y={y + 15}
+                dominantBaseline="middle"
+                className="fill-deep-mocha-600 dark:fill-deep-mocha-400 text-[10px] tabular-nums"
+              >
+                {d.nSpecies.toLocaleString()} species
+              </text>
             </g>
           );
         })}
@@ -188,7 +197,13 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
   const p = (v: number) => pad + ((v - min) / (max - min)) * (S - pad - 8);
   const flip = (v: number) => S - p(v);
   const above = genera.filter((g) => g.ventral > g.dorsal).length;
+  const below = genera.filter((g) => g.ventral < g.dorsal).length;
   const active = genera.find((g) => g.name === hovered);
+  // A side's rarefied disparity needs at least `rarefyK` species, so that, not
+  // the scope minimum, is the smallest genus the plot can show.
+  const rarefyK = data.children
+    .flatMap((g) => [g.disparity.dorsal, g.disparity.ventral])
+    .find((d) => d?.rarefiedMean != null)?.rarefyK;
   return (
     <figure className="morphospace-viz">
       <div className="relative inline-block">
@@ -293,10 +308,29 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
       </div>
       <figcaption className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 max-w-xs">
         {above} of {genera.length} genera lie above the dashed line indicates
-        greater disparity on the ventral side than on the dorsal side, and vice
-        versa. Each point represent a genus with ≥3 species.
+        greater disparity on the ventral side than on the dorsal side, and{" "}
+        {below} lie below it. Each point represent a genus with ≥{rarefyK}{" "}
+        species.
       </figcaption>
     </figure>
+  );
+}
+
+/** What the genus scatter's axes measure, set across the panel's full width. */
+function GenusDisparityNote({ data }: { data: ScopeMorphospace }) {
+  const rarefyK = data.children
+    .flatMap((g) => [g.disparity.dorsal, g.disparity.ventral])
+    .find((d) => d?.rarefiedMean != null)?.rarefyK;
+  if (rarefyK == null) return null;
+  return (
+    <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
+      In the genus plot, the x-axis is each genus&apos;s dorsal disparity and
+      the y-axis its ventral disparity. The spread of its species&apos; color
+      pattern on each side is measured as the sum of variances of the species
+      centroids in the full embedding, averaged over random subsets of {rarefyK}{" "}
+      species using rarefaction to account for differences in sample size. Only
+      genera with at least {rarefyK} species imaged on each side are plotted.
+    </p>
   );
 }
 
@@ -348,16 +382,18 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
           />
         </div>
         <SideDisparityChart disparity={data.disparity} />
-        <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 max-w-prose">
-          Morphological integration is the Mantel correlation between pairwise
-          differences in dorsal and ventral coloration, ranging from −1 to 1.
-          Values near 1 indicate similar patterns of variation across both
-          surfaces; values near 0 indicate largely independent variation;
-          negative values indicate opposing patterns. As a rough guide, |r|
+        {/* As a rough guide, |r|
           below 0.2 is little or no integration, 0.2–0.4 weak, 0.4–0.7 moderate,
-          and ≥0.7 strong. The permutation p-value tests whether the observed
+          and ≥0.7 strong.  */}
+        <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
+          Dorso-ventral integration use Mantel test to correlate pairwise
+          differences in dorsal and ventral coloration. Values near 1 indicate
+          similar patterns of variation across both surfaces; values near 0
+          indicate largely independent variation; negative values indicate
+          opposing patterns. The permutation p-value tests whether the observed
           correlation is greater than expected by chance.
         </p>
+        {scope.rank === "family" && <GenusDisparityNote data={data} />}
       </div>
       {scope.rank === "family" && <GenusDisparityScatter data={data} />}
     </div>

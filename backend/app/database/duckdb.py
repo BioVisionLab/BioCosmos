@@ -10,6 +10,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def family_kept_sql(column: str, families: list[str]) -> str:
+    """A predicate true when `column` is not one of the excluded `families`.
+
+    `families` are already lowercased and trimmed (ImageMetaConfig does it).
+    DDL takes no parameters, so the names are inlined as escaped literals.
+    """
+    if not families:
+        return "TRUE"
+    literals = ", ".join("'" + name.replace("'", "''") + "'" for name in families)
+    return f"({column} IS NULL OR lower(trim({column})) NOT IN ({literals}))"
+
+
 class DuckDBClient:
     """
     A simple DuckDB client wrapper.
@@ -116,7 +128,7 @@ class DuckDBClient:
             """
         )
         logger.info(f"Table '{table_name}' created or replaced.")
-    
+
     def create_if_not_exists_parquet(self, table_name: str, parquet_path: str):
         """Create a table from a Parquet file if it does not exist.
         Args:
@@ -186,6 +198,19 @@ class DuckDBClient:
             return list(table_names)
         present = {row[0] for row in rows}
         return [name for name in table_names if name not in present]
+
+    def table_type(self, table_name: str) -> str | None:
+        """'BASE TABLE', 'VIEW', or None when no such object exists."""
+        with self.lock:
+            row = self.conn.execute(
+                """
+                SELECT table_type FROM information_schema.tables
+                WHERE table_name = ?
+                LIMIT 1
+                """,
+                [table_name],
+            ).fetchone()
+        return row[0] if row else None
 
     def table_exists(self, table_name: str) -> bool:
         """Whether a table has been created in this database."""

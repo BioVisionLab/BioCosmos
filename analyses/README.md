@@ -59,25 +59,22 @@ Cold-cache behavior and index-training randomness are not controlled.
 
 Recommendations are advisory and respect the recall threshold per embedding column;
 the notebook never deploys a winner. No figures are generated and the curated
-`data/indexing_benchmark.csv` is never overwritten. The publication `index_perf.ipynb`
-continues to plot that separate CSV; explicitly curate a completed benchmark export
-into it if you want to update the publication's measurements (keep top-k at 10).
+`data/indexing_benchmark.csv` is never overwritten. The publication `index_perf.ipynb` loads the newest completed run directly from
+`results/indexing/` and shows its source path. Its recall@10 plot requires top-k 10;
+failed or incomplete runs are skipped. The old `data/indexing_benchmark.csv` is not used.
 
 ## Planner model performance
 
-`benchmarks/planner_model_performance.ipynb` compares the models recorded by one
+`notebooks/model_performance.ipynb` compares the models recorded by one
 `plannerbench` run. It loads the planner entry in `reports/latest.json` by default,
-or the manifest selected by `BIOCOSMOS_PLANNER_MANIFEST`. The notebook compares
-accuracy, repeat consistency, latency, API/tool-call failures, prompt/completion/total
-tokens, and per-case accuracy. Trial-level box plots expose latency and token outliers.
-The quality-cost figure compares accuracy with p50 successful-call latency and tokens
-per successful call. Each panel highlights its own Pareto leaders: models for which no
-other eligible model is at least as accurate and no more costly, with a strict improvement
-in at least one dimension. Models without successful calls or finite cost measurements
-remain visible in the aggregate summary but are excluded from that comparison.
-After the per-case section, a combined publication figure places accuracy versus latency
-and token usage above the per-case accuracy heatmap. Every planner figure is exported as
-PDF, SVG, and 300-dpi PNG, with its source CSV data, under `analyses/results/`.
+or the manifest selected by `BIOCOSMOS_PLANNER_MANIFEST`. Its single publication
+figure places accuracy versus p50 successful-call latency and tokens per successful
+call above the per-case accuracy heatmap. Each cost panel highlights its Pareto leaders:
+models for which no other eligible model is at least as accurate and no more costly,
+with a strict improvement in at least one dimension. Models without successful calls
+or finite cost measurements are excluded from the cost panels and flagged in the
+notebook; the heatmap still shows them. The combined figure is exported as PDF, SVG,
+and 300-dpi PNG, with source CSV data, under `analyses/results/`.
 
 Generate a run before opening the notebook. From the repository root,
 install the workspace packages into the root `.venv`, activate it, and load
@@ -151,7 +148,7 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 | --- | --- |
 | `data_summary.ipynb` | `dataset_overview`: dorso-ventral (A), image providers (B), source aggregators (C), family (D), top ten accepted species (E), validated-coordinate grid (F), species diversity by validated country (G) |
 | `harmonization.ipynb` | `harmonization_metrics`: coordinate-validation outcomes and match methods for images and unique input taxa |
-| `index_perf.ipynb` | `indexing_benchmark`: recorded index latency versus recall@10 |
+| `index_perf.ipynb` | `indexing_benchmark`: latest completed index latency versus recall@10 |
 | `morphospace.ipynb` | `morphospace`: dorso-ventral morphospace of species centroids (A), genus disparity dorsal against ventral (B), genus dorso-ventral integration (C), intraspecific dispersion against dorso-ventral divergence (D) |
 
 **Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
@@ -247,14 +244,17 @@ input-taxon keys, including unresolved outcomes. Unreferenced matching rows are 
 Input taxa are not accepted species. Images lacking an input-taxon key appear as
 unclassified in image panels but cannot be counted as distinct input taxa.
 
-**Morphospace.** Every number comes from one integrated `morphospace run`, whose
-`run_id` the notebook prints; the notebook recomputes nothing. Panel A draws the scope
-named by `SCOPE_RANK`/`SCOPE_KEY` (the whole collection by default, or one family). Colour
-follows the family in the whole collection and the genus inside a family; beyond the six
-richest groups everything is grey rather than a cycled colour. Disparity (B) is rarefied
-so genera of different richness compare; integration (C) needs five species seen from
-both sides, and its p-value is omitted above the run's permutation limit. See
-`packages/morphospace/README.md` for every definition.
+**Morphospace.** Two panels use one integrated `morphospace run`, whose `run_id`
+the notebook prints. A shows the shared dorsal/ventral PCA for `SCOPE_RANK`/`SCOPE_KEY`
+(the whole collection by default), with the frontend's stored low/high PC1 and PC2
+representative images loaded from the configured backend processed-image directory.
+Missing images raise an error. ColorBrewer Dark2 distinguishes the five richest
+families (or genera within a family); other groups are gray. B shows each family's
+stored full-embedding sum of species-centroid variances (`sum_var`), with dorsal and
+ventral bars in ColorBrewer Set1 colors. These are unrarefied estimates, not sums
+of the two plotted PC variances. Missing estimates are marked N/A. Exported tables
+include the scope/run, points, family disparity with species counts, and axis examples.
+See `packages/morphospace/README.md` for the metric definitions.
 
 **Benchmark.** Use the existing CSV; exclude `Flat (brute-force)` as in the original
 notebook, while retaining `No Index (baseline)`. No performance measurements are rerun.

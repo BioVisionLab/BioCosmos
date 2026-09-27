@@ -217,9 +217,10 @@ class TestLiteratureSearch:
                 "coenonympha_pamphilus"
             )
         )
+        assert payload is not None
         assert set(fake.queries()) == {"Coenonympha pamphilus", "Papilio pamphilus"}
         assert payload.synonyms_searched == ["Papilio pamphilus"]
-        old = next(w for w in payload.species if w.doi.endswith("10.1/old"))
+        old = next(w for w in payload.species if (w.doi or "").endswith("10.1/old"))
         assert (old.matched_via, old.matched_name) == ("synonym", "Papilio pamphilus")
         # Enough species papers: no genus search at all.
         assert payload.genus_related is None
@@ -234,6 +235,7 @@ class TestLiteratureSearch:
                 "coenonympha_pamphilus"
             )
         )
+        assert payload is not None
         assert payload.species == []
 
     def test_abstract_mentions_count(self, taxon_search):
@@ -253,6 +255,7 @@ class TestLiteratureSearch:
                 "coenonympha_pamphilus"
             )
         )
+        assert payload is not None
         assert [w.doi for w in payload.species] == ["https://doi.org/10.1/a"]
 
     def test_genus_tier_runs_when_species_results_are_few(self, taxon_search):
@@ -276,10 +279,12 @@ class TestLiteratureSearch:
                 "coenonympha_pamphilus"
             )
         )
-        species_dois = {w.doi.rsplit("/", 1)[-1] for w in payload.species}
+        assert payload is not None
+        species_dois = {(w.doi or "").rsplit("/", 1)[-1] for w in payload.species}
         assert species_dois == {"cp0", "cp1", "promoted"}
         genus = payload.genus_related
-        assert [w.doi.rsplit("/", 1)[-1] for w in genus] == ["tullia", "genus"]
+        assert genus is not None
+        assert [(w.doi or "").rsplit("/", 1)[-1] for w in genus] == ["tullia", "genus"]
         assert genus[0].mentions == ["Coenonympha tullia"]
         assert genus[1].mentions == []
 
@@ -290,7 +295,11 @@ class TestLiteratureSearch:
                 "coenonympha_pamphilus"
             )
         )
-        years = [w.published_year for w in payload.species]
+        assert payload is not None
+        years = [
+            w.published_year for w in payload.species if w.published_year is not None
+        ]
+        assert len(years) == len(payload.species)
         assert years == sorted(years, reverse=True)
 
     def test_name_outside_backbone_is_still_searched(self, taxon_search):
@@ -298,6 +307,7 @@ class TestLiteratureSearch:
         payload = asyncio.run(
             LiteratureSearch(taxon_search, fake.client()).search("fooia_barus")
         )
+        assert payload is not None
         assert payload.accepted_name == "Fooia barus"
         assert len(payload.species) == 1
 
@@ -310,6 +320,7 @@ class TestLiteratureSearch:
         payload = asyncio.run(
             LiteratureSearch(taxon_search, client).search("coenonympha_pamphilus")
         )
+        assert payload is not None
         assert payload.partial is True
         assert payload.species == []
 

@@ -32,7 +32,9 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
 
           let mimeType = imageBlob.type;
           if (!mimeType) {
-            const arr = new Uint8Array(await imageBlob.slice(0, 12).arrayBuffer());
+            const arr = new Uint8Array(
+              await imageBlob.slice(0, 12).arrayBuffer(),
+            );
             const isJpeg = arr[0] === 0xff && arr[1] === 0xd8;
             const isPng =
               arr[0] === 0x89 &&
@@ -54,7 +56,9 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
             else mimeType = "application/octet-stream";
           }
 
-          const file = new File([imageBlob], "search-image", { type: mimeType });
+          const file = new File([imageBlob], "search-image", {
+            type: mimeType,
+          });
           data.append("image", file);
         }
 

@@ -53,7 +53,9 @@ function SpeciesDescriptionText({
       aria-label="Key trait layout"
     >
       {/* Wingspan: shares row with Canopy Affinity when present, else spans full width */}
-      <div className={`${boxClasses} ${showCanopy ? "" : "md:col-span-2"} h-fit`}>
+      <div
+        className={`${boxClasses} ${showCanopy ? "" : "md:col-span-2"} h-fit`}
+      >
         <h3 className="text-lg ml-2 mt-0 mb-2">Wingspan</h3>
         <div className="space-y-1">
           <WingspanCard
@@ -73,12 +75,7 @@ function SpeciesDescriptionText({
           <h3 className="text-lg ml-2 mt-0 mb-2">Canopy Affinity</h3>
           <Affinity
             affinity={traits.canopy_affinity!}
-            icon={
-              <CanopyIcon
-                className={keyTraitIconClass}
-                size="lg"
-              />
-            }
+            icon={<CanopyIcon className={keyTraitIconClass} size="lg" />}
           />
         </div>
       )}
@@ -91,10 +88,7 @@ function SpeciesDescriptionText({
             <FlightDuration
               duration={traits.flight_duration}
               icon={
-                <FlightDurationIcon
-                  className={keyTraitIconClass}
-                  size="lg"
-                />
+                <FlightDurationIcon className={keyTraitIconClass} size="lg" />
               }
             />
           </div>

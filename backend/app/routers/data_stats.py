@@ -27,9 +27,7 @@ async def get_taxon_counts(request: Request):
         logger.info(f"Taxon counts found: {counts}")
         return JSONResponse(content=counts, status_code=200)
     except Exception as e:
-        logger.error(
-            f"Error fetching taxon counts: {e}", exc_info=True
-        )
+        logger.error(f"Error fetching taxon counts: {e}", exc_info=True)
         return JSONResponse(
             content={
                 "message": f"An error occurred while fetching taxon counts: {str(e)}"
@@ -65,9 +63,7 @@ async def get_embedding_stats(
         logger.info("Embedding distributions computed successfully")
         return JSONResponse(content=data, status_code=200)
     except Exception as e:
-        logger.error(
-            f"Error fetching embedding distributions: {e}", exc_info=True
-        )
+        logger.error(f"Error fetching embedding distributions: {e}", exc_info=True)
         return JSONResponse(
             content={
                 "message": f"An error occurred while fetching embedding statistics: {str(e)}"

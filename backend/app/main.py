@@ -115,9 +115,11 @@ def get_app_settings() -> AppSettings:
     Raises an EnvironmentError if required settings are missing.
     """
     try:
-        return AppSettings()
+        # pydantic-settings fills the fields from the environment at runtime,
+        # but its typed constructor still lists them as required arguments.
+        return AppSettings()  # pyright: ignore[reportCallIssue]
     except ValidationError as e:
-        missing_vars = [err["loc"][0] for err in e.errors() if "loc" in err]
+        missing_vars = [str(err["loc"][0]) for err in e.errors() if "loc" in err]
         error_message = f"Missing or invalid required environment variables: {', '.join(missing_vars)}"
         logger.error(error_message)
         raise EnvironmentError(error_message) from e
@@ -142,6 +144,17 @@ def initialize_lance(app: FastAPI):
     """Initializes and attaches the database to the app state."""
     logger.info("Initializing LanceDB...")
     app.state.lance_db = LanceDB()
+    table = ImageConfig().table
+    problems = app.state.lance_db.schema_problems(table)
+    if problems:
+        logger.warning(
+            "LanceDB collection '%s' predates the current layout (%s). "
+            "Similarity search still works; species images and new ingests do "
+            "not. Run `uv run --env-file .env python scripts/migrate_lance.py` "
+            "from backend/ with the backend stopped.",
+            table,
+            "; ".join(problems),
+        )
     logger.info("LanceDB initialized successfully.")
 
 
@@ -251,7 +264,9 @@ def run_data_ingestion(app: FastAPI):
     logger.info("LepTraits data ingested.")
     GbifPersistData(app.state.duck_db).ingest()
     logger.info("GBIF data ingested.")
-    ImageMetaService(app.state.duck_db).ingest()
+    image_meta_service = ImageMetaService(app.state.duck_db)
+    image_meta_service.ingest()
+    image_meta_service.apply_exclusions()
 
     # CoL supplies the taxonomy backbone, and the colharmonize run resolves
     # each occurrence against it. Both run after image_meta, which the
@@ -296,9 +311,9 @@ def build_search_indexes(app: FastAPI):
     """Build the LanceDB vector indexes, if configuration asks for them.
 
     Off by default, via `search_index.build_vector` in
-    backend/app/configs/config.yaml. Training an IVF-PQ index is minutes of
-    work and only goes stale when the embeddings change, so this is once per
-    dataset rather than once per boot. The build is idempotent, so leaving it
+    backend/app/configs/config.yaml. Training a vector index can take minutes and
+    only goes stale when the embeddings change, so this is once per dataset
+    rather than once per boot. The build is idempotent, so leaving it
     on costs a cheap check rather than a rebuild -- but off is the default
     because a fresh deployment should decide to spend those minutes rather
     than discover them.
@@ -307,7 +322,8 @@ def build_search_indexes(app: FastAPI):
     not wrong, and that is not worth taking the site down for. Both branches
     log, so the reason search is slow is always in the startup log.
     """
-    if not SearchIndexConfig().build_vector:
+    search_index_config = SearchIndexConfig()
+    if not search_index_config.build_vector:
         logger.info(
             "Skipping the vector index build: search_index.build_vector is "
             "false in backend/app/configs/config.yaml. If the collection has no "
@@ -322,7 +338,10 @@ def build_search_indexes(app: FastAPI):
     try:
         image_config = ImageConfig()
         for column in ("unicom_embeddings", "clip_embeddings"):
-            app.state.lance_db.ensure_vector_index(image_config.table, column)
+            app.state.lance_db.ensure_vector_index(
+                image_config.table, column, index_type=search_index_config.vector_type
+            )
+        app.state.lance_db.ensure_scalar_index(image_config.table, "img_id")
     except Exception:
         # `ensure_vector_index` already swallows its own failures, so reaching
         # here means the config or the collection handle is broken rather than

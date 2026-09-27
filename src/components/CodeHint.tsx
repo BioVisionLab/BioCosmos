@@ -126,7 +126,8 @@ function useTooltipPosition(
       const below = rect.bottom + TOOLTIP_GAP;
       const fitsBelow = below + height <= window.innerHeight - VIEWPORT_MARGIN;
       const fitsAbove = rect.top - TOOLTIP_GAP - height >= VIEWPORT_MARGIN;
-      const top = !fitsBelow && fitsAbove ? rect.top - TOOLTIP_GAP - height : below;
+      const top =
+        !fitsBelow && fitsAbove ? rect.top - TOOLTIP_GAP - height : below;
 
       const left = Math.min(
         Math.max(VIEWPORT_MARGIN, rect.left),
@@ -250,7 +251,9 @@ export function CodeHint({
           }
         }}
         className={`${labelClasses} cursor-help transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-hunter-green-500 ${
-          variant === "text" ? "underline decoration-dotted underline-offset-2" : ""
+          variant === "text"
+            ? "underline decoration-dotted underline-offset-2"
+            : ""
         }`}
       >
         <span className="truncate">{visibleLabel}</span>

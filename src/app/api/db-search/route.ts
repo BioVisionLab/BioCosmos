@@ -16,13 +16,13 @@ export async function GET(request: Request) {
   if (!query) {
     return NextResponse.json(
       { error: "Query parameter 'q' is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   try {
     const response = await fetch(
-      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${encodeURIComponent(page)}&limit=${LIMIT}`
+      `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${encodeURIComponent(page)}&limit=${LIMIT}`,
     );
     if (!response.ok) {
       throw new Error(`Failed to fetch taxon data: ${response.statusText}`);
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     console.error("Search API error:", error);
     return NextResponse.json(
       { error: "Failed to fetch species data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

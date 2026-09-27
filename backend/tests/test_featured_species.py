@@ -2,9 +2,10 @@
 
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.query import featured_species as featured_module
@@ -155,20 +156,26 @@ def test_sample_is_stable_for_a_day_and_extends_with_limit(seeded, monkeypatch):
     service = FeaturedSpecies(seeded)
     day = date(2026, 9, 23)
     two = service.sample(2, day)
+    assert two is not None
     assert two == service.sample(2, day)
     four = service.sample(4, day)
+    assert four is not None
     assert [s["slug"] for s in four["species"][:2]] == [
         s["slug"] for s in two["species"]
     ]
     assert four["poolSize"] == 4
     assert four["date"] == "2026-09-23"
     # The limit is capped by the pool rather than failing.
-    assert len(service.sample(24, day)["species"]) == 4
+    capped = service.sample(24, day)
+    assert capped is not None
+    assert len(capped["species"]) == 4
 
 
 def test_sample_payload_names_the_facets(seeded, monkeypatch):
     monkeypatch.setattr(featured_module, "MIN_POOL", 1)
-    species = FeaturedSpecies(seeded).sample(6, date(2026, 1, 1))["species"]
+    payload = FeaturedSpecies(seeded).sample(6, date(2026, 1, 1))
+    assert payload is not None
+    species = payload["species"]
     assert species == [
         {
             "species": "Danaus plexippus",
@@ -216,7 +223,10 @@ def test_route_404s_without_records(memory_duckdb):
 
 
 def test_dependency_reuses_one_instance(memory_duckdb):
-    request = SimpleNamespace(
-        app=SimpleNamespace(state=SimpleNamespace(duck_db=memory_duckdb))
+    request = cast(
+        Request,
+        SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(duck_db=memory_duckdb))
+        ),
     )
     assert get_featured_species(request) is get_featured_species(request)

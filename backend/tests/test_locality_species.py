@@ -1,5 +1,6 @@
 """The agent location filter: GADM-first country and ADM1 matching."""
 
+from typing import NamedTuple
 from unittest.mock import AsyncMock, MagicMock
 
 import polars as pl
@@ -144,41 +145,53 @@ def test_values_are_bound_not_interpolated():
     assert result == ["Species a"]
 
 
-def _location_service(available: bool):
+class _LocationHarness(NamedTuple):
+    service: AgentSearchService
+    locality_species: MagicMock
+    gbif_service: MagicMock
+    species_to_filter_rows: AsyncMock
+
+
+def _location_service(available: bool) -> _LocationHarness:
+    locality_species = MagicMock()
+    locality_species.available.return_value = available
+    locality_species.species.return_value = ["Species a"]
+    gbif_service = MagicMock()
+    gbif_service.search_by_country_code.return_value = ["Species b"]
+    species_to_filter_rows = AsyncMock(return_value=[])
     service = AgentSearchService.__new__(AgentSearchService)
-    service.locality_species = MagicMock()
-    service.locality_species.available.return_value = available
-    service.locality_species.species.return_value = ["Species a"]
-    service.gbif_service = MagicMock()
-    service.gbif_service.search_by_country_code.return_value = ["Species b"]
-    service._species_to_filter_rows = AsyncMock(return_value=[])
-    return service
+    service.locality_species = locality_species
+    service.gbif_service = gbif_service
+    service._species_to_filter_rows = species_to_filter_rows
+    return _LocationHarness(
+        service, locality_species, gbif_service, species_to_filter_rows
+    )
 
 
 @pytest.mark.asyncio
 async def test_agent_location_uses_locality_filter():
-    service = _location_service(available=True)
+    harness = _location_service(available=True)
 
-    await service._search_by_location("MY", "Sabah")
+    await harness.service._search_by_location("MY", "Sabah")
 
-    service.locality_species.species.assert_called_once_with(
+    harness.locality_species.species.assert_called_once_with(
         "MY", "Sabah", FILTER_SPECIES_LIMIT
     )
-    service.gbif_service.search_by_country_code.assert_not_called()
-    service._species_to_filter_rows.assert_awaited_once_with(
+    harness.gbif_service.search_by_country_code.assert_not_called()
+    harness.species_to_filter_rows.assert_awaited_once_with(
         ["Species a"], tool_name="search_by_location"
     )
 
 
 @pytest.mark.asyncio
 async def test_agent_location_falls_back_to_recorded_country():
-    service = _location_service(available=False)
+    harness = _location_service(available=False)
 
-    await service._search_by_location("MY", "Sabah")
+    await harness.service._search_by_location("MY", "Sabah")
 
-    service.gbif_service.search_by_country_code.assert_called_once_with(
+    harness.gbif_service.search_by_country_code.assert_called_once_with(
         "MY", FILTER_SPECIES_LIMIT
     )
-    service._species_to_filter_rows.assert_awaited_once_with(
+    harness.species_to_filter_rows.assert_awaited_once_with(
         ["Species b"], tool_name="search_by_location"
     )

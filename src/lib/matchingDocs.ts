@@ -118,7 +118,10 @@ export const VALIDATION_STATUS_ROWS: CodeRow[] = [
     description:
       "The coordinate falls in a different state or province than the one recorded.",
   },
-  { code: "VALID", description: "The coordinate matches the recorded locality." },
+  {
+    code: "VALID",
+    description: "The coordinate matches the recorded locality.",
+  },
 ];
 
 /** geoharmonize `CoordinateCheck`. */

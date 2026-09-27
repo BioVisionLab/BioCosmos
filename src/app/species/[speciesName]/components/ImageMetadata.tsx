@@ -14,6 +14,7 @@ import {
   localityOf,
   nameWasUpdated,
   provenanceOf,
+  sexOf,
   taxonomyOf,
 } from "@/lib/imageMetadata";
 import { SpecimenLocality } from "@/lib/geoValidation";
@@ -21,6 +22,7 @@ import {
   CoordinateRegionRow,
   METADATA_EMPTY,
   METADATA_LABEL,
+  METADATA_SYMBOL,
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
@@ -119,9 +121,7 @@ function LocalityBlock({ locality }: { locality: SpecimenLocality | null }) {
     <div className="col-span-2 flex flex-wrap items-baseline gap-1 min-w-0 leading-normal">
       <span className="whitespace-nowrap">Locality:</span>
       {locality?.display ? (
-        <span className={`min-w-0 ${METADATA_VALUE}`}>
-          {locality.display}
-        </span>
+        <span className={`min-w-0 ${METADATA_VALUE}`}>{locality.display}</span>
       ) : (
         <span className={METADATA_EMPTY}>—</span>
       )}
@@ -277,6 +277,7 @@ export default function ImageMetadata({
   const locality = localityOf(meta);
   const coordinates = coordinatesOf(meta);
   const provenance = provenanceOf(meta);
+  const sex = sexOf(meta);
 
   return (
     <div className="p-5 bg-deep-mocha-100 dark:bg-deep-mocha-900 border border-deep-mocha-200 dark:border-deep-mocha-700 rounded-xl text-sm text-deep-mocha-700 dark:text-deep-mocha-400 leading-3.5">
@@ -294,14 +295,28 @@ export default function ImageMetadata({
           <>
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 items-start">
               <div className="flex items-center min-w-0">
-                <span className={METADATA_LABEL}>
-                  View:
-                </span>
+                <span className={METADATA_LABEL}>View:</span>
                 <span className={`ml-1 truncate capitalize ${METADATA_VALUE}`}>
                   {typeof meta.class_dv === "string"
                     ? meta.class_dv.toLowerCase()
                     : "—"}
                 </span>
+              </div>
+
+              {/* Below the view, not beside it. */}
+              <div className="col-start-1 flex items-center min-w-0">
+                <span className={METADATA_LABEL}>Sex:</span>
+                {sex ? (
+                  <span
+                    className={`ml-1 truncate ${METADATA_VALUE} ${sex.isSymbol ? METADATA_SYMBOL : ""}`}
+                    title={sex.label}
+                    aria-label={sex.label}
+                  >
+                    {sex.display}
+                  </span>
+                ) : (
+                  <span className={`ml-1 ${METADATA_EMPTY}`}>—</span>
+                )}
               </div>
 
               {/* Locality first, then the coordinate and the verdict on it:
@@ -313,9 +328,7 @@ export default function ImageMetadata({
                   full-precision pair, and a truncated coordinate is a wrong
                   one. It wraps at the comma rather than being cut off. */}
               <div className="col-span-2 sm:col-span-1 flex flex-wrap items-baseline gap-x-1 min-w-0 leading-normal">
-                <span className={METADATA_LABEL}>
-                  Coordinates:
-                </span>
+                <span className={METADATA_LABEL}>Coordinates:</span>
                 <span className={`min-w-0 break-words ${METADATA_VALUE}`}>
                   {meta.lat || meta.lon
                     ? `${meta.lat ?? "—"}, ${meta.lon ?? "—"}`

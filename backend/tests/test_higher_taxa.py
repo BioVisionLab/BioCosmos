@@ -12,10 +12,12 @@ tested with no database at all.
 
 import os
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock
 
 import polars as pl
 import pytest
+from fastapi import Request
 
 from app.query import higher_taxa as higher_taxa_query
 from app.query.higher_taxa import (
@@ -24,6 +26,7 @@ from app.query.higher_taxa import (
     HigherTaxonCounts,
     HigherTaxonOverview,
     OrderOverview,
+    TaxonNode,
     attach_family_images,
     build_order_tree,
     build_rooted_tree,
@@ -489,7 +492,7 @@ def _family_row(genus, **overrides):
     return row
 
 
-def find(nodes, name):
+def find(nodes: list[TaxonNode], name: str) -> TaxonNode | None:
     for node in nodes:
         if node.name == name:
             return node
@@ -497,6 +500,13 @@ def find(nodes, name):
         if found is not None:
             return found
     return None
+
+
+def require_node(nodes: list[TaxonNode], name: str) -> TaxonNode:
+    """Find a node the test expects the tree to hold."""
+    found = find(nodes, name)
+    assert found is not None, name
+    return found
 
 
 class TestTreeAssembly:
@@ -810,14 +820,14 @@ class TestOrderTree:
 
     def test_a_family_with_images_links_to_its_page(self):
         tree = self.build([_order_row("nymphalidae")])
-        assert find(tree, "Nymphalidae").href == "/family/nymphalidae"
+        assert require_node(tree, "Nymphalidae").href == "/family/nymphalidae"
 
     def test_a_family_without_images_does_not_link(self):
         """Its family page would answer 404."""
         tree = self.build(
             [_order_row("erebidae", genus_count=0, species_count=0, image_count=0)]
         )
-        family = find(tree, "Erebidae")
+        family = require_node(tree, "Erebidae")
         assert family.href is None
         assert family.genus_count is None
 
@@ -853,8 +863,8 @@ class TestOrderTree:
         assert root.genus_count == 6
         assert root.species_count == 8
         assert root.image_count == 16
-        assert find(tree, "Noctuoidea").family_count is None
-        assert find(tree, "Papilionoidea").family_count == 2
+        assert require_node(tree, "Noctuoidea").family_count is None
+        assert require_node(tree, "Papilionoidea").family_count == 2
 
     def test_grouping_ranks_sort_before_the_families_beside_them(self):
         tree = self.build(
@@ -879,8 +889,11 @@ class TestOrderOverview:
         monkeypatch.setattr(
             OrderOverview, "_classification", AsyncMock(return_value=None)
         )
-        request = SimpleNamespace(
-            app=SimpleNamespace(state=SimpleNamespace(duck_db=repository.db_client))
+        request = cast(
+            Request,
+            SimpleNamespace(
+                app=SimpleNamespace(state=SimpleNamespace(duck_db=repository.db_client))
+            ),
         )
         yield OrderOverview(request=request, name="Lepidoptera")
         PAYLOAD_CACHE.clear()
@@ -965,9 +978,9 @@ class TestTaxaWithoutRecords:
             key="nymphalidae",
             name="Nymphalidae",
         )
-        assert find(tree, "Ghostus").href is None
-        assert find(tree, "Aphantopus").href == "/genus/aphantopus"
-        assert find(tree, "Satyrinae").genus_count == 1
+        assert require_node(tree, "Ghostus").href is None
+        assert require_node(tree, "Aphantopus").href == "/genus/aphantopus"
+        assert require_node(tree, "Satyrinae").genus_count == 1
 
     def test_a_species_without_images_does_not_link_or_count(self):
         rows = [
@@ -985,8 +998,8 @@ class TestTaxaWithoutRecords:
             },
         ]
         tree = build_rooted_tree(rows, scope="genus", key="danaus", name="Danaus")
-        assert find(tree, "Danaus ghost").href is None
-        assert find(tree, "Danaus ghost").species_count == 0
+        assert require_node(tree, "Danaus ghost").href is None
+        assert require_node(tree, "Danaus ghost").species_count == 0
         assert tree[0].species_count == 1
 
     @pytest.mark.parametrize("scope", ["family", "genus"])
@@ -1036,7 +1049,7 @@ def test_family_images_attach_to_family_nodes_only():
             {"family_key": "papilionoidea", "img_id": "i2", "display_name": "Z"},
         ],
     )
-    family = find(tree, "Nymphalidae")
+    family = require_node(tree, "Nymphalidae")
     assert (family.img_id, family.img_name) == ("i1", "X y")
-    assert find(tree, "Papilionoidea").img_id is None
+    assert require_node(tree, "Papilionoidea").img_id is None
     assert tree[0].img_id is None

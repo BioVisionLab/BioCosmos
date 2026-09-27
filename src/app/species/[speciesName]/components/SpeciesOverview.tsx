@@ -129,10 +129,7 @@ export function SpeciesOverview({
             />
           </div>
 
-          <SpeciesDescription
-            traits={traits}
-            species={displayName}
-          />
+          <SpeciesDescription traits={traits} species={displayName} />
         </div>
 
         {/* Right Column: Details */}
@@ -150,7 +147,9 @@ export function SpeciesOverview({
             {mapInView ? (
               <SpeciesDistribution
                 recordedName={lookupName}
-                acceptedName={taxonomy?.acceptedName ?? taxonomy?.species ?? null}
+                acceptedName={
+                  taxonomy?.acceptedName ?? taxonomy?.species ?? null
+                }
               />
             ) : (
               <DistributionMapSkeleton />

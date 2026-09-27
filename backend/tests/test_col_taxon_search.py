@@ -318,7 +318,9 @@ class TestMissingBackbone:
         fresh.table = "col_taxonomy"
         fresh.vernacular_table = "col_vernacular"
         fresh.matches_table = "col_taxonomy_matches"
-        assert resolve(fresh, "Coenonympha pamphilus")["colId"] == "AAA1"
+        result = resolve(fresh, "Coenonympha pamphilus")
+        assert result is not None
+        assert result["colId"] == "AAA1"
 
 
 def detail(search, name):
@@ -433,6 +435,7 @@ class TestColReference:
             },
             "ref_",
         )
+        assert reference is not None
         assert reference.citation == "Linnaeus (1758). Systema naturae."
         assert reference.link == "https://bhl.org/p/1"
 
@@ -460,6 +463,7 @@ class TestTypeSummary:
                 specimen("paratype", locality="Here"),
             ]
         )
+        assert summary is not None
         assert summary.kind == "paratype"
         assert summary.locality == "Here"
 
@@ -470,6 +474,7 @@ class TestTypeSummary:
                 specimen("paratype", country="SE"),
             ]
         )
+        assert summary is not None
         assert summary.kind == "holotype"
         assert summary.typifiedName == "Papilio x"
         assert summary.locality is None

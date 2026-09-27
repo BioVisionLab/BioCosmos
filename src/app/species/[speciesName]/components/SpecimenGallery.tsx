@@ -25,9 +25,17 @@ export default function SpecimenGallery({ speciesName }: SpecimenGalleryProps) {
   return (
     <div>
       {speciesData ? (
-        <SpeciesHeader taxonomy={speciesData.taxonomy} name={speciesData.taxonomy?.species ?? ""} />
+        <SpeciesHeader
+          taxonomy={speciesData.taxonomy}
+          name={speciesData.taxonomy?.species ?? ""}
+        />
       ) : null}
-      <SpecimensTab speciesName={speciesName} showAll={true} showMorphospace={false} showImageCount={false} />
+      <SpecimensTab
+        speciesName={speciesName}
+        showAll={true}
+        showMorphospace={false}
+        showImageCount={false}
+      />
     </div>
   );
 }

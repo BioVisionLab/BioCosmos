@@ -47,11 +47,11 @@ async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
   // Fetch taxonomy data from the external service
   try {
     const response = await fetch(
-      `/api/taxon-search?species=${encodeURIComponent(formattedName)}`
+      `/api/taxon-search?species=${encodeURIComponent(formattedName)}`,
     );
     if (!response.ok) {
       console.error(
-        `Failed to fetch taxonomy data for ${formattedName}: ${response.statusText}`
+        `Failed to fetch taxonomy data for ${formattedName}: ${response.statusText}`,
       );
       return null; // Return null if the request fails
     }

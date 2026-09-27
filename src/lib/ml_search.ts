@@ -181,7 +181,9 @@ async function searchSemantic(
     species: item.species,
     speciesKey: speciesKeyOf(item),
     tool_names: Array.isArray(item.tool_names)
-      ? item.tool_names.filter((name): name is string => typeof name === "string")
+      ? item.tool_names.filter(
+          (name): name is string => typeof name === "string",
+        )
       : [],
   }));
 

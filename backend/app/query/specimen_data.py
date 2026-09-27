@@ -42,7 +42,5 @@ class SpecimenData:
             )
             return payload.model_dump()
         except Exception as e:
-            logger.error(
-                f"Error fetching specimen data: {e}", exc_info=True
-            )
+            logger.error(f"Error fetching specimen data: {e}", exc_info=True)
             return None

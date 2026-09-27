@@ -25,6 +25,8 @@ export const METADATA_LABEL = "font-medium whitespace-nowrap";
 export const METADATA_VALUE = "text-deep-mocha-700 dark:text-deep-mocha-300";
 export const METADATA_LINK =
   "text-deep-mocha-700 dark:text-deep-mocha-300 underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300";
+/** A sex symbol (♂, ♀), at twice the text size: at 1em it is hard to read. */
+export const METADATA_SYMBOL = "text-[2em] leading-none";
 export const METADATA_EMPTY = "text-deep-mocha-400 dark:text-deep-mocha-600";
 
 /**

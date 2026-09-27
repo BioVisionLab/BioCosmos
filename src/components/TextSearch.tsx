@@ -4,9 +4,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import SearchFieldSelect, {
-  type SearchFieldGroup,
-} from "./SearchFieldSelect";
+import SearchFieldSelect, { type SearchFieldGroup } from "./SearchFieldSelect";
 import SearchForm from "./SearchForm";
 import { SEARCH_PANEL } from "./searchPanel";
 import { TRAIT_FIELD_OPTIONS } from "@/lib/dbSearch";
@@ -71,11 +69,13 @@ export default function TextSearch() {
   };
 
   return (
-    <div className={`${SEARCH_PANEL} flex flex-col items-center justify-center`}>
+    <div
+      className={`${SEARCH_PANEL} flex flex-col items-center justify-center`}
+    >
       <div className="mb-4 text-center text-deep-mocha-700 dark:text-deep-mocha-300 text-sm">
         <p>
-          Conventional text-based search. Filter results by species, family,
-          or other keywords. Results are ranked by relevance to your query.
+          Conventional text-based search. Filter results by species, family, or
+          other keywords. Results are ranked by relevance to your query.
         </p>
       </div>
       <div className="w-full">

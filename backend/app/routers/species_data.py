@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from typing import Annotated, Literal
 
@@ -26,6 +27,7 @@ from ..query.species_similarity import (
 )
 from ..query.precomputed_similarity import PrecomputedSpeciesSimilarity
 from ..services.col import ColTaxonSearch
+from ..services.taxonomy_update import UPDATE_SOURCE_KEY as TAXONOMY_UPDATE_KEY
 from ..services.crossref import CrossrefClient, get_crossref_client
 from ..services.genetics import GeneticsBusy, GeneticsSummary, get_genetics_summary
 from ..services.literature import LiteratureSearch
@@ -86,12 +88,8 @@ async def get_featured(
     )
 
 
-@router.get(
-    "/species/{scientific_name}/biology", tags=["Species Data"]
-)
-async def fetch_species_biology(
-    request: Request, scientific_name: str
-):
+@router.get("/species/{scientific_name}/biology", tags=["Species Data"])
+async def fetch_species_biology(request: Request, scientific_name: str):
     """
     Get species taxonomy data, traits, and similar species.
 
@@ -104,10 +102,8 @@ async def fetch_species_biology(
         or an error message.
     """
     logger.info("Received taxon search request")
-    scientific_name = (
-        scientific_name.strip().lower() if scientific_name else None
-    )
-    if scientific_name is None or scientific_name == "":
+    scientific_name = scientific_name.strip().lower() if scientific_name else ""
+    if scientific_name == "":
         logger.warning("Taxon search query is empty")
         return JSONResponse(
             content={
@@ -117,9 +113,7 @@ async def fetch_species_biology(
         )
     logger.info(f"Searching for taxon: {scientific_name}")
     try:
-        taxon_data = await TaxonSearch(
-            request=request, query=scientific_name
-        ).search()
+        taxon_data = await TaxonSearch(request=request, query=scientific_name).search()
         if taxon_data is None:
             message = f"No data found for species: {scientific_name}"
             logger.info(message)
@@ -325,9 +319,7 @@ async def fetch_visually_similar_species(
     them — which is what made the overview tab paint in pieces and look like it
     needed a refresh.
     """
-    logger.info(
-        "Fetching visually similar species for: %s", scientific_name
-    )
+    logger.info("Fetching visually similar species for: %s", scientific_name)
 
     try:
         # Try precomputed first
@@ -350,9 +342,7 @@ async def fetch_visually_similar_species(
             runtime.find_similar_species, scientific_name, side
         )
         if similar_species is None:
-            logger.warning(
-                f"No visually similar species found for: {scientific_name}"
-            )
+            logger.warning(f"No visually similar species found for: {scientific_name}")
             raise HTTPException(
                 status_code=404,
                 detail=f"Visually similar species not found for: {scientific_name}",
@@ -373,37 +363,25 @@ async def fetch_visually_similar_species(
         )
 
 
-@router.get(
-    "/species/{scientific_name}/specimens", tags=["Species Data"]
-)
-async def fetch_species_specimen_info(
-    request: Request, scientific_name: str
-):
+@router.get("/species/{scientific_name}/specimens", tags=["Species Data"])
+async def fetch_species_specimen_info(request: Request, scientific_name: str):
     """
     Fetches species specimens.
     Returns a 404 error if no specimens are found.
     """
-    logger.info(
-        f"Fetching species specimens for species: {scientific_name}"
-    )
+    logger.info(f"Fetching species specimens for species: {scientific_name}")
 
     try:
-        specimens = SpecimenData(request=request).summarize(
-            species=scientific_name
-        )
+        specimens = SpecimenData(request=request).summarize(species=scientific_name)
         if not specimens:
-            logger.warning(
-                f"No specimens found for species: {scientific_name}"
-            )
+            logger.warning(f"No specimens found for species: {scientific_name}")
             raise HTTPException(
                 status_code=404,
                 detail=f"Specimens not found for species: {scientific_name}",
             )
         return JSONResponse(content=specimens)
     except Exception as e:
-        logger.error(
-            f"Error fetching specimens for {scientific_name}: {e}"
-        )
+        logger.error(f"Error fetching specimens for {scientific_name}: {e}")
         raise HTTPException(
             status_code=500,
             detail="An internal error occurred while fetching specimens.",
@@ -448,16 +426,25 @@ def _overview_etag(request: Request, rank: str, key: str) -> str | None:
 
     A re-ingestion changes the backbone fingerprint, which changes every
     higher-taxon ETag at once — the only way to retire a thirty-day cache
-    entry early once a shared cache sits in front of this service.
-    OVERVIEW_PAYLOAD_VERSION does the same for a change in the code.
+    entry early once a shared cache sits in front of this service. The
+    taxonomy update's fingerprint is folded in too: the counts are built from
+    its per-image matches, which change with the occurrences and the excluded
+    families while the backbone stays put. OVERVIEW_PAYLOAD_VERSION does the
+    same for a change in the code.
     """
     try:
-        fingerprint = IngestionState(request.app.state.duck_db).get("col_taxonomy")
+        state = IngestionState(request.app.state.duck_db)
+        fingerprint = state.get("col_taxonomy")
+        update = state.get(TAXONOMY_UPDATE_KEY)
     except Exception:  # noqa: BLE001 - an ETag is never worth failing a request
         return None
     if not fingerprint:
         return None
-    return f"{rank}:{key}:{fingerprint}:v{OVERVIEW_PAYLOAD_VERSION}"
+    # The update fingerprint is long and punctuated; a digest keeps the header short.
+    matches = (
+        hashlib.sha256(str(update).encode()).hexdigest()[:12] if update else "none"
+    )
+    return f"{rank}:{key}:{fingerprint}:{matches}:v{OVERVIEW_PAYLOAD_VERSION}"
 
 
 @router.get("/order/{order_name}", tags=["Species Data"])
@@ -548,9 +535,14 @@ async def fetch_family_classification(request: Request, family_name: str):
     Get GBIF classification data for a family.
     """
     try:
-        results = await FamilySearch(request=request, query=family_name).get_classification()
+        results = await FamilySearch(
+            request=request, query=family_name
+        ).get_classification()
         if not results:
-            raise HTTPException(status_code=404, detail=f"No classification found for family: {family_name}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"No classification found for family: {family_name}",
+            )
         return JSONResponse(content=results, status_code=200)
     except HTTPException:
         raise
@@ -565,9 +557,14 @@ async def fetch_genus_classification(request: Request, genus_name: str):
     Get GBIF classification data for a genus.
     """
     try:
-        results = await GenusSearch(request=request, query=genus_name).get_classification()
+        results = await GenusSearch(
+            request=request, query=genus_name
+        ).get_classification()
         if not results:
-            raise HTTPException(status_code=404, detail=f"No classification found for genus: {genus_name}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"No classification found for genus: {genus_name}",
+            )
         return JSONResponse(content=results, status_code=200)
     except HTTPException:
         raise

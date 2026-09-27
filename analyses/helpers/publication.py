@@ -5,6 +5,7 @@ No ingestion, harmonization, application startup, or source database writes occu
 
 from __future__ import annotations
 
+import json
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -33,6 +34,8 @@ class Settings:
     database: Path
     output: Path
     tables: dict[str, str]
+    # Recorded families the backend's image_meta view leaves out, lowercased.
+    exclude_families: tuple[str, ...] = ()
 
 
 def project_root(start: Path | None = None) -> Path:
@@ -77,6 +80,9 @@ def load_settings(root: Path | None = None) -> Settings:
         )
     tables = {
         "images": config["image_metadata"]["table"],
+        "excluded": config["image_metadata"].get(
+            "excluded_table", "image_meta_excluded"
+        ),
         "gbif": config["gbif"]["table"],
         "locality": config["locality"]["table"],
         "coordinates": config["locality"]["coordinates_table"],
@@ -90,7 +96,18 @@ def load_settings(root: Path | None = None) -> Settings:
             for name in ("scope", "points", "species", "disparity", "extremes")
         },
     }
-    return Settings(database.resolve(), output.resolve(), tables)
+    exclude_families = tuple(
+        sorted(
+            {
+                str(name).strip().lower()
+                for name in config["image_metadata"].get("exclude_families") or []
+                if str(name).strip()
+            }
+        )
+    )
+    return Settings(
+        database.resolve(), output.resolve(), tables, exclude_families
+    )
 
 
 @contextmanager
@@ -180,11 +197,41 @@ def counts(connection, query: str, population: str) -> pd.DataFrame:
 
 
 def image_table(connection, settings: Settings, extra=()) -> str:
+    guard = ("family",) if settings.exclude_families else ()
     identifier = table(
-        connection, settings, "images", ("img_id", *extra)
+        connection, settings, "images", ("img_id", *guard, *extra)
     )
     unique_key(connection, identifier, "img_id")
+    excluded_families(connection, settings, identifier)
     return identifier
+
+
+def excluded_families(connection, settings: Settings, identifier: str) -> None:
+    """Refuse an image table that still holds a family the backend excludes.
+
+    The backend publishes image_meta as a view without these families, by
+    recorded and by harmonized family (see image_metadata.exclude_families in
+    config.yaml). A database the backend has not reopened since the exclusion
+    was added still has the raw table, and every figure drawn from it would
+    count the excluded records.
+    """
+    if not settings.exclude_families:
+        return
+    # Written by the backend's taxonomy update: images whose harmonized family
+    # is excluded although their recorded one is not.
+    table(connection, settings, "excluded", ("img_id",))
+    placeholders = ", ".join("?" for _ in settings.exclude_families)
+    leaked = connection.execute(
+        f"SELECT count(*) FROM {identifier} "
+        f"WHERE lower(trim(family)) IN ({placeholders})",
+        list(settings.exclude_families),
+    ).fetchone()[0]
+    if leaked:
+        raise AnalysisError(
+            f"{identifier} still holds {leaked:,} records of excluded families "
+            f"{list(settings.exclude_families)}. Restart the backend once so it "
+            "publishes image_meta as the filtered view."
+        )
 
 
 # How the recorded aggregator keys print. A record carried by several aggregators
@@ -542,6 +589,14 @@ def publication_style(palette: str = DEFAULT_PALETTE) -> None:
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
+            "font.size": 18,
+            "axes.titlesize": 20,
+            "axes.labelsize": 18,
+            "xtick.labelsize": 18,
+            "ytick.labelsize": 18,
+            "legend.fontsize": 18,
+            "legend.title_fontsize": 18,
+            "figure.titlesize": 22,
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
             "svg.fonttype": "none",
@@ -594,7 +649,7 @@ def bar_plot(
             xytext=(5, 0),
             textcoords="offset points",
             va="center",
-            fontsize=9,
+            fontsize=18,
         )
     if selected.empty:
         ax.text(
@@ -612,7 +667,7 @@ def bar_plot(
     ax.set_title(
         panel_title(frame, title, exclude, excluded),
         loc="left",
-        fontsize=11,
+        fontsize=20,
     )
     sns.despine(ax=ax)
     return ax
@@ -671,7 +726,7 @@ def pie_plot(
         loc="center left",
         bbox_to_anchor=(0.98, 0.5),
         frameon=False,
-        fontsize=9,
+        fontsize=18,
         handlelength=1,
         handleheight=1,
     )
@@ -679,7 +734,7 @@ def pie_plot(
         plt.setp(legend.get_texts(), fontstyle="italic")
     ax.set_aspect("equal")
     ax.set_title(
-        panel_title(frame, title, (), 0), loc="left", fontsize=11
+        panel_title(frame, title, (), 0), loc="left", fontsize=20
     )
     return ax
 
@@ -749,6 +804,10 @@ def panel_left(ax) -> float:
     ]
     if wedges:
         return min(wedge.get_window_extent().x0 for wedge in wedges)
+    if not ax.axison:
+        # A map drawn without its axis keeps tick labels that are never drawn;
+        # they must not pull its title off to the left.
+        return box.x0
     labels = [
         label.get_window_extent().x0
         for label in ax.get_yticklabels()
@@ -800,7 +859,7 @@ def align_panel_titles(axes) -> None:
             ax.set_title(
                 title + padding,
                 loc="left",
-                fontsize=11,
+                fontsize=20,
                 x=(left - box.x0) / box.width,
             )
 
@@ -858,13 +917,28 @@ def export_figure(
 
 
 def benchmark_data(root: Path | None = None) -> pd.DataFrame:
-    frame = pd.read_csv(
-        project_root(root) / "analyses/data/indexing_benchmark.csv"
+    """Load the newest completed index benchmark, never a partial or curated CSV."""
+    runs = project_root(root) / "analyses/results/indexing"
+    for manifest_path in sorted(runs.glob("*/run.json"), reverse=True):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if manifest.get("status") != "complete":
+            continue
+        if manifest.get("config", {}).get("top_k") != 10:
+            raise AnalysisError(f"{manifest_path} must use top_k=10 for recall@10")
+        csv_path = manifest_path.parent / "indexing_benchmark.csv"
+        if not csv_path.is_file():
+            raise AnalysisError(f"Completed benchmark is missing {csv_path}")
+        frame = pd.read_csv(csv_path)
+        required = {"index", "model", "avg_ms", "recall@10"}
+        if not required.issubset(frame):
+            raise AnalysisError(f"{csv_path} requires columns {sorted(required)}")
+        # Preserve the figure's exclusion while retaining the unindexed baseline.
+        frame = frame.loc[frame["index"] != "Flat (brute-force)"].copy()
+        frame.attrs["source_run"] = str(manifest_path.parent)
+        return frame
+    raise AnalysisError(
+        f"No completed index benchmark in {runs}. Run analyses/benchmarks/image_indexing.ipynb first."
     )
-    required = {"index", "model", "avg_ms", "recall@10"}
-    if not required.issubset(frame):
-        raise AnalysisError(
-            f"Benchmark CSV requires {sorted(required)}"
-        )
-    # Preserve the existing figure's exclusion. The 'No Index (baseline)' series stays.
-    return frame.loc[frame["index"] != "Flat (brute-force)"].copy()

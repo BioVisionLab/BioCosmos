@@ -97,6 +97,7 @@ class TestDescribe:
 
     def test_prefixed_method_leads_with_the_cascade_note(self):
         described = describe_match_method("GENUS_SPELLING_EPITHET")
+        assert described is not None
         assert described.startswith(RANK_PREFIX_NOTES["GENUS"])
         assert described.endswith(MATCH_METHOD_DESCRIPTIONS["SPELLING_EPITHET"])
 

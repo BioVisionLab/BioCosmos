@@ -75,9 +75,8 @@ class PrecomputedSpeciesSimilarity:
             if not dorsal and not ventral:
                 return None
 
-            payload = VisuallySimilarSpeciesPayload(
-                dorsal=dorsal,
-                ventral=ventral,
+            payload = VisuallySimilarSpeciesPayload.model_validate(
+                {"dorsal": dorsal, "ventral": ventral}
             )
             return payload.model_dump(by_alias=True)
 
@@ -121,6 +120,6 @@ class PrecomputedSpeciesSimilarity:
                 "SELECT COUNT(*) FROM information_schema.tables "
                 f"WHERE table_name = '{SIMILARITY_TABLE}'"
             ).fetchone()
-            return result[0] > 0
+            return result is not None and result[0] > 0
         except Exception:
             return False

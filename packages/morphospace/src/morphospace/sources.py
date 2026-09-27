@@ -38,6 +38,9 @@ WITH matched AS (
     WHERE t.update_status = 'MATCHED'
       AND t.accepted_name IS NOT NULL
       AND t.accepted_species_name IS NOT NULL
+      AND NOT list_contains(
+          $exclude_families::VARCHAR[], coalesce(lower(trim(t.accepted_family)), '')
+      )
 ), per_record AS (
     SELECT accepted_species,
            recorded_key,
@@ -100,6 +103,7 @@ def load_labels(
     *,
     image_table: str = "image_meta",
     taxonomy_table: str = "image_meta_taxonomy",
+    exclude_families: tuple[str, ...] = (),
 ) -> Labels:
     """Read the side and harmonized taxon of every image, read-only."""
     if not database.is_file():
@@ -116,7 +120,8 @@ def load_labels(
             "single writer, and a second process cannot attach while it holds the file."
         ) from exc
     try:
-        rows = connection.execute(query).fetchnumpy()
+        excluded = sorted({name.strip().lower() for name in exclude_families if name.strip()})
+        rows = connection.execute(query, {"exclude_families": excluded}).fetchnumpy()
     except duckdb.Error as exc:
         raise SourceValidationError(
             f"Cannot read labels from {image_table} and {taxonomy_table}: {exc}"

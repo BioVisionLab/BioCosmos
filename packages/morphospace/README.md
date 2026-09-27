@@ -8,7 +8,11 @@ embeddings.
 Each image is labelled with its side (`image_meta.class_dv`: dorsal or ventral)
 and its harmonized accepted species, genus and family (`image_meta_taxonomy`,
 `MATCHED` only). These are the same groupings the backend's species, genus and
-family pages use. Records resolved only to genus rank are left out.
+family pages use. Records resolved only to genus rank are left out, and so
+are the families in `MorphospaceParameters.exclude_families` (Castniidae, moths
+imaged with the butterflies), which the run manifest records. `image_meta` is
+itself a view that drops the families in the backend's
+`image_metadata.exclude_families`, so both filters agree.
 
 | Quantity | Definition |
 | --- | --- |

@@ -7,11 +7,7 @@
  */
 
 export type CodeTone =
-  | "matched"
-  | "ambiguous"
-  | "unmatched"
-  | "invalid"
-  | "neutral";
+  "matched" | "ambiguous" | "unmatched" | "invalid" | "neutral";
 
 /**
  * Deliberately not the green/red of a conservation status: burnt peach reads

@@ -15,7 +15,7 @@ dependencies = [
     "harmonize-core",
     # Resolves institution codes to names and websites for the provider table.
     "instharmonize",
-    "lancedb>=0.24.1",
+    "lancedb>=0.39.0",
     "openai>=2.0.0",
     "pillow>=11.2.1",
     "polars[pyarrow]>=1.31.0",

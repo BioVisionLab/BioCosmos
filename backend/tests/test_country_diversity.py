@@ -5,9 +5,10 @@ so these mirror the notebook's own country-mapping tests.
 """
 
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.query.country_diversity import CountryDiversity
@@ -138,6 +139,7 @@ def seeded(memory_duckdb):
 
 def test_summary_counts_only_eligible_records(seeded):
     summary = CountryDiversity(seeded).summary()
+    assert summary is not None
     assert summary["countries"] == [
         {
             "countryCode": "US",
@@ -161,6 +163,7 @@ def test_summary_counts_only_eligible_records(seeded):
 
 def test_species_list_is_case_insensitive(seeded):
     payload = CountryDiversity(seeded).species("us")
+    assert payload is not None
     assert payload["countryCode"] == "US"
     assert payload["species"] == [
         {"species": "Danaus plexippus", "imageCount": 3, "imputedImageCount": 0},
@@ -211,7 +214,10 @@ def test_summary_route_404s_without_coordinates(memory_duckdb):
 
 
 def test_dependency_reuses_one_instance(memory_duckdb):
-    request = SimpleNamespace(
-        app=SimpleNamespace(state=SimpleNamespace(duck_db=memory_duckdb))
+    request = cast(
+        Request,
+        SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(duck_db=memory_duckdb))
+        ),
     )
     assert get_country_diversity(request) is get_country_diversity(request)

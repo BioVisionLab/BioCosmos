@@ -718,9 +718,7 @@ function GeneCount({ gene, total }: { gene: GeneType; total: number }) {
       <div>
         <p className={valueClass}>
           {formatNumberToLocaleString(gene.count)}{" "}
-          <span className={labelClass}>
-            gene{gene.count === 1 ? "" : "s"}
-          </span>
+          <span className={labelClass}>gene{gene.count === 1 ? "" : "s"}</span>
         </p>
         <p className="inline-flex items-center gap-1.5 text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
           <span

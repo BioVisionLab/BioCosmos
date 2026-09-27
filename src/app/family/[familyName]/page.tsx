@@ -32,7 +32,10 @@ export async function generateMetadata({
   params,
 }: FamilyPageProps): Promise<Metadata> {
   const { familyName } = await params;
-  const taxon = await fetchHigherTaxon("family", decodeURIComponent(familyName));
+  const taxon = await fetchHigherTaxon(
+    "family",
+    decodeURIComponent(familyName),
+  );
   if (!taxon) return { title: "Family not found" };
   return {
     title: `${taxon.name} — family`,
