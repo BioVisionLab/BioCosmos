@@ -75,3 +75,4 @@ reports/*
 # manuscript directory
 results/
 .claude
+*.zip
