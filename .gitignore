@@ -76,3 +76,4 @@ reports/*
 results/
 .claude
 *.zip
+analyses/data/screenshots/
