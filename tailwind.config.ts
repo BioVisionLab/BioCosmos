@@ -1,5 +1,4 @@
 import type { Config } from "tailwindcss";
-const { fontFamily } = require("tailwindcss/defaultTheme");
 
 const config: Config = {
   content: [
@@ -10,11 +9,6 @@ const config: Config = {
   darkMode: "class", // Ensure dark mode is enabled
   theme: {
     extend: {
-      fontFamily: {
-        sans: ["var(--font-inter)", ...fontFamily.sans],
-        // Add Poppins
-        poppins: ["Poppins", ...fontFamily.sans],
-      },
       // ... other extensions like backgroundImage
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

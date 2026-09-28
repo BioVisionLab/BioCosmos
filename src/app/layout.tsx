@@ -1,24 +1,20 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
+import { JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
 import Layout from "@/components/Layout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
-// Import Poppins font weights
-import "@fontsource/poppins/400.css"; // Regular weight
-import "@fontsource/poppins/600.css"; // Semibold, for landing headings
-import "@fontsource/poppins/700.css"; // Bold weight
-
-const inter = Inter({
+// The site's two typefaces: Sora, a geometric sans, for all text, and
+// JetBrains Mono for specimen labels, eyebrows, codes and other monospaced
+// figures. Both are variable fonts, so every weight the site uses is real.
+const sora = Sora({
   subsets: ["latin"],
-  variable: "--font-inter", // Assign the CSS variable
+  variable: "--font-sora",
 });
 
-// Specimen labels and section eyebrows on the landing page.
-const plexMono = IBM_Plex_Mono({
+const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex-mono",
+  variable: "--font-jetbrains-mono",
 });
 
 export const metadata: Metadata = {
@@ -34,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plexMono.variable}`}
+      className={`${sora.variable} ${jetBrainsMono.variable}`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>

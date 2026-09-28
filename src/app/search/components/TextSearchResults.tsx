@@ -457,7 +457,7 @@ function DbSearch({
 
       <div id="results-section" className="mt-2">
         <div className="mb-6 text-center">
-          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-linear-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
+          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-display bg-linear-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
             Search Results
           </h1>
         </div>
@@ -559,7 +559,7 @@ function DbSearchResults({
               <div className="mb-4">
                 <h2
                   id="species-results"
-                  className="text-2xl font-bold tracking-tight text-deep-mocha-800 dark:text-deep-mocha-100 font-serif"
+                  className="text-2xl font-bold tracking-tight text-deep-mocha-800 dark:text-deep-mocha-100 font-display"
                 >
                   Species pages containing query ({results.length})
                 </h2>
@@ -592,7 +592,7 @@ function DbSearchResults({
               <div className="mb-4">
                 <h2
                   id="specimen-results"
-                  className="text-2xl font-bold tracking-tight text-deep-mocha-800 dark:text-deep-mocha-100 font-serif"
+                  className="text-2xl font-bold tracking-tight text-deep-mocha-800 dark:text-deep-mocha-100 font-display"
                 >
                   Specimens matching query ({totalSpecimens})
                 </h2>

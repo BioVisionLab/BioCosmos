@@ -106,7 +106,7 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               className="bc-rise font-display text-[clamp(2rem,1.25rem+2.8vw,3.4rem)] font-semibold leading-[1.08] tracking-tight text-balance text-deep-mocha-900 dark:text-deep-mocha-50"
               style={{ animationDelay: "90ms" }}
             >
-              Explore <em className="bc-key">butterfly diversity</em>and their
+              Explore <em className="bc-key">butterfly diversity</em> and their
               fascinating <em className="bc-key bc-key-blue">coloration</em>
             </p>
 

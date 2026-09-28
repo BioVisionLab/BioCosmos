@@ -308,7 +308,7 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
       </div>
       <figcaption className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 max-w-xs">
         {above} of {genera.length} genera lie above the dashed line indicates
-        greater disparity on the ventral side than on the dorsal side, and{" "}
+        greater disparity on the ventral side than on the dorsal side, while{" "}
         {below} lie below it. Each point represent a genus with ≥{rarefyK}{" "}
         species.
       </figcaption>
@@ -324,12 +324,10 @@ function GenusDisparityNote({ data }: { data: ScopeMorphospace }) {
   if (rarefyK == null) return null;
   return (
     <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
-      In the genus plot, the x-axis is each genus&apos;s dorsal disparity and
-      the y-axis its ventral disparity. The spread of its species&apos; color
-      pattern on each side is measured as the sum of variances of the species
-      centroids in the full embedding, averaged over random subsets of {rarefyK}{" "}
-      species using rarefaction to account for differences in sample size. Only
-      genera with at least {rarefyK} species imaged on each side are plotted.
+      In the genus dorso-ventral disparity plot, the spread of color pattern on
+      each side is measured as the sum of variances of the species centroids in
+      the full embedding, averaged over random subsets of {rarefyK} species
+      using rarefaction to account for differences in sample size.
     </p>
   );
 }
@@ -386,12 +384,11 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
           below 0.2 is little or no integration, 0.2–0.4 weak, 0.4–0.7 moderate,
           and ≥0.7 strong.  */}
         <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
-          Dorso-ventral integration use Mantel test to correlate pairwise
-          differences in dorsal and ventral coloration. Values near 1 indicate
-          similar patterns of variation across both surfaces; values near 0
-          indicate largely independent variation; negative values indicate
-          opposing patterns. The permutation p-value tests whether the observed
-          correlation is greater than expected by chance.
+          Mantel test r values near 1 indicate similar patterns of variation
+          across both dorsal and ventral, values near 0 indicate largely
+          independent variation, and negative values indicate opposing patterns.
+          The permutation p-value tests whether the observed correlation is
+          greater than expected by chance.
         </p>
         {scope.rank === "family" && <GenusDisparityNote data={data} />}
       </div>

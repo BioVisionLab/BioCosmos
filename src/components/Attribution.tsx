@@ -381,9 +381,7 @@ export function ColDataSourceInfo({
           the Catalogue of Life
         </a>
         {release ? ` (${release})` : ""}. Each recorded name is matched to an
-        accepted Catalogue of Life usage, and the evidence behind that match is
-        shown alongside every specimen, so a name that has since been
-        synonymized or corrected can be seen for what it is.
+        accepted Catalogue of Life usage.
       </p>
     </div>
   );

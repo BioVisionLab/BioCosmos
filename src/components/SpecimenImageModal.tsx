@@ -19,11 +19,11 @@ import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
 import {
   CoordinateRegionRow,
   METADATA_LABEL,
-  METADATA_SYMBOL,
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
   ProvenanceBlock,
+  sexSymbolClass,
 } from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
 
@@ -348,7 +348,7 @@ function SpecimenImageModal({
                         <div>
                           <span className={METADATA_LABEL}>Sex: </span>
                           <span
-                            className={`${METADATA_VALUE} ${sex.isSymbol ? METADATA_SYMBOL : ""}`}
+                            className={`${METADATA_VALUE} ${sex.isSymbol ? sexSymbolClass(sex.display) : ""}`}
                             title={sex.label}
                             aria-label={sex.label}
                           >

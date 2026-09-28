@@ -116,7 +116,7 @@ export default function HeaderClient() {
               height={32}
               className="h-8 w-8"
             />
-            <span className="text-2xl font-bold text-deep-mocha-900 dark:text-deep-mocha-100 font-poppins whitespace-nowrap">
+            <span className="text-2xl font-bold text-deep-mocha-900 dark:text-deep-mocha-100 font-display whitespace-nowrap">
               Biocosmos
             </span>
           </div>

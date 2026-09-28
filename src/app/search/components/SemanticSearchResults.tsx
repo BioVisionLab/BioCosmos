@@ -233,7 +233,7 @@ function SemanticSearchView({ query }: { query: string }) {
       </div>
       <div id="results-section" className="mt-2">
         <div className="mb-6 text-center">
-          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-linear-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
+          <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-display bg-linear-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
             Search Results
           </h1>
         </div>
