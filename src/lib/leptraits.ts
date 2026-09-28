@@ -170,7 +170,7 @@ export type OvipositionCode = "s" | "g" | "sc" | "na";
 function normalizeCode<T extends string>(
   value: string | undefined,
   codes: readonly T[],
-  fallback: T
+  fallback: T,
 ): T {
   const candidate = value?.trim().toLowerCase();
   return codes.find((code) => code === candidate) ?? fallback;

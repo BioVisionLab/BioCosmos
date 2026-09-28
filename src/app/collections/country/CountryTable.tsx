@@ -54,7 +54,11 @@ const filterText = (row: CountryDiversityRow) =>
   `${row.countryName} ${row.countryCode}`;
 const rowKey = (row: CountryDiversityRow) => row.countryCode;
 
-export default function CountryTable({ rows }: { rows: CountryDiversityRow[] }) {
+export default function CountryTable({
+  rows,
+}: {
+  rows: CountryDiversityRow[];
+}) {
   return (
     <DataTable
       rows={rows}

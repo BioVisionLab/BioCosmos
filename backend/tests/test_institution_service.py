@@ -183,6 +183,8 @@ def test_single_code_lookup(client):
     build_service(client, StubResolver()).ensure()
     directory = build_directory(client)
 
-    assert directory.get(" MCZ ")["homepage"] == "https://mcz.example/"
+    mcz = directory.get(" MCZ ")
+    assert mcz is not None
+    assert mcz["homepage"] == "https://mcz.example/"
     assert directory.get("YPM") is None
     assert directory.get(None) is None

@@ -140,6 +140,7 @@ function DetailSections({ detail }: { detail: TaxonomyDetail }) {
             <TypeSummaryTable
               summary={detail.typeSummary}
               acceptedName={detail.nomenclature.acceptedName}
+              originalCombination={detail.nomenclature.originalCombination}
             />
             <h3 className="mt-4 mb-2 font-semibold text-deep-mocha-800 dark:text-deep-mocha-100">
               Specimens{" "}
@@ -393,7 +394,12 @@ function placeLabel(
   countryCode: string | null,
 ): string | null {
   const country = countryName(countryCode);
-  if (locality && country && locality.includes(country)) return locality;
+  if (
+    locality &&
+    country &&
+    locality.toLowerCase().includes(country.toLowerCase())
+  )
+    return locality;
   return [locality, country].filter(Boolean).join(" · ") || null;
 }
 
@@ -414,16 +420,48 @@ function TypeStatusBadge({ status }: { status: string }) {
   );
 }
 
+const notRecorded = (
+  <span className="text-deep-mocha-500 dark:text-deep-mocha-400">
+    Not recorded
+  </span>
+);
+
 function TypeSummaryTable({
   summary,
   acceptedName,
+  originalCombination,
 }: {
   summary: TypeSummary | null;
   acceptedName: string;
+  originalCombination: string | null;
 }) {
   if (!summary) {
-    // Types are listed below, but all of them belong to synonyms.
-    return <Muted>Type of this name not recorded.</Muted>;
+    // Types are listed below, but all of them belong to synonyms, so none
+    // of the summary fields can be filled from them.
+    const names =
+      originalCombination &&
+      originalCombination.toLowerCase() !== acceptedName.toLowerCase() ? (
+        <>
+          <i className="italic">{acceptedName}</i> or its original combination{" "}
+          <i className="italic">{originalCombination}</i>
+        </>
+      ) : (
+        <i className="italic">{acceptedName}</i>
+      );
+    return (
+      <>
+        <table className="w-full min-w-0">
+          <tbody>
+            <Row label="Type Kind">{notRecorded}</Row>
+            <Row label="Type Locality">{notRecorded}</Row>
+          </tbody>
+        </table>
+        <p className="mt-2 text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
+          Catalogue of Life records no type specimen for {names}. The specimens
+          below are types of its synonyms.
+        </p>
+      </>
+    );
   }
   const place = placeLabel(summary.locality, summary.country);
   const coordinates = coordinatesLabel(summary.latitude, summary.longitude);
@@ -444,13 +482,7 @@ function TypeSummaryTable({
             </span>
           ) : null}
         </Row>
-        <Row label="Type Locality">
-          {place ?? (
-            <span className="text-deep-mocha-500 dark:text-deep-mocha-400">
-              Not recorded
-            </span>
-          )}
-        </Row>
+        <Row label="Type Locality">{place ?? notRecorded}</Row>
         {coordinates ? <Row label="Coordinates">{coordinates}</Row> : null}
         {summary.repository ? (
           <Row label="Repository">{summary.repository}</Row>

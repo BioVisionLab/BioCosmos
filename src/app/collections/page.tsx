@@ -1,4 +1,3 @@
-
 import { fetchCountryDiversity } from "@/lib/countryDiversity";
 import { fetchTaxonStats } from "@/lib/metaStats";
 import CollectionCharts from "./CollectionCharts";
@@ -49,7 +48,7 @@ export default async function CollectionsPage() {
   ];
 
   return (
-    <main className="w-full max-w-7xl 2xl:max-w-[88rem] mx-auto py-8">
+    <main className="w-full max-w-7xl 2xl:max-w352 mx-auto py-8">
       <BackLink />
       <h1 className="text-3xl font-bold mb-6">Collections</h1>
 
@@ -80,10 +79,10 @@ export default async function CollectionsPage() {
       >
         <h2 className="text-2xl font-semibold mb-4 ">Metadata Sources</h2>
         <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-4">
-          Image and metadata are provided by museum institutions and
-          aggregated by data aggregators (GBIF, Ecdysis, and SCANBUGS). A
-          record published to more than one aggregator is counted under
-          &quot;Multiple Sources&quot; rather than a single one.
+          Image and metadata are provided by museum institutions and aggregated
+          by data aggregators (GBIF, Ecdysis, and SCANBUGS). A record published
+          to more than one aggregator is counted under &quot;Multiple
+          Sources&quot;.
         </p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {sourceStats.map((s) => (
@@ -95,10 +94,10 @@ export default async function CollectionsPage() {
       <section aria-label="Collection visualizations" className="mt-12">
         <h2 className="text-2xl font-semibold mb-4">Dataset Breakdown</h2>
         <p className="text-deep-mocha-700 dark:text-deep-mocha-300 mb-6">
-          Proportion of image entries across butterfly families before and
-          after taxonomy validation, the top ten most-represented species in
-          the collection, the holding institutions behind the collection, and
-          the ten countries with the most species recorded.
+          Proportion of image entries across butterfly families before and after
+          taxonomy validation, the top ten most-represented species in the
+          collection, the holding institutions behind the collection, and the
+          ten countries with the most species recorded.
         </p>
         <CollectionCharts
           entriesByFamily={data?.entriesByFamily ?? null}
@@ -124,7 +123,7 @@ function CollectionCard({
   return (
     <article
       key={label}
-      className="rounded-lg p-4 sm:p-6 bg-gradient-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
+      className="rounded-lg p-4 sm:p-6 bg-linear-to-br from-hunter-green-200 via-pacific-blue-200 to-frozen-water-200 dark:from-hunter-green-800 dark:via-pacific-blue-800 dark:to-frozen-water-800 border border-deep-mocha-200 dark:border-deep-mocha-700 transform transition hover:scale-105"
     >
       <div className="text-3xl sm:text-4xl font-extrabold tabular-nums text-deep-mocha-900 dark:text-white">
         {value.toLocaleString()}

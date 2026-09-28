@@ -13,11 +13,13 @@ single writer. Everything that reads it treats it as optional.
 import logging
 import unicodedata
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import cast
 
 import duckdb
 import polars as pl
 import pycountry
+import pycountry.db
 
 from ..configs.config import GbifConfig, ImageMetaConfig, LocalityConfig
 from ..database.duckdb import DuckDBClient
@@ -88,9 +90,12 @@ def country_name_frame() -> pl.DataFrame:
     inputs and runs over 619,787 rows, and registering a function on the
     process-wide connection would reach past the lock every other call holds.
     """
+    # pycountry annotates `Database.__iter__` as yielding `Database`, but it
+    # yields the `data_class` records, which for countries is `Country`.
+    countries = cast(Iterable[pycountry.db.Country], pycountry.countries)
     rows = [
         (country.alpha_2, getattr(country, "common_name", None) or country.name)
-        for country in pycountry.countries
+        for country in countries
     ]
     rows.extend(SUPPLEMENTARY_COUNTRY_NAMES.items())
     return pl.DataFrame(rows, schema=["country_code", "country_name"], orient="row")
@@ -206,12 +211,14 @@ class LocalityService:
         is replaced wholesale. LOCALITY_SCHEMA_VERSION is the escape hatch for
         when the shape rather than the data changes.
         """
-        occurrences = self.db_client.execute(
+        occurrences_row = self.db_client.execute(
             f"SELECT count(*) FROM {self.image_meta_table}"
-        ).fetchone()[0]
-        gbif = self.db_client.execute(
+        ).fetchone()
+        occurrences = occurrences_row[0] if occurrences_row is not None else 0
+        gbif_row = self.db_client.execute(
             f"SELECT count(*) FROM {self.gbif_table}"
-        ).fetchone()[0]
+        ).fetchone()
+        gbif = gbif_row[0] if gbif_row is not None else 0
         return f"{occurrences}:{gbif}:v{LOCALITY_SCHEMA_VERSION}"
 
     def _table_is_current(self) -> bool:

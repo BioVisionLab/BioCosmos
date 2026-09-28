@@ -32,7 +32,11 @@ export default function MainPage() {
       featured={
         <Suspense
           fallback={
-            <FeaturedRail species={null} pending labelledBy="featured-heading" />
+            <FeaturedRail
+              species={null}
+              pending
+              labelledBy="featured-heading"
+            />
           }
         >
           <FeaturedRailSection />
@@ -70,7 +74,9 @@ export default function MainPage() {
 async function SpecimenTraySection() {
   const featured = await fetchFeaturedSpecies();
   return (
-    <SpecimenTray species={featured?.species.slice(0, HERO_SPECIMENS) ?? null} />
+    <SpecimenTray
+      species={featured?.species.slice(0, HERO_SPECIMENS) ?? null}
+    />
   );
 }
 

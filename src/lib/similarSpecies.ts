@@ -49,18 +49,18 @@ export interface SimilarSpeciesMeta {
 async function fetchSimilarSpecies(
   species: string,
   side: SimilarSpeciesSide,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<SimilarSpeciesList | null> {
   try {
     const response = await fetch(
       `/api/ml-search/similarity?species=${encodeURIComponent(
-        species
+        species,
       )}&side=${side}`,
-      { signal }
+      { signal },
     );
     if (!response.ok) {
       console.error(
-        `Failed to fetch similar species for ${species}: ${response.statusText}`
+        `Failed to fetch similar species for ${species}: ${response.statusText}`,
       );
       return null;
     }

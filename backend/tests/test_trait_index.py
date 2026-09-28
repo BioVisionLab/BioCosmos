@@ -5,7 +5,6 @@ SQL: how a LepTraits name is resolved to the collection's accepted species,
 and which recorded names a trait filter returns.
 """
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -251,9 +250,7 @@ class TestTraitPredicate:
 
 def _agent(client) -> AgentSearchService:
     service = AgentSearchService.__new__(AgentSearchService)
-    service.leptraits_service = SimpleNamespace(
-        db_client=client, index_table="image_meta_traits"
-    )
+    service.leptraits_service = LepTraits(client)
     service.image_meta_service = ImageMetaService(client)
     return service
 
@@ -271,8 +268,13 @@ class TestAgentTraitSearch:
 
     @pytest.mark.asyncio
     async def test_constraints_combine(self, indexed):
-        args = TraitArgs(
-            canopy="closed", hostplant_family="fabaceae", flight_months=["June"]
+        # "June" goes through the model's before-validator, as planner output does.
+        args = TraitArgs.model_validate(
+            {
+                "canopy": "closed",
+                "hostplant_family": "fabaceae",
+                "flight_months": ["June"],
+            }
         )
         rows = await _agent(indexed)._search_by_traits(args)
         assert {row["species"] for row in rows} == {"morpho_peleides"}
@@ -307,6 +309,7 @@ class TestTextTraitSearch:
         result = TextToDbSearch(
             request=_request(indexed), query="closed", field="canopy_affinity"
         ).search()
+        assert result is not None
         # Both spellings of Heliconius charithonia land on its one page.
         assert sorted(row["species"] for row in result["results"]) == [
             "heliconius_charithonia",
@@ -321,12 +324,14 @@ class TestTextTraitSearch:
         result = TextToDbSearch(
             request=_request(indexed), query="apocynaceae", field="hostplant_families"
         ).search()
+        assert result is not None
         assert [row["species"] for row in result["results"]] == ["danaus_plexippus"]
 
     def test_traits_stay_out_of_the_all_fields_sweep(self, indexed):
         result = TextToDbSearch(
             request=_request(indexed), query="closed canopy", field="all"
         ).search()
+        assert result is not None
         assert result["results"] == []
 
     def test_before_the_index_exists_a_trait_search_is_empty(self, memory_duckdb):
@@ -334,6 +339,7 @@ class TestTextTraitSearch:
         result = TextToDbSearch(
             request=_request(memory_duckdb), query="closed", field="canopy_affinity"
         ).search()
+        assert result is not None
         assert result["results"] == []
 
 

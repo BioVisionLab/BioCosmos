@@ -301,9 +301,10 @@ class TraitIndexService:
             self.backbone_table,
         ):
             if self.db_client.table_exists(table):
-                count = self.db_client.execute(
+                count_row = self.db_client.execute(
                     f"SELECT count(*) FROM {table}"
-                ).fetchone()[0]
+                ).fetchone()
+                count = count_row[0] if count_row is not None else 0
                 parts.append(str(count))
             else:
                 parts.append("-")

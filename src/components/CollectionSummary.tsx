@@ -148,7 +148,9 @@ function Bars({
               <span className="h-2.5 overflow-hidden rounded-full bg-deep-mocha-200 dark:bg-deep-mocha-700">
                 <span
                   className={`bc-bar block h-full rounded-full ${fill}`}
-                  style={{ width: `${max > 0 ? Math.max(0.6, (bar.value / max) * 100) : 0}%` }}
+                  style={{
+                    width: `${max > 0 ? Math.max(0.6, (bar.value / max) * 100) : 0}%`,
+                  }}
                 />
               </span>
               <span className="text-right font-label text-xs tabular-nums text-deep-mocha-600 dark:text-deep-mocha-400">
@@ -227,7 +229,10 @@ export default function CollectionSummary({
             {cells.map((cell) => (
               // flex-col-reverse: <dt> before <dd> in the DOM, as a description
               // list requires, with the number on top on screen.
-              <div key={cell.label} className="flex min-w-0 flex-col-reverse gap-1.5">
+              <div
+                key={cell.label}
+                className="flex min-w-0 flex-col-reverse gap-1.5"
+              >
                 <dt className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
                   {cell.label}
                 </dt>
@@ -267,7 +272,9 @@ export default function CollectionSummary({
           {/* A fixed-height line, always present, so the band is the same
               height whether the counts arrived, are still arriving, or failed. */}
           <p className="mt-8 h-4 text-xs text-deep-mocha-500 dark:text-deep-mocha-400">
-            {!pending && !counts ? "Live counts are temporarily unavailable." : " "}
+            {!pending && !counts
+              ? "Live counts are temporarily unavailable."
+              : " "}
           </p>
         </div>
       </div>

@@ -1,12 +1,10 @@
 from app.services.metadata import ImageMetaStats
-from app.services.metadata import ImageMetaService
 import logging
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from ..services.images import ImagePersistData
 from ..services.leptraits import LepTraits
 from ..services.col import ColTaxonSearch
 from ..services.gbif import GbifPersistData
@@ -103,7 +101,7 @@ class TaxonStatPayload(BaseModel):
                 code: InstitutionInfo(**info)
                 for code, info in (institution_directory or {}).items()
             },
-            topTenSpecies=top_ten_species if top_ten_species is not None else [],
+            topTenSpecies=top_ten_species if top_ten_species is not None else {},
         )
 
 
@@ -122,7 +120,7 @@ class SpeciesPayload(BaseModel):
         cls,
         species_id: str,
         taxonomy: dict,
-        traits: dict,
+        traits: dict | None,
     ):
         """
         Create a SpeciesPayload instance from the provided data.
@@ -285,15 +283,19 @@ class TaxonSearch:
                 taxonomy_validation.get_validated_family_count()
             )
             count_species: int | None = img_meta_stats.get_species_count()
-            source_db_count: dict[str, int] | None = img_meta_stats.get_source_db_count()
-            entries_by_family: dict[str, int] | None = img_meta_stats.count_images_per_family()
+            source_db_count: dict[str, int] | None = (
+                img_meta_stats.get_source_db_count()
+            )
+            entries_by_family: dict[str, int] | None = (
+                img_meta_stats.count_images_per_family()
+            )
             entries_by_family_validated: dict[str, int] | None = (
                 taxonomy_validation.count_images_per_validated_family()
             )
             institution_counts: dict[str, int] | None = (
                 img_meta_stats.get_institution_counts()
             )
-            top_ten_species: list[str] | None = img_meta_stats.get_top_ten_species()
+            top_ten_species: dict | None = img_meta_stats.get_top_ten_species()
             institution_directory = InstitutionDirectory(
                 self.request.app.state.duck_db
             ).get_all()
@@ -434,7 +436,7 @@ class TaxonSearch:
             )
             return None
 
-    def _generate_prompt(self, taxon_data: dict, traits: dict) -> str:
+    def _generate_prompt(self, taxon_data: dict, traits: dict | None) -> str:
         """
         Generate a prompt for the AI summarization service based on taxon data and traits.
 

@@ -232,6 +232,22 @@ class MemoryDuckDBClient:
             ).fetchall()
         return bool(rows)
 
+    def table_type(self, table_name: str) -> str | None:
+        with self.lock:
+            row = self.conn.execute(
+                "SELECT table_type FROM information_schema.tables "
+                "WHERE table_name = ? LIMIT 1",
+                [table_name],
+            ).fetchone()
+        return row[0] if row else None
+
+    def create_or_replace_parquet(self, table_name: str, parquet_path: str):
+        with self.lock:
+            self.conn.execute(
+                f"CREATE OR REPLACE TABLE {table_name} AS "
+                f"SELECT * FROM read_parquet('{parquet_path}')"
+            )
+
     def table_names(self) -> list[str]:
         rows = self.conn.execute(
             "SELECT table_name FROM information_schema.tables ORDER BY table_name"

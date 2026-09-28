@@ -1,13 +1,13 @@
 "use client";
 
 import Info from "@/components/Info";
-import { NoData } from "@/components/NoData";
+import { TextLoading } from "@/components/Loadings";
 import {
   ParsedContent,
   parseWikipediaContent,
   cleanWikipediaError,
 } from "@/lib/wikipedia";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 // Defines the structure of the raw Wikipedia API response.
 // Note: This is a simplified interface for the 'parse' action.
@@ -25,198 +25,117 @@ interface WikipediaApiParseResponse {
   };
 }
 
+type PageState =
+  | { speciesName: string; status: "loaded"; content: ParsedContent[] }
+  | { speciesName: string; status: "failed"; error: string };
+
 function WikipediaPage({ speciesName }: { speciesName: string }) {
-  const [parsedContent, setParsedContent] = useState<ParsedContent[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  // Keyed by the species it was fetched for, so a change of species reads as
+  // loading without resetting state synchronously inside the effect.
+  const [state, setState] = useState<PageState | null>(null);
 
-  const handleSearch = async (e?: React.FormEvent<HTMLFormElement>) => {
-    e?.preventDefault();
-    if (!speciesName.trim()) {
-      setError("Please enter a search term.");
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    setParsedContent([]);
-
-    try {
-      const { html } = await fetchWikipediaPage(speciesName.trim());
-      const content = parseWikipediaContent(html);
-      setParsedContent(content);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch a default page on initial load
   useEffect(() => {
-    handleSearch();
-  }, []);
+    // The tab can mount before the species data arrives; wait for a name.
+    const title = speciesName.trim();
+    if (!title) return;
+    let isMounted = true;
+    fetchWikipediaPage(title)
+      .then(({ html }) => {
+        if (!isMounted) return;
+        const content = parseWikipediaContent(html);
+        setState({ speciesName, status: "loaded", content });
+      })
+      .catch((err: Error) => {
+        if (isMounted) {
+          setState({ speciesName, status: "failed", error: err.message });
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [speciesName]);
 
-  const infobox = parsedContent.find((item) => item.type === "infobox");
-  const mainContent = parsedContent.filter((item) => item.type !== "infobox");
+  if (state?.speciesName !== speciesName) {
+    return <TextLoading msg="Loading Wikipedia article" />;
+  }
+
+  if (state.status === "failed" || state.content.length === 0) {
+    return (
+      <Empty
+        text={cleanWikipediaError(
+          state.status === "failed" ? state.error : "Page content not found",
+        )}
+      />
+    );
+  }
+
+  const infobox = state.content.find((item) => item.type === "infobox");
+  const sections = state.content.filter((item) => item.type === "section");
+  const taxonIdentifier = state.content.find(
+    (item) => item.type === "taxonIdentifier",
+  );
 
   return (
-    <>
-      {/* CSS overrides scoped to the wiki-rendered HTML to normalize infobox headings and colors */}
-      <style>{`
-        /* Target Wikipedia infobox/table headers and captions that often carry inline beige backgrounds */
-        .wiki-container .infobox th,
-        .wiki-container .infobox caption,
-        .wiki-container .infobox .fn,
-        .wiki-container .infobox caption span {
-          background: transparent !important;
-          background-color: transparent !important;
-          color: inherit !important;
-        }
-        .wiki-container .infobox {
-          background: transparent !important;
-          /* Use separate border model and vertical spacing between rows so each header/section breathes */
-          border-collapse: separate !important;
-          border-spacing: 0 0.6rem !important;
-          border-color: oklch(98.5% 0.002 247.839) !important;
-        }
-        /* Default (light) colors */
-        .wiki-container .infobox td,
-        .wiki-container .infobox th,
-        .wiki-container .infobox tr,
-        .wiki-container .infobox caption {
-          color: oklch(25% 0.02 247.839) !important;
-        }
-        /* Dark mode adjustments */
-        @media (prefers-color-scheme: dark) {
-          .wiki-container .infobox {
-            border-color: oklch(40% 0.015 247.839) !important;
-          }
-          .wiki-container .infobox td,
-          .wiki-container .infobox th,
-          .wiki-container .infobox tr,
-          .wiki-container .infobox caption {
-            color: oklch(88% 0.008 247.839) !important;
-          }
-        }
-          /* Override IUCN colors in dark mode */
-          .wiki-container [style*="background-color"] {
-            background-color: transparent !important;
-          }
-        }
-        
-        /* Default colors for table head background color */
-        .wiki-container table.wikitable th {
-          background-color: oklch(95% 0.01 250) !important;
-          color: oklch(20% 0.05 250) !important;
-        }
-        /* Default colors for table head background color */
-        .wiki-container table.wikitable th {
-          background-color: oklch(95% 0.01 250) !important;
-          color: oklch(20% 0.05 250) !important;
-        }
-        @media (prefers-color-scheme: dark) {
-          .wiki-container table.wikitable th {
-            background-color: oklch(25% 0.03 250) !important;
-            color: oklch(90% 0.01 250) !important;
-          }
-        }  
-        /* Make wiki links inherit surrounding text color and only show an underline for clarity
-           (avoids bright-blue links on dark/blue backgrounds). Scoped to wiki-container. */
-        .wiki-container a,
-        .wiki-container a:visited {
-          color: inherit !important;
-          text-decoration: underline !important;
-          text-decoration-color: currentColor !important;
-          text-underline-offset: 2px !important;
-        }
-        /* Prevent images/tables inside wiki HTML from overflowing their container */
-        .wiki-container img { max-width: 100%; height: auto; }
-      `}</style>
+    <div>
+      <WikipediaAttribution speciesName={speciesName} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-5 min-w-0">
+          {sections.map((item, index) => (
+            <Card key={index} title={item.title ?? "Summary"}>
+              <WikiHtml html={item.html} />
+            </Card>
+          ))}
+        </div>
 
-      <div className="rounded-xl">
-        {isLoading && (
-          <div className="text-center p-10 rounded-xl">
-            <p className="text-xl text-slate-600 dark:text-hunter-green-100">
-              Loading content...
-            </p>
-          </div>
-        )}
-
-        {error && <NoData text={cleanWikipediaError(error)} />}
-
-        {!isLoading && !error && parsedContent.length > 0 && (
-          <>
-            <div
-              className={`font-sans rounded-xl p-2 shadow-lg backdrop-blur-sm
-                bg-white/80 text-slate-800 border border-slate-200
-                dark:bg-gradient-to-tr dark:from-deep-mocha-900 dark:via-deep-mocha-800 dark:to-deep-mocha-700 dark:text-hunter-green-100 dark:border-slate-700`}
-            >
-              <WikipediaAttribution speciesName={speciesName} />
-              <div className="rounded-xl overflow-hidden bg-transparent">
-                {/* wrapper to scope wiki HTML overrides */}
-                <div className="wiki-container p-2 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="lg:col-span-2 space-y-8">
-                    {mainContent.map((item, index) => (
-                      <div key={index}>
-                        {item.type === "section" && (
-                          <section>
-                            <h2
-                              className="text-2xl font-semibold border-b-2 pb-2 mb-4
-                              text-deep-mocha-900 dark:text-deep-mocha-100 border-deep-mocha-200 dark:border-pacific-blue-700"
-                            >
-                              {item.title}
-                            </h2>
-                            <div
-                              className="dynamic-content text-deep-mocha-800 dark:text-deep-mocha-100"
-                              dangerouslySetInnerHTML={{ __html: item.html }}
-                            />
-                          </section>
-                        )}
-                        {item.type === "table" && (
-                          // Full-bleed (viewport-wide) table container
-                          <div
-                            className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-x-auto border
-                            border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-800/60 text-slate-700 dark:text-hunter-green-100"
-                          >
-                            <div
-                              className="inline-block min-w-full p-4"
-                              dangerouslySetInnerHTML={{ __html: item.html }}
-                            />
-                          </div>
-                        )}
-                        {item.type === "taxonIdentifier" && (
-                          <div className="rounded-xl">
-                            <h3 className="text-lg font-semibold mb-2 text-deep-mocha-900 dark:text-deep-mocha-100">
-                              Taxon Identifier
-                            </h3>
-                            <div
-                              className="dynamic-content pl-2 text-deep-mocha-800 dark:text-deep-mocha-100"
-                              dangerouslySetInnerHTML={{ __html: item.html }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <aside className="lg:col-auto">
-                    {infobox && (
-                      <div className="sticky top-8 mx-auto flex justify-center items-center">
-                        <div
-                          className="rounded-xl overflow-hidden w-[22em] max-w-full p-2
-                          bg-gradient-to-r from-pacific-blue-50 to-hunter-green-50 
-                            dark:bg-gradient-to-r dark:from-pacific-blue-800 dark:to-hunter-green-600/50 dark:text-deep-mocha-100"
-                          dangerouslySetInnerHTML={{ __html: infobox.html }}
-                        />
-                      </div>
-                    )}
-                  </aside>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+        <aside className="lg:col-span-1 space-y-5 min-w-0">
+          {infobox ? (
+            <Card title={infobox.title ?? "At a glance"}>
+              <WikiHtml html={infobox.html} />
+            </Card>
+          ) : null}
+          {taxonIdentifier ? (
+            <Card title="Taxon identifiers">
+              <WikiHtml html={taxonIdentifier.html} />
+            </Card>
+          ) : null}
+        </aside>
       </div>
-    </>
+    </div>
+  );
+}
+
+/** Cleaned Wikipedia HTML, styled by the `.wiki-content` rules in globals.css. */
+function WikiHtml({ html }: { html: string }) {
+  return (
+    <div className="wiki-content" dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
+
+// The same card the Taxonomy tab uses, so the two tabs read as a set.
+function Card({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg">
+      <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl">
+        <h2 className="text-2xl font-semibold">{title}</h2>
+      </div>
+      <div className="p-4 text-sm text-deep-mocha-700 dark:text-deep-mocha-300">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl bg-white/40 dark:bg-deep-mocha-800/40 p-6">
+      <p className="text-deep-mocha-500 dark:text-deep-mocha-400">{text}</p>
+    </div>
   );
 }
 
@@ -254,11 +173,8 @@ const fetchWikipediaPage = async (
   const pageTitle = data.parse?.title || title;
 
   if (pageHtml) {
-    // Replace relative URLs with absolute URLs for links and images
-    const processedHtml = pageHtml
-      .replace(/href="\/wiki\//g, 'href="https://en.wikipedia.org/wiki/')
-      .replace(/src="\/\//g, 'src="https://');
-    return { title: pageTitle, html: processedHtml };
+    // Relative links and images are made absolute when the HTML is parsed.
+    return { title: pageTitle, html: pageHtml };
   } else {
     throw new Error(`Page content not found for "${title}". It may not exist.`);
   }
@@ -266,23 +182,21 @@ const fetchWikipediaPage = async (
 
 function WikipediaAttribution({ speciesName }: { speciesName: string }) {
   return (
-    <div className="space-y-2 text-xs">
+    <div className="mb-4">
       <Info>
         <p>
-          Content adapted from English Wikipedia (en.wikipedia.org) and lightly
-          cleaned for readability. It may contain community-edited or unverified
-          information. Verify with primary sources.
-        </p>
-        <p>
-          Source URL:{" "}
+          Content adapted from{" "}
           <a
             href={`https://en.wikipedia.org/wiki/${speciesName}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline "
+            className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
           >
             English Wikipedia (<span className="italic">{speciesName}</span>)
-          </a>
+          </a>{" "}
+          and cleaned for readability; citations and reference sections are
+          omitted. It may contain community-edited or unverified information.
+          Verify with primary sources.
         </p>
       </Info>
     </div>

@@ -137,7 +137,7 @@ function SimilarSpeciesSection({
         const data = await fetchSimilarSpecies(
           species,
           side,
-          controller.signal
+          controller.signal,
         );
         if (ignore) return;
         setRows(data ? data[side] : []);

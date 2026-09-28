@@ -7,6 +7,9 @@ import pytest
 
 from app.configs.config import PromptsConfig
 from app.services.agent_tools import (
+    ColorArgs,
+    CommonNameArgs,
+    ImageSimilarityArgs,
     LocationArgs,
     TraitArgs,
     build_tool_definitions,
@@ -63,8 +66,10 @@ def test_parse_tool_calls_accepts_state_province():
     )
 
     assert warnings == []
-    assert calls[0].args.normalized_country() == "MY"
-    assert calls[0].args.state_province == "Sabah"
+    args = calls[0].args
+    assert isinstance(args, LocationArgs)
+    assert args.normalized_country() == "MY"
+    assert args.state_province == "Sabah"
 
 
 @pytest.mark.parametrize(
@@ -125,7 +130,9 @@ def test_parse_tool_calls_keeps_first_valid_duplicate():
     )
 
     assert len(calls) == 1
-    assert calls[0].args.color_description == "blue"
+    args = calls[0].args
+    assert isinstance(args, ColorArgs)
+    assert args.color_description == "blue"
     assert [warning.code for warning in warnings] == ["duplicate_tool_call"]
 
 
@@ -140,8 +147,12 @@ def test_common_names_pass_through_without_scientific_translation():
     )
     assert warnings == []
     assert calls[0].category == "filter"
-    assert calls[0].args.common_name == "blue morpho"
-    assert calls[1].args.reference_species == "monarch"
+    common_name_args = calls[0].args
+    similarity_args = calls[1].args
+    assert isinstance(common_name_args, CommonNameArgs)
+    assert isinstance(similarity_args, ImageSimilarityArgs)
+    assert common_name_args.common_name == "blue morpho"
+    assert similarity_args.reference_species == "monarch"
 
 
 def test_trait_args_accept_the_planner_s_casing():

@@ -303,7 +303,9 @@ function optionalNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-export function normalizeCandidate(raw: Record<string, unknown>): TaxonCandidate {
+export function normalizeCandidate(
+  raw: Record<string, unknown>,
+): TaxonCandidate {
   return {
     candidateRank: optionalNumber(raw.candidateRank) ?? 0,
     acceptedName: optionalText(raw.acceptedName),
@@ -326,11 +328,11 @@ export function normalizeTaxonUpdate(raw: unknown): TaxonUpdate | null {
 
   const candidates = Array.isArray(source.candidates)
     ? source.candidates
-      .filter(
-        (entry): entry is Record<string, unknown> =>
-          !!entry && typeof entry === "object",
-      )
-      .map(normalizeCandidate)
+        .filter(
+          (entry): entry is Record<string, unknown> =>
+            !!entry && typeof entry === "object",
+        )
+        .map(normalizeCandidate)
     : [];
 
   return {
@@ -394,10 +396,7 @@ export function normalizeColTaxonomy(raw: unknown): ColTaxonomy | null {
 }
 
 /** Read one rank off a classification. */
-export function rankValue(
-  taxonomy: ColTaxonomy,
-  rank: ColRank,
-): string | null {
+export function rankValue(taxonomy: ColTaxonomy, rank: ColRank): string | null {
   const value = taxonomy[rank as keyof ColTaxonomy];
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }

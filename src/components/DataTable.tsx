@@ -80,7 +80,10 @@ export default function DataTable<Row>({
     setCurrentPage(1);
     setSort((previous) =>
       previous.key === column.key
-        ? { key: column.key, direction: previous.direction === "asc" ? "desc" : "asc" }
+        ? {
+            key: column.key,
+            direction: previous.direction === "asc" ? "desc" : "asc",
+          }
         : // Numbers usually want the largest first; names want A to Z.
           { key: column.key, direction: column.numeric ? "desc" : "asc" },
     );
@@ -110,7 +113,10 @@ export default function DataTable<Row>({
             className="w-full rounded-xl border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/70 dark:bg-deep-mocha-800/60 px-3 py-2 text-sm text-deep-mocha-900 dark:text-white placeholder:text-deep-mocha-400 focus:outline-none focus:ring-2 focus:ring-pacific-blue-500"
           />
         </label>
-        <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400 tabular-nums" aria-live="polite">
+        <p
+          className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400 tabular-nums"
+          aria-live="polite"
+        >
           {visible.length === rows.length
             ? `${rows.length.toLocaleString("en-US")} ${itemLabel}`
             : `${visible.length.toLocaleString("en-US")} of ${rows.length.toLocaleString("en-US")} ${itemLabel}`}
@@ -128,7 +134,11 @@ export default function DataTable<Row>({
                     ? "ascending"
                     : "descending"
                   : "none";
-                const Icon = !active ? ArrowUpDown : sort.direction === "asc" ? ArrowUp : ArrowDown;
+                const Icon = !active
+                  ? ArrowUpDown
+                  : sort.direction === "asc"
+                    ? ArrowUp
+                    : ArrowDown;
                 return (
                   <th
                     key={column.key}
@@ -168,7 +178,10 @@ export default function DataTable<Row>({
               </tr>
             ) : (
               pageRows.map((row) => (
-                <tr key={rowKey(row)} className="bg-white/40 dark:bg-deep-mocha-900/30">
+                <tr
+                  key={rowKey(row)}
+                  className="bg-white/40 dark:bg-deep-mocha-900/30"
+                >
                   {columns.map((column) => (
                     <td
                       key={column.key}

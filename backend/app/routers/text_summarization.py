@@ -20,8 +20,8 @@ async def summarize_text(request: Request, species_name: str):
         dict: A dictionary containing the summarized text or an error message.
     """
     logger.info("Received text summarization request")
-    species_name = species_name.strip() if species_name else None
-    if species_name is None or species_name == "":
+    species_name = species_name.strip() if species_name else ""
+    if species_name == "":
         logger.warning("Text summarization query is empty")
         return {
             "error": "Query parameter 'species_name' is required and cannot be empty."
@@ -33,9 +33,7 @@ async def summarize_text(request: Request, species_name: str):
         summary = await summarizer.generate_summary()
 
         if summary is None:
-            message = (
-                "No summary could be generated for the provided text."
-            )
+            message = "No summary could be generated for the provided text."
             logger.info(message)
             return {"message": message}
 
@@ -43,9 +41,5 @@ async def summarize_text(request: Request, species_name: str):
         return {"summary": summary}
 
     except Exception as e:
-        logger.error(
-            f"Error during text summarization: {e}", exc_info=True
-        )
-        return {
-            "error": f"An error occurred while summarizing the text: {str(e)}"
-        }
+        logger.error(f"Error during text summarization: {e}", exc_info=True)
+        return {"error": f"An error occurred while summarizing the text: {str(e)}"}

@@ -61,7 +61,10 @@ class GbifPersistData:
     def count_unique_species(self) -> int | None:
         try:
             query = f"SELECT COUNT(DISTINCT species) FROM {self.table_name}"
-            result = self.db_client.execute(query).fetchone()[0]
+            row = self.db_client.execute(query).fetchone()
+            if row is None:
+                return None
+            result = row[0]
             logger.info(f"Counted {result} unique species in GBIF metadata table.")
             return result if result else None
         except Exception as e:
@@ -75,7 +78,7 @@ class GbifPersistData:
         :return: The GBIF data for the species or None if not found.
         """
         query = "SELECT * FROM gbif_meta WHERE LOWER(species) = LOWER(?)"
-        result = self.db_client.execute(query, [species_name]).pl()
+        result = self.db_client.execute_prepared(query, [species_name]).pl()
         if result.is_empty():
             logger.warning(f"No GBIF data found for species '{species_name}'.")
             return None

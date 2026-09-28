@@ -23,8 +23,7 @@ const CANVAS_BOUNDS: [[number, number], [number, number]] = [
 // tools/create_tiles.py), so it lines up with the Web Mercator world tile
 // scheme without any coordinate translation.
 function buildStyle(): StyleSpecification {
-  const isRetina =
-    typeof window !== "undefined" && window.devicePixelRatio > 1;
+  const isRetina = typeof window !== "undefined" && window.devicePixelRatio > 1;
 
   return {
     version: 8,
@@ -86,10 +85,7 @@ export default function VisualizationMapClient() {
       map.setMinZoom(map.getZoom());
     });
 
-    map.addControl(
-      new NavigationControl({ showCompass: false }),
-      "top-right",
-    );
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
 
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(container);

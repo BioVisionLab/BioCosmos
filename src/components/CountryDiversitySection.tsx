@@ -16,7 +16,10 @@ export default function CountryDiversitySection({
   pending?: boolean;
 }) {
   return (
-    <section className="w-full mt-20" aria-labelledby="country-diversity-heading">
+    <section
+      className="w-full mt-20"
+      aria-labelledby="country-diversity-heading"
+    >
       <LandingSectionHeading
         id="country-diversity-heading"
         eyebrow="Distribution"

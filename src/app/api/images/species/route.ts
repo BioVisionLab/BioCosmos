@@ -13,7 +13,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!species) {
     return NextResponse.json(
       { error: "Query parameter 'species' is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -31,7 +31,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     if (!response.ok) {
       return NextResponse.json(
         { error: `Failed to fetch image: ${response.statusText}` },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -54,7 +54,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
       { error: `Failed to fetch image: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

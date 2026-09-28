@@ -1,19 +1,15 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { ImageLoading } from "@/components/Loadings";
 import NoImage from "@/components/NoImage";
 import { IconContainer } from "@/components/IconContainer";
 import { SpecimenIcon } from "@/components/ui/icons";
 import { SpecimenData, fetchSpecimenData } from "@/lib/specimens";
 import { formatNumberToLocaleString } from "@/lib/textUtils";
-import {
-  fetchThumbnailById,
-  fetchSpeciesImageIds,
-} from "@/lib/images";
-import ImageUmap from "./ImageUmap";
-import Tips from "@/components/Tips";
+import { fetchThumbnailById, fetchSpeciesImageIds } from "@/lib/images";
+import SpeciesMorphospace from "@/components/morphospace/SpeciesMorphospace";
+
 import PaginationControls from "@/components/PaginationControls";
 import { SpecimenImageModal } from "@/components/SpecimenImageModal";
 
@@ -24,8 +20,8 @@ interface SpecimensTabProps {
   speciesName?: string;
   // when true, show full gallery with pagination; when false show only first 16 images
   showAll?: boolean;
-  // when false, hide the Image UMAP / similarity box
-  showUmap?: boolean;
+  // when false, hide the morphospace panel
+  showMorphospace?: boolean;
   // when false, hide the image-count header (used by the standalone gallery)
   showImageCount?: boolean;
   // optional: preloaded specimen metadata to avoid refetching on gallery pages
@@ -99,7 +95,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   specimens,
   speciesName,
   showAll: propsShowAll,
-  showUmap: propsShowUmap,
+  showMorphospace: propsShowMorphospace,
   showImageCount: propsShowImageCount,
   initialSpecimenData,
 }) => {
@@ -132,7 +128,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   // simple cache of fetched thumbnail URLs by image id
   const thumbCache = useRef<Map<string, string | undefined>>(new Map());
   const showAll = propsShowAll ?? false;
-  const showUmap = propsShowUmap ?? true;
+  const showMorphospace = propsShowMorphospace ?? true;
   const showImageCount = propsShowImageCount ?? true;
   // track which thumbnails have finished loading (by id)
   const [loadedThumbIds, setLoadedThumbIds] = useState<Set<string>>(new Set());
@@ -316,63 +312,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       if (mountedFlag) setLoading(false);
     }
   }
-
-  // Load the next chunk (one page worth of IDs) and append them.
-  const loadNextChunk = async () => {
-    if (!speciesName) return;
-    if (isLoadingMore) return;
-    setIsLoadingMore(true);
-    try {
-      const existing = allIds ?? [];
-      const offset = existing.length;
-      const fetched = await fetchSpeciesImageIds(
-        speciesName,
-        PAGE_SIZE,
-        offset,
-      );
-      // if backend returns fewer than requested, we've exhausted available ids
-      if (!fetched || fetched.length === 0) {
-        setExhaustedIds(true);
-        return;
-      }
-
-      // determine deduped additions and new full list
-      const deduped = fetched.filter((id) => !existing.includes(id));
-      // if backend returned only duplicates (no progress), treat as exhausted
-      if (deduped.length === 0) {
-        setExhaustedIds(true);
-        return;
-      }
-      const newAll = [...existing, ...deduped];
-      // update state with the new list (use functional set to avoid race)
-      setAllIds(newAll);
-      allIdsRef.current = newAll;
-      // mark that we've appended extra pages beyond the initial load
-
-      // compute the page index of the first newly added item using the previous length
-      const firstNewIndex = existing.length;
-      const firstNewPage = Math.floor(firstNewIndex / PAGE_SIZE) + 1;
-      // load thumbnails for that page
-      const pageStart = (firstNewPage - 1) * PAGE_SIZE;
-      const pageIds = newAll.slice(pageStart, pageStart + PAGE_SIZE);
-      const results = await fetchThumbnailsForIds(pageIds);
-      results.forEach((r) => {
-        if (r.url) {
-          createdUrls.current.push(r.url);
-          thumbCache.current.set(r.id, r.url);
-        } else {
-          thumbCache.current.set(r.id, undefined);
-        }
-      });
-      setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
-      if (fetched.length < PAGE_SIZE) setExhaustedIds(true);
-    } catch (err) {
-      console.error("Failed to load next chunk of thumbnails:", err);
-      setError("Failed to load more thumbnails.");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
 
   // fallback when a specimens array is passed in (client-provided data)
   async function loadFromSpecimensFallback(
@@ -561,7 +500,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     setLoading(true);
     setError(null);
 
-
     // otherwise, we need to load additional chunks until we have enough ids
     const neededCount = requested * PAGE_SIZE;
     const ensureIdsAndLoad = async () => {
@@ -657,12 +595,12 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
           </div>
         </div>
       )}
-      {showUmap && (
+      {showMorphospace && (
         <div
-          id="specimen-umap"
+          id="specimen-morphospace"
           className={`transition-opacity duration-200 ${openIndexInPage !== null ? "opacity-30 pointer-events-none" : "opacity-100"}`}
         >
-          <ImageUmap species={speciesName ?? ""} />
+          <SpeciesMorphospace species={speciesName ?? ""} />
         </div>
       )}
       <div id="specimen-thumbs" className="mt-8">
@@ -789,7 +727,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
             href={`/species/${encodeURIComponent(nameOr(speciesName))}/gallery`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-all bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-white shadow hover:opacity-90 hover:shadow-md`}
+            className={`h-9 flex items-center px-5 rounded-full text-sm font-medium transition-all bg-linear-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-white shadow hover:opacity-90 hover:shadow-md`}
           >
             View more images
           </a>
@@ -814,7 +752,6 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         openIndex={openIndexInPage}
         onOpenIndexChange={setOpenIndexInPage}
       />
-
     </div>
   );
 };

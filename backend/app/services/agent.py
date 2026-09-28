@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import polars as pl
 from fastapi import Request
@@ -583,7 +583,7 @@ class AgentSearchService:
         if not raw:
             return []
 
-        dataframe = raw if isinstance(raw, pl.DataFrame) else pl.DataFrame(raw)
+        dataframe = pl.DataFrame(raw)
         if dataframe.is_empty():
             return []
         dataframe = dataframe.sort("distance").unique(
@@ -692,14 +692,18 @@ class AgentSearchService:
         # beyond 1.0 to a flat 0.0 that carries no ranking signal at all. Score
         # each candidate against the pool its own tool retrieved instead.
         distances = dataframe.get_column("distance").cast(pl.Float64)
-        furthest = distances.max()
-        nearest = distances.min()
+        # The Float64 cast above makes both extremes floats (or None when
+        # every distance is null).
+        furthest = cast(float | None, distances.max())
+        nearest = cast(float | None, distances.min())
         spread = (
             float(furthest) - float(nearest)
             if furthest is not None and nearest is not None
             else 0.0
         )
-        if spread <= 0.0:
+        # A null `furthest` already means a zero spread; checking it here as
+        # well lets the closeness below use it as a float.
+        if furthest is None or spread <= 0.0:
             score_expr = pl.lit(1.0, dtype=pl.Float64)
         else:
             closeness = (

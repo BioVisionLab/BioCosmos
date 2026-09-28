@@ -19,23 +19,25 @@ async function fetchSpeciesImageIds(
   speciesName: string,
   limit?: number,
   offset?: number,
-  order?: "view"
+  order?: "view",
 ): Promise<string[]> {
   const cleanName = cleanSpeciesName(speciesName);
   // pass limit/offset to the server so it can control how many IDs are returned
   const qs: string[] = [];
-  if (typeof limit === "number") qs.push(`limit=${encodeURIComponent(String(limit))}`);
-  if (typeof offset === "number") qs.push(`offset=${encodeURIComponent(String(offset))}`);
+  if (typeof limit === "number")
+    qs.push(`limit=${encodeURIComponent(String(limit))}`);
+  if (typeof offset === "number")
+    qs.push(`offset=${encodeURIComponent(String(offset))}`);
   // "view" sorts the page dorsal first, then ventral. Same images either way.
   if (order) qs.push(`order=${order}`);
   const qsStr = qs.length > 0 ? `&${qs.join("&")}` : "";
   const response = await fetch(
-    `${IMAGE_API_BASE}/metadata?scientificName=${encodeURIComponent(cleanName)}${qsStr}`
+    `${IMAGE_API_BASE}/metadata?scientificName=${encodeURIComponent(cleanName)}${qsStr}`,
   );
 
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch species image IDs. Status: ${response.status}`
+      `Failed to fetch species image IDs. Status: ${response.status}`,
     );
   }
 
@@ -71,7 +73,7 @@ async function fetchSpeciesImageIds(
 function speciesThumbnailUrl(speciesName: string): string {
   const cleanName = cleanSpeciesName(speciesName);
   return `${IMAGE_API_BASE}/species?scientificName=${encodeURIComponent(
-    cleanName
+    cleanName,
   )}&type=thumbnail`;
 }
 
@@ -91,7 +93,7 @@ async function fetchSpeciesThumbnail(speciesName: string): Promise<string> {
 function speciesImageUrl(speciesName: string): string {
   const cleanName = cleanSpeciesName(speciesName);
   return `${IMAGE_API_BASE}/species?scientificName=${encodeURIComponent(
-    cleanName
+    cleanName,
   )}&type=full`;
 }
 
@@ -99,10 +101,9 @@ async function fetchSpeciesImage(speciesName: string): Promise<string> {
   return speciesImageUrl(speciesName);
 }
 
-
 function imageUrlById(
   imageId: string,
-  type: "full" | "thumbnail" = "full"
+  type: "full" | "thumbnail" = "full",
 ): string {
   return `${IMAGE_API_BASE}/id?imageId=${encodeURIComponent(imageId)}&type=${type}`;
 }

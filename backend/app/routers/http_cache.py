@@ -30,6 +30,15 @@ SIMILARITY_CACHE_CONTROL = (
     f"s-maxage={SIMILARITY_MAX_AGE}, stale-while-revalidate=3600"
 )
 
+# One day for morphospaces, for the same reason as similarity: the tables are
+# rebuilt offline by `morphospace integrate`, with nothing to hang an ETag on
+# beyond the run id, so a cached scope retires by ageing out.
+MORPHOSPACE_MAX_AGE = 60 * 60 * 24
+MORPHOSPACE_CACHE_CONTROL = (
+    f"public, max-age={MORPHOSPACE_MAX_AGE}, "
+    f"s-maxage={MORPHOSPACE_MAX_AGE}, stale-while-revalidate=86400"
+)
+
 # One day for a complete literature list: CrossRef itself is cached for a week
 # in the backend, so this only bounds how long a browser or CDN holds the
 # assembled page. A list missing some results because CrossRef failed is held

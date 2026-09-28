@@ -105,7 +105,10 @@ export function SpeciesClassification({
         <table className="text-sm text-deep-mocha-700 dark:text-deep-mocha-300 w-full min-w-0">
           <tbody>
             {rows.map(({ rank, value }) => (
-              <Row key={rank} label={rank.charAt(0).toUpperCase() + rank.slice(1)}>
+              <Row
+                key={rank}
+                label={rank.charAt(0).toUpperCase() + rank.slice(1)}
+              >
                 <RankValue rank={rank} value={value} />
               </Row>
             ))}

@@ -215,7 +215,10 @@ export function familiesWithRecords(taxon: HigherTaxon): TaxonNode[] {
   );
 }
 
-function normalizeHigherTaxon(raw: unknown, rank: HigherRank): HigherTaxon | null {
+function normalizeHigherTaxon(
+  raw: unknown,
+  rank: HigherRank,
+): HigherTaxon | null {
   if (!raw || typeof raw !== "object") return null;
   const source = raw as Record<string, unknown>;
   const key = text(source.key);

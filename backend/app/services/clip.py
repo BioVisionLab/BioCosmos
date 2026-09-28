@@ -31,19 +31,17 @@ class ClipModel:
         """Load the CLIP model and processor."""
         config = EmbedderConfig()
         try:
+            # transformers wraps `to` with functools.wraps, which the stubs
+            # expose as an unbound `_Wrapped` that pyright cannot bind `self` to.
             model = CLIPModel.from_pretrained(CLIP_MODEL_NAME).to(
-                config.device
+                config.device  # pyright: ignore[reportArgumentType]
             )
             processor = CLIPProcessor.from_pretrained(CLIP_MODEL_NAME)
             model.eval()
-            logger.info(
-                f"CLIP model {CLIP_MODEL_NAME} loaded successfully."
-            )
+            logger.info(f"CLIP model {CLIP_MODEL_NAME} loaded successfully.")
             return model, processor
         except Exception as e:
-            logger.error(
-                f"Error loading CLIP model: {e}", exc_info=True
-            )
+            logger.error(f"Error loading CLIP model: {e}", exc_info=True)
             return None, None
 
 
@@ -86,22 +84,19 @@ class ClipEmbedder:
         self.model = model
         self.processor = processor
 
-    def get_embedding_from_img(self, img_path) -> list[float]:
+    def get_embedding_from_img(self, img_path) -> np.ndarray | None:
         """Get the image embedding from a given image path."""
         if self.model is None:
-            self.logger.error(
-                "CLIP model not available for image embedding."
-            )
+            self.logger.error("CLIP model not available for image embedding.")
             return None
         try:
-            image: Image = Image.open(img_path).convert("RGB")
+            image: PILImage = Image.open(img_path).convert("RGB")
             image = self._resize_image(image)
+            embeddings = self.batch_get_embeddings([image])
             image.close()
-            return self.get_embeddings([image])[0]
+            return embeddings[0] if embeddings else None
         except FileNotFoundError as e:
-            self.logger.error(
-                f"Image file not found: {e}", exc_info=True
-            )
+            self.logger.error(f"Image file not found: {e}", exc_info=True)
             return None
         except Exception as e:
             self.logger.error(
@@ -110,13 +105,9 @@ class ClipEmbedder:
             )
             return None
 
-    def batch_get_embeddings(
-        self, images: list[PILImage]
-    ) -> list[np.ndarray]:
+    def batch_get_embeddings(self, images: list[PILImage]) -> list[np.ndarray]:
         if self.model is None:
-            self.logger.error(
-                "CLIP model not available for image embedding."
-            )
+            self.logger.error("CLIP model not available for image embedding.")
             return []
         images = [self._resize_image(img) for img in images]
         try:
@@ -133,18 +124,19 @@ class ClipEmbedder:
             embedding_array = image_features.cpu().numpy().squeeze()
             if len(images) == 1:
                 return [embedding_array]
-            return embedding_array
+            return list(embedding_array)
         except Exception as e:
             self.logger.error(
                 f"Error processing batch of images with CLIP: {e}",
                 exc_info=True,
             )
+            # Propagate so the caller skips the batch, as it did when this
+            # fell through to an implicit None it then failed to iterate.
+            raise
 
-    def get_embedding_from_text(self, text) -> list[float]:
+    def get_embedding_from_text(self, text) -> np.ndarray | None:
         if self.model is None:
-            self.logger.error(
-                "CLIP model not available for text embedding."
-            )
+            self.logger.error("CLIP model not available for text embedding.")
             return None
         inputs = self.processor(
             text=text,
@@ -154,23 +146,17 @@ class ClipEmbedder:
         ).to(self.device)
         logger.info(f"Computing text embedding for: {text}")
         with torch.no_grad():
-            text_features = projected_features(
-                self.model.get_text_features(**inputs)
-            )
-        text_features = text_features / text_features.norm(
-            dim=-1, keepdim=True
-        )
-        logger.info(
-            f"Text embedding computed successfully for: {text}"
-        )
+            text_features = projected_features(self.model.get_text_features(**inputs))
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        logger.info(f"Text embedding computed successfully for: {text}")
         return text_features.cpu().numpy().squeeze()
 
-    def _resize_image(self, image: Image) -> Image:
+    def _resize_image(self, image: PILImage) -> PILImage:
         """Resize image to fit within MAX_CLIP_RESOLUTION while maintaining aspect ratio."""
         max_dimension = max(image.size)
         if max_dimension > MAX_CLIP_RESOLUTION:
             image.thumbnail(
                 (MAX_CLIP_RESOLUTION, MAX_CLIP_RESOLUTION),
-                Image.LANCZOS,
+                Image.Resampling.LANCZOS,
             )
         return image

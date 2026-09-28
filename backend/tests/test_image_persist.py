@@ -3,8 +3,12 @@
 import numpy as np
 import polars as pl
 import pytest
+from typing import cast
 from unittest.mock import MagicMock, patch
 
+from app.database.duckdb import DuckDBClient
+from app.database.lance import LanceDB
+from lancedb.table import Table
 from tests.conftest import FakeLanceDB, FakeLanceTable, FakeDuckDBClient
 
 
@@ -21,7 +25,9 @@ class TestImagePersistData:
             MockCfg.return_value.table = "nymphalidae"
             from app.services.images import ImagePersistData
 
-            return ImagePersistData(lance_db=lance, duckdb=duck)
+            return ImagePersistData(
+                lance_db=cast(LanceDB, lance), duckdb=cast(DuckDBClient, duck)
+            )
 
     # ------------------------------------------------------------------
     # get_img_path_by_id
@@ -185,6 +191,7 @@ class TestImagePersistData:
             vector_column_name="clip_embeddings",
             limit=10,
         )
+        assert result is not None
         assert len(result) == 1
 
     # ------------------------------------------------------------------
@@ -277,7 +284,7 @@ class TestAnnSearchParameters:
             pl.DataFrame({"img_id": ["a", "b"], "_distance": [0.1, 0.2]})
         )
         persist = ImagePersistData.__new__(ImagePersistData)
-        persist.db_table = table
+        persist.db_table = cast(Table, table)
         persist.logger = MagicMock()
 
         persist._vector_search(
@@ -295,11 +302,11 @@ class TestAnnSearchParameters:
 class TestAllowlistedVectorSearch:
     """Allowlists must never become one unbounded `IN (...)` filter."""
 
-    def _make(self, table):
+    def _make(self, table: RecordingTable):
         from app.services.images import ImagePersistData
 
         persist = ImagePersistData.__new__(ImagePersistData)
-        persist.db_table = table
+        persist.db_table = cast(Table, table)
         persist.logger = MagicMock()
         return persist
 
@@ -324,8 +331,10 @@ class TestAllowlistedVectorSearch:
 
         assert len(table.calls) == -(-len(allowed) // PREFILTER_CHUNK_SIZE)
         assert all(
-            clause.count(",") < PREFILTER_CHUNK_SIZE for clause, _ in table.calls
+            clause is not None and clause.count(",") < PREFILTER_CHUNK_SIZE
+            for clause, _ in table.calls
         )
+        assert result is not None
         assert result.sort("distance")["imgId"].to_list() == allowed[:10]
 
     def test_large_allowlist_is_postfiltered_without_in_clause(self):
@@ -342,13 +351,14 @@ class TestAllowlistedVectorSearch:
 
         assert all(clause is None for clause, _ in table.calls)
         assert [limit for _, limit in table.calls] == list(POSTFILTER_POOL_SIZES)
+        assert result is not None
         assert result.height == 500
         assert result.sort("distance")["imgId"].to_list() == allowed[:500]
 
     def test_vector_search_projects_only_the_image_id(self):
         table = self._ranked_table(10)
         self._make(table)._query_embedding(np.zeros(4), "clip_embeddings", limit=5)
-        assert table.selects == [["img_id"]]
+        assert table.selects == [["img_id", "_distance"]]
 
     def test_unicom_embeddings_are_fetched_in_one_projected_read(self):
         table = RecordingTable(
@@ -364,6 +374,7 @@ class TestAllowlistedVectorSearch:
 
         assert len(table.calls) == 1
         assert table.selects == [["img_id", "unicom_embeddings"]]
+        assert embeddings is not None
         assert embeddings.shape == (2, 2)
         np.testing.assert_allclose(embeddings.mean(axis=0), [0.5, 0.5])
 
@@ -371,7 +382,7 @@ class TestAllowlistedVectorSearch:
 class TestFindSimilarImagesPoolGrowth:
     """A prolific reference species must not crowd out every neighbour."""
 
-    def test_pool_widens_past_the_reference_species(self):
+    def test_pool_widens_past_the_reference_species(self, monkeypatch):
         from app.services.images import ImagePersistData
 
         persist = ImagePersistData.__new__(ImagePersistData)
@@ -395,18 +406,19 @@ class TestFindSimilarImagesPoolGrowth:
             species += [f"other_{i}" for i in range(results.height - 500)]
             return results.with_columns(pl.Series("species", species))
 
-        persist._query_embedding = query_embedding
-        persist._merge_result_with_metadata = merge
+        monkeypatch.setattr(persist, "_query_embedding", query_embedding)
+        monkeypatch.setattr(persist, "_merge_result_with_metadata", merge)
 
         result = persist.find_similar_images(
             ["ref"], 500, exclude_species="Danaus plexippus", min_species=20
         )
 
         assert pools == [500, 5_000]
+        assert result is not None
         assert result.height == 30
         assert all(name.startswith("other_") for name in result["species"])
 
-    def test_excludes_multiple_references_and_their_subspecies(self):
+    def test_excludes_multiple_references_and_their_subspecies(self, monkeypatch):
         from app.services.images import ImagePersistData
 
         persist = ImagePersistData.__new__(ImagePersistData)
@@ -420,20 +432,25 @@ class TestFindSimilarImagesPoolGrowth:
                 }
             )
         )
-        persist._merge_result_with_metadata = lambda rows: rows.with_columns(
-            pl.Series(
-                "species",
-                [
-                    "danaus_plexippus",
-                    "Danaus erippus",
-                    "danaus_erippus_subspecies",
-                    "vanessa_cardui",
-                ],
-            )
+        monkeypatch.setattr(
+            persist,
+            "_merge_result_with_metadata",
+            lambda rows: rows.with_columns(
+                pl.Series(
+                    "species",
+                    [
+                        "danaus_plexippus",
+                        "Danaus erippus",
+                        "danaus_erippus_subspecies",
+                        "vanessa_cardui",
+                    ],
+                )
+            ),
         )
         result = persist.find_similar_images(
             ["ref-a", "ref-b"],
             exclude_species=["Danaus plexippus", "danaus_erippus"],
             raise_on_error=True,
         )
+        assert result is not None
         assert result["species"].to_list() == ["vanessa_cardui"]

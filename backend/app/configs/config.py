@@ -114,38 +114,62 @@ class ImageMetaConfig:
 
     @property
     def table(self) -> str:
+        """The filtered view every reader queries."""
         return self._image_meta_config.get("table", "image_meta")
 
+    @property
+    def source_table(self) -> str:
+        """The raw ingested table the view is defined over."""
+        return self._image_meta_config.get("source_table", "image_meta_source")
 
-class UmapDataConfig:
+    @property
+    def input_table(self) -> str:
+        """The source minus recorded excluded families; the harmonizer's input."""
+        return self._image_meta_config.get("input_table", "image_meta_input")
+
+    @property
+    def excluded_table(self) -> str:
+        """Images the harmonizer resolved to an excluded family."""
+        return self._image_meta_config.get("excluded_table", "image_meta_excluded")
+
+    @property
+    def exclude_families(self) -> list[str]:
+        """Recorded families left out of the view, lowercased and trimmed."""
+        families = self._image_meta_config.get("exclude_families") or []
+        if isinstance(families, str):
+            families = [families]
+        return sorted({str(f).strip().lower() for f in families if str(f).strip()})
+
+
+class MorphospaceConfig:
+    """Tables written offline by `morphospace integrate`; read-only here."""
+
     def __init__(self):
         config = load_config()
-        self._umap_data_config = config.get("umap_data", {})
+        self._morphospace_config = config.get("morphospace", {})
+
+    def _table(self, name: str) -> str:
+        return self._morphospace_config.get(f"{name}_table", f"morphospace_{name}")
 
     @property
-    def path(self) -> str:
-        parent_dir = os.getenv("UMAP_DIR", ".")
-        file_name = self._umap_data_config.get("file", "umap_embeddings.csv")
-        full_path = os.path.join(parent_dir, file_name)
-        if not os.path.exists(full_path):
-            logger.info(f"Failed to find UMAP data file at: {full_path}")
-        return full_path
+    def scope_table(self) -> str:
+        return self._table("scope")
 
     @property
-    def skip(self) -> bool:
-        skip = self._umap_data_config.get("skip", False)
-        if isinstance(skip, bool):
-            return skip
-        if isinstance(skip, str):
-            return skip.lower() in ["true", "1", "yes"]
-        logger.info(
-            f"UMAP skip config is not a valid boolean: {skip}. Falling back to False."
-        )
-        return False
+    def points_table(self) -> str:
+        return self._table("points")
 
     @property
-    def table(self) -> str:
-        return self._umap_data_config.get("table", "umap_embeddings")
+    def species_table(self) -> str:
+        return self._table("species")
+
+    @property
+    def disparity_table(self) -> str:
+        return self._table("disparity")
+
+    @property
+    def extremes_table(self) -> str:
+        return self._table("extremes")
 
 
 class GbifConfig:
@@ -550,11 +574,12 @@ class EmbedderConfig:
     def device(self) -> str:
         device = self._embedder_config.get("device", "default")
         valid_devices = ["default", "cpu", "cuda", "mps"]
-        default = (
-            torch.accelerator.current_accelerator().type
+        accelerator = (
+            torch.accelerator.current_accelerator()
             if torch.accelerator.is_available()
-            else "cpu"
+            else None
         )
+        default = accelerator.type if accelerator is not None else "cpu"
         if device not in valid_devices:
             logger.info(
                 f"Invalid embedder device '{device}'. Falling back to 'default'."
@@ -577,6 +602,8 @@ class EmbedderConfig:
                 else:
                     logger.info("MPS not available. Falling back to 'cpu'.")
                     return default
+            case _:
+                return default
 
     @property
     def batch_size(self) -> int:
@@ -663,6 +690,25 @@ class SearchIndexConfig:
             self._search_index_config.get("build_vector", False),
             "search_index.build_vector",
         )
+
+    @property
+    def vector_type(self) -> str:
+        """LanceDB index type for new and explicitly rebuilt vector indexes."""
+        supported = {
+            "IvfFlat",
+            "IvfSq",
+            "IvfPq",
+            "IvfRq",
+            "IvfHnswFlat",
+            "IvfHnswSq",
+            "IvfHnswPq",
+        }
+        value = self._search_index_config.get("vector_type", "IvfPq")
+        if not isinstance(value, str) or value not in supported:
+            raise ValueError(
+                f"search_index.vector_type must be one of {', '.join(sorted(supported))}"
+            )
+        return value
 
 
 class OpenAIConfig:

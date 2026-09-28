@@ -70,6 +70,7 @@ jobs:
                   uv run --package colharmonize pytest packages/colharmonize/tests -q
                   uv run --package geoharmonize pytest packages/geoharmonize/tests -q
                   uv run --package plannerbench pytest packages/plannerbench/tests -q
+                  uv run --package similarity pytest packages/similarity/tests -q
 
             - name: Lint packages
               run: |

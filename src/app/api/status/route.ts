@@ -17,8 +17,8 @@ export async function GET(): Promise<NextResponse> {
       const errorData = await response.json();
       console.error(
         `Error checking status: ${response.status} - ${JSON.stringify(
-          errorData
-        )}`
+          errorData,
+        )}`,
       );
       return NextResponse.json(
         {
@@ -26,7 +26,7 @@ export async function GET(): Promise<NextResponse> {
             errorData.error || response.statusText
           }`,
         },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -38,7 +38,7 @@ export async function GET(): Promise<NextResponse> {
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
       { error: `Status check failed: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

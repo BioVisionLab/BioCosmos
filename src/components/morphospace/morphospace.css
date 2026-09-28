@@ -1,0 +1,34 @@
+/*
+ * Morphospace plot colours, shared with the analyses notebook: ColorBrewer
+ * Dark2, the palette `publication_style()` sets. Read by the canvas at draw
+ * time, so the plot follows the theme toggle.
+ *
+ * Dorsal and ventral are Dark2 slots 1 and 2. A selection takes slots 1-4 and
+ * 7: slot 5 (green) and 6 (yellow) fall under 3:1 against the white card, so
+ * they are skipped; every hue here clears 3:1 against the card in both themes
+ * (WCAG 1.4.11). The plot sits on a white card in light mode because several
+ * Dark2 hues do not clear 3:1 on the page's mocha background. Five Dark2 hues
+ * cannot all be separated under colour-vision deficiency, so each selection
+ * also has its own marker shape.
+ */
+.morphospace-viz {
+  --ms-dorsal: #1b9e77;
+  --ms-ventral: #d95f02;
+  --ms-series-1: #1b9e77;
+  --ms-series-2: #d95f02;
+  --ms-series-3: #7570b3;
+  --ms-series-4: #e7298a;
+  --ms-series-5: #a6761d;
+  --ms-muted: #a29090;
+  --ms-link: #8b7474;
+  --ms-surface: #ffffff;
+  --ms-grid: #ece8e8;
+  --ms-axis: #534646;
+}
+.dark .morphospace-viz {
+  --ms-muted: #8b7474;
+  --ms-link: #a29090;
+  --ms-surface: #131010;
+  --ms-grid: #2a2323;
+  --ms-axis: #b9acac;
+}

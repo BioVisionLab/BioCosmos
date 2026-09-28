@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
+import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
 import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
@@ -75,6 +76,12 @@ export default async function GenusPage({ params }: GenusPageProps) {
           images={pickRepresentatives(taxon.images, REPRESENTATIVE_IMAGE_LIMIT)}
         />
       </section>
+
+      <MorphospaceSection
+        rank="genus"
+        name={taxon.name}
+        headingId="genus-morphospace"
+      />
 
       <section
         aria-labelledby="genus-tree"

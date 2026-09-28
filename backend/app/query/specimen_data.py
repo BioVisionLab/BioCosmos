@@ -4,7 +4,6 @@ from fastapi import Request
 from pydantic import BaseModel
 
 from ..services.metadata import ImageMetaService
-from ..services.umap import SpeciesImageUmap
 
 logger = logging.getLogger(__name__)
 
@@ -43,25 +42,5 @@ class SpecimenData:
             )
             return payload.model_dump()
         except Exception as e:
-            logger.error(
-                f"Error fetching specimen data: {e}", exc_info=True
-            )
-            return None
-
-
-class SpeciesUmap:
-    def __init__(self, request: Request):
-        self.duckdb = request.app.state.duck_db
-
-    def get_umap_embeddings(self, species: str) -> dict | None:
-        try:
-            umap_data: dict = SpeciesImageUmap(
-                duckdb=self.duckdb
-            ).get_embeddings(species)
-            return umap_data
-        except Exception as e:
-            logger.error(
-                f"Error fetching UMAP embeddings for species '{species}': {e}",
-                exc_info=True,
-            )
+            logger.error(f"Error fetching specimen data: {e}", exc_info=True)
             return None

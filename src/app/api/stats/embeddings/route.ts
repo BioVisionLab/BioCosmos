@@ -17,7 +17,7 @@ export async function GET(): Promise<NextResponse> {
       console.error(
         `Error fetching embedding distributions: ${
           response.status
-        } - ${JSON.stringify(errorData)}`
+        } - ${JSON.stringify(errorData)}`,
       );
       return NextResponse.json(
         {
@@ -25,7 +25,7 @@ export async function GET(): Promise<NextResponse> {
             errorData.error || response.statusText
           }`,
         },
-        { status: response.status }
+        { status: response.status },
       );
     }
     const embeddingStats = await response.json();
@@ -36,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
       { error: `Failed to fetch embedding distributions: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

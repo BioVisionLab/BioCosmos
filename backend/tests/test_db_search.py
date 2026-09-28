@@ -116,6 +116,7 @@ def test_db_search_carries_specimen_provenance(mock_request):
     res = TextToDbSearch(
         request=mock_request, query="danaus plexippus", field="all"
     ).search()
+    assert res is not None
     by_id = {s["img_id"]: s for s in res["specimens"]}
     assert by_id["img1"]["catalog_number"] == "BMNH(E) 1234567"
     assert by_id["img1"]["institution_code"] == "NHMUK"
@@ -135,6 +136,7 @@ def test_db_search_unresolved_institution_keeps_its_code(mock_request):
     res = TextToDbSearch(
         request=mock_request, query="coenonympha pamphilus", field="all"
     ).search()
+    assert res is not None
     by_id = {s["img_id"]: s for s in res["specimens"]}
     assert by_id["img4"]["catalog_number"] == "XYZ-42"
     assert by_id["img4"]["institution_code"] == "XYZ"
@@ -183,6 +185,7 @@ def test_db_search_species_list_is_not_paged(mock_request):
         res = TextToDbSearch(
             request=mock_request, query="nymphalidae", field=field, limit=1
         ).search()
+        assert res is not None
         assert len(res["specimens"]) == 1
         assert {r["species"] for r in res["results"]} == {
             "danaus_plexippus",
@@ -231,14 +234,20 @@ def test_api_endpoint(populated_duckdb):
     assert data["limit"] == 2
 
 
-def _pages(species_keys=None, image_keys=None, available=True):
+def _pages(
+    species_keys: dict[str, str] | None = None,
+    image_keys: dict[str, str] | None = None,
+    available: bool = True,
+):
+    species = species_keys or {}
+    images = image_keys or {}
     pages = MagicMock()
     pages.available.return_value = available
     pages.page_keys_for_species.side_effect = lambda names: {
-        n: species_keys[n] for n in names if n in (species_keys or {})
+        n: species[n] for n in names if n in species
     }
     pages.page_keys_for_images.side_effect = lambda ids: {
-        i: image_keys[i] for i in ids if i in (image_keys or {})
+        i: images[i] for i in ids if i in images
     }
     return pages
 
@@ -281,6 +290,7 @@ def test_without_a_run_specimens_link_to_the_recorded_binomial(mock_request):
     res = TextToDbSearch(
         request=mock_request, query="danaus plexippus", field="all"
     ).search()
+    assert res is not None
     keys = {s["img_id"]: s["species_key"] for s in res["specimens"]}
     assert keys == {
         "img1": "danaus_plexippus",

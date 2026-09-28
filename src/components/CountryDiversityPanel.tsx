@@ -14,7 +14,9 @@ const MAP_FRAME = `${MAP_HEIGHT} w-full overflow-hidden rounded-xl border border
 function MapPlaceholder({ text }: { text: string }) {
   return (
     <div className={`${MAP_FRAME} flex items-center justify-center`}>
-      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">{text}</p>
+      <p className="text-sm text-deep-mocha-500 dark:text-deep-mocha-400">
+        {text}
+      </p>
     </div>
   );
 }
@@ -41,7 +43,9 @@ function Swatch({
   return (
     <span
       className={`${className} bg-[var(--swatch-light)] dark:bg-[var(--swatch-dark)]`}
-      style={{ "--swatch-light": light, "--swatch-dark": dark } as CSSProperties}
+      style={
+        { "--swatch-light": light, "--swatch-dark": dark } as CSSProperties
+      }
       aria-hidden="true"
     />
   );
@@ -111,10 +115,17 @@ export default function CountryDiversityPanel({
   return (
     <div>
       {hasData ? (
-        <CountryDiversityMap countries={data.countries} className={`${MAP_FRAME} umap-dark-map`} />
+        <CountryDiversityMap
+          countries={data.countries}
+          className={`${MAP_FRAME} umap-dark-map`}
+        />
       ) : (
         <MapPlaceholder
-          text={pending ? "Loading map…" : "Country data is temporarily unavailable."}
+          text={
+            pending
+              ? "Loading map…"
+              : "Country data is temporarily unavailable."
+          }
         />
       )}
 

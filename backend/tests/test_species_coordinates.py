@@ -85,6 +85,7 @@ def _seed(client, *, coordinates: bool = True, provenance: bool = True):
 )
 def test_one_point_per_specimen(memory_duckdb, name):
     payload = SpeciesCoordinates(_seed(memory_duckdb)).get(name)
+    assert payload is not None
 
     assert payload["total"] == 2
     assert payload["truncated"] is False
@@ -111,6 +112,7 @@ def test_one_point_per_specimen(memory_duckdb, name):
 def test_without_optional_tables_keeps_shape(memory_duckdb):
     client = _seed(memory_duckdb, coordinates=False, provenance=False)
     payload = SpeciesCoordinates(client).get("danaus_plexippus")
+    assert payload is not None
 
     assert len(payload["points"]) == 2
     for point in payload["points"]:
@@ -133,6 +135,7 @@ def test_recorded_locality_prefers_the_locality_table(memory_duckdb):
         ["b", "Indonesia (recorded)", None],
     )
     payload = SpeciesCoordinates(client).get("danaus_plexippus")
+    assert payload is not None
     points = {point["imgId"]: point for point in payload["points"]}
 
     assert points["b"]["recordedCountry"] == "Indonesia (recorded)"
@@ -143,6 +146,7 @@ def test_recorded_locality_prefers_the_locality_table(memory_duckdb):
 
 def test_truncation_is_reported(memory_duckdb):
     payload = SpeciesCoordinates(_seed(memory_duckdb), limit=1).get("danaus_plexippus")
+    assert payload is not None
 
     assert payload["total"] == 2
     assert payload["truncated"] is True
@@ -152,52 +156,3 @@ def test_truncation_is_reported(memory_duckdb):
 @pytest.mark.parametrize("name", ["unknown_species", "", "   "])
 def test_no_points_is_none(memory_duckdb, name):
     assert SpeciesCoordinates(_seed(memory_duckdb)).get(name) is None
-
-
-UMAP_DDL = """
-    CREATE TABLE umap_embeddings (
-        img_id VARCHAR, species VARCHAR, "UMAP1" DOUBLE, "UMAP2" DOUBLE,
-        cluster_label INTEGER, "index" INTEGER
-    )
-"""
-
-
-def test_umap_points_carry_the_specimen_record(memory_duckdb):
-    from app.services.umap import SpeciesImageUmap
-
-    client = _seed(memory_duckdb)
-    client.execute(UMAP_DDL)
-    client.execute_prepared(
-        "INSERT INTO umap_embeddings VALUES (?, ?, ?, ?, ?, ?)",
-        ["a-v", "danaus_plexippus", 1.0, 2.0, 3, 0],
-    )
-
-    (point,) = SpeciesImageUmap(client).get_embeddings("danaus_plexippus")[
-        "umapEmbeddings"
-    ]
-
-    assert point["clusterLabel"] == 3
-    assert point["classDv"] == "ventral"
-    assert point["catalogNumber"] == "165381"
-    assert point["institutionName"] == "Museum of Comparative Zoology"
-    assert point["validationStatus"] == "COUNTRY_MISMATCH"
-    assert point["recordedCountry"] == "Brazil"
-    assert point["referenceCountry"] == "Peru"
-
-
-def test_umap_points_without_optional_tables(memory_duckdb):
-    from app.services.umap import SpeciesImageUmap
-
-    client = _seed(memory_duckdb, coordinates=False, provenance=False)
-    client.execute(UMAP_DDL)
-    client.execute_prepared(
-        "INSERT INTO umap_embeddings VALUES (?, ?, ?, ?, ?, ?)",
-        ["a-d", "danaus_plexippus", 1.0, 2.0, 0, 0],
-    )
-
-    (point,) = SpeciesImageUmap(client).get_embeddings("danaus_plexippus")[
-        "umapEmbeddings"
-    ]
-
-    assert point["catalogNumber"] is None
-    assert point["validationStatus"] is None

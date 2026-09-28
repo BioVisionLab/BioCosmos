@@ -13,9 +13,7 @@ import {
 
 import { useMemo, type ReactNode } from "react";
 
-import {
-  LepTraitDataSourceInfo,
-} from "@/components/Attribution";
+import { LepTraitDataSourceInfo } from "@/components/Attribution";
 import {
   AdultPresenceIcon,
   CanopyIcon,
@@ -32,6 +30,12 @@ import {
   WingspanIcon,
 } from "@/components/ui/icons";
 import { NoData } from "@/components/NoData";
+import { METADATA_SYMBOL } from "@/components/ImageMetadataFields";
+
+// Inline beside the wingspan, the enlarged symbol sits on the baseline and its
+// ink rides high: Arial draws ♂ and ♀ above the digits. Nudge it down onto
+// the text's midline without changing the line box.
+const WINGSPAN_SYMBOL = `${METADATA_SYMBOL} relative top-[0.17em]`;
 import { IconContainer } from "@/components/IconContainer";
 import {
   commonIconClass,
@@ -187,7 +191,7 @@ function MonthPresence({ traits }: { traits: LepTraits | null }) {
   // within a mount today.
   const presentAbsentMap = useMemo(
     () => (traits ? parseMonthPresence(traits) : {}),
-    [traits]
+    [traits],
   );
 
   if (!traits) {
@@ -336,13 +340,29 @@ function Wingspan({
       {hasValue(male) && (
         <li>
           <span className={valueClass}>{male.toPrecision(3)} cm</span>
-          <span className={labelClass}>{" (♂)"}</span>
+          <span className={labelClass}>
+            {" ("}
+            <span className={WINGSPAN_SYMBOL} title="Male" aria-label="Male">
+              ♂
+            </span>
+            {")"}
+          </span>
         </li>
       )}
       {hasValue(female) && (
         <li>
           <span className={valueClass}>{female.toPrecision(3)} cm</span>
-          <span className={labelClass}>{" (♀)"}</span>
+          <span className={labelClass}>
+            {" ("}
+            <span
+              className={WINGSPAN_SYMBOL}
+              title="Female"
+              aria-label="Female"
+            >
+              ♀
+            </span>
+            {")"}
+          </span>
         </li>
       )}
       {hasValue(unspecified) && (
