@@ -75,3 +75,5 @@ reports/*
 # manuscript directory
 results/
 .claude
+*.zip
+analyses/data/screenshots/
