@@ -33,9 +33,12 @@ import { NoData } from "@/components/NoData";
 import { METADATA_SYMBOL } from "@/components/ImageMetadataFields";
 
 // Inline beside the wingspan, the enlarged symbol sits on the baseline and its
-// ink rides high: Arial draws ♂ and ♀ above the digits. Nudge it down onto
-// the text's midline without changing the line box.
-const WINGSPAN_SYMBOL = `${METADATA_SYMBOL} relative top-[0.17em]`;
+// ink rides high: the fallback font (Sora has no ♂ or ♀) draws them
+// above the digits, ♂ higher than ♀. Nudge each down onto the center of the
+// parentheses around it without changing the line box. Measured, not chosen by
+// eye.
+const WINGSPAN_MALE = `${METADATA_SYMBOL} relative top-[0.165em]`;
+const WINGSPAN_FEMALE = `${METADATA_SYMBOL} relative top-[0.085em]`;
 import { IconContainer } from "@/components/IconContainer";
 import {
   commonIconClass,
@@ -342,7 +345,7 @@ function Wingspan({
           <span className={valueClass}>{male.toPrecision(3)} cm</span>
           <span className={labelClass}>
             {" ("}
-            <span className={WINGSPAN_SYMBOL} title="Male" aria-label="Male">
+            <span className={WINGSPAN_MALE} title="Male" aria-label="Male">
               ♂
             </span>
             {")"}
@@ -355,7 +358,7 @@ function Wingspan({
           <span className={labelClass}>
             {" ("}
             <span
-              className={WINGSPAN_SYMBOL}
+              className={WINGSPAN_FEMALE}
               title="Female"
               aria-label="Female"
             >

@@ -22,11 +22,11 @@ import {
   CoordinateRegionRow,
   METADATA_EMPTY,
   METADATA_LABEL,
-  METADATA_SYMBOL,
   METADATA_VALUE,
   MatchingHelpLink,
   MetadataLinks,
   ProvenanceBlock,
+  sexSymbolClass,
 } from "@/components/ImageMetadataFields";
 import { cleanSpeciesName } from "@/lib/names";
 
@@ -308,7 +308,7 @@ export default function ImageMetadata({
                 <span className={METADATA_LABEL}>Sex:</span>
                 {sex ? (
                   <span
-                    className={`ml-1 truncate ${METADATA_VALUE} ${sex.isSymbol ? METADATA_SYMBOL : ""}`}
+                    className={`ml-1 truncate ${METADATA_VALUE} ${sex.isSymbol ? sexSymbolClass(sex.display) : ""}`}
                     title={sex.label}
                     aria-label={sex.label}
                   >

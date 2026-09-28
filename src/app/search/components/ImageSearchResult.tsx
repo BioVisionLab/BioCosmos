@@ -83,7 +83,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
     <div className="items-center max-w-7xl w-full mx-auto">
       <BackLink />
       <div className="mt-8 mb-6 text-center">
-        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-serif bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
+        <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight font-display bg-gradient-to-r from-hunter-green-500 via-pacific-blue-500 to-frozen-water-500 text-transparent bg-clip-text drop-shadow">
           Image Similarity Search
         </h1>
       </div>
