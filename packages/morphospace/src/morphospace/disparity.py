@@ -1,4 +1,4 @@
-"""Disparity and dorso-ventral integration, measured in the full embedding.
+"""Disparity and dorso-ventral correlation, measured in the full embedding.
 
 Nothing here uses the PCA: a two-dimensional picture keeps a fraction of the
 variance, and disparity computed from it would inherit whatever the first two
@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.spatial.distance import pdist, squareform
 
 
 @dataclass(frozen=True)
@@ -115,25 +116,30 @@ def mantel(
     n = len(dorsal)
     if n < 3 or n > max_species:
         return Mantel(n, None, None)
-    d = 1.0 - dorsal.astype(np.float32) @ dorsal.astype(np.float32).T
-    v = 1.0 - ventral.astype(np.float32) @ ventral.astype(np.float32).T
-    upper = np.triu_indices(n, k=1)
-    x = d[upper].astype(np.float64)
-    x -= x.mean()
-    x_norm = np.sqrt(x @ x)
-
-    def correlate(matrix: np.ndarray) -> float:
-        y = matrix[upper].astype(np.float64)
-        y -= y.mean()
-        denominator = x_norm * np.sqrt(y @ y)
-        return float(x @ y / denominator) if denominator > 0 else 0.0
-
-    r = correlate(v)
+    d = pdist(dorsal.astype(np.float64), "cosine")
+    v = pdist(ventral.astype(np.float64), "cosine")
+    # Permuting species only reorders the distances, so their mean and spread
+    # are fixed and every r, observed or permuted, is one dot product with the
+    # centered dorsal distances. Computing both the same way keeps exact ties.
+    d -= d.mean()
+    v -= v.mean()
+    scale = float(np.sqrt(d @ d) * np.sqrt(v @ v))
+    square = squareform(v).astype(np.float32)
+    r = _correlation(d, square, np.arange(n), scale)
     if permutations <= 0 or n > permutation_max_species:
         return Mantel(n, r, None)
     exceed = 0
     for _ in range(permutations):
-        order = rng.permutation(n)
-        if correlate(v[np.ix_(order, order)]) >= r:
+        if _correlation(d, square, rng.permutation(n), scale) >= r:
             exceed += 1
     return Mantel(n, r, (exceed + 1) / (permutations + 1))
+
+
+def _correlation(
+    centered: np.ndarray, square: np.ndarray, order: np.ndarray, scale: float
+) -> float:
+    """Pearson r of the centered distances against `square` with its species reordered."""
+    if scale == 0:
+        return 0.0
+    permuted = squareform(square[np.ix_(order, order)], checks=False)
+    return float(centered @ permuted) / scale

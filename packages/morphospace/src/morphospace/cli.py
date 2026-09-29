@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Annotated
 
 import duckdb
-import numpy as np
+import polars as pl
 import typer
 from harmonize_core.errors import HarmonizeError, OutputError
 from harmonize_core.progress import format_duration
 from harmonize_core.reports import DEFAULT_REPORTS_DIR, LATEST_NAME
 
-from morphospace.centroids import build_index
+from morphospace.groups import build_groups
 from morphospace.models import SIDES, MorphospaceParameters
 from morphospace.outputs import DEFAULT_PREFIX, MorphospaceOutputRepository, default_destinations
 from morphospace.pipeline import REPORT_KIND, execute_run
@@ -55,24 +55,30 @@ def inspect_command(
         )
     except HarmonizeError as exc:
         raise _fail(exc) from exc
-    index = build_index(labels)
-    counts = np.bincount(index.lookup(labels.img_id), minlength=index.size)
-    keep = counts >= min_images
+    groups = build_groups(labels)
+    kept = (
+        groups.images.group_by("group_id")
+        .len("images")
+        .join(groups.groups, on="group_id")
+        .with_columns(kept=pl.col("images") >= min_images)
+    )
     typer.echo(f"Labelled images: {len(labels):,}")
-    for number, side in enumerate(SIDES):
-        on_side = index.group_side == number
+    
+    for side in SIDES:
+        on_side = kept.filter(pl.col("side") == side)
         typer.echo(
-            f"  {side}: {int(counts[on_side].sum()):,} images, "
-            f"{int((on_side & keep).sum()):,} species with ≥{min_images} images"
+            f"  {side}: {int(on_side['images'].sum()):,} images, "
+            f"{int(on_side['kept'].sum()):,} species with ≥{min_images} images"
         )
-    kept_species = index.group_species[keep]
-    species, sides = np.unique(kept_species, return_counts=True)
-    typer.echo(f"Species kept: {len(species):,}; seen from both sides: {int((sides == 2).sum()):,}")
-    for label, column in (("Families", index.taxa.family_key), ("Genera", index.taxa.genus_key)):
-        keys = [k for k in column[species] if k]
-        _, per_key = np.unique(np.array(keys, dtype=str), return_counts=True)
-        eligible = int((per_key >= min_scope_species).sum())
-        typer.echo(f"{label}: {len(per_key):,}; with ≥{min_scope_species} species: {eligible:,}")
+    species = kept.filter("kept").group_by("species_id").len("sides")
+    both = int((species["sides"] == len(SIDES)).sum())
+    typer.echo(f"Species kept: {species.height:,}; seen from both sides: {both:,}")
+    taxa = groups.taxa.join(species, on="species_id")
+    
+    for label, column in (("Families", "family_key"), ("Genera", "genus_key")):
+        per_key = taxa.filter(pl.col(column).fill_null("") != "").group_by(column).len()
+        eligible = int((per_key["len"] >= min_scope_species).sum())
+        typer.echo(f"{label}: {per_key.height:,}; with ≥{min_scope_species} species: {eligible:,}")
 
 
 @app.command("run")
@@ -127,25 +133,31 @@ def run_command(
         raise _fail(exc) from exc
     typer.echo(f"Created {result.database_path}")
     counts = result.counts
+    
     typer.echo(
         f"Species: {counts['species']:,}; scopes: {counts['scopes_all']} all, "
         f"{counts['scopes_family']:,} families, {counts['scopes_genus']:,} genera"
     )
+    
     typer.echo(f"Runtime: {format_duration(result.runtime_seconds)}")
 
 
 def _resolve_run(run: str, reports_dir: Path | None) -> Path:
     """A run directory, from a path or from `latest` in the reports pointer file."""
+    
     if run != "latest":
         return Path(run)
     root = _reports_dir(reports_dir)
+    
     if root is None or not (root / LATEST_NAME).is_file():
         raise OutputError("No reports/latest.json; pass --run <run directory>.")
     pointer = json.loads((root / LATEST_NAME).read_text(encoding="utf-8"))
     entry = pointer.get(REPORT_KIND)
+    
     if not isinstance(entry, dict) or "manifest" not in entry:
         raise OutputError(f"reports/latest.json has no {REPORT_KIND!r} run.")
     manifest = Path(entry["manifest"])
+
     return (manifest if manifest.is_absolute() else root / manifest).parent
 
 
@@ -166,6 +178,7 @@ def integrate_command(
         report = repository.write_back(db, default_destinations(prefix), replace=replace)
     except (HarmonizeError, duckdb.Error) as exc:
         raise _fail(exc) from exc
+    
     for table, rows in report.tables.items():
         typer.echo(f"Wrote {rows:,} rows to {table}")
 

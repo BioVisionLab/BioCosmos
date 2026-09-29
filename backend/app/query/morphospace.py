@@ -170,7 +170,7 @@ class MorphospaceQuery:
                 _clean(row["explained_pc2"]),
                 _clean(row["explained_pc3"]),
             ],
-            "integration": {
+            "correlation": {
                 "n": row["dv_mantel_n"],
                 "r": _clean(row["dv_mantel_r"]),
                 "p": _clean(row["dv_mantel_p"]),

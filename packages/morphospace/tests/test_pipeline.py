@@ -77,7 +77,7 @@ def test_medoid_and_dispersion_are_recorded(collection, tmp_path):
     assert row[4] == "alpha_one"
 
 
-def test_identical_sides_are_fully_integrated(tmp_path):
+def test_identical_sides_are_fully_correlated(tmp_path):
     collection = build_collection(tmp_path, identical_sides=True)
     result = _run(collection, tmp_path / "run")
     r, divergence = _rows(
@@ -151,9 +151,9 @@ def test_labels_leave_out_excluded_families(collection):
         connection.close()
 
     everything = load_labels(collection.database)
-    assert {"moth_d", "moth_v"} <= set(everything.img_id)
+    assert {"moth_d", "moth_v"} <= set(everything["img_id"])
     filtered = load_labels(
         collection.database, exclude_families=MorphospaceParameters().exclude_families
     )
-    assert not {"moth_d", "moth_v"} & set(filtered.img_id)
+    assert not {"moth_d", "moth_v"} & set(filtered["img_id"])
     assert len(filtered) == len(everything) - 2

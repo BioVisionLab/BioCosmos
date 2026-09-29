@@ -48,7 +48,7 @@ def test_disparity_needs_two_species():
     assert result.n_species == 1 and result.sum_var is None
 
 
-def test_identical_sides_have_no_divergence_and_perfect_integration():
+def test_identical_sides_have_no_divergence_and_perfect_correlation():
     data = _unit(np.random.default_rng(4).normal(size=(10, 8)))
     assert np.allclose(dorso_ventral_divergence(data, data), 0, atol=1e-6)
     result = mantel(

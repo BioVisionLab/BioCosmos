@@ -149,7 +149,7 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 | `data_summary.ipynb` | `dataset_overview`: dorso-ventral (A), image providers (B), source aggregators (C), family (D), top ten accepted species (E), validated-coordinate grid (F), species diversity by validated country (G) |
 | `harmonization.ipynb` | `harmonization_metrics`: coordinate-validation outcomes and match methods for images and unique input taxa |
 | `index_perf.ipynb` | `indexing_benchmark`: latest completed index latency versus recall@10 |
-| `morphospace.ipynb` | `morphospace`: dorso-ventral morphospace of species centroids (A), genus disparity dorsal against ventral (B), genus dorso-ventral integration (C), intraspecific dispersion against dorso-ventral divergence (D) |
+| `morphospace.ipynb` | `morphospace`: dorso-ventral morphospace of species centroids (A), genus disparity dorsal against ventral (B), genus dorso-ventral correlation (C), intraspecific dispersion against dorso-ventral divergence (D) |
 
 **Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
 qualitative palette set by `publication_style()`. Bars are one colour: each bar is a labelled
