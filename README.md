@@ -2,7 +2,7 @@
 
 [![Backend-Tests](https://github.com/agporto/BioCosmos/workflows/Backend-Tests/badge.svg)](https://github.com/agporto/BioCosmos/actions)
 
-A personalized, museum-quality biodiversity image platform that combines machine learning with intuitive web interfaces to explore and identify butterfly species. Built with Next.js, Python, and advanced computer vision technologies.
+A comprehensive resource for butterfly research and education, combining curated natural history records, machine learning–based color pattern analysis, and integrated data on genetics, morphology, distribution, and taxonomy.
 
 ## Features
 
