@@ -6,11 +6,11 @@ Both stores are opened read-only. The only link between them is `img_id`.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
 import numpy as np
+import polars as pl
 from harmonize_core.errors import SourceValidationError
 from harmonize_core.identifiers import parse_table_identifier, qualified_name
 
@@ -69,34 +69,6 @@ JOIN dominant d USING (accepted_species)
 WHERE m.side IN ('dorsal', 'ventral')
 """
 
-LABEL_COLUMNS = (
-    "img_id",
-    "side",
-    "accepted_species",
-    "page_key",
-    "genus_key",
-    "genus_name",
-    "family_key",
-    "family_name",
-)
-
-
-@dataclass(frozen=True)
-class Labels:
-    """One row per usable image, as parallel column arrays."""
-
-    img_id: np.ndarray
-    side: np.ndarray
-    accepted_species: np.ndarray
-    page_key: np.ndarray
-    genus_key: np.ndarray
-    genus_name: np.ndarray
-    family_key: np.ndarray
-    family_name: np.ndarray
-
-    def __len__(self) -> int:
-        return len(self.img_id)
-
 
 def load_labels(
     database: Path,
@@ -104,7 +76,7 @@ def load_labels(
     image_table: str = "image_meta",
     taxonomy_table: str = "image_meta_taxonomy",
     exclude_families: tuple[str, ...] = (),
-) -> Labels:
+) -> pl.DataFrame:
     """Read the side and harmonized taxon of every image, read-only."""
     if not database.is_file():
         raise SourceValidationError(f"Database not found: {database}")
@@ -121,15 +93,14 @@ def load_labels(
         ) from exc
     try:
         excluded = sorted({name.strip().lower() for name in exclude_families if name.strip()})
-        rows = connection.execute(query, {"exclude_families": excluded}).fetchnumpy()
+        labels = connection.execute(query, {"exclude_families": excluded}).pl()
     except duckdb.Error as exc:
         raise SourceValidationError(
             f"Cannot read labels from {image_table} and {taxonomy_table}: {exc}"
         ) from exc
     finally:
         connection.close()
-    columns = {name: np.asarray(rows[name], dtype=object) for name in LABEL_COLUMNS}
-    return Labels(**columns)
+    return labels
 
 
 def open_embeddings(lance_dir: Path, table: str):
@@ -156,7 +127,7 @@ def iter_embeddings(
     column: str,
     *,
     batch_size: int,
-) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+) -> Iterator[tuple[pl.Series, np.ndarray]]:
     """Yield `(img_ids, unit_vectors)` batches, re-normalized to unit length.
 
     The embedder normalizes on write, but the vectors went through float16 and
@@ -167,7 +138,7 @@ def iter_embeddings(
     for batch in query.to_batches(batch_size):
         if batch.num_rows == 0:
             continue
-        ids = np.asarray(batch.column("img_id").to_pylist(), dtype=object)
+        ids = pl.Series("img_id", batch.column("img_id")).cast(pl.String)
         values = batch.column(column)
         width = values.type.list_size
         vectors = (
@@ -176,5 +147,5 @@ def iter_embeddings(
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         valid = np.isfinite(norms[:, 0]) & (norms[:, 0] > 0)
         if not valid.all():
-            ids, vectors, norms = ids[valid], vectors[valid], norms[valid]
+            ids, vectors, norms = ids.filter(valid), vectors[valid], norms[valid]
         yield ids, vectors / norms

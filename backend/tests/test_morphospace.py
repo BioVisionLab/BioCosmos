@@ -113,7 +113,7 @@ def test_scope_is_columnar_and_rounded(api):
     assert response.headers["ETag"] == f'W/"{RUN}-genus-danaus"'
     body = response.json()
     assert body["scope"]["explained"][0] == 0.3123
-    assert body["scope"]["integration"] == {"n": 2, "r": 0.5, "p": 0.01}
+    assert body["scope"]["correlation"] == {"n": 2, "r": 0.5, "p": 0.01}
     points = body["points"]
     assert len(points["species"]) == len(points["pc1"]) == 8
     assert points["pc1"][0] == 0.1235

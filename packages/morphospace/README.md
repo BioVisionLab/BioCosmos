@@ -1,6 +1,6 @@
 # morphospace
 
-Dorso-ventral morphospaces, disparity and integration from the UNICOM image
+Dorso-ventral morphospaces, disparity and correlation from the UNICOM image
 embeddings.
 
 ## What it computes
@@ -25,7 +25,7 @@ itself a view that drops the families in the backend's
 | Axis extremes | The species at each end of each axis, which show what the axis captures. |
 | Disparity | Sum of variances of the species centroids in the full 768-d embedding, per scope and side. It is also rarefied to `--rarefy-k` species (`--bootstrap` resamples, 95% interval). For unit vectors, it equals the mean pairwise cosine distance. |
 | Dorso-ventral divergence | Cosine distance between a species' dorsal and ventral centroids. |
-| Dorso-ventral integration | Mantel r between the dorsal and ventral species distance matrices, for scopes with at least 5 species seen from both sides. There is a permutation p-value up to `--permutation-max-species`. |
+| Dorso-ventral correlation | Mantel r between the dorsal and ventral species distance matrices, for scopes with at least 5 species seen from both sides. There is a permutation p-value up to `--permutation-max-species`. |
 
 The embeddings (about 600k × 768) are streamed from LanceDB twice and are never
 held in memory at once. A full run over the collection takes under a minute.
@@ -49,7 +49,7 @@ transaction:
 
 | Table | One row per |
 | --- | --- |
-| `morphospace_scope` | scope: explained variance, integration, run id |
+| `morphospace_scope` | scope: explained variance, correlation, run id |
 | `morphospace_points` | scope × species × side: PC1–PC3, ellipse, medoid |
 | `morphospace_species` | species: per-side count, dispersion, medoid; divergence |
 | `morphospace_disparity` | scope × side |

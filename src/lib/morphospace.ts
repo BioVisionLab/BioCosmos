@@ -12,7 +12,7 @@ export type MorphospaceRank = "all" | "family" | "genus";
 export type Side = "dorsal" | "ventral";
 export const SIDES: Side[] = ["dorsal", "ventral"];
 
-export interface Integration {
+export interface Correlation {
   /** Species seen from both sides. */
   n: number | null;
   /** Mantel r between the dorsal and ventral distance matrices. */
@@ -41,7 +41,7 @@ export interface ScopeSummary {
   basis: "both_sides" | "all_centroids";
   /** Share of variance on PC1..PC3. */
   explained: [number, number, number];
-  integration: Integration;
+  correlation: Correlation;
   runId: string;
 }
 
