@@ -26,6 +26,9 @@ class FakeDuckDBClient:
     def execute(self, query: str):
         return MagicMock(fetchone=lambda: (0,), pl=lambda: pl.DataFrame())
 
+    def execute_to_pl(self, query: str) -> pl.DataFrame:
+        return pl.DataFrame()
+
     def execute_query(self, query: str, params):
         return MagicMock(pl=lambda: pl.DataFrame())
 
@@ -192,6 +195,10 @@ class MemoryDuckDBClient:
     def execute(self, query: str):
         with self.lock:
             return self.conn.execute(query)
+
+    def execute_to_pl(self, query: str) -> pl.DataFrame:
+        with self.lock:
+            return self.conn.execute(query).pl()
 
     def execute_query(self, query: str, params):
         with self.lock:
