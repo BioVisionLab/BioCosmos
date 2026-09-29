@@ -43,7 +43,7 @@ function Stat({
  * How to read a Mantel r in words. The bands are the conventional ones for a
  * correlation; they describe strength, not significance, which is the p-value.
  */
-export function integrationStrength(r: number): string {
+export function correlationStrength(r: number): string {
   const size = Math.abs(r);
   const strength =
     size >= 0.7
@@ -177,7 +177,7 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
           nSpecies: g.nSpecies,
           dorsal: g.disparity.dorsal?.rarefiedMean ?? null,
           ventral: g.disparity.ventral?.rarefiedMean ?? null,
-          r: g.integration.r,
+          r: g.correlation.r,
         }))
         .filter(
           (g): g is typeof g & { dorsal: number; ventral: number } =>
@@ -301,7 +301,7 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
               {active.nSpecies} species · D {active.dorsal.toFixed(3)} · V{" "}
               {active.ventral.toFixed(3)}
               {active.r != null &&
-                ` · integration r ${active.r.toFixed(2)} (−1 to 1)`}
+                ` · correlation r ${active.r.toFixed(2)} (−1 to 1)`}
             </p>
           </div>
         )}
@@ -334,7 +334,7 @@ function GenusDisparityNote({ data }: { data: ScopeMorphospace }) {
 
 export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
   const { scope } = data;
-  const { r, p, n } = scope.integration;
+  const { r, p, n } = scope.correlation;
   const pc12 = scope.explained[0] + scope.explained[1];
   return (
     <div className="morphospace-viz grid gap-4 lg:grid-cols-[1fr_auto] rounded-xl border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white dark:bg-deep-mocha-950 p-4">
@@ -353,7 +353,7 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
           <Stat
             label={
               <>
-                Dorso-ventral integration
+                Dorso-ventral correlation
                 <span className="block">Mantel r, ranges −1 to 1</span>
               </>
             }
@@ -362,7 +362,7 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
               r == null
                 ? "needs ≥5 species with both sides"
                 : // Non-breaking spaces keep "310 species" and "p ≤ 0.001" whole.
-                  `${integrationStrength(r)} · ${n}\u00a0species · ${
+                  `${correlationStrength(r)} · ${n}\u00a0species · ${
                     p == null
                       ? "p not computed for this many species"
                       : `p\u00a0${p <= 0.001 ? "≤\u00a00.001" : `=\u00a0${p.toFixed(3)}`}`
@@ -381,7 +381,7 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
         </div>
         <SideDisparityChart disparity={data.disparity} />
         {/* As a rough guide, |r|
-          below 0.2 is little or no integration, 0.2–0.4 weak, 0.4–0.7 moderate,
+          below 0.2 is little or no correlation, 0.2–0.4 weak, 0.4–0.7 moderate,
           and ≥0.7 strong.  */}
         <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
           Mantel test r values near 1 indicate similar patterns of variation

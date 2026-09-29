@@ -1,4 +1,4 @@
-"""Dorso-ventral morphospaces, disparity and integration from image embeddings."""
+"""Dorso-ventral morphospaces, disparity and correlation from image embeddings."""
 
 from importlib.metadata import PackageNotFoundError, version
 
