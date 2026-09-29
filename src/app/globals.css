@@ -416,6 +416,61 @@ body {
   margin-bottom: 0.25rem;
 }
 
+/* Citations: small markers in the text, and the reference lists they point
+ * at, set smaller than the prose and split into columns where they fit. */
+.wiki-content sup.reference {
+  font-size: 0.7em;
+  line-height: 0;
+  white-space: nowrap;
+}
+
+.wiki-content sup.reference a,
+.wiki-content .mw-cite-backlink a {
+  text-decoration: none;
+}
+
+.wiki-content :is([id^="cite_"], [id^="CITEREF"]) {
+  scroll-margin-top: 6rem;
+}
+
+.wiki-content ol.references,
+.wiki-content .refbegin {
+  font-size: 0.8rem;
+}
+
+.wiki-content cite {
+  font-style: normal;
+}
+
+.wiki-content :is(.mw-references-columns, .refbegin-columns) {
+  column-width: 24rem;
+  column-gap: 2rem;
+}
+
+.wiki-content :is(.mw-references-columns, .refbegin-columns) li {
+  break-inside: avoid;
+}
+
+.wiki-content .reflist-lower-alpha ol.references {
+  list-style: lower-alpha;
+}
+
+.wiki-content .refbegin ul {
+  list-style: none;
+  margin-left: 0;
+}
+
+.wiki-content ol.references li:target,
+.wiki-content cite:target {
+  background: rgb(62 173 193 / 0.15);
+  border-radius: 0.25rem;
+}
+
+/* Maintenance notes Wikipedia hides with its own template styles. */
+.wiki-content :is(.cs1-maint, .cs1-hidden-error, .citation-comment) {
+  display: none;
+}
+
 .wiki-content .div-col {
   column-width: 16rem;
   column-gap: 2rem;

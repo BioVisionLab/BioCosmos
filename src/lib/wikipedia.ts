@@ -12,24 +12,21 @@ interface ParsedContent {
 
 const WIKIPEDIA_ORIGIN = "https://en.wikipedia.org";
 
-// Back-matter sections that only make sense on Wikipedia itself: their
-// citations are stripped and their links point at other wiki pages.
+// Back-matter sections that only make sense on Wikipedia itself: their links
+// point at other wiki pages. Reference sections are kept, so the article's
+// citations stay with it.
 const DROPPED_SECTIONS = new Set([
   "see also",
-  "notes",
-  "footnotes",
-  "references",
-  "citations",
-  "sources",
-  "bibliography",
-  "cited literature",
-  "literature cited",
   "further reading",
   "external links",
 ]);
 
+// In-page anchors that stay links: citation markers, the backlinks from each
+// reference, and short citations pointing into a bibliography.
+const CITATION_ANCHOR = /^#(cite_note|cite_ref|CITEREF)/;
+
 // Wikipedia chrome with no meaning outside the wiki: edit links, template
-// styles, maintenance banners, hatnotes, citation markers and navboxes.
+// styles, maintenance banners, hatnotes and navboxes.
 const REMOVED_SELECTORS = [
   "style",
   "link",
@@ -46,12 +43,9 @@ const REMOVED_SELECTORS = [
   ".sistersitebox",
   ".navbox-styles",
   ".authority-control",
-  ".reflist",
-  ".mw-references-wrap",
   "#toc",
   ".toc",
   "#catlinks",
-  "sup.reference",
   ".metadata",
   ".noprint",
 ].join(", ");
@@ -152,7 +146,7 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
 /**
  * Makes the wiki HTML render with the app's styles: drops inline styles and
  * fixed widths, points links and images at absolute URLs, and opens links in
- * a new tab since they all lead off the site.
+ * a new tab since they all lead off the site. Citation anchors stay in-page.
  */
 function normalizeElements(root: HTMLElement) {
   root.querySelectorAll("[style], [bgcolor], table[width]").forEach((el) => {
@@ -163,8 +157,9 @@ function normalizeElements(root: HTMLElement) {
 
   root.querySelectorAll("a[href]").forEach((el) => {
     const href = el.getAttribute("href") || "";
+    if (CITATION_ANCHOR.test(href)) return;
     if (href.startsWith("#")) {
-      // In-page anchors point at stripped references; keep the text only.
+      // Other in-page anchors point at stripped content; keep the text only.
       el.replaceWith(...Array.from(el.childNodes));
       return;
     }

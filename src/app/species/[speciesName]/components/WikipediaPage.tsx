@@ -194,8 +194,7 @@ function WikipediaAttribution({ speciesName }: { speciesName: string }) {
           >
             English Wikipedia (<span className="italic">{speciesName}</span>)
           </a>{" "}
-          and cleaned for readability; citations and reference sections are
-          omitted. It may contain community-edited or unverified information.
+          and cleaned for readability. It may contain unverified information.
           Verify with primary sources.
         </p>
       </Info>
