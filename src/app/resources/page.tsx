@@ -16,7 +16,6 @@ import {
   COORDINATE_CHECK_ROWS,
   COUNTRY_CHECK_ROWS,
   MATCH_METHOD_ROWS,
-  REASON_CODE_ROWS,
   UPDATE_STATUS_ROWS,
   VALIDATION_STATUS_ROWS,
 } from "@/lib/matchingDocs";
@@ -112,7 +111,7 @@ export default function ResourcesPage() {
       >
         <h2 className="text-2xl font-semibold">Taxonomy Matching</h2>
         <p>
-          The scientific names in museum records may be outdated, misspelled, or
+          The scientific names in museum records can be outdated, misspelled, or
           since synonymized. We update the recorded names to match the most
           current taxonomy in a{" "}
           <a
@@ -189,26 +188,14 @@ export default function ResourcesPage() {
         <h2 className="text-2xl font-semibold">Coordinate Matching</h2>
 
         <p>
-          A specimen&apos;s origin may be georeferenced in two ways: as a
-          written locality (country, state or province, and locality) and as
+          A specimen&apos;s origin are usually georeferenced in two ways: as a
+          written locality (country, state or province, and locality) and
           geographic coordinates (latitude and longitude). These independent
           sources of information may disagree because of transcription errors,
           reversed coordinate signs, or coordinates assigned later using a
-          different gazetteer. We automatically check every coordinate against
-          its associated written locality.
+          different gazetteer. We develop a method to automatically check every
+          coordinate against its associated written locality.
         </p>
-
-        <AutomatedCheckNote>
-          Coordinate validation uses fixed geographic boundaries and may produce
-          mismatches due to border proximity, administrative changes, or
-          differences in locality precision.{" "}
-          <strong className="font-semibold">
-            A mismatch warrants review but does not necessarily indicate an
-            error.
-          </strong>{" "}
-          The original locality and coordinates are preserved alongside the
-          region identified by the automated check.
-        </AutomatedCheckNote>
 
         <p>
           Coordinates are validated and compared against{" "}
@@ -284,6 +271,17 @@ export default function ResourcesPage() {
             </div>
           </div>
         </details>
+        <AutomatedCheckNote>
+          Coordinate validation uses fixed geographic boundaries and may produce
+          mismatches due to border proximity, administrative changes, or
+          differences in locality precision.{" "}
+          <strong className="font-semibold">
+            A mismatch warrants review but does not necessarily indicate an
+            error.
+          </strong>{" "}
+          The original locality and coordinates are preserved alongside the
+          region identified by the automated check.
+        </AutomatedCheckNote>
 
         <GadmAttribution />
       </section>

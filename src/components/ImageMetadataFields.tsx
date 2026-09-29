@@ -30,13 +30,12 @@ export const METADATA_SYMBOL = "text-[1.4em] leading-none";
 
 /**
  * Per-glyph nudges that center a symbol's ink on the label's cap height in a
- * flex row. Sora has no ♂ or ♀, and in the fallback font ♂'s arrow
- * lifts its ink above ♀'s, so one offset cannot center both. Measured, not
- * chosen by eye.
+ * flex row. Source Sans 3 draws ♂ lower than ♀, so one offset cannot center
+ * both. Measured against the glyphs' ink, not chosen by eye.
  */
 const SEX_SYMBOL_NUDGE: Record<string, string> = {
-  "♂": "relative top-[0.025em]",
-  "♀": "relative -top-[0.05em]",
+  "♂": "relative top-[0.066em]",
+  "♀": "relative -top-[0.011em]",
 };
 
 /** The classes for a sex value shown as a symbol, sized and centered. */
