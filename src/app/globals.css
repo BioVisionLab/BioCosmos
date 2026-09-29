@@ -11,12 +11,16 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  /* Landing headings, and the mono used for specimen labels and eyebrows. */
-  --font-display: "Poppins", "Segoe UI", system-ui, sans-serif;
-  --font-label:
-    var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* The site's three typefaces. `display` is the heading role; `label` is
+   * the specimen-label role, kept as an alias of mono. `serif` has no face of
+   * its own and falls back to the sans. */
+  --font-sans: var(--font-source-sans), "Segoe UI", system-ui, sans-serif;
+  --font-mono:
+    var(--font-source-code-pro), ui-monospace, "SFMono-Regular", Menlo,
+    monospace;
+  --font-serif: var(--font-sans);
+  --font-display: var(--font-overpass), var(--font-sans);
+  --font-label: var(--font-mono);
 
   --color-frozen-water-50: #e5ffff;
   --color-frozen-water-100: #ccffff;
@@ -89,7 +93,7 @@
 */
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Tailwind v4: base/components/utilities directives removed; main import at top handles everything. */
@@ -120,6 +124,13 @@ body {
 .dark .bc-icon {
   --bc-icon-primary: var(--color-pacific-blue-400);
   --bc-icon-secondary: var(--color-hunter-green-400);
+}
+
+/* MapLibre's stylesheet sets its own Helvetica stack on the map chrome
+ * (attribution, popups) and loads after this file, so the doubled class
+ * outranks it and keeps the chrome on the site typeface. */
+.maplibregl-map.maplibregl-map {
+  font-family: var(--font-sans);
 }
 
 /* Dark theme chrome for the MapLibre maps */
@@ -403,6 +414,61 @@ body {
 
 .wiki-content li {
   margin-bottom: 0.25rem;
+}
+
+/* Citations: small markers in the text, and the reference lists they point
+ * at, set smaller than the prose and split into columns where they fit. */
+.wiki-content sup.reference {
+  font-size: 0.7em;
+  line-height: 0;
+  white-space: nowrap;
+}
+
+.wiki-content sup.reference a,
+.wiki-content .mw-cite-backlink a {
+  text-decoration: none;
+}
+
+.wiki-content :is([id^="cite_"], [id^="CITEREF"]) {
+  scroll-margin-top: 6rem;
+}
+
+.wiki-content ol.references,
+.wiki-content .refbegin {
+  font-size: 0.8rem;
+}
+
+.wiki-content cite {
+  font-style: normal;
+}
+
+.wiki-content :is(.mw-references-columns, .refbegin-columns) {
+  column-width: 24rem;
+  column-gap: 2rem;
+}
+
+.wiki-content :is(.mw-references-columns, .refbegin-columns) li {
+  break-inside: avoid;
+}
+
+.wiki-content .reflist-lower-alpha ol.references {
+  list-style: lower-alpha;
+}
+
+.wiki-content .refbegin ul {
+  list-style: none;
+  margin-left: 0;
+}
+
+.wiki-content ol.references li:target,
+.wiki-content cite:target {
+  background: rgb(62 173 193 / 0.15);
+  border-radius: 0.25rem;
+}
+
+/* Maintenance notes Wikipedia hides with its own template styles. */
+.wiki-content :is(.cs1-maint, .cs1-hidden-error, .citation-comment) {
+  display: none;
 }
 
 .wiki-content .div-col {

@@ -159,7 +159,7 @@ function DetailSections({ detail }: { detail: TaxonomyDetail }) {
         <div className="mb-4">
           <h2
             id="name-usage-heading"
-            className="text-2xl font-bold tracking-tight text-deep-mocha-800 dark:text-deep-mocha-100 font-serif"
+            className="text-2xl font-bold tracking-tight text-deep-mocha-800 dark:text-deep-mocha-100 font-display"
           >
             Name Usage ({detail.nameUsages.length})
           </h2>

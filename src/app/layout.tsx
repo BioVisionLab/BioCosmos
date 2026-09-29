@@ -1,24 +1,30 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Inter } from "next/font/google";
+import { Overpass, Source_Code_Pro, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import Layout from "@/components/Layout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
-// Import Poppins font weights
-import "@fontsource/poppins/400.css"; // Regular weight
-import "@fontsource/poppins/600.css"; // Semibold, for landing headings
-import "@fontsource/poppins/700.css"; // Bold weight
-
-const inter = Inter({
+// The site's three typefaces: Overpass, a technical grotesque, for display
+// headings; Source Sans 3 for all other text; and Source Code Pro for specimen
+// labels, eyebrows, codes and other monospaced figures. All three are variable
+// fonts with true italics, which scientific names need, and all three draw ♂
+// and ♀ themselves.
+const overpass = Overpass({
   subsets: ["latin"],
-  variable: "--font-inter", // Assign the CSS variable
+  style: ["normal", "italic"],
+  variable: "--font-overpass",
 });
 
-// Specimen labels and section eyebrows on the landing page.
-const plexMono = IBM_Plex_Mono({
+const sourceSans = Source_Sans_3({
   subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-plex-mono",
+  style: ["normal", "italic"],
+  variable: "--font-source-sans",
+});
+
+const sourceCodePro = Source_Code_Pro({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-source-code-pro",
 });
 
 export const metadata: Metadata = {
@@ -34,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plexMono.variable}`}
+      className={`${overpass.variable} ${sourceSans.variable} ${sourceCodePro.variable}`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>

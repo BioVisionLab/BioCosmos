@@ -23,6 +23,11 @@ export interface SpecimenCellProps {
   settle?: boolean;
   /** How wide the cell renders, for the image `sizes` hint. */
   sizes?: string;
+  /**
+   * `"eager"` for a cell above the fold, such as the hero's tray, whose image
+   * can be the page's Largest Contentful Paint. Lazy otherwise.
+   */
+  loading?: "eager" | "lazy";
 }
 
 /**
@@ -45,6 +50,7 @@ export default function SpecimenCell({
   index = 0,
   settle = false,
   sizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 18vw",
+  loading = "lazy",
 }: SpecimenCellProps) {
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -60,6 +66,7 @@ export default function SpecimenCell({
             alt={alt}
             fill
             sizes={sizes}
+            loading={loading}
             className={`object-contain drop-shadow-[0_12px_14px_rgba(56,46,46,0.2)] transition-[opacity,transform] duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-105 dark:drop-shadow-[0_12px_16px_rgba(0,0,0,0.55)] ${
               ready ? `opacity-100 ${settle ? "bc-settle" : ""}` : "opacity-0"
             }`}

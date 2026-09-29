@@ -214,6 +214,9 @@ function GalleryFullImage({
       alt={`Image of ${speciesName}`}
       fill
       sizes="(max-width:768px) 100vw, 800px"
+      // The main image is at the top of the species page and is its Largest
+      // Contentful Paint, so it must not wait for lazy loading.
+      loading="eager"
       className="object-contain m-1"
       onError={() => setFailedUrl(imgUrl)}
       unoptimized

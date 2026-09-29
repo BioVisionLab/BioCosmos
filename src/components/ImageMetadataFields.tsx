@@ -25,8 +25,23 @@ export const METADATA_LABEL = "font-medium whitespace-nowrap";
 export const METADATA_VALUE = "text-deep-mocha-700 dark:text-deep-mocha-300";
 export const METADATA_LINK =
   "text-deep-mocha-700 dark:text-deep-mocha-300 underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300";
-/** A sex symbol (♂, ♀), at twice the text size: at 1em it is hard to read. */
-export const METADATA_SYMBOL = "text-[2em] leading-none";
+/** A sex symbol (♂, ♀), a little above the text size: at 1em it is hard to read. */
+export const METADATA_SYMBOL = "text-[1.4em] leading-none";
+
+/**
+ * Per-glyph nudges that center a symbol's ink on the label's cap height in a
+ * flex row. Source Sans 3 draws ♂ lower than ♀, so one offset cannot center
+ * both. Measured against the glyphs' ink, not chosen by eye.
+ */
+const SEX_SYMBOL_NUDGE: Record<string, string> = {
+  "♂": "relative top-[0.066em]",
+  "♀": "relative -top-[0.011em]",
+};
+
+/** The classes for a sex value shown as a symbol, sized and centered. */
+export function sexSymbolClass(symbol: string): string {
+  return `${METADATA_SYMBOL} ${SEX_SYMBOL_NUDGE[symbol] ?? ""}`;
+}
 export const METADATA_EMPTY = "text-deep-mocha-400 dark:text-deep-mocha-600";
 
 /**
