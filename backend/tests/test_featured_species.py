@@ -1,5 +1,6 @@
 """Featured species: completeness scoring, the daily sample, and the route."""
 
+import threading
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import cast
@@ -135,6 +136,60 @@ def test_missing_optional_tables_score_zero(memory_duckdb):
     row = _scores(memory_duckdb)["Danaus plexippus"]
     assert row["score"] == 1
     assert row["images"] is True
+
+
+class _InterleavingConnection:
+    """A connection that another thread queries between scoring and its fetch.
+
+    The landing page requests the featured sample alongside the stats and the
+    country map, which share this connection. The other query waits on the
+    client's lock, so it only gets in first if the fetch runs outside it.
+    """
+
+    def __init__(self, client):
+        self._client = client
+        self._conn = client.conn
+        self.other: threading.Thread | None = None
+
+    def execute(self, query: str, *args):
+        self._conn.execute(query, *args)
+        if self.other is None and "WITH img AS" in query:
+            self.other = threading.Thread(
+                target=self._client.execute, args=("SELECT 1 AS other",)
+            )
+            self.other.start()
+        return self
+
+    def pl(self):
+        if self.other is not None:
+            self.other.join(timeout=0.2)
+        return self._conn.pl()
+
+    def __getattr__(self, name: str):
+        return getattr(self._conn, name)
+
+
+def test_scores_survive_a_concurrent_query(seeded):
+    connection = _InterleavingConnection(seeded)
+    seeded.conn = connection
+    try:
+        scores = FeaturedSpecies(seeded)._load()
+    finally:
+        seeded.conn = connection._conn
+    assert connection.other is not None
+    connection.other.join()
+    assert "Danaus plexippus" in scores["species"].to_list()
+
+
+def test_empty_scores_are_not_cached(memory_duckdb):
+    memory_duckdb.execute(IMAGE_DDL)
+    memory_duckdb.execute(TAXONOMY_DDL)
+    service = FeaturedSpecies(memory_duckdb)
+    assert service.sample() is None
+    _add_species(memory_duckdb, "danaus_plexippus", "Danaus plexippus", "DP")
+    sample = service.sample()
+    assert sample is not None
+    assert [s["species"] for s in sample["species"]] == ["Danaus plexippus"]
 
 
 def test_missing_required_tables_degrade_to_none(memory_duckdb):

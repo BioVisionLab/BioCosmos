@@ -66,6 +66,20 @@ class DuckDBClient:
         with self.lock:
             return self.conn.execute(query)
 
+    def execute_to_pl(self, query: str) -> pl.DataFrame:
+        """Execute a SQL query and return the result as a Polars DataFrame.
+
+        The result is fetched while the lock is held. `execute` returns the
+        shared connection itself, so a `.pl()` called on it after the lock is
+        released reads whichever query ran last on any thread.
+        Args:
+            query (str): The SQL query to execute.
+        Returns:
+            pl.DataFrame: The result of the query as a Polars DataFrame.
+        """
+        with self.lock:
+            return self.conn.execute(query).pl()
+
     def execute_query(self, query: str, params: str):
         """Execute a SQL query with parameters.
         Args:

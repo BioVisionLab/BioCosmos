@@ -192,7 +192,7 @@ class FeaturedSpecies:
     def _load(self) -> pl.DataFrame:
         if self._scores is not None:
             return self._scores
-        scores = self.db_client.execute(self._score_query()).pl()
+        scores = self.db_client.execute_to_pl(self._score_query())
         scores = scores.with_columns(
             pl.sum_horizontal(
                 [pl.col(f).fill_null(False).cast(pl.Int8) for f in FACETS]
@@ -200,7 +200,11 @@ class FeaturedSpecies:
             .cast(pl.Int64)
             .alias("score")
         ).sort(["score", "image_count", "species"], descending=[True, True, False])
-        self._scores = scores
+        # An empty score frame is not cached, so a species that becomes
+        # scorable later, or a read that came back empty, is retried rather
+        # than serving 404 for the life of the process.
+        if not scores.is_empty():
+            self._scores = scores
         logger.info(f"Scored {scores.height} species for the featured sample")
         return scores
 

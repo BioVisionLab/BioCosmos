@@ -60,7 +60,7 @@ class CountryDiversity:
     def _eligible_groups(self) -> pl.DataFrame:
         """Eligible images grouped by GADM reference, species and country source."""
         checks = ", ".join(f"'{check}'" for check in _ELIGIBLE_CHECKS)
-        return self.db_client.execute(
+        return self.db_client.execute_to_pl(
             f"""
             WITH eligible AS (
                 SELECT
@@ -80,7 +80,7 @@ class CountryDiversity:
             FROM eligible WHERE species IS NOT NULL
             GROUP BY ALL
             """
-        ).pl()
+        )
 
     def _load(self) -> pl.DataFrame:
         if self._records is not None:
