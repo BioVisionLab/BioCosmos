@@ -2,7 +2,9 @@
 
 [![Backend-Tests](https://github.com/agporto/BioCosmos/workflows/Backend-Tests/badge.svg)](https://github.com/agporto/BioCosmos/actions)
 
-A comprehensive resource for butterfly research and education, combining curated natural history records, machine learning–based color pattern analysis, and integrated data on genetics, morphology, distribution, and taxonomy.
+A comprehensive image-based biodiversity platform for butterfly research and education, combining curated natural history records, machine learning–based color pattern analysis, and integrated data on genetics, morphology, distribution, and taxonomy.
+
+![BioCosmos screenshots: agent search results, a species page with its distribution map and visually similar species, the morphospace, and a species' genome summary](docs/images/screenshot_bento.png)
 
 ## Features
 
