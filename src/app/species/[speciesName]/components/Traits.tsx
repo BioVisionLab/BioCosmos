@@ -33,12 +33,11 @@ import { NoData } from "@/components/NoData";
 import { METADATA_SYMBOL } from "@/components/ImageMetadataFields";
 
 // Inline beside the wingspan, the enlarged symbol sits on the baseline and its
-// ink rides high: the fallback font (Sora has no ♂ or ♀) draws them
-// above the digits, ♂ higher than ♀. Nudge each down onto the center of the
-// parentheses around it without changing the line box. Measured, not chosen by
-// eye.
-const WINGSPAN_MALE = `${METADATA_SYMBOL} relative top-[0.165em]`;
-const WINGSPAN_FEMALE = `${METADATA_SYMBOL} relative top-[0.085em]`;
+// ink rides high: Source Sans 3 draws them above the digits, ♂ higher than ♀.
+// Nudge each down onto the center of the parentheses around it without
+// changing the line box. Measured against the glyphs' ink, not chosen by eye.
+const WINGSPAN_MALE = `${METADATA_SYMBOL} relative top-[0.134em]`;
+const WINGSPAN_FEMALE = `${METADATA_SYMBOL} relative top-[0.112em]`;
 import { IconContainer } from "@/components/IconContainer";
 import {
   commonIconClass,

@@ -1,20 +1,30 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Sora } from "next/font/google";
+import { Overpass, Source_Code_Pro, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import Layout from "@/components/Layout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
-// The site's two typefaces: Sora, a geometric sans, for all text, and
-// JetBrains Mono for specimen labels, eyebrows, codes and other monospaced
-// figures. Both are variable fonts, so every weight the site uses is real.
-const sora = Sora({
+// The site's three typefaces: Overpass, a technical grotesque, for display
+// headings; Source Sans 3 for all other text; and Source Code Pro for specimen
+// labels, eyebrows, codes and other monospaced figures. All three are variable
+// fonts with true italics, which scientific names need, and all three draw ♂
+// and ♀ themselves.
+const overpass = Overpass({
   subsets: ["latin"],
-  variable: "--font-sora",
+  style: ["normal", "italic"],
+  variable: "--font-overpass",
 });
 
-const jetBrainsMono = JetBrains_Mono({
+const sourceSans = Source_Sans_3({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  style: ["normal", "italic"],
+  variable: "--font-source-sans",
+});
+
+const sourceCodePro = Source_Code_Pro({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-source-code-pro",
 });
 
 export const metadata: Metadata = {
@@ -30,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sora.variable} ${jetBrainsMono.variable}`}
+      className={`${overpass.variable} ${sourceSans.variable} ${sourceCodePro.variable}`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>

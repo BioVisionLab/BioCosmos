@@ -11,13 +11,15 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* The site's two typefaces. Every page uses these; `display` and `label`
-   * are the heading and specimen-label roles, kept as aliases. */
-  --font-sans: var(--font-sora), "Segoe UI", system-ui, sans-serif;
+  /* The site's three typefaces. `display` is the heading role; `label` is
+   * the specimen-label role, kept as an alias of mono. `serif` has no face of
+   * its own and falls back to the sans. */
+  --font-sans: var(--font-source-sans), "Segoe UI", system-ui, sans-serif;
   --font-mono:
-    var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+    var(--font-source-code-pro), ui-monospace, "SFMono-Regular", Menlo,
+    monospace;
   --font-serif: var(--font-sans);
-  --font-display: var(--font-sans);
+  --font-display: var(--font-overpass), var(--font-sans);
   --font-label: var(--font-mono);
 
   --color-frozen-water-50: #e5ffff;

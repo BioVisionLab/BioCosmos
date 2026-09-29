@@ -13,7 +13,9 @@ import { speciesUrlFromName, toBinomialName } from "@/lib/names";
  * paint and the specimens settle in without moving the hero. On a phone the
  * last row is dropped and the tray is three rows of two.
  *
- * Pure markup, so it renders on the server and streams in with its data.
+ * Pure markup, so it renders on the server and streams in with its data. The
+ * tray is in the hero, above the fold, so its images load eagerly: one of
+ * them is usually the page's Largest Contentful Paint.
  */
 export default function SpecimenTray({
   species,
@@ -41,6 +43,7 @@ export default function SpecimenTray({
                 alt={item ? `Specimen of ${toBinomialName(item.species)}` : ""}
                 index={slot}
                 settle
+                loading="eager"
                 sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 17vw"
               />
             </li>
