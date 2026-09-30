@@ -5,15 +5,6 @@ embeddings.
 
 ## What it computes
 
-Each image is labelled with its side (`image_meta.class_dv`: dorsal or ventral)
-and its harmonized accepted species, genus and family (`image_meta_taxonomy`,
-`MATCHED` only). These are the same groupings the backend's species, genus and
-family pages use. Records resolved only to genus rank are left out, and so
-are the families in `MorphospaceParameters.exclude_families` (Castniidae, moths
-imaged with the butterflies), which the run manifest records. `image_meta` is
-itself a view that drops the families in the backend's
-`image_metadata.exclude_families`, so both filters agree.
-
 | Quantity | Definition |
 | --- | --- |
 | Centroid | Mean of a species' L2-normalized UNICOM vectors for one side, re-normalized. Kept when the species has at least `--min-images` photographs of that side. |
@@ -27,8 +18,7 @@ itself a view that drops the families in the backend's
 | Dorso-ventral divergence | Cosine distance between a species' dorsal and ventral centroids. |
 | Dorso-ventral correlation | Mantel r between the dorsal and ventral species distance matrices, for scopes with at least 5 species seen from both sides. There is a permutation p-value up to `--permutation-max-species`. |
 
-The embeddings (about 600k × 768) are streamed from LanceDB twice and are never
-held in memory at once. A full run over the collection takes under a minute.
+The embeddings (about 600k × 768) are streamed from LanceDB twice to minimize memory usage.
 
 ## Usage
 
