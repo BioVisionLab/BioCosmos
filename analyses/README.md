@@ -5,8 +5,10 @@ Each notebook produces exactly one publication figure; intermediate exploratory 
 are not kept.
 Reusable helpers live in the `helpers/` package: configuration, database queries and
 aggregation, and matplotlib/seaborn plotting in `helpers/publication.py`; country
-normalization in `helpers/country_mapping.py`; and the equal-area grid maps in
-`helpers/grid_mapping.py`. Notebooks import them as `analyses.helpers.<module>`.
+normalization in `helpers/country_mapping.py`; the equal-area grid maps in
+`helpers/grid_mapping.py`; and one module per benchmark or analysis whose panels are also
+drawn in the combined figure: `helpers/planner.py`, `helpers/indexing.py`, and
+`helpers/mimicry.py`. Notebooks import them as `analyses.helpers.<module>`.
 
 The separate `benchmarks/` workflow tests backend vector-index performance on an isolated copy.
 Neither workflow changes a backend source database.
@@ -150,6 +152,8 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 | `harmonization.ipynb` | `harmonization_metrics`: coordinate-validation outcomes and match methods for images and unique input taxa |
 | `index_perf.ipynb` | `indexing_benchmark`: latest completed index latency versus recall@10 |
 | `morphospace.ipynb` | `morphospace`: dorso-ventral morphospace of species centroids (A), genus disparity dorsal against ventral (B), genus dorso-ventral correlation (C), intraspecific dispersion against dorso-ventral divergence (D) |
+| `mimicry.ipynb` | `mimicry_recovery`: partner rank of published mimicry pairs under visual similarity from dorsal and ventral centroids, with each species' representative image and mutual top-10 pairs highlighted (A), and permutation tests (B) |
+| `search_performance.ipynb` | `search_performance`: planner accuracy against latency (A) and tokens (B) and per case (C); mimicry pairs (D); index latency against recall@10 (E). Each panel is drawn by the same helper as in its own notebook, with larger text and markers for the denser page; the mimicry permutation tests stay in `mimicry_recovery`. Exports carry each part's CSVs, prefixed `planner_`, `mimicry_`, and `index_` |
 
 **Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
 qualitative palette set by `publication_style()`. Bars are one colour: each bar is a labelled
@@ -255,6 +259,38 @@ ventral bars in ColorBrewer Set1 colors. These are unrarefied estimates, not sum
 of the two plotted PC variances. Missing estimates are marked N/A. Exported tables
 include the scope/run, points, family disparity with species counts, and axis examples.
 See `packages/morphospace/README.md` for the metric definitions.
+
+**Mimicry recovery.** `mimicry.ipynb` asks whether visual similarity places the
+published mimicry pairs in `data/mimicry_pairs.csv` near each other. It reads the Lance
+image table from `LANCE_DIR` in `backend/.env`, like `DUCK_DIR`, so run it with the backend
+stopped. Species are MATCHED accepted names, with the same species-rank fallback as
+composition, so subspecies and synonyms do not split a species; the stored
+`species_similarity` table instead keys recorded names. A published name that is not
+accepted resolves through the images recorded under it (or its subspecies) when they agree
+on one accepted species, so *Adelpha bredowii* is tested as *Limenitis bredowii*, and the
+pair then counts as congeneric; the coverage table records each resolution. Scoring mirrors
+the species pages: the mean of a species' normalized UNICOM embeddings on one side queries
+every image, and each species scores its nearest image on either side (`similarity run`).
+Nearest-image scoring favors species with many images, in the pairs and the nulls alike.
+Unlike the site, which stores only the top ten, every species is ranked; `site_listed`
+marks partners the stored list already shows. Each pair is queried in both directions. The
+test statistic is the mean partner percentile (1 = nearest, 0.5 = chance). Its nulls
+redraw each row's partner from any other species (**Random**) or, for pairs within one
+genus, from the query's congeners (**Congeners**), since close relatives look alike
+without mimicry; one-sided p-values count the observed arrangement once, so with 10,000
+permutations they cannot fall below 1/10,001. Directions of a pair and species shared by
+pairs are not independent. A pair whose member has no images is not tested and is left
+out of every result table; the notebook prints it and why. The pairs table's
+`Availability` column records the same outcome (Available or Unavailable) for readers; the
+notebook recomputes it from the collection and warns when the recorded value is stale. A pair is **mutual top 10**, shaded and bold in the
+figure, when on at least one side each species is among the other's ten most similar, the
+length of the site's list; one direction alone does not count, since a common pattern can
+sit near many queries. Each pair shows both species' representative dorsal images: the
+image nearest the species' own dorsal centroid, falling back to the next nearest when a
+processed file is missing, read from the backend's configured processed image directory
+like the morphospace axis images. Exports add `counts` (published against tested pairs
+and species, by accepted name), `recovery` (mutual top 10 per side), and `representatives`
+(the image IDs drawn).
 
 **Benchmark.** Use the existing CSV; exclude `Flat (brute-force)` as in the original
 notebook, while retaining `No Index (baseline)`. No performance measurements are rerun.

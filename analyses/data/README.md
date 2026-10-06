@@ -29,3 +29,11 @@ specimen was collected. The same distinction applies to all multi-island units.
 The notebook's audit table preserves original identifiers, normalization methods,
 representation, source, and counts. Countries without explicit attributable information
 remain unresolved; no coordinate or parent-country inference is performed.
+
+# Mimicry pairs
+
+[`mimicry_pairs.csv`](mimicry_pairs.csv) lists published butterfly mimicry pairs
+(Müllerian, Batesian, or context-dependent) with notes, key publications, and their DOIs,
+one row per pair. `Availability` marks whether both species of a pair have images in the
+collection (Available) or not (Unavailable); only available pairs are tested.
+`notebooks/mimicry.ipynb` reads it; species are matched to the collection by accepted name. Cite the listed publications, not this table, for each pair.

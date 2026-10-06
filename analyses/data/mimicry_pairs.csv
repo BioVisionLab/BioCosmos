@@ -1,0 +1,15 @@
+Species 1,Species 2,Mimicry type,Notes,Key publication(s),DOI(s),Availability
+Heliconius melpomene,Heliconius erato,Müllerian,One of the best-studied examples of Müllerian mimicry; geographic races converge on similar warning patterns.,Joron et al. 2006; Baxter et al. 2008,10.1371/journal.pbio.0040303; 10.1534/genetics.107.082982,Available
+Heliconius cydno,Heliconius sapho,Müllerian,White-banded forms of H. cydno resemble sympatric H. sapho.,Kapan 2001; Kronforst & Papa 2015,10.1038/35053066; 10.1534/genetics.114.172387,Available
+Heliconius cydno,Heliconius eleuchia,Müllerian,Yellow-banded H. cydno alithea resembles sympatric H. eleuchia in western Ecuador.,Kapan 2001,10.1038/35053066,Available
+Heliconius timareta,Heliconius melpomene,Müllerian,Some H. timareta populations are nearly identical in warning pattern to sympatric H. melpomene.,Giraldo et al. 2008; Heliconius Genome Consortium 2012,10.1186/1471-2148-8-324; 10.1038/nature11041,Available
+Heliconius numata,Melinaea ludovica,Müllerian,H. numata morph f. silvana closely resembles Melinaea ludovica ludovica.,Joron et al. 2006; Joron 2005,10.1371/journal.pbio.0040303; 10.1111/j.1420-9101.2005.00880.x,Unavailable
+Heliconius numata,Melinaea marsaeus,Müllerian,Several H. numata morphs mimic forms of M. marsaeus.,Joron et al. 2006; Jones et al. 2013,10.1371/journal.pbio.0040303; 10.1111/evo.12114,Unavailable
+Heliconius numata,Melinaea menophilus,Müllerian,H. numata f. tarapotensis closely resembles a sympatric form of M. menophilus.,Joron et al. 2006,10.1371/journal.pbio.0040303,Unavailable
+Papilio polytes,Pachliopta aristolochiae,Batesian,Mimetic female P. polytes resemble the toxic common rose; males and some female morphs are non-mimetic.,Palmer et al. 2018,10.1002/ece3.4207,Available
+Hypolimnas misippus,Danaus chrysippus,Batesian,Female H. misippus are polymorphic and imitate different colour morphs of D. chrysippus.,Smith 1973; VanKuren et al. 2019,10.1038/242129a0; 10.1093/molbev/msz194,Available
+Papilio glaucus,Battus philenor,Batesian,Dark-form females of P. glaucus resemble the chemically defended pipevine swallowtail.,Brower 1957; Koch et al. 2000,10.1038/180444a0; 10.1016/S0960-9822(00)00494-2,Available
+Papilio polyxenes,Battus philenor,Batesian,The black swallowtail resembles the pipevine swallowtail; dorsal resemblance is especially strong in females.,Codella & Lederhouse 1989,10.1111/j.1558-5646.1989.tb04236.x,Available
+Limenitis lorquini,Adelpha bredowii,Batesian,L. lorquini is palatable and resembles the moderately unpalatable A. bredowii.,Prudic et al. 2002,10.1046/j.0307-6946.2001.00384.x,Available
+Limenitis archippus,Danaus plexippus,Müllerian / context-dependent,"Historically treated as Batesian mimicry, but viceroys can themselves be unpalatable.",Ritland & Brower 1991,10.1038/350497a0,Available
+Papilio troilus,Battus philenor,Batesian,The spicebush swallowtail belongs to the North American B. philenor mimicry complex.,Brower 1957,10.1038/180444a0,Available
