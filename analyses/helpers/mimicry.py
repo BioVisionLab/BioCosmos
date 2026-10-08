@@ -1,9 +1,9 @@
 """Does visual similarity recover published mimicry pairs?
 
 Every species in the collection is ranked the way the species pages' "similar species"
-list ranks them: the mean of a species' normalized UNICOM image embeddings on one side,
+list ranks them: the mean of a species' normalized dorsal UNICOM image embeddings,
 re-normalized, is the query, and each species scores its nearest image on either side,
-as `similarity run` does.
+as `similarity run` does. Ventral centroids are not queried.
 
 Unlike the stored `species_similarity` table, which keeps the top ten, ranks here
 cover every species, so a partner outside the top ten still has a measured rank.
@@ -43,7 +43,8 @@ from analyses.helpers.publication import (
     unique_key,
 )
 
-SIDES = ("dorsal", "ventral")
+# Queries use dorsal centroids only; candidates keep both sides, as on the site.
+SIDE = "dorsal"
 VISUAL_COLUMN = "unicom_embeddings"
 # Hardcoded in the backend (backend/app/query/precomputed_similarity.py).
 SIMILARITY_TABLE = "species_similarity"
@@ -59,7 +60,7 @@ PAIR_COLUMNS = {
 # Recorded in the pairs table for readers; the notebook recomputes it from the collection.
 AVAILABILITY_COLUMN = "Availability"
 AVAILABILITY = ("Available", "Unavailable")
-SIDE_COLORS = {"dorsal": "#1b9e77", "ventral": "#d95f02"}
+SIDE_COLOR = "#1b9e77"
 # The site lists a species' ten most similar species.
 SITE_TOP = 10
 HIGHLIGHT = "#fff1c2"
@@ -215,17 +216,16 @@ def resolve_species(name: str, images: pd.DataFrame) -> tuple[str | None, str]:
 
 
 def coverage(pairs: pd.DataFrame, images: pd.DataFrame) -> pd.DataFrame:
-    """Accepted species and images per side for every pair member.
+    """Accepted species and dorsal images for every pair member.
 
-    A pair is tested only when both members resolve to distinct species with images.
+    A pair is tested only when both members resolve to distinct species with dorsal
+    images to form a centroid.
     """
-    counts = images.groupby(["species", "side"]).size().unstack(fill_value=0)
-    counts = counts.reindex(columns=list(SIDES), fill_value=0)
+    counts = images.loc[images["side"] == SIDE].groupby("species").size()
     rows = []
     for pair in pairs.itertuples():
         for member, published in (("A", pair.species_a), ("B", pair.species_b)):
             accepted, resolution = resolve_species(published, images)
-            sides = counts.loc[accepted] if accepted is not None else None
             rows.append(
                 {
                     "pair": pair.pair,
@@ -233,15 +233,14 @@ def coverage(pairs: pd.DataFrame, images: pd.DataFrame) -> pd.DataFrame:
                     "published_species": published,
                     "accepted_species": accepted,
                     "resolution": resolution,
-                    **{
-                        f"{side}_images": 0 if sides is None else int(sides[side]) for side in SIDES
-                    },
+                    f"{SIDE}_images": 0 if accepted is None else int(counts.get(accepted, 0)),
                 }
             )
     frame = pd.DataFrame(rows)
     frame["in_collection"] = frame["accepted_species"].notna()
+    frame["queryable"] = frame[f"{SIDE}_images"] > 0
     distinct = frame.groupby("pair")["accepted_species"].transform("nunique") == 2
-    frame["pair_tested"] = frame.groupby("pair")["in_collection"].transform("all") & distinct
+    frame["pair_tested"] = frame.groupby("pair")["queryable"].transform("all") & distinct
     return frame
 
 
@@ -254,7 +253,7 @@ def tested_pairs(pairs: pd.DataFrame, covered: pd.DataFrame) -> pd.DataFrame:
 
 
 def availability(pairs: pd.DataFrame, covered: pd.DataFrame) -> pd.Series:
-    """ "Available" when both members resolve to distinct species with images."""
+    """ "Available" when both members resolve to distinct species with dorsal images."""
     tested = pairs["pair"].isin(covered.loc[covered["pair_tested"], "pair"])
     return pd.Series(np.where(tested, *AVAILABILITY), index=pairs.index)
 
@@ -316,7 +315,7 @@ def nearest_image_scores(
 
 
 def visual_retrieval(images: pd.DataFrame, embeddings: np.ndarray, side: str, queries) -> Retrieval:
-    """Rank all species against each query species' centroid on one side."""
+    """Rank all species against each query species' centroid on `side`."""
     species, codes = species_codes(images)
     rows = []
     for name in queries:
@@ -376,7 +375,7 @@ def thumbnail(img_id: str, root: Path | None = None) -> np.ndarray:
 
 
 def recovered_pairs(ranks: pd.DataFrame, top: int = SITE_TOP) -> pd.DataFrame:
-    """Pairs whose members are in each other's top `top` on at least one side.
+    """Pairs whose members are in each other's top `top`.
 
     Requiring both directions keeps one-sided hits, such as a common species that
     appears near many queries, from counting as recovery.
@@ -467,7 +466,7 @@ def site_listed(settings: Settings, ranks: pd.DataFrame) -> pd.Series:
     values = []
     for row in ranks.itertuples():
         side = row.mode.removeprefix("Visual (").removesuffix(")")
-        if side not in SIDES:
+        if side != SIDE:
             values.append(pd.NA)
             continue
         key = (
@@ -615,29 +614,24 @@ def mimicry_results(
     queries = sorted(set(tested["accepted_a"]) | set(tested["accepted_b"]))
     lance = open_lance(lance_source(root))
     embeddings = load_embeddings(lance, VISUAL_COLUMN, images["img_id"])
-    retrievals = [visual_retrieval(images, embeddings, side, queries) for side in SIDES]
+    retrieval = visual_retrieval(images, embeddings, SIDE, queries)
     # Each species' dorsal image nearest its own centroid, drawn beside the pair labels.
-    examples = representatives(images, embeddings, queries, root)
+    examples = representatives(images, embeddings, queries, root, SIDE)
     del embeddings
     gc.collect()
-    ranks = pd.concat(
-        [partner_ranks(retrieval, tested) for retrieval in retrievals], ignore_index=True
-    )
+    ranks = partner_ranks(retrieval, tested)
     ranks["site_listed"] = site_listed(settings, ranks)
-    permutations = pd.concat(
-        [permutation_test(retrieval, ranks, n_permutations, seed)[0] for retrieval in retrievals],
-        ignore_index=True,
-    )
+    permutations = permutation_test(retrieval, ranks, n_permutations, seed)[0]
     return MimicryResults(
         pairs,
-        covered.loc[in_collection].drop(columns=["in_collection", "pair_tested"]),
+        covered.loc[in_collection].drop(columns=["in_collection", "queryable", "pair_tested"]),
         untested.drop(columns=["pair_tested"]),
         tested,
         ranks,
         recovered_pairs(ranks),
         permutations,
         examples,
-        len(retrievals[0].species),
+        len(retrieval.species),
         len(images),
         lance.version,
     )
@@ -654,9 +648,13 @@ def describe(results: MimicryResults) -> str:
         f"Lance version {results.lance_version}"
     ]
     for pair, members in results.untested.groupby("pair", sort=False):
-        missing = members.loc[~members["in_collection"]]
+        missing = members.loc[~members["queryable"]]
         reason = (
-            "; ".join(f"{row.published_species}: {row.resolution}" for row in missing.itertuples())
+            "; ".join(
+                f"{row.published_species}: "
+                + (f"no {SIDE} images" if row.in_collection else row.resolution)
+                for row in missing.itertuples()
+            )
             if len(missing)
             else "both members are one accepted species"
         )
@@ -816,10 +814,7 @@ def permutation_panel(ax, summary: pd.DataFrame) -> None:
     sns.despine(ax=ax)
 
 
-VISUAL_SERIES = (
-    ("Visual (dorsal)", -0.17, SIDE_COLORS["dorsal"], "Dorsal centroid"),
-    ("Visual (ventral)", 0.17, SIDE_COLORS["ventral"], "Ventral centroid"),
-)
+VISUAL_SERIES = ((f"Visual ({SIDE})", 0.0, SIDE_COLOR, "Dorsal centroid"),)
 # Legends below a panel clear its tick labels and axis title whatever its height.
 LEGEND_BELOW = {
     "loc": "upper center",
@@ -837,7 +832,7 @@ def pairs_panel(
     title: str = "A) Mimicry pairs",
     legend: bool = True,
 ) -> list:
-    """Partner ranks from the dorsal and ventral centroids, with representative images.
+    """Partner ranks from the dorsal centroids, with representative images.
 
     Pairs that are mutual top ten are highlighted. Returns the legend handles, so a
     caller drawing `legend=False` can place the legend elsewhere.
@@ -861,7 +856,7 @@ def tests_panel(ax, results: MimicryResults, title: str = "B) Permutation tests"
 
 
 def recovery_figure(results: MimicryResults, pictures: dict[str, np.ndarray]):
-    """A) partner ranks from the dorsal and ventral centroids, B) permutation tests."""
+    """A) partner ranks from the dorsal centroids, B) permutation tests."""
     fig = plt.figure(figsize=(21, 14), layout="constrained")
     grid = fig.add_gridspec(1, 2, width_ratios=(1, 0.75))
     pairs_panel(fig.add_subplot(grid[0]), results, pictures)

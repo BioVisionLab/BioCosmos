@@ -152,7 +152,7 @@ run its pipelines. Do not use pip or maintain a second requirements file.
 | `harmonization.ipynb` | `harmonization_metrics`: coordinate-validation outcomes and match methods for images and unique input taxa |
 | `index_perf.ipynb` | `indexing_benchmark`: latest completed index latency versus recall@10 |
 | `morphospace.ipynb` | `morphospace`: dorso-ventral morphospace of species centroids (A), genus disparity dorsal against ventral (B), genus dorso-ventral correlation (C), intraspecific dispersion against dorso-ventral divergence (D) |
-| `mimicry.ipynb` | `mimicry_recovery`: partner rank of published mimicry pairs under visual similarity from dorsal and ventral centroids, with each species' representative image and mutual top-10 pairs highlighted (A), and permutation tests (B) |
+| `mimicry.ipynb` | `mimicry_recovery`: partner rank of published mimicry pairs under visual similarity from dorsal centroids, with each species' representative image and mutual top-10 pairs highlighted (A), and permutation tests (B) |
 | `search_performance.ipynb` | `search_performance`: planner accuracy against latency (A) and tokens (B) and per case (C); mimicry pairs (D); index latency against recall@10 (E). Each panel is drawn by the same helper as in its own notebook, with larger text and markers for the denser page; the mimicry permutation tests stay in `mimicry_recovery`. Exports carry each part's CSVs, prefixed `planner_`, `mimicry_`, and `index_` |
 
 **Figure style.** Colours come from seaborn, defaulting to the ColorBrewer `Dark2`
@@ -269,8 +269,9 @@ composition, so subspecies and synonyms do not split a species; the stored
 accepted resolves through the images recorded under it (or its subspecies) when they agree
 on one accepted species, so *Adelpha bredowii* is tested as *Limenitis bredowii*, and the
 pair then counts as congeneric; the coverage table records each resolution. Scoring mirrors
-the species pages: the mean of a species' normalized UNICOM embeddings on one side queries
-every image, and each species scores its nearest image on either side (`similarity run`).
+the species pages: the mean of a species' normalized dorsal UNICOM embeddings queries every
+image, and each species scores its nearest image on either side (`similarity run`).
+Ventral centroids are not queried.
 Nearest-image scoring favors species with many images, in the pairs and the nulls alike.
 Unlike the site, which stores only the top ten, every species is ranked; `site_listed`
 marks partners the stored list already shows. Each pair is queried in both directions. The
@@ -279,17 +280,17 @@ redraw each row's partner from any other species (**Random**) or, for pairs with
 genus, from the query's congeners (**Congeners**), since close relatives look alike
 without mimicry; one-sided p-values count the observed arrangement once, so with 10,000
 permutations they cannot fall below 1/10,001. Directions of a pair and species shared by
-pairs are not independent. A pair whose member has no images is not tested and is left
+pairs are not independent. A pair whose member has no dorsal images is not tested and is left
 out of every result table; the notebook prints it and why. The pairs table's
 `Availability` column records the same outcome (Available or Unavailable) for readers; the
 notebook recomputes it from the collection and warns when the recorded value is stale. A pair is **mutual top 10**, shaded and bold in the
-figure, when on at least one side each species is among the other's ten most similar, the
+figure, when each species is among the other's ten most similar, the
 length of the site's list; one direction alone does not count, since a common pattern can
 sit near many queries. Each pair shows both species' representative dorsal images: the
 image nearest the species' own dorsal centroid, falling back to the next nearest when a
 processed file is missing, read from the backend's configured processed image directory
 like the morphospace axis images. Exports add `counts` (published against tested pairs
-and species, by accepted name), `recovery` (mutual top 10 per side), and `representatives`
+and species, by accepted name), `recovery` (mutual top 10), and `representatives`
 (the image IDs drawn).
 
 **Benchmark.** Use the existing CSV; exclude `Flat (brute-force)` as in the original
