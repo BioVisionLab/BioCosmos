@@ -29,6 +29,7 @@ function PlaceholderCard() {
 function FeaturedCard({ item }: { item: FeaturedSpeciesItem }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const name = toBinomialName(item.species);
+
   return (
     <Link
       href={`/species/${speciesUrlFromName(item.slug)}`}
@@ -93,7 +94,9 @@ export default function FeaturedRail({
 
   const measure = useCallback(() => {
     const rail = railRef.current;
+
     if (!rail) return;
+
     const max = rail.scrollWidth - rail.clientWidth;
     const visible =
       rail.scrollWidth > 0 ? rail.clientWidth / rail.scrollWidth : 1;
@@ -105,13 +108,16 @@ export default function FeaturedRail({
   useEffect(() => {
     measure();
     window.addEventListener("resize", measure);
+
     return () => window.removeEventListener("resize", measure);
   }, [measure, species]);
 
   const scrollByCards = (direction: 1 | -1) => {
     const rail = railRef.current;
     const card = rail?.querySelector("li");
+
     if (!rail || !card) return;
+
     const gap = parseFloat(getComputedStyle(rail).columnGap) || 0;
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)",

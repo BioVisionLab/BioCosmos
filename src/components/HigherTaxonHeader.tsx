@@ -13,8 +13,11 @@ interface Stat {
  */
 function formatShare(value: number, total: number): string {
   const share = (value / total) * 100;
+
   if (share > 0 && share < 0.1) return "<0.1%";
+
   if (share < 10) return `${share.toFixed(1)}%`;
+
   return `${Math.round(share)}%`;
 }
 
@@ -34,6 +37,7 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
 
   const { counts } = taxon;
   const stats: Stat[] = [];
+
   if (counts.familyCount !== null) {
     stats.push({
       label: "families",
@@ -41,6 +45,7 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
       total: counts.familyTotal,
     });
   }
+
   if (counts.genusCount !== null) {
     stats.push({
       label: "genera",
@@ -48,6 +53,7 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
       total: counts.genusTotal,
     });
   }
+
   stats.push({
     label: "species",
     value: counts.speciesCount,
@@ -86,6 +92,7 @@ export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
             stat.total !== null
               ? Math.min(100, (stat.value / stat.total) * 100)
               : 0;
+
           return (
             <div key={stat.label} className="flex flex-col gap-1.5">
               <div className="flex items-baseline gap-2">

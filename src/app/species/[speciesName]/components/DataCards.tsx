@@ -27,9 +27,11 @@ export function DataSection({
   children: ReactNode;
 }) {
   const cards = Children.toArray(children).filter(Boolean);
+
   if (cards.length === 0) {
     return null;
   }
+
   return (
     <section className="mb-8">
       <h3 className="mb-3 border-b border-deep-mocha-300 pb-2 text-xl font-semibold dark:border-deep-mocha-700">

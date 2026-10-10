@@ -24,17 +24,23 @@ export async function GET(request: Request): Promise<NextResponse> {
     // Forward paging params so the backend can return a single page of IDs.
     // Malformed values are dropped rather than forwarded.
     const paging = new URLSearchParams();
+
     for (const key of ["limit", "offset"] as const) {
       const raw = searchParams.get(key);
+
       if (raw === null) continue;
+
       const parsed = Number(raw);
+
       if (Number.isInteger(parsed) && parsed >= 0) {
         paging.set(key, String(parsed));
       }
     }
+
     // Only the one alternative order is forwarded; anything else keeps the
     // backend default rather than bouncing off its validation.
     if (searchParams.get("order") === "view") paging.set("order", "view");
+
     const query = paging.size > 0 ? `?${paging.toString()}` : "";
     const metadataUri = `${IMAGE_API_URL}/${encodeURIComponent(
       species,
@@ -60,6 +66,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     );
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch image metadata: ${errorMessage}` },
       { status: 500 },

@@ -14,8 +14,10 @@ export default function SpecimenGallery({ speciesName }: SpecimenGalleryProps) {
 
   useEffect(() => {
     if (!speciesName) return;
+
     try {
       const raw = localStorage.getItem(`speciesData:${speciesName}`);
+
       if (raw) setSpeciesData(JSON.parse(raw));
     } catch (e) {
       // ignore

@@ -6,8 +6,11 @@ const MAX_PAGE_SIZE = 35;
 
 function parseNonNegativeInt(raw: string | null, max?: number): number | null {
   if (raw === null || raw.trim() === "") return null;
+
   const value = Number(raw);
+
   if (!Number.isInteger(value) || value < 0) return null;
+
   return max === undefined ? value : Math.min(value, max);
 }
 
@@ -16,6 +19,7 @@ async function readBackendError(response: Response): Promise<string> {
 
   try {
     const body: unknown = await response.json();
+
     if (
       typeof body === "object" &&
       body !== null &&
@@ -46,12 +50,19 @@ export async function GET(request: Request) {
   // Later pages are sliced from the backend's cached search by `search_id`,
   // so they never re-run the planner.
   const backendParams = new URLSearchParams();
+
   if (query) backendParams.set("q", query);
+
   if (searchId) backendParams.set("search_id", searchId);
+
   const offset = parseNonNegativeInt(searchParams.get("offset"));
+
   if (offset !== null) backendParams.set("offset", String(offset));
+
   const limit = parseNonNegativeInt(searchParams.get("limit"), MAX_PAGE_SIZE);
+
   if (limit) backendParams.set("limit", String(limit));
+
   if (searchParams.get("refresh") === "true") {
     backendParams.set("refresh", "true");
   }
@@ -75,6 +86,7 @@ export async function GET(request: Request) {
       console.error(
         `Error from agent service (${response.status}): ${errorMessage}`,
       );
+
       return NextResponse.json(
         { error: errorMessage },
         { status: response.status },
@@ -95,6 +107,7 @@ export async function GET(request: Request) {
         "Unexpected response format from BIOCOSMOS BACKEND service. Expected { results: [] }.",
         data,
       );
+
       return NextResponse.json(
         { error: "Agent search returned an invalid response format." },
         { status: 502 },
@@ -118,6 +131,7 @@ export async function GET(request: Request) {
     console.error("Error during agent search API call:", error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to contact agent service: ${errorMessage}` },
       { status: 503 },

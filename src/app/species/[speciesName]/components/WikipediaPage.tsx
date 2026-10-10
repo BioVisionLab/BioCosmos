@@ -37,11 +37,14 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
   useEffect(() => {
     // The tab can mount before the species data arrives; wait for a name.
     const title = speciesName.trim();
+
     if (!title) return;
+
     let isMounted = true;
     fetchWikipediaPage(title)
       .then(({ html }) => {
         if (!isMounted) return;
+
         const content = parseWikipediaContent(html);
         setState({ speciesName, status: "loaded", content });
       })
@@ -50,6 +53,7 @@ function WikipediaPage({ speciesName }: { speciesName: string }) {
           setState({ speciesName, status: "failed", error: err.message });
         }
       });
+
     return () => {
       isMounted = false;
     };
@@ -150,6 +154,7 @@ const fetchWikipediaPage = async (
   if (!title) {
     throw new Error("Title is required");
   }
+
   const WIKIPEDIA_API_URL = `https://en.wikipedia.org/w/api.php`;
   const params = new URLSearchParams({
     action: "parse",
@@ -161,10 +166,13 @@ const fetchWikipediaPage = async (
   });
 
   const response = await fetch(`${WIKIPEDIA_API_URL}?${params.toString()}`);
+
   if (!response.ok) {
     throw new Error(`Wikipedia API returned status: ${response.status}`);
   }
+
   const data: WikipediaApiParseResponse = await response.json();
+
   if (data.error) {
     throw new Error(`Wikipedia error: ${data.error.info}`);
   }

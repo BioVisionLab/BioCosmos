@@ -35,19 +35,25 @@ const MAX_STEPS = RAMP.length;
 
 function niceBreaks(max: number): number[] {
   const candidates: number[] = [];
+
   for (let magnitude = 1; magnitude <= Math.max(max, 1); magnitude *= 10) {
     for (const multiple of [1, 2, 5]) {
       const value = multiple * magnitude;
+
       if (value <= max) candidates.push(value);
     }
   }
+
   if (candidates.length <= MAX_STEPS) return candidates;
+
   // Keep 1 and spread the rest evenly across the log range.
   const picked = new Set<number>();
+
   for (let step = 0; step < MAX_STEPS; step++) {
     const index = Math.round((step * (candidates.length - 1)) / MAX_STEPS);
     picked.add(candidates[index]);
   }
+
   return [...picked].sort((a, b) => a - b);
 }
 
@@ -63,6 +69,7 @@ export function speciesScale(
   const colors = breaks.map(
     (_, index) => RAMP[RAMP.length - breaks.length + index],
   );
+
   return { breaks, colors, noData: isDark ? NO_DATA_DARK : NO_DATA_LIGHT };
 }
 
@@ -70,7 +77,9 @@ export function speciesScale(
 export function stepLabels(breaks: number[]): string[] {
   return breaks.map((lower, index) => {
     const next = breaks[index + 1];
+
     if (next === undefined) return `${lower.toLocaleString("en-US")}+`;
+
     return next - 1 === lower
       ? lower.toLocaleString("en-US")
       : `${lower.toLocaleString("en-US")}–${(next - 1).toLocaleString("en-US")}`;

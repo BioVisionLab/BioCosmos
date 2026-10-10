@@ -74,13 +74,16 @@ function SpeciesDistribution({
         fetchSpeciesCoordinates(recordedName.trim()),
         fetchGbifTaxon(recordedName.trim(), acceptedName),
       ]);
+
       if (ignore) return;
+
       setSpecimens(ours);
       setGbif(theirs);
       setLoading(false);
     };
 
     void load();
+
     return () => {
       ignore = true;
     };
@@ -94,7 +97,9 @@ function SpeciesDistribution({
       flagged: 0,
       unvalidated: 0,
     };
+
     for (const point of points) counts[markerKind(point.validationStatus)]++;
+
     return counts;
   }, [points]);
 

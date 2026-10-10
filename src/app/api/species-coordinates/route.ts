@@ -26,20 +26,24 @@ export async function GET(request: Request): Promise<NextResponse> {
       `${SPECIES_API_URL}/${encodeURIComponent(species)}/coordinates`,
       { method: "GET", headers: { Accept: "application/json" } },
     );
+
     if (response.status === 404) {
       return NextResponse.json({ total: 0, truncated: false, points: [] });
     }
+
     if (!response.ok) {
       return NextResponse.json(
         { error: `Failed to fetch coordinates: ${response.statusText}` },
         { status: response.status },
       );
     }
+
     return NextResponse.json(await response.json());
   } catch (error) {
     console.error(`Error fetching coordinates for species ${species}:`, error);
     const message =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch coordinates: ${message}` },
       { status: 500 },

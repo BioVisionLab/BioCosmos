@@ -25,11 +25,13 @@ const RING_R = 6.6;
 /** Degrees clockwise from January at the top, to a point on the 24-grid. */
 function ringPoint(deg: number, r: number): [number, number] {
   const rad = ((deg - 90) * Math.PI) / 180;
+
   return [12 + r * Math.cos(rad), 12 + r * Math.sin(rad)];
 }
 
 function p(deg: number, r: number): string {
   const [x, y] = ringPoint(deg, r);
+
   return `${x.toFixed(2)} ${y.toFixed(2)}`;
 }
 
@@ -228,6 +230,7 @@ function Caterpillar() {
 /** A chrysalis, hanging by its cremaster — the silk thread is the giveaway. */
 function Chrysalis({ dashed = false }: { dashed?: boolean }) {
   const dash = dashed ? DASHED : undefined;
+
   return (
     <>
       <path d="M12 3.6V7" style={dash} />

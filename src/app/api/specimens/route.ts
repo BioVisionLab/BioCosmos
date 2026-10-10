@@ -15,6 +15,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   console.log(`API: Fetching specimens for species: ${species}`);
+
   try {
     const response = await fetch(
       `${SPECIMEN_API_URL}/${encodeURIComponent(species)}/specimens`,
@@ -25,6 +26,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         },
       },
     );
+
     if (!response.ok) {
       const errorData = await response.json();
       console.error(
@@ -32,6 +34,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           errorData,
         )}`,
       );
+
       return NextResponse.json(
         {
           error: `Failed to fetch specimens: ${
@@ -41,12 +44,15 @@ export async function GET(request: Request): Promise<NextResponse> {
         { status: response.status },
       );
     }
+
     const specimens = await response.json();
+
     return NextResponse.json(specimens);
   } catch (error) {
     console.error(`Error fetching specimens for species ${species}:`, error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch specimens: ${errorMessage}` },
       { status: 500 },

@@ -58,7 +58,9 @@ async function fetchTaxonStats(): Promise<TaxonStats | null> {
     const response = await fetch(`${API_HOST}/stats/taxon`, {
       // next: { revalidate: 18000 }, // Cache for 5 hours
     });
+
     if (!response.ok) return null;
+
     return await response.json();
   } catch {
     return null;
@@ -74,7 +76,9 @@ async function fetchTaxonStats(): Promise<TaxonStats | null> {
 async function fetchEmbeddingStats(): Promise<EmbeddingStats | null> {
   try {
     const response = await fetch("/api/stats/embeddings");
+
     if (!response.ok) return null;
+
     return await response.json();
   } catch {
     return null;

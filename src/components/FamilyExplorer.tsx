@@ -52,6 +52,7 @@ export default function FamilyExplorer({
         >
           {Array.from({ length: slots }, (_, slot) => {
             const family = families?.[slot] ?? null;
+
             // An empty compartment is decoration, not a list item a screen
             // reader should count.
             if (!family) {
@@ -67,6 +68,7 @@ export default function FamilyExplorer({
                 </li>
               );
             }
+
             return (
               <li key={family.key} className="flex">
                 <SpecimenCell

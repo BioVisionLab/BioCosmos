@@ -30,7 +30,9 @@ export async function generateMetadata({
 }: GenusPageProps): Promise<Metadata> {
   const { genusName } = await params;
   const taxon = await fetchHigherTaxon("genus", decodeURIComponent(genusName));
+
   if (!taxon) return { title: "Genus not found" };
+
   return {
     title: `${taxon.name} — genus`,
     description:
@@ -53,6 +55,7 @@ export default async function GenusPage({ params }: GenusPageProps) {
   if (!isCanonicalTaxonSlug(raw)) permanentRedirect(genusHref(raw));
 
   const taxon = await fetchHigherTaxon("genus", raw);
+
   if (!taxon) notFound();
 
   // The family is the one crumb this page cannot know from its own URL. It
@@ -60,7 +63,9 @@ export default async function GenusPage({ params }: GenusPageProps) {
   // had a literal "Family Name" standing in its place.
   const family = taxon.classification?.family;
   const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
+
   if (family) crumbs.push({ label: family, href: familyHref(family) });
+
   crumbs.push({ label: taxon.name, italic: true });
 
   return (

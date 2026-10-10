@@ -23,7 +23,9 @@ const TREE_ID = "order-classification-tree";
 
 export async function generateMetadata(): Promise<Metadata> {
   const taxon = await fetchHigherTaxon("order", ORDER_NAME);
+
   if (!taxon) return { title: "Order not found" };
+
   return {
     title: `${taxon.name} — order`,
     description:
@@ -46,6 +48,7 @@ export default async function OrderPage() {
   // No loading.tsx beside this file, for the reason given on the family page:
   // it would turn notFound() into a soft 404.
   const taxon = await fetchHigherTaxon("order", ORDER_NAME);
+
   if (!taxon) notFound();
 
   return (

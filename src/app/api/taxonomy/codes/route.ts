@@ -18,6 +18,7 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const data = await response.json();
+
     // The descriptions only change when colharmonize itself changes, so this
     // is safe to hold for a while rather than refetching per page view.
     return NextResponse.json(data, {
@@ -26,6 +27,7 @@ export async function GET(): Promise<NextResponse> {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch taxonomy codes: ${message}` },
       { status: 500 },

@@ -22,12 +22,15 @@ export default function Navigation() {
 
   useEffect(() => {
     if (!pathname) return;
+
     const p = pathname;
     let id = "home";
+
     if (p === "/") id = "home";
     else if (p.startsWith("/collections")) id = "collections";
     else if (p.startsWith("/resources")) id = "resources";
     else if (p.startsWith("/about")) id = "about";
+
     setActiveTab(id);
   }, [pathname]);
 
@@ -90,6 +93,7 @@ export default function Navigation() {
           >
             {navItems.map((tab) => {
               const isActive = activeTab === tab.id;
+
               return (
                 <Link
                   key={tab.id}

@@ -19,6 +19,7 @@ const distDir = dirname(require.resolve("maplibre-gl/dist/maplibre-gl.mjs"));
 const outDir = join(process.cwd(), "public", "maplibre");
 
 mkdirSync(outDir, { recursive: true });
+
 for (const file of WORKER_FILES) {
   copyFileSync(join(distDir, file), join(outDir, file));
 }

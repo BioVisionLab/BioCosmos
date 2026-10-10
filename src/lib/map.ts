@@ -109,6 +109,7 @@ const lightBasemapCache = new Map<boolean, Promise<StyleSpecification>>();
  */
 function loadLightBasemapStyle(isDark: boolean): Promise<StyleSpecification> {
   const cached = lightBasemapCache.get(isDark);
+
   if (cached) return cached;
 
   const promise = fetch(getBasemapStyleUrl(isDark))
@@ -116,6 +117,7 @@ function loadLightBasemapStyle(isDark: boolean): Promise<StyleSpecification> {
       if (!response.ok) {
         throw new Error(`Basemap style request failed: ${response.status}`);
       }
+
       return response.json() as Promise<StyleSpecification>;
     })
     .then((style) => {
@@ -134,6 +136,7 @@ function loadLightBasemapStyle(isDark: boolean): Promise<StyleSpecification> {
       );
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { glyphs, sprite, ...rest } = style;
+
       return { ...rest, sources, layers } as StyleSpecification;
     })
     .catch((error) => {
@@ -143,6 +146,7 @@ function loadLightBasemapStyle(isDark: boolean): Promise<StyleSpecification> {
     });
 
   lightBasemapCache.set(isDark, promise);
+
   return promise;
 }
 
@@ -174,6 +178,7 @@ function gbifDensityTileUrl(taxonKey: number): string {
     hexPerTile: "40",
     style: "iNaturalist.poly",
   });
+
   return `${GBIF_DENSITY_TILE_URL}?${params.toString()}`;
 }
 
@@ -196,6 +201,7 @@ async function fetchGbifTaxon(
   }
 
   const params = new URLSearchParams({ species: recordedName.trim() });
+
   if (acceptedName && acceptedName.trim()) {
     params.set("accepted", acceptedName.trim());
   }
@@ -203,12 +209,15 @@ async function fetchGbifTaxon(
   try {
     const response = await fetch(`/api/gbif-taxon?${params.toString()}`);
     const data = await response.json();
+
     if (!response.ok || data.status === "error") {
       return { status: "error" };
     }
+
     if (data.status !== "ok" || typeof data.taxonKey !== "number") {
       return { status: "unmatched" };
     }
+
     return {
       status: "ok",
       taxonKey: data.taxonKey,
@@ -217,6 +226,7 @@ async function fetchGbifTaxon(
     };
   } catch (error) {
     console.error(`Error resolving GBIF taxon for ${recordedName}:`, error);
+
     return { status: "error" };
   }
 }
@@ -234,18 +244,22 @@ async function fetchSpeciesCoordinates(
   if (!species || !species.trim()) {
     return { total: 0, truncated: false, points: [] };
   }
+
   try {
     const response = await fetch(
       `/api/species-coordinates?species=${encodeURIComponent(species.trim())}`,
     );
+
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
     }
+
     const data = await response.json();
     const points: SpeciesCoordinatePoint[] = (data.points ?? []).filter(
       (point: SpeciesCoordinatePoint) =>
         Number.isFinite(point.lat) && Number.isFinite(point.lon),
     );
+
     return {
       total: typeof data.total === "number" ? data.total : points.length,
       truncated: !!data.truncated,
@@ -253,6 +267,7 @@ async function fetchSpeciesCoordinates(
     };
   } catch (error) {
     console.error(`Error fetching coordinates for ${species}:`, error);
+
     return null;
   }
 }

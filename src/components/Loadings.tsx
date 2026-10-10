@@ -5,7 +5,9 @@ import { ButterflyIcon, type IconSize } from "./ui/icons";
 /** The stroke tier for a glyph drawn `px` wide; see `IconSize`. */
 function iconSizeFor(px: number): IconSize {
   if (px <= 32) return "sm";
+
   if (px <= 56) return "md";
+
   return "lg";
 }
 
@@ -15,6 +17,7 @@ function ImageLoading({ size, msg }: { size: number; msg?: string }) {
   // turns into a stencil. Inline rather than an <img>, so it takes the theme's
   // icon colours and each instance still pulses on its own.
   const glyph = Math.round(size * 0.6);
+
   return (
     <div className="flex flex-col items-center justify-center text-center gap-1">
       <div

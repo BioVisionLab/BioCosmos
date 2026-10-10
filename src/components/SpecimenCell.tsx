@@ -104,6 +104,7 @@ export default function SpecimenCell({
   if (!href) {
     return <div className={cell}>{body}</div>;
   }
+
   return (
     <Link
       href={href}

@@ -95,6 +95,7 @@ export function IconBase({
   children,
 }: IconProps & { secondary?: ReactNode; children: ReactNode }) {
   const strokeWidth = STROKE_BY_SIZE[size];
+
   return (
     <svg
       viewBox="0 0 24 24"

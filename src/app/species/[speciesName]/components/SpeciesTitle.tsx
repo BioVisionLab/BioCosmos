@@ -13,6 +13,7 @@ function SpeciesTitle({
   name: string;
 }) {
   const titleClass = "text-4xl font-semibold";
+
   if (taxonomy === null) {
     return (
       <p className={titleClass}>

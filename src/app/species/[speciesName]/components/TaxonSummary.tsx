@@ -37,6 +37,7 @@ function SpeciesDescriptionText({
       </p>
     );
   }
+
   const containerClasses = "my-4 relative rounded-xl p-2 overflow-hidden";
   const boxClasses = containerClasses.replace("my-4", ""); // remove outer margin for grid layout
 

@@ -55,6 +55,7 @@ export function genusHref(name: string): string {
  */
 export function speciesPageHref(speciesKey?: string | null): string | null {
   const key = speciesKey?.trim();
+
   return key ? `/species/${encodeURIComponent(toTaxonSlug(key))}` : null;
 }
 

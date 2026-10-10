@@ -21,6 +21,7 @@ export default function ImageSearchWidget() {
   // Handle file selection from input
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+
     if (file && file.type.startsWith("image/")) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
@@ -30,6 +31,7 @@ export default function ImageSearchWidget() {
       setPreviewUrl(null);
       setSearchError("Please select a valid image file.");
     }
+
     // Reset the input value to allow selecting the same file again
     event.target.value = "";
   };
@@ -48,6 +50,7 @@ export default function ImageSearchWidget() {
   const handleImageSearch = async () => {
     if (!selectedFile) {
       setSearchError("Please select an image first.");
+
       return;
     }
 
@@ -121,6 +124,7 @@ export default function ImageSearchWidget() {
     event.preventDefault();
     event.currentTarget.classList.remove("border-green-500");
     const file = event.dataTransfer.files?.[0];
+
     if (file && file.type.startsWith("image/")) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));

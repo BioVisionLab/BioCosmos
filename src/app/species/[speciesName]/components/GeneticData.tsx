@@ -91,6 +91,7 @@ const swatchFor = (category: GeneCategory) =>
 
 const formatShare = (count: number, total: number) => {
   const share = (count / total) * 100;
+
   // A handful of snoRNAs against thirteen thousand genes would round to 0%,
   // which reads as none.
   return share > 0 && share < 1 ? "<1%" : `${Math.round(share)}%`;
@@ -115,6 +116,7 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
     fetchGeneticSummary(speciesName)
       .catch((error) => {
         console.error("Error fetching genetic data:", error);
+
         return null;
       })
       .then((summary) => {
@@ -122,6 +124,7 @@ export function GeneticData({ speciesName }: GeneticPageProps) {
           setResult({ speciesName, summary });
         }
       });
+
     return () => {
       isMounted = false;
     };
@@ -230,6 +233,7 @@ const yearOf = (date: string | null) => date?.slice(0, 4) ?? null;
 
 function BasesValue({ length, suffix }: { length: number; suffix?: string }) {
   const { value, unit } = formatBases(length);
+
   return (
     <p className={valueClass}>
       {value}{" "}
@@ -255,6 +259,7 @@ function NuclearGenomeSection({
 }) {
   const assembly = nuclear.assembly;
   const count = nuclear.assemblyCount ?? 0;
+
   return (
     <DataSection title="Nuclear Genome">
       {assembly && (
@@ -336,6 +341,7 @@ function GenomeAssemblySummary({
     assembly.organismName &&
     assembly.organismName.toLowerCase() !==
       speciesName.replace(/_/g, " ").toLowerCase();
+
   return (
     <div className={rowClass}>
       <IconContainer>
@@ -385,6 +391,7 @@ function AssemblyContiguity({ assembly }: { assembly: GenomeAssembly }) {
     assembly.gcPercent != null && `GC ${assembly.gcPercent}%`,
     assembly.coverage && `${assembly.coverage}× coverage`,
   ].filter(Boolean);
+
   return (
     <div className={rowClass}>
       <IconContainer>
@@ -420,6 +427,7 @@ function AnnotationSummary({ annotation }: { annotation: GenomeAnnotation }) {
   const release = [annotation.provider, annotation.releaseDate]
     .filter(Boolean)
     .join(", ");
+
   return (
     <div className={rowClass}>
       <IconContainer>
@@ -477,6 +485,7 @@ function MitochondrialDna({
   speciesName: string;
 }) {
   const markers = mito.markers.filter((marker) => marker.count > 0);
+
   return (
     <>
       <DataSection title="Mitochondrial DNA">
@@ -523,6 +532,7 @@ function ReferenceMitogenome({
     reference.organismName &&
     reference.organismName.toLowerCase() !==
       speciesName.replace(/_/g, " ").toLowerCase();
+
   return (
     <div className={rowClass}>
       <IconContainer>
@@ -564,6 +574,7 @@ function ReferenceMitogenome({
 function SequenceCount({ mito }: { mito: MitochondrialSummary }) {
   const count = mito.sequenceCount ?? 0;
   const complete = mito.completeGenomeCount;
+
   return (
     <div className={rowClass}>
       <IconContainer>

@@ -108,18 +108,22 @@ async function fetchGeneticSummary(
 ): Promise<GeneticSummary | null> {
   const url = `/api/genetics?species=${encodeURIComponent(speciesName)}&v=${GENETICS_PAYLOAD_VERSION}`;
   let response = await fetch(url, { headers: { Accept: "application/json" } });
+
   if (response.status === 503) {
     await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_MS));
     response = await fetch(url, { headers: { Accept: "application/json" } });
   }
+
   if (response.status === 404) {
     return null;
   }
+
   if (!response.ok) {
     throw new Error(
       `Failed to fetch genetic data for ${speciesName}: ${response.status}`,
     );
   }
+
   return response.json();
 }
 
@@ -133,14 +137,17 @@ function formatBases(length: number): { value: string; unit: string } {
     [1e6, "Mb"],
     [1e3, "kb"],
   ];
+
   for (const [scale, unit] of scales) {
     if (length >= scale) {
       const scaled = length / scale;
       // Three significant figures: 2.30 Gb, 245 Mb, 17.2 Mb.
       const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+
       return { value: scaled.toFixed(digits), unit };
     }
   }
+
   return { value: String(length), unit: "bp" };
 }
 
@@ -165,6 +172,7 @@ function cleanGeneType(name: string): string {
   if (/[a-z]/.test(name) && /[A-Z]/.test(name)) {
     return name;
   }
+
   // Otherwise, convert to Title Case for better readability
   return name
     .toLowerCase()
@@ -179,6 +187,7 @@ function isProteinCoding(geneType: string): boolean {
 
 function isRna(geneType: string): boolean {
   const lowerType = geneType.toLowerCase();
+
   return (
     lowerType.includes("rna") ||
     lowerType.includes("rrna") ||

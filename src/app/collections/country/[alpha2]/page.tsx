@@ -17,6 +17,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { alpha2 } = await params;
   const data = isAlpha2(alpha2) ? await fetchCountrySpecies(alpha2) : null;
+
   return {
     title: data ? `Species of ${data.countryName}` : "Country not found",
   };
@@ -28,8 +29,11 @@ export default async function CountrySpeciesPage({
   params: Params;
 }) {
   const { alpha2 } = await params;
+
   if (!isAlpha2(alpha2)) notFound();
+
   const data = await fetchCountrySpecies(alpha2);
+
   // A code with no validated records is as absent here as an unknown one.
   if (!data) notFound();
 

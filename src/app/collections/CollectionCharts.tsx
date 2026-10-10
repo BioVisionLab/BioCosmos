@@ -92,6 +92,7 @@ function ChartTooltip({
   isPie?: boolean;
 }) {
   if (!active || !payload || payload.length === 0) return null;
+
   const item = payload[0];
   const name = isPie ? item.name : item.payload?.name;
   const value = isPie ? item.value : item.payload?.count;
@@ -136,6 +137,7 @@ function familyColorMap(
       FAMILY_COLORS[idx % FAMILY_COLORS.length],
     ]),
   );
+
   return (name: string) => colorByName.get(name) ?? AXIS_TICK_FILL;
 }
 
@@ -148,9 +150,11 @@ function FamilyPieChart({
 }) {
   const data = useMemo(() => {
     const total = Object.values(entriesByFamily).reduce((a, b) => a + b, 0);
+
     return Object.entries(entriesByFamily)
       .map(([key, value]) => {
         const name = toSentenceCase(key);
+
         return {
           name,
           value,
@@ -175,9 +179,11 @@ function FamilyPieChart({
     percent?: number;
   }) => {
     const points = props.points ?? [];
+
     if ((props.percent ?? 0) < LABEL_MIN_SHARE || points.length < 2) {
       return <g />;
     }
+
     return (
       <polyline
         points={points.map((point) => `${point.x},${point.y}`).join(" ")}
@@ -235,6 +241,7 @@ function TopSpeciesBarChart({
 }) {
   const data = useMemo(() => {
     const total = Object.values(topTenSpecies).reduce((a, b) => a + b, 0);
+
     return Object.entries(topTenSpecies)
       .map(([key, count]) => ({
         name: toSpeciesName(key),
@@ -333,12 +340,14 @@ function InstitutionBarChart({
     const restCount = rest.reduce((sum, [, count]) => sum + count, 0);
 
     const rows = shown.map(([name, count]) => ({ name, count }));
+
     if (rest.length > 0) {
       rows.push({
         name: `+${rest.length} more institutions`,
         count: restCount,
       });
     }
+
     return rows.map((row) => ({
       ...row,
       percentage:
@@ -433,6 +442,7 @@ function InstitutionTick(props: {
   payload?: { value?: string };
 }) {
   const { x = 0, y = 0, payload } = props;
+
   return (
     <text
       x={x}
@@ -465,7 +475,9 @@ function CountryTooltip({
   payload?: { payload?: CountryBarDatum }[];
 }) {
   const item = active ? payload?.[0]?.payload : undefined;
+
   if (!item) return null;
+
   return (
     <div className="rounded-lg border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white/95 dark:bg-deep-mocha-900/95 px-3 py-2 backdrop-blur-sm text-sm">
       <p className="font-semibold text-deep-mocha-800 dark:text-deep-mocha-100">
@@ -500,6 +512,7 @@ function CountryTick(props: {
       {payload?.value}
     </text>
   );
+
   return row ? (
     <a href={countryHref(row.code)} style={{ cursor: "pointer" }}>
       {label}

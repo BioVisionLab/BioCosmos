@@ -101,6 +101,7 @@ export default function TaxonomyTree({
   id,
 }: TaxonomyTreeProps) {
   const eager = nodeCount <= AUTO_EXPAND_LIMIT;
+
   return (
     <div id={id} className="text-sm overflow-x-auto">
       <ul className="list-none m-0 p-0">

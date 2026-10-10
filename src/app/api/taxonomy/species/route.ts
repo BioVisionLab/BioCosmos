@@ -24,6 +24,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const data = await response.json();
     // The backend sets the policy: a month for a hit, nothing for a miss.
     const cacheControl = response.headers.get("Cache-Control") ?? "no-store";
+
     return NextResponse.json(data, {
       status: response.status,
       headers: { "Cache-Control": cacheControl },
@@ -31,6 +32,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch taxonomy: ${message}` },
       { status: 502, headers: { "Cache-Control": "no-store" } },

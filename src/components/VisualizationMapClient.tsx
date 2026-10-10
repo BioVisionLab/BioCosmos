@@ -55,6 +55,7 @@ export default function VisualizationMapClient() {
 
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) {
       return;
     }

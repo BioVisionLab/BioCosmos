@@ -24,6 +24,7 @@ const tabLoading = (msg: string) => {
     </div>
   );
   Loading.displayName = `TabLoading(${msg})`;
+
   return Loading;
 };
 
@@ -105,8 +106,10 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
     setActiveTab(id);
     setVisitedTabs((prev) => {
       if (prev.has(id)) return prev;
+
       const next = new Set(prev);
       next.add(id);
+
       return next;
     });
   }, []);
@@ -268,6 +271,7 @@ function useTabLayout() {
   useLayoutEffect(() => {
     const container = containerRef.current;
     const measure = measureRef.current;
+
     if (!container || !measure) return;
 
     const update = () => {
@@ -279,6 +283,7 @@ function useTabLayout() {
     const observer = new ResizeObserver(update);
     observer.observe(container);
     observer.observe(measure);
+
     return () => observer.disconnect();
   }, []);
 
@@ -308,6 +313,7 @@ function MoreTabsMenu({
 
   useEffect(() => {
     if (!open) return;
+
     const onPointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -319,6 +325,7 @@ function MoreTabsMenu({
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);

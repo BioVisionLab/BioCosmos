@@ -6,6 +6,7 @@
  */
 export function cleanSpeciesName(name: string): string {
   const [genus, ...rest] = name.replace(/_/g, " ").split(" ");
+
   return [genus.charAt(0).toUpperCase() + genus.slice(1), ...rest].join(" ");
 }
 
@@ -21,6 +22,7 @@ export function formatSpeciesNameForUrl(name: string): string {
 export function speciesUrlFromName(name: string): string {
   const parts = name.replace(/_/g, " ").trim().split(/\s+/);
   const binomial = parts.length >= 2 ? `${parts[0]}_${parts[1]}` : parts[0];
+
   return binomial.toLowerCase();
 }
 /**

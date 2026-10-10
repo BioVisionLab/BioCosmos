@@ -56,12 +56,14 @@ export function familyBars(
     value,
     href: familyHref(label),
   }));
+
   if (rest.length > 0) {
     bars.push({
       label: rest.map(([label]) => label).join(", "),
       value: rest.reduce((sum, [, value]) => sum + value, 0),
     });
   }
+
   return bars;
 }
 
@@ -111,6 +113,7 @@ function Bars({
     tone === "green"
       ? "bg-hunter-green-600 dark:bg-hunter-green-300"
       : "bg-pacific-blue-600 dark:bg-pacific-blue-300";
+
   return (
     <div className="bc-reveal min-w-0">
       <h3 className="font-display text-lg font-semibold text-deep-mocha-900 dark:text-deep-mocha-50">
@@ -120,11 +123,13 @@ function Bars({
       <ol className="m-0 grid list-none gap-2.5 p-0">
         {Array.from({ length: rows }, (_, index) => {
           const bar = bars[index];
+
           if (!bar) {
             return (
               <li key={`empty-${index}`} className="h-5" aria-hidden="true" />
             );
           }
+
           const label = bar.href ? (
             <Link
               href={bar.href}
@@ -138,6 +143,7 @@ function Bars({
               {bar.label}
             </span>
           );
+
           return (
             <li
               key={bar.label}

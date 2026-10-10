@@ -11,6 +11,7 @@ function copyBySelection(text: string): boolean {
   area.style.opacity = "0";
   document.body.appendChild(area);
   area.select();
+
   try {
     return document.execCommand("copy");
   } catch {
@@ -42,7 +43,9 @@ function CopyButton({
 
   useEffect(() => {
     if (!copied) return;
+
     const timer = setTimeout(() => setCopied(false), 2000);
+
     return () => clearTimeout(timer);
   }, [copied]);
 
@@ -58,6 +61,7 @@ function CopyButton({
   };
 
   const Icon = copied ? Check : Copy;
+
   return (
     <button
       type="button"

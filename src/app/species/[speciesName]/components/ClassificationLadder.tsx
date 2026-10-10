@@ -20,8 +20,11 @@ const RANK_TAG =
 
 function rankHref(rank: string, value: string): string | null {
   if (rank === "order") return orderHref(value);
+
   if (rank === "family") return familyHref(value);
+
   if (rank === "genus") return genusHref(value);
+
   return null;
 }
 

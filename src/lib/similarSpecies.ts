@@ -58,19 +58,25 @@ async function fetchSimilarSpecies(
       )}&side=${side}`,
       { signal },
     );
+
     if (!response.ok) {
       console.error(
         `Failed to fetch similar species for ${species}: ${response.statusText}`,
       );
+
       return null;
     }
+
     const data = await response.json();
+
     return data as SimilarSpeciesList;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw error;
     }
+
     console.error(`Error fetching similar species for ${species}:`, error);
+
     return null;
   }
 }

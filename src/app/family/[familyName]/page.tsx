@@ -36,7 +36,9 @@ export async function generateMetadata({
     "family",
     decodeURIComponent(familyName),
   );
+
   if (!taxon) return { title: "Family not found" };
+
   return {
     title: `${taxon.name} — family`,
     description:
@@ -63,6 +65,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
   if (!isCanonicalTaxonSlug(raw)) permanentRedirect(familyHref(raw));
 
   const taxon = await fetchHigherTaxon("family", raw);
+
   if (!taxon) notFound();
 
   return (

@@ -20,6 +20,7 @@ export async function GET(): Promise<NextResponse> {
           errorData,
         )}`,
       );
+
       return NextResponse.json(
         {
           error: `Status check failed: ${
@@ -31,11 +32,13 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const statusData = await response.json();
+
     return NextResponse.json(statusData);
   } catch (error) {
     console.error("Error checking status:", error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Status check failed: ${errorMessage}` },
       { status: 500 },

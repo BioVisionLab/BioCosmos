@@ -39,7 +39,9 @@ export default function TaxonomyTreeControls({
 
   const applyFilter = (rawQuery: string) => {
     const root = tree();
+
     if (!root) return;
+
     const query = rawQuery.trim().toLowerCase();
     const items = root.querySelectorAll<HTMLLIElement>("li[data-taxon-name]");
 
@@ -53,6 +55,7 @@ export default function TaxonomyTreeControls({
       root.querySelectorAll<HTMLDetailsElement>("details").forEach((node) => {
         node.open = node.dataset.defaultOpen === "true";
       });
+
       return;
     }
 
@@ -64,14 +67,17 @@ export default function TaxonomyTreeControls({
     });
     items.forEach((item) => {
       if (!item.dataset.taxonName?.includes(query)) return;
+
       let node: HTMLElement | null = item;
       while (node && node !== root) {
         if (node instanceof HTMLLIElement) {
           node.hidden = false;
           const disclosure =
             node.querySelector<HTMLDetailsElement>(":scope > details");
+
           if (disclosure) disclosure.open = true;
         }
+
         node = node.parentElement;
       }
       // Descendants of a match come with it: a subfamily that matches shows
@@ -86,6 +92,7 @@ export default function TaxonomyTreeControls({
 
   const onInput = (value: string) => {
     if (pending.current) clearTimeout(pending.current);
+
     pending.current = setTimeout(() => applyFilter(value), 120);
   };
 

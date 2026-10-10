@@ -42,11 +42,17 @@ export function formatCitation(pub: CrossRefResult): string {
     title ? `${title.replace(/\.$/, "")}.` : "",
   ];
   let source = pub.journal;
+
   if (pub.volume) source += `, ${pub.volume}`;
+
   if (pub.issue) source += ` (${pub.issue})`;
+
   if (pub.pages) source += `, pp. ${pub.pages}`;
+
   parts.push(source ? `${source}.` : "");
+
   if (pub.doi) parts.push(pub.doi);
+
   return parts.filter(Boolean).join(" ");
 }
 
@@ -112,12 +118,14 @@ function formatTitle(raw: string, genera: string[]): string {
     "",
   );
   let title = toSentenceCase(cleaned);
+
   for (const genus of genera) {
     title = title.replace(
       new RegExp(`\\b${escapeRegExp(genus)}\\b`, "gi"),
       genus,
     );
   }
+
   return title;
 }
 
@@ -142,12 +150,14 @@ function toResult(work: ApiWork, genera: string[]): CrossRefResult {
 /* Group by year so the list is not cluttered for viewing. */
 function groupByYear(works: CrossRefResult[]): PublicationsByYear {
   const grouped: PublicationsByYear = {};
+
   for (const work of works) {
     const key = work.published_year
       ? String(work.published_year)
       : "Unknown Year";
     (grouped[key] ??= []).push(work);
   }
+
   return grouped;
 }
 
@@ -156,6 +166,7 @@ function generaOf(names: (string | null | undefined)[]): string[] {
   const genera = names
     .map((name) => name?.trim().split(/\s+/)[0])
     .filter((g): g is string => !!g && g.length > 1);
+
   return Array.from(new Set(genera));
 }
 
@@ -164,11 +175,13 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
     `/api/literature?species=${encodeURIComponent(speciesName)}`,
     { headers: { Accept: "application/json" } },
   );
+
   if (!response.ok) {
     throw new Error(
       `Failed to fetch literature for ${speciesName}: ${response.status}`,
     );
   }
+
   const data: ApiPayload = await response.json();
   const genera = generaOf([
     data.acceptedName,
@@ -179,6 +192,7 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
   const species = data.species.map((w) => toResult(w, genera));
   const genusRelated =
     data.genusRelated?.map((w) => toResult(w, genera)) ?? null;
+
   return {
     acceptedName: data.acceptedName,
     genus: data.genus,

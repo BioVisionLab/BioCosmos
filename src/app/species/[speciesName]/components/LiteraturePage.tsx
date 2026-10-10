@@ -30,6 +30,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   useEffect(() => {
     // The tab can mount before the species data arrives; wait for a name.
     if (!speciesName.trim()) return;
+
     let isMounted = true;
     fetchLiterature(speciesName)
       .then((literature) => {
@@ -37,8 +38,10 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
       })
       .catch((error) => {
         console.error("Error fetching literature data:", error);
+
         if (isMounted) setResult({ speciesName, literature: null });
       });
+
     return () => {
       isMounted = false;
     };
@@ -168,9 +171,13 @@ function sortYearsDescending(publications: PublicationsByYear) {
   return Object.entries(publications).sort(([yearA], [yearB]) => {
     const a = parseInt(yearA, 10);
     const b = parseInt(yearB, 10);
+
     if (isNaN(a) && isNaN(b)) return 0;
+
     if (isNaN(a)) return 1;
+
     if (isNaN(b)) return -1;
+
     return b - a;
   });
 }
@@ -266,6 +273,7 @@ function JournalTitle({ title }: { title: string }) {
           if (match.index > lastIndex) {
             parts.push(title.slice(lastIndex, match.index));
           }
+
           parts.push(<em key={`i-${k++}`}>{match[2]}</em>);
           lastIndex = regex.lastIndex;
         }

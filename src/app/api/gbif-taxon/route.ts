@@ -33,11 +33,15 @@ class TtlCache<T> {
 
   get(key: string): T | undefined {
     const entry = this.entries.get(key);
+
     if (!entry) return undefined;
+
     if (Date.now() - entry.timestamp >= CACHE_TTL_MS) {
       this.entries.delete(key);
+
       return undefined;
     }
+
     return entry.value;
   }
 
@@ -46,7 +50,9 @@ class TtlCache<T> {
     this.entries.set(key, { value, timestamp: Date.now() });
     while (this.entries.size > CACHE_MAX_ENTRIES) {
       const oldest = this.entries.keys().next();
+
       if (oldest.done) break;
+
       this.entries.delete(oldest.value);
     }
   }
@@ -79,12 +85,14 @@ interface GbifMatch {
 async function matchTaxon(name: string): Promise<number | null> {
   const cacheKey = name.toLowerCase();
   const cached = matchCache.get(cacheKey);
+
   if (cached !== undefined) return cached;
 
   const response = await fetch(
     `${GBIF_MATCH_URL}?name=${encodeURIComponent(name)}&strict=false`,
     { method: "GET", headers: { Accept: "application/json" } },
   );
+
   if (!response.ok) {
     throw new Error(
       `GBIF match failed: ${response.status} ${response.statusText}`,
@@ -106,6 +114,7 @@ async function matchTaxon(name: string): Promise<number | null> {
     ? (match.acceptedUsageKey ?? match.usageKey ?? null)
     : null;
   matchCache.set(cacheKey, key ?? null);
+
   return key ?? null;
 }
 
@@ -119,6 +128,7 @@ async function matchTaxon(name: string): Promise<number | null> {
 async function countOccurrences(taxonKey: number): Promise<number> {
   const cacheKey = String(taxonKey);
   const cached = countCache.get(cacheKey);
+
   if (cached !== undefined) return cached;
 
   const response = await fetch(
@@ -126,6 +136,7 @@ async function countOccurrences(taxonKey: number): Promise<number> {
       `&hasCoordinate=true&hasGeospatialIssue=false`,
     { method: "GET", headers: { Accept: "application/json" } },
   );
+
   if (!response.ok) {
     throw new Error(
       `GBIF occurrence count failed: ${response.status} ${response.statusText}`,
@@ -135,6 +146,7 @@ async function countOccurrences(taxonKey: number): Promise<number> {
   const data = await response.json();
   const count = typeof data.count === "number" ? data.count : 0;
   countCache.set(cacheKey, count);
+
   return count;
 }
 
@@ -150,6 +162,7 @@ function candidateNames(recorded: string, accepted: string | null): string[] {
     .map((name) => cleanSpeciesName(name).trim())
     // A single word is a genus, which is not a distribution for a species.
     .filter((name) => name.includes(" "));
+
   return Array.from(new Set(names));
 }
 
@@ -166,6 +179,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const candidates = candidateNames(species, accepted);
+
   if (candidates.length === 0) {
     return NextResponse.json({ status: "unmatched" });
   }
@@ -176,8 +190,11 @@ export async function GET(request: Request): Promise<NextResponse> {
     // second pass is for names only the collection uses.
     for (const name of candidates) {
       const taxonKey = await matchTaxon(name);
+
       if (taxonKey === null) continue;
+
       const count = await countOccurrences(taxonKey);
+
       return NextResponse.json({
         status: "ok",
         matchedName: name,
@@ -187,11 +204,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     console.info(`No GBIF backbone match for: ${candidates.join(" / ")}`);
+
     return NextResponse.json({ status: "unmatched" });
   } catch (error) {
     console.error(`Error resolving GBIF taxon for ${species}:`, error);
     const message =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { status: "error", error: message },
       { status: 502 },

@@ -8,6 +8,7 @@ function toTitleCase(str: string) {
 
 function toSentenceCase(str: string) {
   if (!str) return "";
+
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
@@ -32,6 +33,7 @@ function toAuthorNameCase(str: string) {
 
 function decodeHtmlEntities(str: string): string {
   if (!str) return "";
+
   return str
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
@@ -54,8 +56,11 @@ function toSpeciesName(raw: string): string {
     .toLowerCase()
     .split("_")
     .filter((p) => p.length > 0);
+
   if (parts.length === 0) return raw;
+
   parts[0] = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+
   return parts.join(" ");
 }
 

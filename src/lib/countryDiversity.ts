@@ -52,7 +52,9 @@ async function fetchJson<T>(path: string): Promise<T | null> {
       // rebuilt; the backend sends a one-day Cache-Control to match.
       next: { revalidate: 3600 },
     });
+
     if (!response.ok) return null;
+
     return (await response.json()) as T;
   } catch {
     return null;
@@ -69,5 +71,6 @@ export function fetchCountrySpecies(
   code: string,
 ): Promise<CountrySpecies | null> {
   if (!isAlpha2(code)) return Promise.resolve(null);
+
   return fetchJson<CountrySpecies>(`/stats/country/${code.toUpperCase()}`);
 }

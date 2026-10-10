@@ -18,6 +18,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
   // Handle file selection from input
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+
     // Exclude avif format because it's not supported by the backend
     if (file && file.type.startsWith("image/") && file.type !== "image/avif") {
       const fileUrl = URL.createObjectURL(file);
@@ -30,6 +31,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
         "Please select a valid image file. Supported formats: JPEG, JPG, PNG, WEBP.",
       );
     }
+
     // Reset the input value to allow selecting the same file again
     event.target.value = "";
   };
@@ -38,6 +40,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
   const handleImageSearch = async () => {
     if (!selectedFileUrl) {
       setSearchError("Please select an image first.");
+
       return;
     }
 
@@ -82,6 +85,7 @@ export default function ImageSearch({ fileUrl }: { fileUrl?: string }) {
     event.preventDefault();
     event.currentTarget.classList.remove("border-hunter-green-500");
     const file = event.dataTransfer.files?.[0];
+
     if (file && file.type.startsWith("image/") && file.type !== "image/avif") {
       const fileUrl = URL.createObjectURL(file);
       setSearchImage(file, fileUrl);

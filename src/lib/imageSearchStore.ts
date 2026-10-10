@@ -10,6 +10,7 @@ export function getSearchImage(imageUrl: string): File | null {
   if (_pendingFile && _pendingUrl === imageUrl) {
     return _pendingFile;
   }
+
   return null;
 }
 

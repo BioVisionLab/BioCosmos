@@ -17,8 +17,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const metaUri = `${IMAGE_API_URL}/${encodeURIComponent(imageId)}/metadata`;
     const response = await fetch(metaUri, { method: "GET" });
+
     if (!response.ok) {
       const err = await response.text();
+
       return NextResponse.json(
         {
           error: `Failed to fetch image metadata: ${response.statusText} ${err}`,
@@ -26,10 +28,13 @@ export async function GET(request: Request): Promise<NextResponse> {
         { status: response.status },
       );
     }
+
     const data = await response.json();
+
     return NextResponse.json(data);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
+
     return NextResponse.json(
       { error: `Failed to fetch image metadata: ${msg}` },
       { status: 500 },

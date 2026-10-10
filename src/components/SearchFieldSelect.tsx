@@ -61,15 +61,18 @@ export default function SearchFieldSelect({
 
   useEffect(() => {
     if (!open) return;
+
     const onPointerDown = (e: PointerEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
+
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
+
     listRef.current
       ?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
       ?.scrollIntoView({ block: "nearest" });
@@ -82,7 +85,9 @@ export default function SearchFieldSelect({
 
   const choose = (index: number) => {
     const option = flat[index];
+
     if (option && option.value !== value) onChange(option.value);
+
     setOpen(false);
   };
 
@@ -91,7 +96,9 @@ export default function SearchFieldSelect({
       case "ArrowDown":
       case "ArrowUp": {
         e.preventDefault();
+
         if (!open) return openList();
+
         const step = e.key === "ArrowDown" ? 1 : -1;
         setActiveIndex((i) => Math.min(flat.length - 1, Math.max(0, i + step)));
         break;
@@ -99,20 +106,24 @@ export default function SearchFieldSelect({
       case "Home":
       case "End":
         if (!open) return;
+
         e.preventDefault();
         setActiveIndex(e.key === "Home" ? 0 : flat.length - 1);
         break;
       case "Enter":
       case " ":
         e.preventDefault();
+
         if (open) choose(activeIndex);
         else openList();
+
         break;
       case "Escape":
         if (open) {
           e.preventDefault();
           setOpen(false);
         }
+
         break;
       case "Tab":
         setOpen(false);
@@ -167,6 +178,7 @@ export default function SearchFieldSelect({
                   const i = offsets[gi] + oi;
                   const selected = option.value === value;
                   const active = i === activeIndex;
+
                   return (
                     <li
                       key={option.value}

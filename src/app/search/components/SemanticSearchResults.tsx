@@ -42,6 +42,7 @@ function appendUnique(
   next: SemanticSearchResult[],
 ): SemanticSearchResult[] {
   const seen = new Set(current.map((item) => item.species));
+
   return [...current, ...next.filter((item) => !seen.has(item.species))];
 }
 
@@ -59,6 +60,7 @@ function SemanticSearchResults({ query }: { query: string }) {
     () => true,
     () => false,
   );
+
   if (!hydrated) {
     return (
       <div className="flex flex-col items-center mt-24">
@@ -66,6 +68,7 @@ function SemanticSearchResults({ query }: { query: string }) {
       </div>
     );
   }
+
   return <SemanticSearchView query={query} />;
 }
 
@@ -91,6 +94,7 @@ function SemanticSearchView({ query }: { query: string }) {
 
   useEffect(() => {
     if (!query) return;
+
     // A cached search is only replaced by an explicit re-search.
     if (cached && attempt === 0) return;
 
@@ -102,12 +106,15 @@ function SemanticSearchView({ query }: { query: string }) {
       setLoading(true);
       setError(null);
       setMoreError(null);
+
       try {
         const page = await searchSemantic(query, {
           refresh: attempt > 0,
           signal: controller.signal,
         });
+
         if (controller.signal.aborted) return;
+
         setResults(page.results);
         setTotal(page.total);
         setSearchId(page.searchId);
@@ -121,6 +128,7 @@ function SemanticSearchView({ query }: { query: string }) {
         });
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
+
         setResults([]);
         setHasMore(false);
         setError(errorMessage(err));
@@ -130,6 +138,7 @@ function SemanticSearchView({ query }: { query: string }) {
     };
 
     fetchResults();
+
     return () => controller.abort();
   }, [query, attempt, cached]);
 
@@ -144,6 +153,7 @@ function SemanticSearchView({ query }: { query: string }) {
   useLayoutEffect(() => {
     const save = () => saveSearchScroll(query, window.scrollY);
     window.addEventListener("pagehide", save);
+
     return () => {
       save();
       window.removeEventListener("pagehide", save);
@@ -154,6 +164,7 @@ function SemanticSearchView({ query }: { query: string }) {
 
   const loadMore = async () => {
     if (loadingMore) return;
+
     loadMoreController.current?.abort();
     const controller = new AbortController();
     loadMoreController.current = controller;
@@ -161,8 +172,10 @@ function SemanticSearchView({ query }: { query: string }) {
     setLoadingMore(true);
     setMoreError(null);
     const offset = results.length;
+
     try {
       let page;
+
       try {
         page = await searchSemantic(query, {
           searchId,
@@ -173,13 +186,16 @@ function SemanticSearchView({ query }: { query: string }) {
         // The backend dropped the cached search: run it again and continue
         // from the same position, keeping what is already on screen.
         if (!(err instanceof SearchExpiredError)) throw err;
+
         page = await searchSemantic(query, {
           offset,
           refresh: true,
           signal: controller.signal,
         });
       }
+
       if (controller.signal.aborted) return;
+
       const merged = appendUnique(results, page.results);
       setResults(merged);
       setTotal(page.total);
@@ -193,6 +209,7 @@ function SemanticSearchView({ query }: { query: string }) {
       });
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
+
       setMoreError(errorMessage(err));
     } finally {
       if (!controller.signal.aborted) setLoadingMore(false);
@@ -203,6 +220,7 @@ function SemanticSearchView({ query }: { query: string }) {
 
   const handleSearch = (newQuery: string, mode: string) => {
     if (!newQuery.trim()) return;
+
     setError(null);
     setMoreError(null);
     setLoading(true);
@@ -211,6 +229,7 @@ function SemanticSearchView({ query }: { query: string }) {
 
     if (newQuery === query) {
       setAttempt((previous) => previous + 1);
+
       return;
     }
 

@@ -201,6 +201,7 @@ export function NcbiGeneDataSourceInfo({
   const mitoSearch = `https://www.ncbi.nlm.nih.gov/nuccore/?term=${encodeURIComponent(
     `"${name}"[Organism:noexp] AND mitochondrion[filter]`,
   )}`;
+
   return (
     <Callout icon={ExternalLink} label="Data source">
       <p>
