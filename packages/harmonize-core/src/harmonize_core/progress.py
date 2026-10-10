@@ -13,13 +13,18 @@ import typer
 
 def format_duration(seconds: float) -> str:
     """Format a duration compactly while retaining useful precision."""
+
     if seconds < 10:
         return f"{seconds:.1f}s"
+
     rounded = round(seconds)
     minutes, seconds_part = divmod(rounded, 60)
+
     if minutes < 60:
         return f"{minutes:d}m {seconds_part:02d}s"
+
     hours, minutes_part = divmod(minutes, 60)
+
     return f"{hours:d}h {minutes_part:02d}m {seconds_part:02d}s"
 
 
@@ -40,19 +45,23 @@ class RunReporter:
     def _estimated_remaining(self, stage_elapsed: float = 0.0) -> float | None:
         if self.completed_steps == 0:
             return None
+
         completed_elapsed = max(self.elapsed - stage_elapsed, 0.0)
         mean_step = completed_elapsed / self.completed_steps
+
         return mean_step * (self.total_steps - self.completed_steps)
 
     @contextmanager
     def step(self, label: str) -> Iterator[None]:
         """Report one stage, including live elapsed time when attached to a terminal."""
+
         number = self.completed_steps + 1
         stage_started = time.perf_counter()
         typer.echo(f"[{number}/{self.total_steps}] {label}…", err=True)
 
         stop = threading.Event()
         thread: threading.Thread | None = None
+
         if sys.stderr.isatty():
             thread = threading.Thread(
                 target=self._animate,
@@ -103,6 +112,7 @@ class RunReporter:
     @staticmethod
     def _stop_animation(stop: threading.Event, thread: threading.Thread | None) -> None:
         stop.set()
+
         if thread is not None:
             thread.join()
             sys.stderr.write("\r\033[2K")

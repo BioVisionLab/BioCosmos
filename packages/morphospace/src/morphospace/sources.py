@@ -78,12 +78,15 @@ def load_labels(
     exclude_families: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Read the side and harmonized taxon of every image, read-only."""
+
     if not database.is_file():
         raise SourceValidationError(f"Database not found: {database}")
+
     query = _LABELS.format(
         image_meta=qualified_name(parse_table_identifier(image_table)),
         status=qualified_name(parse_table_identifier(taxonomy_table)),
     )
+
     try:
         connection = duckdb.connect(str(database), read_only=True)
     except duckdb.Error as exc:
@@ -91,6 +94,7 @@ def load_labels(
             f"Cannot open {database} read-only. Stop the backend first: DuckDB allows a "
             "single writer, and a second process cannot attach while it holds the file."
         ) from exc
+
     try:
         excluded = sorted({name.strip().lower() for name in exclude_families if name.strip()})
         labels = connection.execute(query, {"exclude_families": excluded}).pl()
@@ -100,15 +104,18 @@ def load_labels(
         ) from exc
     finally:
         connection.close()
+
     return labels
 
 
 def open_embeddings(lance_dir: Path, table: str):
     """Open the LanceDB table holding the image embeddings."""
+
     import lancedb
 
     if not lance_dir.exists():
         raise SourceValidationError(f"LanceDB directory not found: {lance_dir}")
+
     try:
         return lancedb.connect(str(lance_dir)).open_table(table)
     except Exception as exc:  # lancedb raises bare ValueError/FileNotFoundError
@@ -134,10 +141,13 @@ def iter_embeddings(
     an index; normalizing again costs nothing and makes every dot product a
     cosine similarity.
     """
+
     query = lance_table.search().select(["img_id", column]).limit(None)
+
     for batch in query.to_batches(batch_size):
         if batch.num_rows == 0:
             continue
+
         ids = pl.Series("img_id", batch.column("img_id")).cast(pl.String)
         values = batch.column(column)
         width = values.type.list_size
@@ -146,6 +156,8 @@ def iter_embeddings(
         )
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         valid = np.isfinite(norms[:, 0]) & (norms[:, 0] > 0)
+
         if not valid.all():
             ids, vectors, norms = ids.filter(valid), vectors[valid], norms[valid]
+
         yield ids, vectors / norms

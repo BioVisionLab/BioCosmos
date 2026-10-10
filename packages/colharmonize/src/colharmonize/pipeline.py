@@ -17,6 +17,7 @@ from colharmonize.sql import read_sql
 
 def _source_expr(columns: dict[str, str], logical: str) -> str:
     physical = columns.get(logical)
+
     return "NULL::VARCHAR" if physical is None else f"cast({quote_identifier(physical)} AS VARCHAR)"
 
 
@@ -42,6 +43,7 @@ class MatchPipeline:
         stage: Callable[[str], AbstractContextManager[None]] | None = None,
     ) -> None:
         """Run the pipeline, optionally reporting each potentially long stage."""
+
         report = stage or (lambda _label: nullcontext())
         operations = (
             ("Attach input and reference data", self._attach_sources),
@@ -50,6 +52,7 @@ class MatchPipeline:
             ("Score and rank candidates", self._collapse_and_rank),
             ("Finalize taxonomy matches", self._create_matches),
         )
+
         for label, operation in operations:
             with report(label):
                 operation()
@@ -253,11 +256,13 @@ class MatchPipeline:
             else "normalized_epithet"
         )
         canonical = "canonical_key"
+
         if rank == "subspecies":
             canonical = """CASE WHEN normalized_infraspecific_epithet IS NOT NULL
                 THEN concat_ws(' ', normalized_genus, normalized_epithet,
                                normalized_infraspecific_epithet)
                 ELSE concat_ws(' ', normalized_genus, normalized_epithet) END"""
+
         self.connection.execute(f"""
             CREATE OR REPLACE TEMP TABLE stage_inputs AS
             SELECT * REPLACE ({epithet} AS normalized_epithet, {canonical} AS canonical_key)
@@ -327,6 +332,7 @@ class MatchPipeline:
         destination = (
             "CREATE TABLE raw_candidates AS" if rank == "species" else "INSERT INTO raw_candidates"
         )
+
         if rank == "genus":
             self.connection.execute(f"""
                 {destination}
@@ -337,7 +343,9 @@ class MatchPipeline:
                 JOIN stage_reference a ON a.accepted_id = u.accepted_id
                 WHERE i.normalized_family IS NULL OR i.normalized_family = a.family_norm
             """)
+
             return
+
         self.connection.execute(
             f"""
             {destination}

@@ -42,6 +42,7 @@ class TaxonOccurrenceSource(OccurrenceSource):
         lower_names = self.index_by_casefold(available)
         resolved: dict[str, str] = {}
         warnings: list[str] = []
+
         for logical, physical in mappings.as_logical_dict().items():
             resolved[logical] = self.resolve_requested(physical, available, lower_names)
 
@@ -52,6 +53,7 @@ class TaxonOccurrenceSource(OccurrenceSource):
                 if name.casefold() in lower_names
             ]
             name_matches = list(dict.fromkeys(name_matches))
+
             if len(name_matches) == 1:
                 resolved["scientific_name"] = name_matches[0]
             elif len(name_matches) > 1:
@@ -62,11 +64,13 @@ class TaxonOccurrenceSource(OccurrenceSource):
         self.autodetect(resolved, STANDARD_COLUMNS, lower_names)
 
         incompatible = self.incompatible_columns(resolved, available)
+
         if incompatible:
             warnings.append("Incompatible taxonomic columns: " + ", ".join(incompatible))
 
         has_name = "scientific_name" in resolved
         has_parts = "genus" in resolved and "specific_epithet" in resolved
+
         if not has_name and not has_parts:
             warnings.append(
                 "A scientific-name column or both genus and specific epithet are required."
@@ -74,6 +78,7 @@ class TaxonOccurrenceSource(OccurrenceSource):
 
         if strict and warnings:
             raise SourceValidationError(" ".join(warnings))
+
         return resolved, warnings
 
     def inspect(self, mappings: ColumnMappings) -> InspectionReport:
@@ -83,6 +88,7 @@ class TaxonOccurrenceSource(OccurrenceSource):
             row_count, distinct_count = self.count_rows_and_combinations(
                 connection, list(resolved.values())
             )
+
         return InspectionReport(
             database=self.database,
             table=self.identifier.display_name,
@@ -102,6 +108,7 @@ class ColSource:
 
     def __init__(self, path: Path) -> None:
         self.path = path
+
         if not path.is_file():
             raise SourceValidationError(f"Catalogue of Life source does not exist: {path}")
 
@@ -110,11 +117,13 @@ class ColSource:
         with self.path.open("rb") as stream:
             for block in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(block)
+
         return digest.hexdigest()
 
     @contextmanager
     def materialize(self) -> Iterator[ColSourceInfo]:
         fingerprint = self.fingerprint()
+
         if self.path.suffix.casefold() in self.SUPPORTED_SUFFIXES:
             yield ColSourceInfo(
                 source_path=self.path,
@@ -122,7 +131,9 @@ class ColSource:
                 fingerprint=fingerprint,
                 delimiter="," if self.path.suffix.casefold() == ".csv" else "\t",
             )
+
             return
+
         if self.path.suffix.casefold() != ".zip":
             raise SourceValidationError(
                 "Unsupported CoL input. Expected a ColDP ZIP or NameUsage TSV/TAB/TXT/CSV file."
@@ -135,11 +146,13 @@ class ColSource:
                 if Path(member).suffix.casefold() in self.SUPPORTED_SUFFIXES
                 and Path(member).stem.casefold().replace("-", "").replace("_", "") == "nameusage"
             ]
+
             if len(candidates) != 1:
                 raise SourceValidationError(
                     "ColDP archive must contain exactly one NameUsage table; "
                     f"found {len(candidates)}."
                 )
+
             member = candidates[0]
             suffix = Path(member).suffix.casefold()
             with tempfile.TemporaryDirectory(prefix="colharmonize-") as directory:

@@ -69,14 +69,17 @@ class CoordinateOutputRepository(ArtifactRepository):
         the package that opens the occurrence database for writing; everything
         else treats it as read-only.
         """
+
         destination = parse_table_identifier(destination_table)
         connection = duckdb.connect(str(occurrence_db))
+
         try:
             if self._table_exists(connection, destination) and not replace:
                 raise OutputError(
                     f"Write-back destination already exists: {destination.display_name}. "
                     "Pass --replace to rebuild it."
                 )
+
             alias = quote_identifier(self.attach_alias)
             connection.execute("BEGIN TRANSACTION")
             connection.execute(
@@ -120,6 +123,7 @@ class CoordinateOutputRepository(ArtifactRepository):
             raise
         finally:
             connection.close()
+
         return WriteBackReport(
             table=destination.display_name,
             row_count=written[0],
@@ -138,4 +142,5 @@ class CoordinateOutputRepository(ArtifactRepository):
             [destination.schema_name, destination.table_name],
         ).fetchone()
         assert row is not None
+
         return bool(row[0])

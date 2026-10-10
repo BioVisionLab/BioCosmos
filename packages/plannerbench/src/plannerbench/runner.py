@@ -40,18 +40,22 @@ class RequestPacer:
         now = self._clock()
         start = now if self._next_start is None else max(now, self._next_start)
         self._next_start = start + self.interval
+
         if start > now:
             await asyncio.sleep(start - now)
 
 
 def _retry_after(exc: RateLimitError, attempt: int) -> float:
     """Seconds to wait before retrying a 429: ``Retry-After`` or exponential backoff."""
+
     header = exc.response.headers.get("retry-after") if exc.response is not None else None
+
     try:
         if header is not None:
             return min(max(float(header), 0.0), MAX_BACKOFF_SECONDS)
     except ValueError:  # An HTTP date; fall back to backoff.
         pass
+
     return min(2.0 * 2**attempt, MAX_BACKOFF_SECONDS)
 
 
@@ -61,6 +65,7 @@ def make_client(base_url: str, api_key: str, *, max_retries: int = 0) -> Any:
     Retries default to off so a flaky model shows up as errors instead of as
     inflated latency.
     """
+
     return AsyncOpenAI(base_url=base_url, api_key=api_key, max_retries=max_retries)
 
 
@@ -76,10 +81,12 @@ def _request(spec: PlannerSpec, model: str, query: str, temperature: float | Non
         "max_tokens": spec.max_tokens,
         "timeout": spec.timeout_seconds,
     }
+
     # The backend leaves temperature to the provider default, so only send one
     # when the benchmark is asked to.
     if temperature is not None:
         request["temperature"] = temperature
+
     return request
 
 
@@ -99,11 +106,14 @@ async def run_trial(
     A 429 is a quota problem, not a model result, so it is retried up to
     ``rate_limit_retries`` times. Latency covers only the final attempt.
     """
+
     retries = 0
     while True:
         if pacer is not None:
             await pacer.acquire()
+
         started = time.perf_counter()
+
         try:
             response = await client.chat.completions.create(
                 **_request(spec, model, case.query, temperature)
@@ -114,6 +124,7 @@ async def run_trial(
                 await asyncio.sleep(_retry_after(exc, retries))
                 retries += 1
                 continue
+
             return Trial(
                 model=model,
                 case_id=case.id,
@@ -126,6 +137,7 @@ async def run_trial(
     latency = round(time.perf_counter() - started, 3)
 
     choices = getattr(response, "choices", None) or []
+
     if not choices:
         return Trial(
             model=model,
@@ -136,6 +148,7 @@ async def run_trial(
             latency_seconds=latency,
             rate_limit_retries=retries,
         )
+
     choice = choices[0]
     message = choice.message
     raw_calls = [
@@ -150,9 +163,12 @@ async def run_trial(
     prompt_tokens = getattr(usage, "prompt_tokens", None)
     completion_tokens = getattr(usage, "completion_tokens", None)
     total_tokens = getattr(usage, "total_tokens", None)
+
     if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
         total_tokens = prompt_tokens + completion_tokens
+
     content = getattr(message, "content", None)
+
     return Trial(
         model=model,
         case_id=case.id,
@@ -191,6 +207,7 @@ async def run_benchmark(
     ``concurrency`` caps calls in flight; ``requests_per_minute`` caps how fast
     calls start across all of them (``None`` or 0 disables pacing).
     """
+
     semaphore = asyncio.Semaphore(concurrency)
     pacer = RequestPacer(requests_per_minute) if requests_per_minute else None
 
@@ -206,8 +223,10 @@ async def run_benchmark(
                 pacer=pacer,
                 rate_limit_retries=rate_limit_retries,
             )
+
         if on_trial is not None:
             on_trial(trial)
+
         return trial
 
     jobs = [
@@ -219,6 +238,7 @@ async def run_benchmark(
     trials = await asyncio.gather(*jobs)
     model_order = {model: index for index, model in enumerate(models)}
     case_order = {case.id: index for index, case in enumerate(cases)}
+
     return sorted(
         trials,
         key=lambda trial: (model_order[trial.model], case_order[trial.case_id], trial.repeat),

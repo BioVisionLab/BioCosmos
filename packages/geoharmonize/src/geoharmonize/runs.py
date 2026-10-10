@@ -60,10 +60,13 @@ class CoordinateRunResult:
 
 def resolve_reports_dir(cli_value: Path | None, config_value: Path | None) -> Path | None:
     """Pick the reports root, preferring the CLI over the configuration file."""
+
     if cli_value is not None:
         return cli_value
+
     if config_value is not None:
         return config_value
+
     return DEFAULT_REPORTS_DIR if DEFAULT_REPORTS_DIR.is_dir() else None
 
 
@@ -86,6 +89,7 @@ def execute_coordinate_run(
     Raises `HarmonizeError`, `ValueError` or `duckdb.Error`; the commands turn
     those into an exit code.
     """
+
     started = datetime.now(UTC)
     timer_started = perf_counter()
     progress = RunReporter(total_steps=INTEGRATE_STEPS if integrate else VALIDATE_STEPS)
@@ -96,8 +100,10 @@ def execute_coordinate_run(
         reports_root = resolve_reports_dir(
             reports_dir, project.coordinates.reports_dir or project.run.reports_dir
         )
+
         if output is None and reports_root is not None:
             output = run_directory(reports_root, REPORT_KIND, run_id)
+
         effective = merge_coordinate_config(
             project,
             overrides={**overrides, **run_overrides(output=output)},
@@ -109,8 +115,10 @@ def execute_coordinate_run(
             resolved, _ = occurrence.resolve_coordinate_columns(
                 available, effective.columns, strict=True
             )
+
         if integrate:
             _check_integration_preconditions(effective, occurrence, resolved)
+
         validation_config = CoordinateValidationConfig(
             tile_size=effective.tile_size,
             tile_buffer=effective.tile_buffer,
@@ -185,6 +193,7 @@ def execute_coordinate_run(
     # block above, and DuckDB allows a single writer -- so the write-back can
     # only open it once `build_database` has closed its connection.
     write_back: WriteBackReport | None = None
+
     if integrate:
         assert effective.write_back_table is not None
         with progress.step("Write validated coordinates into the occurrence database"):
@@ -199,6 +208,7 @@ def execute_coordinate_run(
         runtime_seconds = perf_counter() - timer_started
         points_per_second = distinct_points / runtime_seconds if runtime_seconds > 0 else None
         metadata_connection = duckdb.connect(str(repository.database_path))
+
         try:
             metadata_connection.execute(
                 "UPDATE coordinate_run_metadata SET completed_at = ?, runtime_seconds = ?",
@@ -206,11 +216,14 @@ def execute_coordinate_run(
             )
         finally:
             metadata_connection.close()
+
         produced = {"database": repository.database_path}
         outputs = {role: str(path.resolve()) for role, path in produced.items()}
         outputs["manifest"] = str(repository.manifest_path.resolve())
+
         if write_back is not None:
             outputs["write_back_table"] = write_back.table
+
         artifacts = [describe_artifact(role, path) for role, path in produced.items()]
         manifest = CoordinateRunManifest(
             run_id=run_id,
@@ -237,6 +250,7 @@ def execute_coordinate_run(
             },
         )
         manifest_path = repository.write_manifest(manifest, force=effective.force)
+
         if reports_root is not None:
             update_latest(
                 reports_root,
@@ -269,16 +283,20 @@ def _check_integration_preconditions(
     Checked before any work, because each of these only becomes visible after
     the run has already cost minutes.
     """
+
     if effective.write_back_table is None:
         raise ConfigurationError(
             "integrate requires --into, directly or as write_back_table in TOML"
         )
+
     if "source_id" not in resolved:
         raise ConfigurationError(
             "integrate requires a source_id column to key the written table; "
             "map it with --map source_id=COLUMN"
         )
+
     destination = parse_table_identifier(effective.write_back_table)
+
     if destination == occurrence.identifier:
         raise ConfigurationError(
             f"--into names the table being read: {destination.display_name}. "

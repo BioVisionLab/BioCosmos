@@ -67,8 +67,10 @@ class EffectiveCoordinateRunConfig(FrozenModel):
     def sources_must_exist(self) -> EffectiveCoordinateRunConfig:
         if not self.db.is_file():
             raise ValueError(f"Occurrence database does not exist: {self.db}")
+
         if not self.gadm.is_file():
             raise ValueError(f"GADM GeoPackage does not exist: {self.gadm}")
+
         return self
 
 
@@ -99,6 +101,7 @@ class CoordinateCheck(StrEnum):
     @property
     def description(self) -> str:
         """Explain the basic coordinate check."""
+
         descriptions = {
             CoordinateCheck.MISSING_COORDINATE: (
                 "Latitude or longitude was missing, non-finite, or could not be parsed."
@@ -108,6 +111,7 @@ class CoordinateCheck(StrEnum):
             CoordinateCheck.ZERO_COORDINATE: "Both latitude and longitude were zero.",
             CoordinateCheck.VALID_COORDINATE: "Both coordinates were finite and in range.",
         }
+
         return descriptions[self]
 
 
@@ -124,6 +128,7 @@ class CountryCheck(StrEnum):
     @property
     def description(self) -> str:
         """Explain the country comparison result."""
+
         descriptions = {
             CountryCheck.COUNTRY_MATCH: "Recorded and coordinate-derived countries agree.",
             CountryCheck.COUNTRY_MISMATCH: "Recorded and coordinate-derived countries differ.",
@@ -134,6 +139,7 @@ class CountryCheck(StrEnum):
             ),
             CountryCheck.NOT_EVALUATED: "Country was not checked because coordinates were invalid.",
         }
+
         return descriptions[self]
 
 
@@ -151,6 +157,7 @@ class Adm1Check(StrEnum):
     @property
     def description(self) -> str:
         """Explain the ADM1 comparison result."""
+
         descriptions = {
             Adm1Check.ADM1_MATCH: "Recorded and coordinate-derived ADM1 values agree.",
             Adm1Check.ADM1_MISMATCH: "Recorded and coordinate-derived ADM1 values differ.",
@@ -162,6 +169,7 @@ class Adm1Check(StrEnum):
             ),
             Adm1Check.NOT_EVALUATED: "ADM1 was not checked because coordinates were invalid.",
         }
+
         return descriptions[self]
 
 
@@ -180,6 +188,7 @@ class CoordinateValidationStatus(StrEnum):
     @property
     def description(self) -> str:
         """Explain the final validation outcome."""
+
         # One short sentence each: these are read in a tooltip beside the
         # status, where a reader wants to know what happened, not how.
         descriptions = {
@@ -202,6 +211,7 @@ class CoordinateValidationStatus(StrEnum):
             ),
             CoordinateValidationStatus.VALID: "The coordinate matches the recorded locality.",
         }
+
         return descriptions[self]
 
 

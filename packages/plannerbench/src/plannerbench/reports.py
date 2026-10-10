@@ -43,6 +43,7 @@ class RunManifest(BaseModel):
 
 def write_run(reports_dir: Path, manifest: RunManifest, trials: list[Trial]) -> Path:
     """Write the trials and manifest, then point ``latest.json`` at the run."""
+
     output_dir = run_directory(reports_dir, REPORT_KIND, manifest.run_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -66,4 +67,5 @@ def write_run(reports_dir: Path, manifest: RunManifest, trials: list[Trial]) -> 
         completed_at=manifest.completed_at,
         manifest=manifest_path,
     )
+
     return manifest_path

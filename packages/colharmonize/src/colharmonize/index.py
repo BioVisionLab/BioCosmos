@@ -19,24 +19,30 @@ INDEX_SCHEMA_VERSION = 2
 
 def _canonical_column(name: str) -> str:
     lowered = name.casefold()
+
     for prefix in ("col:", "dwc:"):
         if lowered.startswith(prefix):
             lowered = lowered[len(prefix) :]
+
     return lowered.replace("_", "").replace("-", "")
 
 
 def _resolve_columns(columns: list[str]) -> dict[str, str | None]:
     normalized: dict[str, list[str]] = {}
+
     for column in columns:
         normalized.setdefault(_canonical_column(column), []).append(column)
 
     def one(*names: str, required: bool = False) -> str | None:
         for name in names:
             matches = normalized.get(_canonical_column(name), [])
+
             if len(matches) == 1:
                 return matches[0]
+
         if required:
             raise SourceValidationError(f"NameUsage is missing required column: {names[0]}")
+
         return None
 
     return {
@@ -67,21 +73,25 @@ class ReferenceIndex:
         fingerprint = source.fingerprint()
         target_dir = self.cache_dir / fingerprint
         target = target_dir / f"reference-v{INDEX_SCHEMA_VERSION}.duckdb"
+
         if target.is_file() and not rebuild:
             return self._describe(target, fingerprint, reused=True)
 
         target_dir.mkdir(parents=True, exist_ok=True)
         temporary = target_dir / f".{target.name}.{uuid.uuid4().hex}.tmp"
+
         try:
             with source.materialize() as info:
                 self._build(temporary, info)
             os.replace(temporary, target)
         finally:
             temporary.unlink(missing_ok=True)
+
         return self._describe(target, fingerprint, reused=False)
 
     def _describe(self, path: Path, fingerprint: str, *, reused: bool) -> IndexInfo:
         connection = duckdb.connect(str(path), read_only=True)
+
         try:
             usage_row = connection.execute("SELECT count(*) FROM usage_lookup").fetchone()
             accepted_row = connection.execute("SELECT count(*) FROM accepted_taxa").fetchone()
@@ -92,6 +102,7 @@ class ReferenceIndex:
             raise SourceValidationError(f"Invalid cached reference index {path}: {exc}") from exc
         finally:
             connection.close()
+
         return IndexInfo(
             path=path,
             fingerprint=fingerprint,
@@ -102,13 +113,16 @@ class ReferenceIndex:
 
     def _build(self, path: Path, info: ColSourceInfo) -> None:
         connection = duckdb.connect(str(path))
+
         try:
             options = (
                 f"delim={quote_literal(info.delimiter)}, header=true, all_varchar=true, "
                 "sample_size=-1, null_padding=true"
             )
+
             if info.delimiter == "\t":
                 options += ", quote=''"
+
             connection.execute(
                 f"CREATE TABLE imported_name_usage AS SELECT * FROM read_csv("
                 f"{quote_literal(str(info.data_path))}, {options})"

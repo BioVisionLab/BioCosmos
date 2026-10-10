@@ -58,6 +58,7 @@ def test_validate_outputs_and_preserves_sources(
     assert manifest["gadm_layer"] == "ADM_ADM_1"
 
     connection = duckdb.connect(str(output / "coordinate_validation.duckdb"), read_only=True)
+
     try:
         tables = {
             row[0]
@@ -70,6 +71,7 @@ def test_validate_outputs_and_preserves_sources(
         ).fetchone()[0]
     finally:
         connection.close()
+
     assert {
         "coordinate_input_rows",
         "coordinate_points",
@@ -85,6 +87,7 @@ def test_validate_outputs_and_preserves_sources(
 
 def test_old_validate_command_name_is_gone() -> None:
     """The rename is hard: nothing keeps `validate-coordinates` working."""
+
     result = runner.invoke(app, ["validate-coordinates", "--help"])
     assert result.exit_code == 2
 
@@ -148,6 +151,7 @@ def test_integrate_writes_one_row_per_occurrence(
     A qualified destination is used deliberately, so the run has to create the
     schema rather than finding one.
     """
+
     gadm_before = _sha256(gadm_gpkg)
     output = tmp_path / "integrate-result"
     result = _integrate(coordinate_db, gadm_gpkg, output)
@@ -160,6 +164,7 @@ def test_integrate_writes_one_row_per_occurrence(
     assert manifest["outputs"]["write_back_table"] == "geo.image_meta_coordinates"
 
     connection = duckdb.connect(str(coordinate_db), read_only=True)
+
     try:
         total, distinct = connection.execute(
             "SELECT count(*), count(DISTINCT source_id) FROM geo.image_meta_coordinates"
@@ -211,12 +216,14 @@ def test_integrate_refuses_an_existing_destination(
     assert "--replace" in second.output
 
     connection = duckdb.connect(str(coordinate_db), read_only=True)
+
     try:
         kept = connection.execute(
             "SELECT DISTINCT run_id FROM geo.image_meta_coordinates"
         ).fetchone()[0]
     finally:
         connection.close()
+
     assert kept == original
 
 
@@ -232,6 +239,7 @@ def test_integrate_replaces_with_the_flag(
     rebuilt = json.loads((tmp_path / "two" / "coordinate_run.json").read_text())["run_id"]
 
     connection = duckdb.connect(str(coordinate_db), read_only=True)
+
     try:
         total = connection.execute("SELECT count(*) FROM geo.image_meta_coordinates").fetchone()[0]
         current = connection.execute(
@@ -239,6 +247,7 @@ def test_integrate_replaces_with_the_flag(
         ).fetchone()[0]
     finally:
         connection.close()
+
     assert total == 13
     assert current == rebuilt != original
 
@@ -247,7 +256,9 @@ def test_integrate_requires_a_source_id_column(
     coordinate_db: Path, gadm_gpkg: Path, tmp_path: Path
 ) -> None:
     """A table keyed on nothing is useless, so the run refuses before doing work."""
+
     setup = duckdb.connect(str(coordinate_db))
+
     try:
         setup.execute("CREATE TABLE anonymous(decimalLatitude VARCHAR, decimalLongitude VARCHAR)")
         setup.execute("INSERT INTO anonymous VALUES ('5', '5')")
@@ -261,12 +272,14 @@ def test_integrate_requires_a_source_id_column(
     assert "source_id" in result.output
 
     connection = duckdb.connect(str(coordinate_db), read_only=True)
+
     try:
         existing = connection.execute(
             "SELECT count(*) FROM information_schema.tables WHERE table_name = 'nope'"
         ).fetchone()[0]
     finally:
         connection.close()
+
     assert existing == 0
 
 
@@ -274,6 +287,7 @@ def test_integrate_refuses_to_overwrite_its_own_source(
     coordinate_db: Path, gadm_gpkg: Path, tmp_path: Path
 ) -> None:
     """--replace must not be able to destroy the table being read."""
+
     result = _integrate(
         coordinate_db,
         gadm_gpkg,
@@ -284,6 +298,7 @@ def test_integrate_refuses_to_overwrite_its_own_source(
     assert result.exit_code == 2
 
     connection = duckdb.connect(str(coordinate_db), read_only=True)
+
     try:
         assert connection.execute("SELECT count(*) FROM main.occurrence").fetchone()[0] == 13
     finally:
@@ -294,6 +309,7 @@ def test_integrate_skips_rows_without_a_source_id(
     coordinate_db: Path, gadm_gpkg: Path, tmp_path: Path
 ) -> None:
     setup = duckdb.connect(str(coordinate_db))
+
     try:
         setup.execute(
             """
@@ -316,8 +332,10 @@ def test_integrate_skips_rows_without_a_source_id(
     assert "1 rows had no source id" in result.output
 
     connection = duckdb.connect(str(coordinate_db), read_only=True)
+
     try:
         rows = connection.execute("SELECT source_id FROM main.partial_geo").fetchall()
     finally:
         connection.close()
+
     assert rows == [("kept",)]

@@ -40,12 +40,12 @@ class Settings:
 
 def project_root(start: Path | None = None) -> Path:
     start = (start or Path.cwd()).resolve()
+
     for candidate in (start, *start.parents):
         if (candidate / "backend/app/configs/config.yaml").is_file():
             return candidate
-    raise AnalysisError(
-        "Run from the BioCosmos repository or pass its root explicitly."
-    )
+
+    raise AnalysisError("Run from the BioCosmos repository or pass its root explicitly.")
 
 
 def load_settings(root: Path | None = None) -> Settings:
@@ -57,32 +57,27 @@ def load_settings(root: Path | None = None) -> Settings:
     with (backend / "app/configs/config.yaml").open() as handle:
         config = yaml.safe_load(handle)
     directory = env.get("DUCK_DIR")
+
     if not directory:
-        raise AnalysisError(
-            "Set DUCK_DIR in backend/.env or the kernel environment."
-        )
+        raise AnalysisError("Set DUCK_DIR in backend/.env or the kernel environment.")
+
     directory = Path(directory).expanduser()
+
     if not directory.is_absolute():
         directory = backend / directory
+
     database = directory / config["db"]["duck"]["file"]
-    output = Path(
-        env.get(
-            "BIOCOSMOS_ANALYSES_OUTPUT", root / "analyses/results"
-        )
-    )
+    output = Path(env.get("BIOCOSMOS_ANALYSES_OUTPUT", root / "analyses/results"))
+
     if not output.is_absolute():
         output = root / "analyses" / output
-    if not output.resolve().is_relative_to(
-        (root / "analyses").resolve()
-    ):
-        raise AnalysisError(
-            "Figure output must remain inside analyses/."
-        )
+
+    if not output.resolve().is_relative_to((root / "analyses").resolve()):
+        raise AnalysisError("Figure output must remain inside analyses/.")
+
     tables = {
         "images": config["image_metadata"]["table"],
-        "excluded": config["image_metadata"].get(
-            "excluded_table", "image_meta_excluded"
-        ),
+        "excluded": config["image_metadata"].get("excluded_table", "image_meta_excluded"),
         "gbif": config["gbif"]["table"],
         "locality": config["locality"]["table"],
         "coordinates": config["locality"]["coordinates_table"],
@@ -105,27 +100,24 @@ def load_settings(root: Path | None = None) -> Settings:
             }
         )
     )
-    return Settings(
-        database.resolve(), output.resolve(), tables, exclude_families
-    )
+
+    return Settings(database.resolve(), output.resolve(), tables, exclude_families)
 
 
 @contextmanager
 def connect(settings: Settings):
     if not settings.database.is_file():
-        raise AnalysisError(
-            f"Database not found: {settings.database}"
-        )
+        raise AnalysisError(f"Database not found: {settings.database}")
+
     try:
-        connection = duckdb.connect(
-            str(settings.database), read_only=True
-        )
+        connection = duckdb.connect(str(settings.database), read_only=True)
     except duckdb.Error as error:
         raise AnalysisError(
             "Cannot open the analysis database read-only. If the backend holds its lock, "
             "stop the backend before running these notebooks, or set DUCK_DIR to an "
             "existing offline snapshot. The notebook will not stop services or copy a live DB."
         ) from error
+
     try:
         yield connection
     finally:
@@ -138,16 +130,10 @@ def table(
     name: str,
     required: tuple[str, ...],
 ) -> str:
-    identifier = qualified_name(
-        parse_table_identifier(settings.tables[name])
-    )
+    identifier = qualified_name(parse_table_identifier(settings.tables[name]))
+
     try:
-        columns = {
-            row[0]
-            for row in connection.execute(
-                f"DESCRIBE {identifier}"
-            ).fetchall()
-        }
+        columns = {row[0] for row in connection.execute(f"DESCRIBE {identifier}").fetchall()}
     except duckdb.Error as error:
         raise AnalysisError(
             f"Missing prepared table {identifier}. Prepare it outside the notebooks; "
@@ -155,11 +141,12 @@ def table(
             "prepares coordinate validation, and morphospace integrate prepares the "
             "morphospace tables."
         ) from error
+
     missing = set(required) - columns
+
     if missing:
-        raise AnalysisError(
-            f"{identifier} is missing required columns: {sorted(missing)}"
-        )
+        raise AnalysisError(f"{identifier} is missing required columns: {sorted(missing)}")
+
     return identifier
 
 
@@ -169,10 +156,9 @@ def unique_key(connection, identifier: str, key: str) -> None:
         f"SELECT count(*), count(DISTINCT {key}), count(*) FILTER "
         f"(WHERE {key} IS NULL OR trim(cast({key} AS VARCHAR)) = '') FROM {identifier}"
     ).fetchone()
+
     if missing or total != distinct:
-        raise AnalysisError(
-            f"{identifier} must contain one nonblank row key per {key}."
-        )
+        raise AnalysisError(f"{identifier} must contain one nonblank row key per {key}.")
 
 
 def text(column: str) -> str:
@@ -181,28 +167,29 @@ def text(column: str) -> str:
 
 def counts(connection, query: str, population: str) -> pd.DataFrame:
     """Aggregate a query with one category per member of the stated population."""
+
     frame = connection.execute(
         f"SELECT category, count(*)::BIGINT AS count FROM ({query}) "
         "GROUP BY category ORDER BY count DESC, category"
     ).df()
     total = int(frame["count"].sum())
+
     if not total:
-        raise AnalysisError(
-            f"No {population} are available for this figure."
-        )
+        raise AnalysisError(f"No {population} are available for this figure.")
+
     frame["percentage"] = frame["count"] * 100.0 / total
     frame["denominator"] = total
     frame["population"] = population
+
     return frame
 
 
 def image_table(connection, settings: Settings, extra=()) -> str:
     guard = ("family",) if settings.exclude_families else ()
-    identifier = table(
-        connection, settings, "images", ("img_id", *guard, *extra)
-    )
+    identifier = table(connection, settings, "images", ("img_id", *guard, *extra))
     unique_key(connection, identifier, "img_id")
     excluded_families(connection, settings, identifier)
+
     return identifier
 
 
@@ -215,17 +202,19 @@ def excluded_families(connection, settings: Settings, identifier: str) -> None:
     was added still has the raw table, and every figure drawn from it would
     count the excluded records.
     """
+
     if not settings.exclude_families:
         return
+
     # Written by the backend's taxonomy update: images whose harmonized family
     # is excluded although their recorded one is not.
     table(connection, settings, "excluded", ("img_id",))
     placeholders = ", ".join("?" for _ in settings.exclude_families)
     leaked = connection.execute(
-        f"SELECT count(*) FROM {identifier} "
-        f"WHERE lower(trim(family)) IN ({placeholders})",
+        f"SELECT count(*) FROM {identifier} WHERE lower(trim(family)) IN ({placeholders})",
         list(settings.exclude_families),
     ).fetchone()[0]
+
     if leaked:
         raise AnalysisError(
             f"{identifier} still holds {leaked:,} records of excluded families "
@@ -245,19 +234,16 @@ SOURCE_LABELS = {
 
 def source_label(value: str) -> str:
     """Render a recorded source_db key, including combined 'a/b' keys."""
+
     return " / ".join(
-        SOURCE_LABELS.get(
-            part.strip().lower(), part.strip().capitalize()
-        )
+        SOURCE_LABELS.get(part.strip().lower(), part.strip().capitalize())
         for part in value.split("/")
     )
 
 
 def dataset_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
     with connect(settings) as connection:
-        images = image_table(
-            connection, settings, ("uuid", "class_dv", "source_db")
-        )
+        images = image_table(connection, settings, ("uuid", "class_dv", "source_db"))
         taxonomy = table(
             connection,
             settings,
@@ -272,9 +258,7 @@ def dataset_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
             ),
         )
         unique_key(connection, taxonomy, "img_id")
-        joined = (
-            f"FROM {images} i LEFT JOIN {taxonomy} t USING (img_id)"
-        )
+        joined = f"FROM {images} i LEFT JOIN {taxonomy} t USING (img_id)"
         family = counts(
             connection,
             f"""
@@ -310,9 +294,8 @@ def dataset_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
             "images",
         )
         sources["category"] = sources["category"].map(source_label)
-        institutions = institution_counts(
-            connection, settings, images
-        )
+        institutions = institution_counts(connection, settings, images)
+
     return {
         "family": family,
         "views": views,
@@ -322,28 +305,15 @@ def dataset_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
     }
 
 
-def institution_counts(
-    connection, settings: Settings, images: str
-) -> pd.DataFrame:
+def institution_counts(connection, settings: Settings, images: str) -> pd.DataFrame:
     gbif = table(connection, settings, "gbif", ("occurrenceID",))
-    columns = {
-        row[0]
-        for row in connection.execute(f"DESCRIBE {gbif}").fetchall()
-    }
+    columns = {row[0] for row in connection.execute(f"DESCRIBE {gbif}").fetchall()}
+
     if not {"institutionID", "institutionCode"} & columns:
-        raise AnalysisError(
-            "GBIF requires institutionID or institutionCode for attribution."
-        )
-    institution_id = (
-        text('"institutionID"')
-        if "institutionID" in columns
-        else "NULL::VARCHAR"
-    )
-    code = (
-        text('"institutionCode"')
-        if "institutionCode" in columns
-        else "NULL::VARCHAR"
-    )
+        raise AnalysisError("GBIF requires institutionID or institutionCode for attribution.")
+
+    institution_id = text('"institutionID"') if "institutionID" in columns else "NULL::VARCHAR"
+    code = text('"institutionCode"') if "institutionCode" in columns else "NULL::VARCHAR"
     # Collapse repeated GBIF rows before joining images. A code-only row can be
     # associated with an ID only when that code maps to exactly one recorded ID.
     query = f"""
@@ -386,19 +356,18 @@ def institution_counts(
     frame.loc[duplicate_labels, "category"] = (
         frame.loc[duplicate_labels, "category"]
         + " ["
-        + frame.loc[
-            duplicate_labels, "institution_key"
-        ].str.removeprefix("id:")
+        + frame.loc[duplicate_labels, "institution_key"].str.removeprefix("id:")
         + "]"
     )
     total = int(frame["count"].sum())
+
     if not total:
-        raise AnalysisError(
-            "No images are available for institution attribution."
-        )
+        raise AnalysisError("No images are available for institution attribution.")
+
     frame["percentage"] = frame["count"] * 100.0 / total
     frame["denominator"] = total
     frame["population"] = "images"
+
     return frame
 
 
@@ -447,6 +416,7 @@ def geography_summaries(
         """,
             "images",
         )
+
     return {
         "coordinate_availability": available,
         "locality_availability": detailed,
@@ -480,14 +450,13 @@ def taxonomy_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
         )
         unique_key(connection, taxonomy, "img_id")
         unique_key(connection, matches, "input_taxon_key")
-        image_source = (
-            f"FROM {images} i LEFT JOIN {taxonomy} t USING (img_id)"
-        )
+        image_source = f"FROM {images} i LEFT JOIN {taxonomy} t USING (img_id)"
         taxon_source = f"""FROM (
             SELECT DISTINCT t.input_taxon_key FROM {images} i
             JOIN {taxonomy} t USING (img_id) WHERE {text("t.input_taxon_key")} IS NOT NULL
         ) k LEFT JOIN {matches} t USING (input_taxon_key)"""
         result = {}
+
         for unit, source, population in (
             ("images", image_source, "images"),
             ("taxa", taxon_source, "unique input taxa"),
@@ -501,6 +470,7 @@ def taxonomy_summaries(settings: Settings) -> dict[str, pd.DataFrame]:
                     f"SELECT coalesce({text('t.' + column)}, 'UNCLASSIFIED') AS category {source}",
                     population,
                 )
+
     return result
 
 
@@ -513,6 +483,7 @@ def bar_color(palette: str = DEFAULT_PALETTE):
 
 def pie_colors(wedges: int, palette: str = DEFAULT_PALETTE) -> list:
     """Colour wedges by position, so every pie in the manuscript shares one sequence."""
+
     return sns.color_palette(palette, n_colors=max(wedges, 1))
 
 
@@ -525,9 +496,8 @@ def display_label(label: str, keep_case: bool = False) -> str:
     keep_case leaves a label exactly as recorded, for identifiers such as institution
     codes whose capitalization carries meaning.
     """
-    return (
-        label if keep_case else label.replace("_", " ").capitalize()
-    )
+
+    return label if keep_case else label.replace("_", " ").capitalize()
 
 
 def top_share(
@@ -545,37 +515,32 @@ def top_share(
     records) are pooled as `excluded`. Residual rows are flagged so they plot last.
     Percentages are recomputed from counts over the unchanged denominator.
     """
+
     ranked = frame.loc[~frame["category"].isin(exclude)].sort_values(
         ["count", "category"], ascending=[False, True]
     )
-    rows = [
-        (row.category, int(row.count), False)
-        for row in ranked.head(top).itertuples()
-    ]
+    rows = [(row.category, int(row.count), False) for row in ranked.head(top).itertuples()]
+
     for label, count in (
         (other, int(ranked.iloc[top:]["count"].sum())),
         (
             excluded,
-            int(
-                frame.loc[
-                    frame["category"].isin(exclude), "count"
-                ].sum()
-            ),
+            int(frame.loc[frame["category"].isin(exclude), "count"].sum()),
         ),
     ):
         if count:
             rows.append((label, count, True))
-    result = pd.DataFrame(
-        rows, columns=["category", "count", "residual"]
-    )
+
+    result = pd.DataFrame(rows, columns=["category", "count", "residual"])
     total = int(frame["count"].sum())
+
     if int(result["count"].sum()) != total:
-        raise AnalysisError(
-            "Collapsed shares must preserve the full population."
-        )
+        raise AnalysisError("Collapsed shares must preserve the full population.")
+
     result["percentage"] = result["count"] * 100.0 / total
     result["denominator"] = total
     result["population"] = frame["population"].iloc[0]
+
     return result
 
 
@@ -618,14 +583,15 @@ def bar_plot(
     keep_case: bool = False,
 ):
     """Draw counts/proportions without renormalizing top-ten subsets."""
-    selected = frame.loc[
-        ~frame["category"].isin(exclude)
-    ].sort_values(["count", "category"], ascending=[False, True])
+
+    selected = frame.loc[~frame["category"].isin(exclude)].sort_values(
+        ["count", "category"], ascending=[False, True]
+    )
+
     if top:
         selected = selected.head(top)
-    excluded = int(
-        frame.loc[frame["category"].isin(exclude), "count"].sum()
-    )
+
+    excluded = int(frame.loc[frame["category"].isin(exclude), "count"].sum())
     metric = "percentage" if proportion else "count"
     labels = selected["category"].astype(str).tolist()
     # Bars are one category per row, so the axis labels carry the meaning and a
@@ -640,8 +606,10 @@ def bar_plot(
         [display_label(label, keep_case) for label in labels],
     )
     ax.invert_yaxis()
+
     if italic:
         plt.setp(ax.get_yticklabels(), fontstyle="italic")
+
     for i, row in enumerate(selected.itertuples()):
         ax.annotate(
             f"{row.count:,} ({row.percentage:.1f}%)",
@@ -651,6 +619,7 @@ def bar_plot(
             va="center",
             fontsize=18,
         )
+
     if selected.empty:
         ax.text(
             0.5,
@@ -659,9 +628,8 @@ def bar_plot(
             transform=ax.transAxes,
             ha="center",
         )
-    maximum = (
-        float(selected[metric].max()) if not selected.empty else 1
-    )
+
+    maximum = float(selected[metric].max()) if not selected.empty else 1
     ax.set_xlim(0, 100 if proportion else max(maximum * 1.5, 1))
     ax.set_xlabel(axis_label(frame, proportion))
     ax.set_title(
@@ -670,6 +638,7 @@ def bar_plot(
         fontsize=20,
     )
     sns.despine(ax=ax)
+
     return ax
 
 
@@ -687,20 +656,15 @@ def pie_plot(
     Rows flagged `residual` (see top_share) follow the ranked shares in gray, so a
     pooled "Other" never takes a palette colour that implies a single category.
     """
-    residual = (
-        frame["residual"]
-        if "residual" in frame
-        else pd.Series(False, frame.index)
-    )
-    ranked = frame.loc[~residual].sort_values(
-        ["count", "category"], ascending=[False, True]
-    )
+
+    residual = frame["residual"] if "residual" in frame else pd.Series(False, frame.index)
+    ranked = frame.loc[~residual].sort_values(["count", "category"], ascending=[False, True])
     selected = pd.concat([ranked, frame.loc[residual]])
     labels = selected["category"].astype(str).tolist()
+
     if int(residual.sum()) > len(RESIDUAL_COLORS):
-        raise ValueError(
-            f"A pie supports at most {len(RESIDUAL_COLORS)} residual groups."
-        )
+        raise ValueError(f"A pie supports at most {len(RESIDUAL_COLORS)} residual groups.")
+
     wedges, _ = ax.pie(
         selected["count"],
         colors=[
@@ -719,9 +683,7 @@ def pie_plot(
         wedges,
         [
             f"{display_label(label, keep_case)}: {row.count:,} ({row.percentage:.1f}%)"
-            for label, row in zip(
-                labels, selected.itertuples(), strict=True
-            )
+            for label, row in zip(labels, selected.itertuples(), strict=True)
         ],
         loc="center left",
         bbox_to_anchor=(0.98, 0.5),
@@ -730,12 +692,13 @@ def pie_plot(
         handlelength=1,
         handleheight=1,
     )
+
     if italic:
         plt.setp(legend.get_texts(), fontstyle="italic")
+
     ax.set_aspect("equal")
-    ax.set_title(
-        panel_title(frame, title, (), 0), loc="left", fontsize=20
-    )
+    ax.set_title(panel_title(frame, title, (), 0), loc="left", fontsize=20)
+
     return ax
 
 
@@ -757,18 +720,16 @@ def category_plot(
     Pass kind="pie" for a whole-population panel that is worth reading as shares of one
     total even though it has more than two classes.
     """
+
     if kind not in {"auto", "bar", "pie"}:
         raise ValueError("kind must be 'auto', 'bar', or 'pie'.")
+
     ranked = bool(top or exclude)
+
     if kind == "pie" and ranked:
-        raise ValueError(
-            "A pie must show its whole population; drop top and exclude."
-        )
-    if kind == "pie" or (
-        kind == "auto"
-        and not ranked
-        and frame["category"].nunique() == 2
-    ):
+        raise ValueError("A pie must show its whole population; drop top and exclude.")
+
+    if kind == "pie" or (kind == "auto" and not ranked and frame["category"].nunique() == 2):
         return pie_plot(
             ax,
             frame,
@@ -777,6 +738,7 @@ def category_plot(
             palette=palette,
             keep_case=keep_case,
         )
+
     return bar_plot(
         ax,
         frame,
@@ -798,21 +760,20 @@ def panel_left(ax) -> float:
     the width of its tick labels. Anything else, a map among them, is measured from
     its box, which an equal-aspect projection has already shrunk to the graphic.
     """
+
     box = ax.get_window_extent()
-    wedges = [
-        patch for patch in ax.patches if isinstance(patch, Wedge)
-    ]
+    wedges = [patch for patch in ax.patches if isinstance(patch, Wedge)]
+
     if wedges:
         return min(wedge.get_window_extent().x0 for wedge in wedges)
+
     if not ax.axison:
         # A map drawn without its axis keeps tick labels that are never drawn;
         # they must not pull its title off to the left.
         return box.x0
-    labels = [
-        label.get_window_extent().x0
-        for label in ax.get_yticklabels()
-        if label.get_text()
-    ]
+
+    labels = [label.get_window_extent().x0 for label in ax.get_yticklabels() if label.get_text()]
+
     return min(box.x0, *labels) if labels else box.x0
 
 
@@ -830,8 +791,10 @@ def align_panel_titles(axes) -> None:
     on one line. Call it after the layout is resolved (``fig.canvas.draw()``) and
     frozen, because it reads the positions that layout produced.
     """
+
     rows: dict[int, list] = {}
     columns: dict[tuple[int, int], float] = {}
+
     for ax in axes:
         figure = ax.get_figure()
         spec = ax.get_subplotspec()
@@ -841,21 +804,17 @@ def align_panel_titles(axes) -> None:
         top = round(figure.transSubfigure.transform((0, cell.y1))[1])
         rows.setdefault(top, []).append(ax)
         column = (spec.get_gridspec().ncols, spec.colspan.start)
-        columns[column] = min(
-            columns.get(column, float("inf")), panel_left(ax)
-        )
+        columns[column] = min(columns.get(column, float("inf")), panel_left(ax))
+
     for row in rows.values():
-        lines = max(
-            len(ax.get_title(loc="left").split("\n")) for ax in row
-        )
+        lines = max(len(ax.get_title(loc="left").split("\n")) for ax in row)
+
         for ax in row:
             spec = ax.get_subplotspec()
             box = ax.get_window_extent()
             title = ax.get_title(loc="left")
             padding = "\n " * (lines - len(title.split("\n")))
-            left = columns[
-                (spec.get_gridspec().ncols, spec.colspan.start)
-            ]
+            left = columns[(spec.get_gridspec().ncols, spec.colspan.start)]
             ax.set_title(
                 title + padding,
                 loc="left",
@@ -866,11 +825,8 @@ def align_panel_titles(axes) -> None:
 
 def axis_label(frame: pd.DataFrame, proportion: bool) -> str:
     population = str(frame["population"].iloc[0])
-    return (
-        f"Percentage of all {population} (%)"
-        if proportion
-        else f"Number of {population}"
-    )
+
+    return f"Percentage of all {population} (%)" if proportion else f"Number of {population}"
 
 
 def panel_title(
@@ -882,10 +838,10 @@ def panel_title(
     population = str(frame["population"].iloc[0])
     denominator = int(frame["denominator"].iloc[0])
     subtitle = f"N = {denominator:,} {population}"
+
     if exclude:
-        subtitle += (
-            f"; Unresolved/unattributed excluded: {excluded:,} images"
-        )
+        subtitle += f"; Unresolved/unattributed excluded: {excluded:,} images"
+
     return f"{title}\n{subtitle}"
 
 
@@ -896,49 +852,58 @@ def export_figure(
     summaries: dict[str, pd.DataFrame],
 ):
     if Path(name).name != name:
-        raise ValueError(
-            "Figure names must be plain filenames without directories."
-        )
+        raise ValueError("Figure names must be plain filenames without directories.")
+
     settings.output.mkdir(parents=True, exist_ok=True)
+
     for extension in ("pdf", "svg", "png"):
         figure.savefig(
             settings.output / f"{name}.{extension}",
             dpi=300,
             bbox_inches="tight",
         )
+
     for key, frame in summaries.items():
         if Path(key).name != key:
-            raise ValueError(
-                "Summary names must be plain filenames without directories."
-            )
-        frame.to_csv(
-            settings.output / f"{name}_{key}.csv", index=False
-        )
+            raise ValueError("Summary names must be plain filenames without directories.")
+
+        frame.to_csv(settings.output / f"{name}_{key}.csv", index=False)
 
 
 def benchmark_data(root: Path | None = None) -> pd.DataFrame:
     """Load the newest completed index benchmark, never a partial or curated CSV."""
+
     runs = project_root(root) / "analyses/results/indexing"
+
     for manifest_path in sorted(runs.glob("*/run.json"), reverse=True):
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
+
         if manifest.get("status") != "complete":
             continue
+
         if manifest.get("config", {}).get("top_k") != 10:
             raise AnalysisError(f"{manifest_path} must use top_k=10 for recall@10")
+
         csv_path = manifest_path.parent / "indexing_benchmark.csv"
+
         if not csv_path.is_file():
             raise AnalysisError(f"Completed benchmark is missing {csv_path}")
+
         frame = pd.read_csv(csv_path)
         required = {"index", "model", "avg_ms", "recall@10"}
+
         if not required.issubset(frame):
             raise AnalysisError(f"{csv_path} requires columns {sorted(required)}")
+
         # Preserve the figure's exclusion while retaining the unindexed baseline.
         frame = frame.loc[frame["index"] != "Flat (brute-force)"].copy()
         frame.attrs["source_run"] = str(manifest_path.parent)
+
         return frame
+
     raise AnalysisError(
         f"No completed index benchmark in {runs}. Run analyses/benchmarks/image_indexing.ipynb first."
     )

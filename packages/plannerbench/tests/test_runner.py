@@ -22,6 +22,7 @@ GOOD = response(("search_by_image_similarity", '{"reference_species": "Danaus pl
 def rate_limited(retry_after: str | None = "1") -> RateLimitError:
     headers = {"retry-after": retry_after} if retry_after is not None else {}
     request = httpx.Request("POST", "http://llm.test/v1/chat/completions")
+
     return RateLimitError(
         "Rate limit exceeded",
         response=httpx.Response(429, headers=headers, request=request),
@@ -37,6 +38,7 @@ def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
         recorded.append(seconds)
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
     return recorded
 
 

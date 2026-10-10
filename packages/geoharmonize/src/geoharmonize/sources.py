@@ -29,8 +29,10 @@ class CoordinateOccurrenceSource(OccurrenceSource):
         strict: bool = True,
     ) -> tuple[dict[str, str], list[str]]:
         """Resolve required coordinates and optional locality columns."""
+
         lower_names = self.index_by_casefold(available)
         resolved: dict[str, str] = {}
+
         for logical, physical in mappings.as_logical_dict().items():
             try:
                 resolved[logical] = self.resolve_requested(physical, available, lower_names)
@@ -45,17 +47,23 @@ class CoordinateOccurrenceSource(OccurrenceSource):
                     f"{self.identifier.display_name}: {error}. "
                     f"Inspect the source table with `{inspect_command}`."
                 ) from error
+
         self.autodetect(resolved, COORDINATE_COLUMNS, lower_names)
 
         warnings: list[str] = []
         missing = [field for field in ("latitude", "longitude") if field not in resolved]
+
         if missing:
             warnings.append("Required coordinate columns were not found: " + ", ".join(missing))
+
         incompatible = self.incompatible_columns(resolved, available)
+
         if incompatible:
             warnings.append("Incompatible coordinate columns: " + ", ".join(incompatible))
+
         if strict and warnings:
             raise SourceValidationError(" ".join(warnings))
+
         return resolved, warnings
 
     def inspect(self, mappings: CoordinateColumnMappings) -> CoordinateInspectionReport:
@@ -66,6 +74,7 @@ class CoordinateOccurrenceSource(OccurrenceSource):
                 resolved[field] for field in ("latitude", "longitude") if field in resolved
             ]
             row_count, distinct_count = self.count_rows_and_combinations(connection, point_columns)
+
         return CoordinateInspectionReport(
             database=self.database,
             table=self.identifier.display_name,

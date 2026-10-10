@@ -44,6 +44,7 @@ def run_fixture(tmp_path, references, inputs, *, top_k=5):
     index = ReferenceIndex(tmp_path / "cache").ensure(ColSource(reference))
     connection = duckdb.connect(str(tmp_path / "output.duckdb"))
     MatchPipeline(connection, source, columns, index.path, MatchingConfig(top_k=top_k)).run()
+
     return connection, index
 
 
@@ -160,6 +161,7 @@ def test_rank_cascade_and_parsing(tmp_path):
         ]
     )
     connection, _ = run_fixture(tmp_path, references, [row[:5] for row in cases])
+
     try:
         for name, rank, family, infra, author, accepted, method in cases:
             result = connection.execute(
@@ -172,10 +174,13 @@ def test_rank_cascade_and_parsing(tmp_path):
             ).fetchone()
             assert result is not None
             assert result[:2] == (accepted, method), (name, result)
+
             if method.startswith("SUBSPECIES"):
                 assert result[2] == "subspecies"
+
             if method.startswith("GENUS"):
                 assert result[2] == "genus"
+
         assert (
             connection.execute("""SELECT DISTINCT accepted_rank FROM taxonomy_candidates
             WHERE input_taxon_key IN (SELECT input_taxon_key FROM taxonomy_matches
@@ -193,13 +198,16 @@ def test_alternatives_before_top_k(tmp_path, count):
         ref(str(i), name, "species", family="Testidae") for i, name in enumerate(names[:count])
     ]
     references += [ref("G", "Unrelated", "genus")]
+
     if count:
         references += [
             ref("syn", names[0], "species", family="Testidae", status="synonym", parent="0")
         ]
+
     connection, _ = run_fixture(
         tmp_path, references, [("Xenus beta", "species", "Testidae", None, None)], top_k=1
     )
+
     try:
         all_names = [
             row[0]
@@ -221,6 +229,7 @@ def test_alternatives_before_top_k(tmp_path, count):
         assert "runner_up_name" not in columns and "runner_up_score" not in columns
     finally:
         connection.close()
+
     path = SummaryService().export_csv(tmp_path / "output.duckdb", tmp_path, force=False)
     with path.open() as stream:
         row = next(csv.DictReader(stream))
@@ -289,6 +298,7 @@ def test_accepted_species_binomial(tmp_path):
         ("Unknown missing", "species", None, None, None),
     ]
     connection, _ = run_fixture(tmp_path, references, inputs)
+
     try:
         results = dict(
             connection.execute(
@@ -306,6 +316,7 @@ def test_accepted_species_binomial(tmp_path):
         }
     finally:
         connection.close()
+
     result = SummaryService().export_csv(tmp_path / "output.duckdb", tmp_path, force=False)
     with result.open() as stream:
         exported = {

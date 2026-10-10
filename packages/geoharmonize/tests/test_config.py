@@ -26,6 +26,7 @@ def test_unknown_toml_key_is_rejected() -> None:
 
 def test_other_tools_tables_are_ignored() -> None:
     """One shared file may carry colharmonize's tables without breaking this tool."""
+
     project = ProjectConfig.model_validate(
         {"matching": {"top_k": 3}, "coordinates": {"tile_size": 10}}
     )
@@ -34,6 +35,7 @@ def test_other_tools_tables_are_ignored() -> None:
 
 def test_taxonomy_keys_in_run_table_are_ignored(tmp_path: Path) -> None:
     """`[run]` is owned by colharmonize; its extra keys must not break this tool."""
+
     occurrence = tmp_path / "source.duckdb"
     occurrence.touch()
     project = ProjectConfig.model_validate(
@@ -93,6 +95,7 @@ def test_write_back_table_is_read_from_the_coordinates_table(
     Each TOML table forbids unknown keys, so this also guards the field itself
     against being dropped from the model.
     """
+
     project = ProjectConfig.model_validate(
         {
             "coordinates": {

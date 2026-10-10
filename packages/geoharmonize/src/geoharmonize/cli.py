@@ -22,11 +22,13 @@ app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
 def _fail(exc: Exception) -> typer.Exit:
     typer.echo(f"Error: {exc}", err=True)
+
     return typer.Exit(code=2)
 
 
 def _echo_run_summary(result: CoordinateRunResult) -> None:
     """Report what the run found, in the same shape for both commands."""
+
     typer.echo(f"Created {result.database_path}")
     counts = result.counts
     mismatch_count = counts.get("COUNTRY_MISMATCH", 0) + counts.get("ADM1_MISMATCH", 0)
@@ -50,8 +52,10 @@ def init_command(
     force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Generate a commented TOML configuration template."""
+
     try:
         path = create_template(output, force=force)
+
         if path is not None:
             typer.echo(f"Created {path}")
     except HarmonizeError as exc:
@@ -68,31 +72,42 @@ def inspect_command(
     mappings: Annotated[list[str] | None, typer.Option("--map")] = None,
 ) -> None:
     """List or inspect DuckDB tables without validating coordinates."""
+
     try:
         project = load_project_config(config)
         database = db or project.coordinates.db or project.run.db
+
         if database is None:
             raise ConfigurationError("inspect requires --db, directly or in TOML")
+
         if list_tables or list_columns is not None:
             catalog = DuckDBCatalog(database)
+
             if list_tables:
                 tables = catalog.list_tables()
                 typer.echo("Schema\tTable\tType")
+
                 for item in tables:
                     typer.echo(f"{item.schema_name}\t{item.table_name}\t{item.table_type}")
+
             if list_columns is not None:
                 columns = catalog.list_columns(list_columns)
                 typer.echo(f"Columns in {list_columns}:")
                 typer.echo("Name\tType\tNullable")
+
                 for column in columns:
                     nullable = "YES" if column.nullable else "NO"
                     typer.echo(f"{column.name}\t{column.data_type}\t{nullable}")
+
             return
+
         table_name = table or project.coordinates.table or project.run.table
+
         if table_name is None:
             raise ConfigurationError(
                 "inspect requires --table, --list-tables, or --list-columns TABLE"
             )
+
         mapping_data = project.coordinate_columns.model_dump()
         mapping_data.update(parse_coordinate_mapping_options(mappings))
         report = CoordinateOccurrenceSource(database, table_name).inspect(
@@ -103,10 +118,13 @@ def inspect_command(
         typer.echo(f"Rows: {report.row_count:,}")
         typer.echo(f"Distinct coordinate pairs: {report.distinct_point_count:,}")
         typer.echo("Detected columns:")
+
         for logical, physical in sorted(report.detected_columns.items()):
             typer.echo(f"  {logical}: {physical}")
+
         for warning in report.warnings:
             typer.echo(f"Warning: {warning}")
+
         if not report.valid:
             raise typer.Exit(code=2)
     except (HarmonizeError, ValueError) as exc:
@@ -132,6 +150,7 @@ def validate_command(
     Reads the occurrence database and never writes to it; use `integrate` to
     write the result back.
     """
+
     try:
         result = execute_coordinate_run(
             config=config,
@@ -150,6 +169,7 @@ def validate_command(
         )
     except (HarmonizeError, ValueError, duckdb.Error) as exc:
         raise _fail(exc) from exc
+
     _echo_run_summary(result)
 
 
@@ -175,6 +195,7 @@ def integrate_command(
     can be joined straight back to the table it was read from. DuckDB allows a
     single writer, so nothing else may hold the database open.
     """
+
     try:
         result = execute_coordinate_run(
             config=config,
@@ -196,14 +217,17 @@ def integrate_command(
         )
     except (HarmonizeError, ValueError, duckdb.Error) as exc:
         raise _fail(exc) from exc
+
     _echo_run_summary(result)
     report = result.write_back
     assert report is not None
     typer.echo(f"Wrote {report.row_count:,} rows to {report.table}")
+
     if report.skipped_null_source_ids:
         typer.echo(
             f"Warning: {report.skipped_null_source_ids:,} rows had no source id and were skipped"
         )
+
     if report.distinct_source_ids != report.row_count:
         duplicates = report.row_count - report.distinct_source_ids
         typer.echo(

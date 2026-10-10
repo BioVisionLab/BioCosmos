@@ -21,16 +21,20 @@ _HASH_BLOCK = 1024 * 1024
 
 def file_sha256(path: Path) -> str:
     """Return the SHA-256 digest of a file, read in fixed-size blocks."""
+
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(_HASH_BLOCK), b""):
             digest.update(block)
+
     return digest.hexdigest()
 
 
 def describe_artifact(role: str, path: Path) -> ArtifactDigest:
     """Digest a finished artifact so a consumer can detect changes to it."""
+
     resolved = path.resolve()
+
     return ArtifactDigest(
         role=role,
         path=resolved,
@@ -41,6 +45,7 @@ def describe_artifact(role: str, path: Path) -> ArtifactDigest:
 
 def write_json_atomically(destination: Path, payload: dict[str, object]) -> Path:
     """Write JSON deterministically through a temporary file in the same directory."""
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
     temporary.write_text(
@@ -48,6 +53,7 @@ def write_json_atomically(destination: Path, payload: dict[str, object]) -> Path
         encoding="utf-8",
     )
     os.replace(temporary, destination)
+
     return destination
 
 
@@ -70,10 +76,13 @@ class ArtifactRepository:
     @contextmanager
     def build_database(self, *, force: bool) -> Iterator[duckdb.DuckDBPyConnection]:
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
         if self.database_path.exists() and not force:
             raise OutputError(f"Output database already exists: {self.database_path}")
+
         temporary = self.output_dir / f".{self.database_name}.{uuid.uuid4().hex}.tmp"
         connection = duckdb.connect(str(temporary))
+
         try:
             yield connection
             connection.execute("CHECKPOINT")
@@ -87,4 +96,5 @@ class ArtifactRepository:
     def write_manifest(self, manifest: BaseModel, *, force: bool) -> Path:
         if self.manifest_path.exists() and not force:
             raise OutputError(f"Manifest already exists: {self.manifest_path}")
+
         return write_json_atomically(self.manifest_path, manifest.model_dump(mode="json"))

@@ -26,15 +26,18 @@ SPECIES = {
 def _collection(tmp_path: Path) -> tuple[Path, Path]:
     rng = np.random.default_rng(3)
     meta, ids, vectors = [], [], []
+
     for name, direction in SPECIES.items():
         base = np.zeros(WIDTH)
         base[:2] = direction
+
         for side in ("Dorsal", "ventral"):
             for number in range(3):
                 img_id = f"{name.replace(' ', '_').lower()}_{side.lower()}_{number}"
                 meta.append((img_id, name, side))
                 ids.append(img_id)
                 vectors.append(base + 0.01 * rng.normal(size=WIDTH))
+
     # An image with an embedding but no metadata row (an excluded family).
     ids.append("moth")
     vectors.append(np.eye(WIDTH)[0])
@@ -58,6 +61,7 @@ def _collection(tmp_path: Path) -> tuple[Path, Path]:
         }
     )
     lancedb.connect(str(lance_dir)).create_table("images", arrow)
+
     return database, lance_dir
 
 
@@ -68,11 +72,13 @@ def _run(database: Path, lance_dir: Path, *extra: str):
         + list(extra),
     )
     assert result.exit_code == 0, result.output
+
     return result
 
 
 def _rows(database: Path, query: str) -> list[tuple]:
     connection = duckdb.connect(str(database), read_only=True)
+
     try:
         return connection.execute(query).fetchall()
     finally:

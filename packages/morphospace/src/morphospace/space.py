@@ -60,6 +60,7 @@ def _make_scope(
     group_species: np.ndarray,
 ) -> Scope:
     groups = kept_groups[np.isin(group_species[kept_groups], species)]
+
     return Scope(rank, key, name, parent, species, groups)
 
 
@@ -67,17 +68,20 @@ def enumerate_scopes(
     groups: Groups, keep: np.ndarray, *, min_species: int
 ) -> dict[str, list[Scope]]:
     """Every scope with at least `min_species` species that have a kept group."""
+
     group_species = groups.group_species
     kept_groups = np.flatnonzero(keep)
     kept_species = np.unique(group_species[kept_groups])
 
     scopes: dict[str, list[Scope]] = {rank: [] for rank in RANKS}
+
     if len(kept_species) >= min_species:
         scopes["all"].append(
             _make_scope("all", "all", "All species", None, kept_species, kept_groups, group_species)
         )
 
     kept_taxa = groups.taxa.filter(pl.col("species_id").is_in(kept_species.tolist()))
+
     for rank in ("family", "genus"):
         members = (
             kept_taxa.filter(pl.col(f"{rank}_key").fill_null("") != "")
@@ -91,6 +95,7 @@ def enumerate_scopes(
             .filter(pl.col("species_id").list.len() >= min_species)
             .sort(f"{rank}_key")
         )
+
         for key, species, name, family in members.iter_rows():
             parent = str(family) if rank == "genus" and family else None
             scopes[rank].append(
@@ -104,6 +109,7 @@ def enumerate_scopes(
                     group_species,
                 )
             )
+
     return scopes
 
 
@@ -114,9 +120,11 @@ def fit_space(scope: Scope, groups: Groups, centroids: np.ndarray) -> ScopeSpace
     so that a species with only a dorsal photograph does not pull the axes
     towards dorsal-only variation. Species with one side are still projected.
     """
+
     group_species = groups.group_species[scope.groups]
     species, sides = np.unique(group_species, return_counts=True)
     paired = species[sides == len(SIDES)]
+
     if len(paired) >= 3:
         basis_groups, basis = scope.groups[np.isin(group_species, paired)], "both_sides"
     else:
@@ -132,6 +140,7 @@ def fit_space(scope: Scope, groups: Groups, centroids: np.ndarray) -> ScopeSpace
     components[:, :count] = np.asarray(pca.components_).T
     explained = np.zeros(COMPONENTS)
     explained[:count] = np.nan_to_num(pca.explained_variance_ratio_)
+
     return ScopeSpace(
         basis=basis,
         both_sides=len(paired),
@@ -146,9 +155,12 @@ def scope_lookup(scopes: list[Scope], species_count: int) -> np.ndarray:
 
     A species is in at most one scope per rank, so one array covers the rank.
     """
+
     lookup = np.full(species_count, -1, dtype=np.int64)
+
     for number, scope in enumerate(scopes):
         lookup[scope.species] = number
+
     return lookup
 
 
@@ -156,16 +168,21 @@ def project_rank(
     spaces: list[ScopeSpace], scope_numbers: np.ndarray, vectors: np.ndarray
 ) -> np.ndarray:
     """PC1 and PC2 of each vector in its scope's space; NaN outside every scope."""
+
     xy = np.full((len(vectors), 2), np.nan)
     rows = np.flatnonzero(scope_numbers >= 0)
+
     if len(rows) == 0:
         return xy
+
     # Sort once so each scope is one contiguous slice, then project the slices.
     rows = rows[np.argsort(scope_numbers[rows], kind="stable")]
     numbers = scope_numbers[rows]
     starts = np.flatnonzero(np.r_[True, numbers[1:] != numbers[:-1]])
     ends = np.r_[starts[1:], len(rows)]
+
     for start, end in zip(starts, ends, strict=True):
         block = rows[start:end]
         xy[block] = spaces[numbers[start]].project(vectors[block])[:, :2]
+
     return xy

@@ -41,8 +41,10 @@ class Override(BaseModel):
     def _has_a_name_source(self) -> Override:
         if not self.name and not self.use_publisher:
             raise ValueError("an override needs a name or use_publisher = true")
+
         if self.homepage and not self.homepage.startswith(("http://", "https://")):
             raise ValueError(f"homepage must be an http(s) URL, got {self.homepage!r}")
+
         return self
 
 
@@ -51,19 +53,24 @@ def _parse(text: str, origin: str) -> dict[str, Override]:
         document = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise ConfigurationError(f"{origin}: {error}") from error
+
     entries = document.get("institutions", {})
     overrides: dict[str, Override] = {}
+
     for code, entry in entries.items():
         try:
             overrides[code.strip()] = Override.model_validate(entry)
         except ValidationError as error:
             raise ConfigurationError(f"{origin}: institution {code!r}: {error}") from error
+
     return overrides
 
 
 def load_overrides(extra: Path | None = None, *, bundled: bool = True) -> dict[str, Override]:
     """The bundled overrides, with `extra` layered on top when given."""
+
     overrides: dict[str, Override] = {}
+
     if bundled:
         text = (
             resources.files("instharmonize.resources")
@@ -71,19 +78,24 @@ def load_overrides(extra: Path | None = None, *, bundled: bool = True) -> dict[s
             .read_text(encoding="utf-8")
         )
         overrides.update(_parse(text, BUNDLED_OVERRIDES))
+
     if extra is not None:
         try:
             text = extra.read_text(encoding="utf-8")
         except OSError as error:
             raise ConfigurationError(f"Cannot read overrides {extra}: {error}") from error
+
         overrides.update(_parse(text, str(extra)))
+
     return overrides
 
 
 def overrides_digest(overrides: Mapping[str, Override]) -> str:
     """A short, order-independent digest, so a cache can tell an edit happened."""
+
     payload = json.dumps(
         {code: entry.model_dump() for code, entry in sorted(overrides.items())},
         sort_keys=True,
     )
+
     return hashlib.sha256(payload.encode()).hexdigest()[:12]

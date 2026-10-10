@@ -62,6 +62,7 @@ def _scope(count: int) -> tuple[Scope, Groups, np.ndarray]:
     groups = build_groups(_labels(rows))
     scope = Scope("genus", "alpha", "Alpha", None, np.arange(count), np.arange(groups.size))
     centroids = _unit(np.random.default_rng(count).normal(size=(groups.size, 6)))
+
     return scope, groups, centroids.astype(np.float32)
 
 
@@ -70,6 +71,7 @@ def test_fit_space_pins_the_largest_loading_positive():
     space = fit_space(scope, groups, centroids)
     assert space.basis == "both_sides"
     assert space.explained.sum() <= 1.0 + 1e-9
+
     for column in range(COMPONENTS):
         loadings = space.components[:, column]
         assert loadings[np.argmax(np.abs(loadings))] > 0

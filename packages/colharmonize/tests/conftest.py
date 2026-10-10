@@ -54,6 +54,7 @@ def col_tsv(tmp_path: Path) -> Path:
         "genericName\tspecificEpithet\tfamily\n"
     )
     path.write_text(header + "".join("\t".join(row) + "\n" for row in rows), encoding="utf-8")
+
     return path
 
 
@@ -88,4 +89,5 @@ def occurrence_db(tmp_path: Path) -> Path:
     ]
     connection.executemany("INSERT INTO occurrence VALUES (?, ?, ?, ?, ?, ?)", rows)
     connection.close()
+
     return path

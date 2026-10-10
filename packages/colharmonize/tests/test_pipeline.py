@@ -21,11 +21,13 @@ def _run_pipeline(occurrence_db: Path, col_tsv: Path, tmp_path: Path) -> duckdb.
     index = ReferenceIndex(tmp_path / "cache").ensure(ColSource(col_tsv))
     connection = duckdb.connect(":memory:")
     MatchPipeline(connection, occurrence, columns, index.path, MatchingConfig()).run()
+
     return connection
 
 
 def test_matching_methods_and_statuses(occurrence_db: Path, col_tsv: Path, tmp_path: Path) -> None:
     connection = _run_pipeline(occurrence_db, col_tsv, tmp_path)
+
     try:
         results = dict(
             connection.execute(
@@ -56,6 +58,7 @@ def test_candidates_are_collapsed_and_limited(
     occurrence_db: Path, col_tsv: Path, tmp_path: Path
 ) -> None:
     connection = _run_pipeline(occurrence_db, col_tsv, tmp_path)
+
     try:
         duplicate_count = connection.execute(
             """
@@ -79,6 +82,7 @@ def test_candidates_are_collapsed_and_limited(
 def test_stable_input_key_and_summary(occurrence_db: Path, col_tsv: Path, tmp_path: Path) -> None:
     first = _run_pipeline(occurrence_db, col_tsv, tmp_path)
     second = _run_pipeline(occurrence_db, col_tsv, tmp_path)
+
     try:
         first_keys = first.execute(
             "SELECT input_taxon_key FROM input_taxa ORDER BY input_taxon_key"

@@ -15,6 +15,7 @@ def test_matching_cardinality_is_independent_of_duplicate_count(
 ) -> None:
     index = ReferenceIndex(tmp_path / "cache").ensure(ColSource(col_tsv))
     cardinalities = []
+
     for copies in (10, 10_000):
         path = tmp_path / f"occurrence-{copies}.duckdb"
         connection = duckdb.connect(str(path))
@@ -35,6 +36,7 @@ def test_matching_cardinality_is_independent_of_duplicate_count(
                 source.columns(source_connection), mappings, strict=True
             )
         output = duckdb.connect(":memory:")
+
         try:
             MatchPipeline(output, source, columns, index.path, MatchingConfig()).run()
             cardinalities.append(
@@ -45,5 +47,6 @@ def test_matching_cardinality_is_independent_of_duplicate_count(
             )
         finally:
             output.close()
+
     assert cardinalities[0] == cardinalities[1]
     assert cardinalities[0][0] == 2

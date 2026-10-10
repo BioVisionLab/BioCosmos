@@ -29,7 +29,9 @@ class DuckDBCatalog:
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
         if not self.database.is_file():
             raise SourceValidationError(f"DuckDB database does not exist: {self.database}")
+
         connection = duckdb.connect(str(self.database), read_only=True)
+
         try:
             yield connection
         finally:
@@ -45,6 +47,7 @@ class DuckDBCatalog:
                 ORDER BY table_schema, table_name
                 """
             ).fetchall()
+
         return [
             CatalogTable(schema_name=row[0], table_name=row[1], table_type=row[2]) for row in rows
         ]
@@ -61,8 +64,10 @@ class DuckDBCatalog:
                 """,
                 [identifier.schema_name, identifier.table_name],
             ).fetchall()
+
         if not rows:
             raise SourceValidationError(f"Table does not exist: {identifier.display_name}")
+
         return [
             CatalogColumn(name=row[0], data_type=row[1], nullable=row[2] == "YES") for row in rows
         ]
@@ -84,7 +89,9 @@ class OccurrenceSource:
     def connect(self, *, read_only: bool = True) -> Iterator[duckdb.DuckDBPyConnection]:
         if not self.database.is_file():
             raise SourceValidationError(f"Occurrence database does not exist: {self.database}")
+
         connection = duckdb.connect(str(self.database), read_only=read_only)
+
         try:
             yield connection
         finally:
@@ -100,16 +107,21 @@ class OccurrenceSource:
             """,
             [self.identifier.schema_name, self.identifier.table_name],
         ).fetchall()
+
         if not rows:
             raise SourceValidationError(f"Table does not exist: {self.identifier.display_name}")
+
         return dict(rows)
 
     @staticmethod
     def index_by_casefold(available: Mapping[str, str]) -> dict[str, list[str]]:
         """Group the available column names by their case-folded spelling."""
+
         lower_names: dict[str, list[str]] = {}
+
         for name in available:
             lower_names.setdefault(name.casefold(), []).append(name)
+
         return lower_names
 
     @staticmethod
@@ -119,11 +131,15 @@ class OccurrenceSource:
         lower_names: Mapping[str, list[str]],
     ) -> str:
         """Resolve one explicitly mapped column, tolerating case differences."""
+
         if name in available:
             return name
+
         matches = lower_names.get(name.casefold(), [])
+
         if len(matches) == 1:
             return matches[0]
+
         raise SourceValidationError(f"Mapped column does not exist or is ambiguous: {name}")
 
     @staticmethod
@@ -133,11 +149,14 @@ class OccurrenceSource:
         lower_names: Mapping[str, list[str]],
     ) -> None:
         """Fill unmapped logical fields from their unambiguous standard aliases."""
+
         for logical, candidates in aliases.items():
             if logical in resolved:
                 continue
+
             for candidate in candidates:
                 matches = lower_names.get(candidate.casefold(), [])
+
                 if len(matches) == 1:
                     resolved[logical] = matches[0]
                     break
@@ -147,6 +166,7 @@ class OccurrenceSource:
         resolved: Mapping[str, str], available: Mapping[str, str]
     ) -> list[str]:
         """List resolved columns whose DuckDB type cannot be read as text."""
+
         return [
             f"{logical}={physical} ({available[physical]})"
             for logical, physical in resolved.items()
@@ -157,12 +177,15 @@ class OccurrenceSource:
         self, connection: duckdb.DuckDBPyConnection, columns: Sequence[str]
     ) -> tuple[int, int]:
         """Count table rows and distinct combinations of the given columns."""
+
         table = qualified_name(self.identifier)
         row = connection.execute(f"SELECT count(*) FROM {table}").fetchone()
         assert row is not None
         row_count = row[0]
+
         if not columns:
             return row_count, 0
+
         fields = ", ".join(
             f"{quote_identifier(f'v{index}')} := cast({quote_identifier(name)} AS VARCHAR)"
             for index, name in enumerate(columns)
@@ -171,4 +194,5 @@ class OccurrenceSource:
             f"SELECT count(DISTINCT to_json(struct_pack({fields}))) FROM {table}"
         ).fetchone()
         assert distinct_row is not None
+
         return row_count, distinct_row[0]

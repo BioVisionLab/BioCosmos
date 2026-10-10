@@ -39,6 +39,7 @@ def test_pie_label_positions_are_spread_and_bounded() -> None:
 def test_empty_plot_uses_fallback(tmp_path: Path) -> None:
     database = tmp_path / "empty.duckdb"
     connection = duckdb.connect(str(database))
+
     try:
         connection.execute(
             "CREATE TABLE taxonomy_matches (update_status VARCHAR, match_method VARCHAR)"

@@ -33,24 +33,32 @@ class PlannerRun:
 
 def manifest_path(root: Path | None = None) -> Path:
     """The selected planner manifest: the override, else the latest planner run."""
+
     override = os.getenv("BIOCOSMOS_PLANNER_MANIFEST")
+
     if override:
         path = Path(override).expanduser().resolve()
     else:
         reports_dir = project_root(root) / "reports"
         latest_path = reports_dir / "latest.json"
+
         if not latest_path.is_file():
             raise FileNotFoundError(
                 "No reports/latest.json found. Run plannerbench or set "
                 "BIOCOSMOS_PLANNER_MANIFEST to a planner run.json."
             )
+
         latest = json.loads(latest_path.read_text(encoding="utf-8"))
         planner_latest = latest.get("planner")
+
         if not planner_latest or not planner_latest.get("manifest"):
             raise ValueError("reports/latest.json has no planner benchmark entry")
+
         path = (reports_dir / planner_latest["manifest"]).resolve()
+
     if not path.is_file():
         raise FileNotFoundError(f"Planner manifest not found: {path}")
+
     return path
 
 
@@ -59,26 +67,35 @@ def load_planner_run(root: Path | None = None) -> PlannerRun:
 
     Absolute artifact paths recorded on another machine are ignored.
     """
+
     path = manifest_path(root)
     manifest = json.loads(path.read_text(encoding="utf-8"))
     trials_path = path.parent / "trials.jsonl"
+
     if not trials_path.is_file():
         raise FileNotFoundError(f"Planner trials not found beside manifest: {trials_path}")
+
     trials = pd.read_json(trials_path, lines=True)
     models = manifest.get("models", [])
+
     if not models or not manifest.get("summaries"):
         raise ValueError("Planner manifest has no models or summaries")
+
     if trials.empty:
         raise ValueError("Planner trials file is empty")
+
     palette = dict(
         zip(models, sns.color_palette(DEFAULT_PALETTE, n_colors=len(models)), strict=True)
     )
     summary = pd.DataFrame(manifest["summaries"]).set_index("model").reindex(models)
+
     for column in ("prompt_tokens", "completion_tokens"):
         if column not in summary:
             summary[column] = 0
+
     if "total_tokens" not in summary:
         summary["total_tokens"] = summary["prompt_tokens"] + summary["completion_tokens"]
+
     summary["successful_trials"] = summary["trials"] - summary["api_errors"]
     summary["tokens_per_success"] = summary["total_tokens"] / summary["successful_trials"].replace(
         0, pd.NA
@@ -93,11 +110,13 @@ def load_planner_run(root: Path | None = None) -> PlannerRun:
             for model in models
         }
     ).T
+
     return PlannerRun(manifest, path, trials, summary, models, palette, per_case)
 
 
 def describe(run: PlannerRun) -> str:
     manifest = run.manifest
+
     return "\n".join(
         (
             f"Run: {manifest.get('run_id', run.manifest_path.parent.name)}",
@@ -111,20 +130,26 @@ def describe(run: PlannerRun) -> str:
 
 def unavailable_models(run: PlannerRun) -> list[str]:
     """Models without a successful call: provider failures, not model results."""
+
     summary = run.summary
+
     return summary.index[summary["api_errors"] == summary["trials"]].tolist()
 
 
 def pareto_leaders(frame: pd.DataFrame, cost_column: str) -> list:
     """Rows no other row matches on accuracy and cost while beating it on one."""
+
     leaders = []
+
     for model, row in frame.iterrows():
         no_worse = (frame["accuracy"] >= row["accuracy"]) & (frame[cost_column] <= row[cost_column])
         strictly_better = (frame["accuracy"] > row["accuracy"]) | (
             frame[cost_column] < row[cost_column]
         )
+
         if not (no_worse & strictly_better).any():
             leaders.append(model)
+
     return leaders
 
 
@@ -145,10 +170,12 @@ def quality_cost_panel(
 
     `marker_scale` multiplies marker areas, for figures printed smaller.
     """
+
     panel = eligible(run)[["accuracy", cost_column]].apply(pd.to_numeric, errors="coerce").dropna()
     panel = panel.loc[panel["accuracy"].map(math.isfinite) & panel[cost_column].map(math.isfinite)]
     leaders = pareto_leaders(panel, cost_column)
     frontier = panel.loc[leaders].sort_values(cost_column)
+
     if len(frontier) > 1:
         ax.plot(
             frontier[cost_column],
@@ -158,6 +185,7 @@ def quality_cost_panel(
             alpha=0.45,
             zorder=1,
         )
+
     for model, row in panel.iterrows():
         is_leader = model in leaders
         ax.scatter(
@@ -170,8 +198,10 @@ def quality_cost_panel(
             alpha=1 if is_leader else 0.72,
             zorder=3 if is_leader else 2,
         )
+
     if panel.empty:
         ax.text(0.5, 0.5, "No eligible models", transform=ax.transAxes, ha="center")
+
     ax.set(xlabel=xlabel, ylabel="Accuracy", ylim=(0, 1.03))
     ax.set_title(title, loc=title_loc)
     sns.despine(ax=ax)
@@ -204,6 +234,7 @@ def model_legend_handles(run: PlannerRun) -> list[Line2D]:
             label="Best performance model",
         )
     )
+
     return handles
 
 
@@ -216,6 +247,7 @@ def per_case_panel(
     value_size: float = 14,
 ) -> None:
     """Share of correct repeats per model and benchmark case."""
+
     sns.heatmap(
         run.per_case,
         annot=True,

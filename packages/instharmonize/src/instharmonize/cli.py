@@ -24,6 +24,7 @@ OUTPUT_FIELDS = ("code", "name", "homepage", "country", "grscicoll_key", "source
 
 def _fail(exc: Exception) -> typer.Exit:
     typer.echo(f"Error: {exc}", err=True)
+
     return typer.Exit(code=2)
 
 
@@ -47,6 +48,7 @@ def lookup_command(
     api_url: Annotated[str, typer.Option("--api-url")] = DEFAULT_API_URL,
 ) -> None:
     """Resolve one code. A --dataset-key makes ambiguous codes resolvable."""
+
     try:
         record = InstitutionRecord(
             institution_code=code,
@@ -59,8 +61,10 @@ def lookup_command(
         institution = _resolver(overrides, api_url, 1).resolve(record)
     except HarmonizeError as exc:
         raise _fail(exc) from exc
+
     for field in OUTPUT_FIELDS:
         typer.echo(f"{field}: {getattr(institution, field) or ''}")
+
     if institution.retry:
         typer.echo("The GBIF registry could not be reached; try again.", err=True)
         raise typer.Exit(code=1)
@@ -83,6 +87,7 @@ def resolve_command(
     api_url: Annotated[str, typer.Option("--api-url")] = DEFAULT_API_URL,
 ) -> None:
     """Resolve every institution code in a GBIF occurrence source to CSV."""
+
     try:
         records = _read_source(source, table)
         resolved = _resolver(overrides, api_url, workers).resolve_all(records)
@@ -90,15 +95,18 @@ def resolve_command(
         raise _fail(exc) from exc
 
     occurrences: dict[str, int] = {}
+
     for record in records:
         code = record.institution_code.strip()
         occurrences[code] = occurrences.get(code, 0) + record.occurrences
+
     rows = sorted(resolved.values(), key=lambda i: occurrences.get(i.code, 0), reverse=True)
     _write_csv(rows, occurrences, output)
 
     named = sum(1 for institution in rows if institution.resolved)
     typer.echo(f"Resolved {named:,} of {len(rows):,} institution codes.", err=True)
     retry = [institution.code for institution in rows if institution.retry]
+
     if retry:
         typer.echo(f"Registry errors, not resolved: {', '.join(retry)}", err=True)
 
@@ -106,10 +114,13 @@ def resolve_command(
 def _read_source(source: Path, table: str | None) -> list[InstitutionRecord]:
     if not source.exists():
         raise SourceValidationError(f"{source} does not exist")
+
     if table is not None:
         with duckdb.connect(str(source), read_only=True) as connection:
             columns = [row[0] for row in connection.execute(f"DESCRIBE {table}").fetchall()]
+
             return read_records(connection, table, columns)
+
     with duckdb.connect() as connection:
         relation = (
             f"read_csv_auto('{str(source).replace(chr(39), chr(39) * 2)}', "
@@ -118,14 +129,17 @@ def _read_source(source: Path, table: str | None) -> list[InstitutionRecord]:
         columns = [
             row[0] for row in connection.execute(f"DESCRIBE SELECT * FROM {relation}").fetchall()
         ]
+
         return read_records(connection, relation, columns)
 
 
 def _write_csv(rows: list[Institution], occurrences: dict[str, int], output: Path | None) -> None:
     handle = output.open("w", newline="", encoding="utf-8") if output else sys.stdout
+
     try:
         writer = csv.writer(handle)
         writer.writerow([*OUTPUT_FIELDS, "occurrences"])
+
         for institution in rows:
             writer.writerow(
                 [getattr(institution, f) or "" for f in OUTPUT_FIELDS]

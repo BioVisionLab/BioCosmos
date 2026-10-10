@@ -20,14 +20,18 @@ MODEL_MARKERS = {"UNICOM": "s", "CLIP": "o"}
 
 def pareto_leaders(frame: pd.DataFrame) -> list:
     """Rows no other row matches on recall and latency while beating it on one."""
+
     leaders = []
+
     for label, row in frame.iterrows():
         no_worse = (frame["recall@10"] >= row["recall@10"]) & (frame["avg_ms"] <= row["avg_ms"])
         strictly_better = (frame["recall@10"] > row["recall@10"]) | (
             frame["avg_ms"] < row["avg_ms"]
         )
+
         if not (no_worse & strictly_better).any():
             leaders.append(label)
+
     return leaders
 
 
@@ -37,10 +41,12 @@ def index_benchmark(root: Path | None = None) -> pd.DataFrame:
     An index is chosen for one embedding model, so it is only compared with the other
     indexes on the same embeddings.
     """
+
     benchmark = benchmark_data(root)
     indexed = benchmark.loc[benchmark["index"] != BASELINE]
     leaders = [label for _, group in indexed.groupby("model") for label in pareto_leaders(group)]
     benchmark["best_index"] = benchmark.index.isin(leaders)
+
     return benchmark
 
 
@@ -65,10 +71,12 @@ def index_panel(
 
     `marker_scale` multiplies marker areas, for figures printed smaller.
     """
+
     indexes = list(dict.fromkeys(benchmark["index"]))
     palette = dict(
         zip(indexes, sns.color_palette(DEFAULT_PALETTE, n_colors=len(indexes)), strict=True)
     )
+
     for _, rows in benchmark.loc[benchmark["best_index"]].groupby("model"):
         if len(rows) > 1:
             frontier = rows.sort_values("avg_ms")
@@ -80,6 +88,7 @@ def index_panel(
                 alpha=0.45,
                 zorder=1,
             )
+
     for _, row in benchmark.iterrows():
         best = row["best_index"]
         ax.scatter(
@@ -93,6 +102,7 @@ def index_panel(
             alpha=1 if best else 0.72,
             zorder=3 if best else 2,
         )
+
     ax.set(xlabel="Mean latency (ms, log scale)", ylabel="Recall@10", ylim=(0, 1.04))
     ax.set_xscale("log")
     handles = [

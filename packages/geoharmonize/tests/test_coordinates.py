@@ -34,6 +34,7 @@ def _run_coordinate_pipeline(coordinate_db: Path, gadm_gpkg: Path) -> duckdb.Duc
     )
     pipeline.run()
     pipeline.refresh_metrics()
+
     return connection
 
 
@@ -47,6 +48,7 @@ def test_name_normalization_and_country_resolution() -> None:
 
 def test_coordinate_checks_and_locality_statuses(coordinate_db: Path, gadm_gpkg: Path) -> None:
     connection = _run_coordinate_pipeline(coordinate_db, gadm_gpkg)
+
     try:
         statuses = dict(
             connection.execute(
@@ -81,6 +83,7 @@ def test_spatial_work_uses_distinct_points_and_retains_candidates(
     coordinate_db: Path, gadm_gpkg: Path
 ) -> None:
     connection = _run_coordinate_pipeline(coordinate_db, gadm_gpkg)
+
     try:
         assert connection.execute("SELECT count(*) FROM coordinate_points").fetchone()[0] == 3
         duplicate_point = connection.execute(
@@ -107,6 +110,7 @@ def test_spatial_work_uses_distinct_points_and_retains_candidates(
 
 def test_coordinate_summary_metrics(coordinate_db: Path, gadm_gpkg: Path) -> None:
     connection = _run_coordinate_pipeline(coordinate_db, gadm_gpkg)
+
     try:
         pipeline_count = connection.execute(
             "SELECT count(*) FROM coordinate_validation"

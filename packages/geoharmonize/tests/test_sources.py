@@ -34,8 +34,10 @@ def test_inspect_counts_distinct_points(coordinate_db: Path) -> None:
 
 def test_img_id_is_detected_as_a_source_id(tmp_path: Path) -> None:
     """BioCosmos keys occurrences on img_id rather than a Darwin Core id."""
+
     path = tmp_path / "images.duckdb"
     connection = duckdb.connect(str(path))
+
     try:
         connection.execute("CREATE TABLE images(img_id VARCHAR, lat DOUBLE, lon DOUBLE)")
     finally:
@@ -56,6 +58,7 @@ def test_img_id_is_detected_as_a_source_id(tmp_path: Path) -> None:
 def test_invalid_mapping_identifies_field_table_and_inspection_command(tmp_path: Path) -> None:
     path = tmp_path / "images.duckdb"
     connection = duckdb.connect(str(path))
+
     try:
         connection.execute("CREATE TABLE images(img_id VARCHAR, lat DOUBLE, lon DOUBLE)")
     finally:

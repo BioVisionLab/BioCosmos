@@ -103,11 +103,13 @@ def spec() -> PlannerSpec:
 def spec_file(tmp_path: Path) -> Path:
     path = tmp_path / "planner_spec.json"
     path.write_text(json.dumps(spec_payload()), encoding="utf-8")
+
     return path
 
 
 def response(*calls: tuple[str, str], content: str | None = None) -> SimpleNamespace:
     """A chat-completions response carrying the given (name, arguments) tool calls."""
+
     message = SimpleNamespace(
         content=content,
         tool_calls=[
@@ -116,6 +118,7 @@ def response(*calls: tuple[str, str], content: str | None = None) -> SimpleNames
         ]
         or None,
     )
+
     return SimpleNamespace(
         choices=[SimpleNamespace(message=message, finish_reason="tool_calls")],
         usage=SimpleNamespace(prompt_tokens=100, completion_tokens=10),
@@ -136,8 +139,11 @@ class FakeClient:
     async def _create(self, **request: Any) -> Any:
         self.requests.append(request)
         outcome = self.script[(request["model"], request["messages"][-1]["content"])]
+
         if isinstance(outcome, list):
             outcome = outcome.pop(0)
+
         if isinstance(outcome, Exception):
             raise outcome
+
         return outcome

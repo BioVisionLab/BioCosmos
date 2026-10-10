@@ -46,11 +46,15 @@ _COUNTRY_ALIASES = {
 @cache
 def resolve_country_code(value: str | None) -> str | None:
     """Resolve country names and alpha-2/alpha-3 codes to ISO alpha-3."""
+
     if value is None or not value.strip():
         return None
+
     cleaned = re.sub(r"\s+", " ", value.strip()).casefold()
+
     if cleaned in _COUNTRY_ALIASES:
         return _COUNTRY_ALIASES[cleaned]
+
     try:
         return str(pycountry.countries.lookup(value.strip()).alpha_3)
     except LookupError:
@@ -83,6 +87,7 @@ class CoordinateValidationPipeline:
         stage: Callable[[str], AbstractContextManager[None]] | None = None,
     ) -> None:
         """Run all coordinate stages, optionally reporting long operations."""
+
         report = stage or (lambda _label: nullcontext())
         operations = (
             ("Attach occurrence data", self._attach_source),
@@ -91,12 +96,14 @@ class CoordinateValidationPipeline:
             ("Intersect coordinates with GADM polygons", self._match_points),
             ("Resolve coordinate validation statuses", self._create_validation),
         )
+
         for label, operation in operations:
             with report(label):
                 operation()
 
     def refresh_metrics(self) -> None:
         """Create compact counts for each validation component."""
+
         self.connection.execute("DROP TABLE IF EXISTS coordinate_summary_metrics")
         self.connection.execute(
             """
@@ -144,8 +151,10 @@ class CoordinateValidationPipeline:
 
     def _source_expr(self, logical: str) -> str:
         physical = self.columns.get(logical)
+
         if physical is None:
             return "NULL::VARCHAR"
+
         return f"cast({quote_identifier(physical)} AS VARCHAR)"
 
     def _extract_inputs(self) -> None:
@@ -237,6 +246,7 @@ class CoordinateValidationPipeline:
             )
             """
         )
+
         if self.features:
             self.connection.executemany(
                 "INSERT INTO coordinate_reference_subset VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -276,18 +286,22 @@ class CoordinateValidationPipeline:
             "SELECT point_key, latitude, longitude FROM coordinate_points"
         ).fetchall()
         ordered_features = sorted(self.features, key=lambda feature: feature.feature_id)
+
         for point_key, latitude, longitude in point_rows:
             x = float(longitude)
             y = float(latitude)
             point = Point(x, y)
             regions: dict[tuple[str, str], GadmFeature] = {}
+
             for feature in ordered_features:
                 if not (
                     feature.min_x <= x <= feature.max_x and feature.min_y <= y <= feature.max_y
                 ):
                     continue
+
                 if feature.geometry.intersects(point):
                     regions.setdefault((feature.gid0, feature.gid1), feature)
+
             candidates.extend(
                 (
                     str(point_key),
@@ -299,11 +313,13 @@ class CoordinateValidationPipeline:
                 )
                 for feature in regions.values()
             )
+
         if candidates:
             self.connection.executemany(
                 "INSERT INTO coordinate_reference_candidates VALUES (?, ?, ?, ?, ?, ?)",
                 candidates,
             )
+
         self.connection.execute(
             """
             CREATE TABLE coordinate_point_matches AS

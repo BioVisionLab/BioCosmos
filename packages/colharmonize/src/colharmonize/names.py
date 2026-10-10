@@ -7,6 +7,7 @@ def subspecies_epithet_sql(name: str, authorship: str) -> str:
     Strip supplied authorship first. Rank markers are accepted, while an unmarked
     epithet must be lowercase in the source (before name normalization).
     """
+
     return rf"""nullif(regexp_extract(
         regexp_replace(
             CASE WHEN nullif(trim({authorship}), '') IS NOT NULL

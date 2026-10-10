@@ -14,7 +14,9 @@ from harmonize_core.identifiers import quote_literal
 
 def resolve_palette_name(palette: str) -> str:
     """Return a valid Seaborn palette name, matching named palettes case-insensitively."""
+
     requested = palette.strip()
+
     if not requested:
         raise ValueError("Plot palette cannot be empty")
 
@@ -26,6 +28,7 @@ def resolve_palette_name(palette: str) -> str:
 
     try:
         sns.color_palette(requested)
+
         return requested
     except (KeyError, ValueError) as original_error:
         seaborn_names = getattr(sns.palettes, "SEABORN_PALETTES", {})
@@ -35,18 +38,22 @@ def resolve_palette_name(palette: str) -> str:
             (name for name in known_names if name.casefold() == requested.casefold()),
             None,
         )
+
         if canonical is None:
             raise ValueError(
                 f"Unknown Seaborn palette {palette!r}; "
                 "choose a named palette such as Dark2, Set2, or colorblind"
             ) from original_error
+
         sns.color_palette(canonical)
+
         return canonical
 
 
 def _status_label(status: str, count: int, total: int) -> str:
     percentage = count / total if total else 0.0
     name = status.replace("_", " ").title()
+
     return f"{name} — {count:,} ({percentage:.1%})"
 
 
@@ -58,22 +65,31 @@ def _spread_label_positions(
     upper: float = 0.95,
 ) -> dict[int, float]:
     """Spread label positions vertically while preserving their order."""
+
     if not values:
         return {}
+
     ordered = sorted(values, key=lambda item: item[1])
     adjusted = [[index, max(lower, position)] for index, position in ordered]
+
     for position in range(1, len(adjusted)):
         adjusted[position][1] = max(adjusted[position][1], adjusted[position - 1][1] + minimum_gap)
+
     overflow = adjusted[-1][1] - upper
+
     if overflow > 0:
         for item in adjusted:
             item[1] -= overflow
+
     for position in range(len(adjusted) - 2, -1, -1):
         adjusted[position][1] = min(adjusted[position][1], adjusted[position + 1][1] - minimum_gap)
+
     underflow = lower - adjusted[0][1]
+
     if underflow > 0:
         for item in adjusted:
             item[1] += underflow
+
     return {int(index): float(position) for index, position in adjusted}
 
 
@@ -102,10 +118,13 @@ class SummaryService:
 
     def export_csv(self, database: Path, output_dir: Path, *, force: bool) -> Path:
         destination = output_dir / "taxonomy_summary.csv"
+
         if destination.exists() and not force:
             raise OutputError(f"CSV already exists: {destination}")
+
         temporary = output_dir / f".taxonomy_summary.{uuid.uuid4().hex}.csv"
         connection = duckdb.connect(str(database), read_only=True)
+
         try:
             columns = {
                 row[1]
@@ -144,6 +163,7 @@ class SummaryService:
         finally:
             connection.close()
             temporary.unlink(missing_ok=True)
+
         return destination
 
     def export_plot(
@@ -156,10 +176,13 @@ class SummaryService:
     ) -> Path:
         palette = resolve_palette_name(palette)
         destination = output_dir / "taxonomy_match_summary.png"
+
         if destination.exists() and not force:
             raise OutputError(f"Plot already exists: {destination}")
+
         temporary = output_dir / f".taxonomy_match_summary.{uuid.uuid4().hex}.png"
         connection = duckdb.connect(str(database), read_only=True)
+
         try:
             status_rows = connection.execute(
                 """
@@ -216,6 +239,7 @@ class SummaryService:
             )
             callouts: dict[int, list[tuple[int, float]]] = {-1: [], 1: []}
             anchors: dict[int, tuple[float, float]] = {}
+
             for index, wedge in enumerate(wedges):
                 angle = radians((wedge.theta1 + wedge.theta2) / 2)
                 anchor = (cos(angle), sin(angle))
@@ -231,6 +255,7 @@ class SummaryService:
                 _status_label(label, count, status_total)
                 for label, count in zip(status_labels, status_counts, strict=True)
             ]
+
             for index, label in enumerate(pie_labels):
                 anchor_x, anchor_y = anchors[index]
                 side = 1 if anchor_x >= 0 else -1
@@ -247,11 +272,13 @@ class SummaryService:
                         "connectionstyle": "arc3,rad=0.08",
                     },
                 )
+
             status_axis.set_xlim(-1.5, 1.5)
             status_axis.set_ylim(-1.2, 1.2)
         else:
             status_axis.text(0.5, 0.5, "No input taxa", ha="center", va="center")
             status_axis.set_axis_off()
+
         status_axis.set_title("Update status", fontweight="bold", pad=14)
 
         method_labels = [str(row[0]).replace("_", " ").title() for row in method_rows]
@@ -265,8 +292,10 @@ class SummaryService:
             for count in method_counts
         ]
         method_axis.bar_label(bars, labels=value_labels, padding=5, fontsize=9)
+
         if method_counts:
             method_axis.set_xlim(0, max(method_counts) * 1.3)
+
         method_axis.set_title("How matched taxa were resolved", fontweight="bold", pad=14)
         method_axis.set_xlabel("Distinct input taxa")
         method_axis.set_ylabel("Match method")
@@ -279,4 +308,5 @@ class SummaryService:
         figure.savefig(temporary, dpi=180)
         plt.close(figure)
         os.replace(temporary, destination)
+
         return destination

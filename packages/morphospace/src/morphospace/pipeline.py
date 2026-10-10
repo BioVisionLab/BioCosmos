@@ -78,10 +78,13 @@ def execute_run(
     timer = perf_counter()
     progress = RunReporter(total_steps=STEPS)
     run_id = str(uuid.uuid4())
+
     if output is None:
         if reports_dir is None:
             raise SourceValidationError("Pass --output or --reports-dir.")
+
         output = run_directory(reports_dir, REPORT_KIND, run_id)
+
     rng = np.random.default_rng(parameters.seed)
 
     with progress.step("Read image sides and harmonized taxa"):
@@ -91,8 +94,10 @@ def execute_run(
             taxonomy_table=taxonomy_table,
             exclude_families=parameters.exclude_families,
         )
+
         if len(labels) == 0:
             raise SourceValidationError("No image has a side and a matched accepted species.")
+
         groups = build_groups(labels)
         table = open_embeddings(lance_dir, lance_table)
 
@@ -164,6 +169,7 @@ def execute_run(
             counts=counts,
         )
         repository.write_manifest(manifest, force=force)
+
         if reports_dir is not None and output.resolve().is_relative_to(reports_dir.resolve()):
             update_latest(
                 reports_dir,
@@ -172,6 +178,7 @@ def execute_run(
                 completed_at=completed.isoformat(),
                 manifest=repository.manifest_path,
             )
+
     return RunResult(
         run_id=run_id,
         output_dir=output,
@@ -184,18 +191,20 @@ def execute_run(
 
 def first_pass(table, groups: Groups, parameters: MorphospaceParameters) -> CentroidAccumulator:
     """Species × side vector sums and image counts."""
+
     accumulator: CentroidAccumulator | None = None
-    
+
     for ids, vectors in iter_embeddings(
         table, parameters.embedding_column, batch_size=parameters.batch_size
     ):
         if accumulator is None:
             accumulator = CentroidAccumulator(groups, vectors.shape[1])
+
         accumulator.add(ids, vectors)
 
     if accumulator is None or accumulator.embedded == 0:
         raise SourceValidationError("No labelled image has an embedding.")
-    
+
     return accumulator
 
 
@@ -212,6 +221,7 @@ def second_pass(
 
     The PC columns are NaN for an image whose species is in no scope of that rank.
     """
+
     group_species = groups.group_species
     lookups = {rank: scope_lookup(scopes[rank], groups.taxa.height) for rank in RANKS}
     frames: list[pl.DataFrame] = []
@@ -221,8 +231,10 @@ def second_pass(
     ):
         matched = groups.lookup(ids)
         matched = matched.filter(pl.Series(keep[matched["group_id"].to_numpy()]))
+
         if matched.height == 0:
             continue
+
         group_ids = matched["group_id"].to_numpy()
         usable = vectors[matched["row"].to_numpy()]
         columns: dict[str, object] = {
@@ -231,9 +243,11 @@ def second_pass(
             "similarity": np.einsum("ij,ij->i", usable, centroids[group_ids]).astype(np.float64),
         }
         species = group_species[group_ids]
+
         for rank in RANKS:
             xy = project_rank(spaces[rank], lookups[rank][species], usable)
             columns[f"{rank}_x"], columns[f"{rank}_y"] = xy[:, 0], xy[:, 1]
+
         frames.append(pl.DataFrame(columns))
 
     return pl.concat(frames)
@@ -251,7 +265,6 @@ def build_tables(
     parameters: MorphospaceParameters,
     rng: np.random.Generator,
 ) -> dict[str, pl.DataFrame]:
-    
     side_groups = groups.side_groups(keep)
     kept = kept_groups(groups, counts, keep, group_stats(images))
     points = points_frame(groups, kept, centroids, scopes, spaces, ellipse_stats(images))

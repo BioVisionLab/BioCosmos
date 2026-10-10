@@ -30,6 +30,7 @@ def _run(collection, output: Path, parameters=PARAMETERS):
 
 def _rows(database: Path, query: str) -> list[tuple]:
     connection = duckdb.connect(str(database), read_only=True)
+
     try:
         return connection.execute(query).fetchall()
     finally:
@@ -137,6 +138,7 @@ def test_labels_leave_out_excluded_families(collection):
     from morphospace.sources import load_labels
 
     connection = duckdb.connect(str(collection.database))
+
     try:
         connection.execute(
             "INSERT INTO image_meta VALUES ('moth_d', 'castnia_x', 'dorsal'), "

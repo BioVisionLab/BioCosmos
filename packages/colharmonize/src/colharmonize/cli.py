@@ -47,8 +47,10 @@ def init_command(
     force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Generate a commented TOML configuration template."""
+
     try:
         path = create_template(output, force=force)
+
         if path is not None:
             typer.echo(f"Created {path}")
     except HarmonizeError as exc:
@@ -65,31 +67,42 @@ def inspect_command(
     mappings: Annotated[list[str] | None, typer.Option("--map")] = None,
 ) -> None:
     """List or inspect DuckDB tables without performing matching."""
+
     try:
         project = load_project_config(config)
         database = db or project.run.db
+
         if database is None:
             raise ConfigurationError("inspect requires --db, directly or in TOML")
+
         if list_tables or list_columns is not None:
             catalog = DuckDBCatalog(database)
+
             if list_tables:
                 tables = catalog.list_tables()
                 typer.echo("Schema\tTable\tType")
+
                 for item in tables:
                     typer.echo(f"{item.schema_name}\t{item.table_name}\t{item.table_type}")
+
             if list_columns is not None:
                 columns = catalog.list_columns(list_columns)
                 typer.echo(f"Columns in {list_columns}:")
                 typer.echo("Name\tType\tNullable")
+
                 for column in columns:
                     nullable = "YES" if column.nullable else "NO"
                     typer.echo(f"{column.name}\t{column.data_type}\t{nullable}")
+
             return
+
         table_name = table or project.run.table
+
         if table_name is None:
             raise ConfigurationError(
                 "inspect requires --table, --list-tables, or --list-columns TABLE"
             )
+
         mapping_data = project.columns.model_dump(by_alias=True)
         mapping_data.update(parse_mapping_options(mappings))
         report = TaxonOccurrenceSource(database, table_name).inspect(
@@ -100,10 +113,13 @@ def inspect_command(
         typer.echo(f"Rows: {report.row_count:,}")
         typer.echo(f"Distinct taxonomic combinations: {report.distinct_taxon_count:,}")
         typer.echo("Detected columns:")
+
         for logical, physical in sorted(report.detected_columns.items()):
             typer.echo(f"  {logical}: {physical}")
+
         for warning in report.warnings:
             typer.echo(f"Warning: {warning}")
+
         if not report.valid:
             raise typer.Exit(code=2)
     except (HarmonizeError, ValueError) as exc:
@@ -118,11 +134,14 @@ def index_command(
     rebuild: Annotated[bool, typer.Option("--rebuild")] = False,
 ) -> None:
     """Create or reuse a local Catalogue of Life index."""
+
     try:
         project = load_project_config(config)
         source_path = col or project.run.col
+
         if source_path is None:
             raise ConfigurationError("index requires --col, directly or in TOML")
+
         cache = cache_dir or project.run.cache_dir or Path.home() / ".cache" / "colharmonize"
         info = ReferenceIndex(cache).ensure(ColSource(source_path), rebuild=rebuild)
         action = "Reused" if info.reused else "Created"
@@ -134,10 +153,13 @@ def index_command(
 
 def _resolve_reports_dir(cli_value: Path | None, config_value: Path | None) -> Path | None:
     """Pick the reports root, preferring the CLI over the configuration file."""
+
     if cli_value is not None:
         return cli_value
+
     if config_value is not None:
         return config_value
+
     return DEFAULT_REPORTS_DIR if DEFAULT_REPORTS_DIR.is_dir() else None
 
 
@@ -169,16 +191,20 @@ def run_command(
     write_back_table: Annotated[str | None, typer.Option("--write-back-table")] = None,
 ) -> None:
     """Match distinct occurrence taxa against a Catalogue of Life release."""
+
     started = datetime.now(UTC)
     timer_started = perf_counter()
     progress = RunReporter(total_steps=10)
     run_id = str(uuid.uuid4())
+
     try:
         with progress.step("Validate configuration and input columns"):
             project = load_project_config(config)
             reports_root = _resolve_reports_dir(reports_dir, project.run.reports_dir)
+
             if output is None and reports_root is not None:
                 output = run_directory(reports_root, REPORT_KIND, run_id)
+
             effective = merge_run_config(
                 project,
                 overrides=_run_overrides(
@@ -272,10 +298,12 @@ def run_command(
         with progress.step("Export requested artifacts"):
             summary = SummaryService()
             produced: dict[str, Path] = {"database": repository.database_path}
+
             if effective.csv:
                 produced["csv"] = summary.export_csv(
                     repository.database_path, effective.output, force=effective.force
                 )
+
             if effective.plot:
                 produced["plot"] = summary.export_plot(
                     repository.database_path,
@@ -283,10 +311,13 @@ def run_command(
                     force=effective.force,
                     palette=resolved_plot_palette,
                 )
+
             outputs = {role: str(path.resolve()) for role, path in produced.items()}
+
             if effective.write_back_table:
                 repository.write_back(effective.db, effective.write_back_table)
                 outputs["write_back_table"] = effective.write_back_table
+
             outputs["manifest"] = str(repository.manifest_path.resolve())
 
         total = sum(counts.values())
@@ -295,6 +326,7 @@ def run_command(
             runtime_seconds = perf_counter() - timer_started
             taxa_per_second = total / runtime_seconds if runtime_seconds > 0 else None
             metadata_connection = duckdb.connect(str(repository.database_path))
+
             try:
                 metadata_connection.execute(
                     "UPDATE run_metadata SET completed_at = ?, runtime_seconds = ?",
@@ -302,6 +334,7 @@ def run_command(
                 )
             finally:
                 metadata_connection.close()
+
             artifacts = [describe_artifact(role, path) for role, path in produced.items()]
             manifest = RunManifest(
                 run_id=run_id,
@@ -324,6 +357,7 @@ def run_command(
                 counts={"total": total, **{key.lower(): value for key, value in counts.items()}},
             )
             manifest_path = repository.write_manifest(manifest, force=effective.force)
+
             if reports_root is not None:
                 update_latest(
                     reports_root,
@@ -356,23 +390,30 @@ def summarize_command(
     force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Regenerate metrics and optional artifacts from a completed run."""
+
     try:
         if not input_database.is_file():
             raise ConfigurationError(f"Output database does not exist: {input_database}")
+
         resolved_plot_palette = resolve_palette_name(plot_palette) if plot else plot_palette
         service = SummaryService()
         connection = duckdb.connect(str(input_database))
+
         try:
             service.refresh_metrics(connection)
         finally:
             connection.close()
+
         output_dir = input_database.parent
+
         if csv:
             service.export_csv(input_database, output_dir, force=force)
+
         if plot:
             service.export_plot(
                 input_database, output_dir, force=force, palette=resolved_plot_palette
             )
+
         typer.echo(f"Summarized {input_database}")
     except (HarmonizeError, ValueError, duckdb.Error) as exc:
         _fail(exc)
