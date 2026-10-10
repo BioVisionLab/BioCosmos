@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import duckdb
+import lancedb
 import numpy as np
 import polars as pl
 from harmonize_core.errors import SourceValidationError
@@ -110,8 +111,6 @@ def load_labels(
 
 def open_embeddings(lance_dir: Path, table: str):
     """Open the LanceDB table holding the image embeddings."""
-
-    import lancedb
 
     if not lance_dir.exists():
         raise SourceValidationError(f"LanceDB directory not found: {lance_dir}")

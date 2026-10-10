@@ -11,6 +11,7 @@ from morphospace.cli import app
 from morphospace.models import MorphospaceParameters
 from morphospace.outputs import MorphospaceOutputRepository
 from morphospace.pipeline import execute_run
+from morphospace.sources import load_labels
 
 PARAMETERS = MorphospaceParameters(
     min_images=2, bootstrap=20, permutations=19, rarefy_k=3, batch_size=17
@@ -135,8 +136,6 @@ def test_cli_run_and_integrate(collection, tmp_path):
 
 
 def test_labels_leave_out_excluded_families(collection):
-    from morphospace.sources import load_labels
-
     connection = duckdb.connect(str(collection.database))
 
     try:

@@ -45,12 +45,15 @@ def build_spec() -> dict:
     system_prompt = prompts.router_agent
 
     validation_schemas = {}
+
     for spec in registry.values():
         schema = _compact_schema(spec.args_model.model_json_schema())
+
         if spec.name == "search_by_traits":
             # TraitArgs rejects an empty call in a pydantic validator, which
             # the JSON schema cannot express on its own.
             schema["minProperties"] = 1
+
         validation_schemas[spec.name] = schema
 
     fingerprint = hashlib.sha256(

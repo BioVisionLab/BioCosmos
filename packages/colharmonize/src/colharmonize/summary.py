@@ -8,8 +8,11 @@ from math import cos, radians, sin
 from pathlib import Path
 
 import duckdb
+import seaborn as sns
 from harmonize_core.errors import OutputError
 from harmonize_core.identifiers import quote_literal
+from matplotlib import colormaps
+from matplotlib.figure import Figure
 
 
 def resolve_palette_name(palette: str) -> str:
@@ -19,12 +22,6 @@ def resolve_palette_name(palette: str) -> str:
 
     if not requested:
         raise ValueError("Plot palette cannot be empty")
-
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import seaborn as sns
-    from matplotlib import colormaps
 
     try:
         sns.color_palette(requested)
@@ -205,12 +202,6 @@ class SummaryService:
         finally:
             connection.close()
 
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import seaborn as sns
-        from matplotlib import pyplot as plt
-
         sns.set_theme(style="whitegrid", context="notebook")
         status_labels = [str(row[0]) for row in status_rows]
         status_counts = [int(row[1]) for row in status_rows]
@@ -222,12 +213,8 @@ class SummaryService:
             "UNMATCHED": status_palette[2],
         }
 
-        figure, (status_axis, method_axis) = plt.subplots(
-            1,
-            2,
-            figsize=(14, 6.5),
-            gridspec_kw={"width_ratios": (0.9, 1.25)},
-        )
+        figure = Figure(figsize=(14, 6.5))
+        status_axis, method_axis = figure.subplots(1, 2, gridspec_kw={"width_ratios": (0.9, 1.25)})
 
         if status_total:
             wedges, _ = status_axis.pie(
@@ -306,7 +293,6 @@ class SummaryService:
         figure.suptitle("Taxonomy match summary", fontsize=16, fontweight="bold")
         figure.tight_layout(rect=(0, 0.02, 1, 0.95))
         figure.savefig(temporary, dpi=180)
-        plt.close(figure)
         os.replace(temporary, destination)
 
         return destination

@@ -47,6 +47,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     table = lancedb.connect(args.db).open_table(args.table)
+
     try:
         report = migrate(
             table,
@@ -59,15 +60,20 @@ def main():
         )
     except MigrationError as error:
         print(f"Refused: {error}", file=sys.stderr)
+
         return 1
 
     verb = "Applied" if report.applied else "Would apply"
     print(f"{args.db}/{args.table} at version {report.start_version}")
+
     if not report.steps:
         print("Already up to date.")
+
     print(f"{verb}:")
+
     for step in report.steps:
         print(f"  - {step}")
+
     if report.applied:
         print(f"Undo within seven days with table.restore({report.start_version}).")
     else:
