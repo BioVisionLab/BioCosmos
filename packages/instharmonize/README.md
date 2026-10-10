@@ -1,9 +1,14 @@
 # instharmonize
 
-Resolves occurrence `institutionCode` abbreviations (`MCZ`, `NHMUK`, `ZRC`) to
-the institution's full name and website. It uses two public GBIF registries:
-[GRSciColl](https://scientific-collections.gbif.org) for institutions, and the
-GBIF organization registry for dataset publishers.
+Resolve occurrence `institutionCode` abbreviations such as `MCZ`, `NHMUK`, and
+`ZRC` to institution names and websites. The resolver uses two public GBIF
+registries: [GRSciColl](https://scientific-collections.gbif.org) for
+institutions, and the GBIF organization registry for dataset publishers.
+
+## Usage
+
+Run from the repository root. Stop the backend before resolving records from its
+live DuckDB file.
 
 ```bash
 uv run instharmonize lookup MCZ
@@ -12,29 +17,27 @@ uv run instharmonize resolve gbif-occurrence.tsv -o institutions.csv
 uv run instharmonize resolve occurrences.duckdb --table gbif_meta -o institutions.csv
 ```
 
-## Motivation
+## How resolution works
 
-Natural history museum codes are not unique. GRSciColl lists four institutions under `TU`, and none of
-them is the University of Tartu, which publishes this data as `TU`. A bare code
-search maps `KSU` to King Saud University and `UI` to the Bureau of Land
-Management, when the records come from Kansas State and the University of
-Idaho. Each code is therefore resolved in the context of the datasets it
-appears in. The strongest evidence wins:
+Institution codes are not unique. A code-only lookup can assign records to the
+wrong institution: `KSU` can refer to King Saud University or Kansas State
+University, for example. The resolver uses the datasets associated with each
+code to decide which institution it represents, in this order:
 
-| `source`             | Evidence                                                                                                    |
-| -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `curated`            | An entry in the overrides file                                                                              |
+| `source`             | Evidence                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `curated`            | An entry in the overrides file                                                                                     |
 | `verbatim`           | The code field, or an `institutionID` standing in for a blank code, holds a name ("Naturalis Biodiversity Center") |
-| `grscicoll_exact`    | GRSciColl's dataset-aware lookup matched exactly, e.g. on a ROR or GRSciColl `institutionID`                |
-| `grscicoll_verified` | A GRSciColl institution with that code whose name agrees with the dataset's publisher                       |
-| `gbif_publisher`     | The dataset's GBIF publisher, when its name spells out the code ("Kansas State University …" for `KSU`)     |
-| `unresolved`         | None of the above; the code is shown as-is                                                                  |
+| `grscicoll_exact`    | GRSciColl's dataset-aware lookup matched exactly, e.g. on a ROR or GRSciColl `institutionID`                       |
+| `grscicoll_verified` | A GRSciColl institution with that code whose name agrees with the dataset's publisher                              |
+| `gbif_publisher`     | The dataset's GBIF publisher, when its name spells out the code ("Kansas State University …" for `KSU`)            |
+| `unresolved`         | None of the above; the code is shown as-is                                                                         |
 
 ## Overrides
 
 [`resources/overrides.toml`](src/instharmonize/resources/overrides.toml) holds
-hand-checked codes the registries cannot settle, and `--overrides FILE` layers
-another file on top:
+manually checked codes the registries cannot resolve. Use `--overrides FILE` to
+add or replace entries:
 
 ```toml
 [institutions.TU]
@@ -45,14 +48,16 @@ name = "Purdue Entomological Research Collection"
 homepage = "https://..."
 ```
 
-## In BioCosmos
+## Backend integration
 
 The backend imports the resolver and runs it at startup against the codes
-behind the collection's images. The results go into the
-`institution_directory` table, and the collection's Institutions page reads
-it. Only codes that are not yet in the table are sent to GBIF. A change to the
-rules (`RESOLVER_VERSION`) or to the overrides re-resolves every code. A code
-that failed on a network error is retried at the next start.
+associated with the collection's images. Results are stored in
+`institution_directory`, which supplies the Institutions page. Codes with a
+cached result do not need another GBIF request. Changes to `RESOLVER_VERSION` or
+the overrides trigger resolution of all codes again; network failures are
+retried at the next startup.
+
+## Development
 
 ```bash
 uv run --package instharmonize pytest packages/instharmonize/tests -q

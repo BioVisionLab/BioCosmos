@@ -1,8 +1,15 @@
 # colharmonize
 
-Matches occurrence species names against a Catalogue of Life release. Reads the
-occurrence DuckDB table read-only; the only write into it is the opt-in
-`--write-back-table`.
+Match occurrence species names against a Catalogue of Life release. The CLI
+reads the source DuckDB table read-only unless you pass `--write-back-table`.
+
+The BioCosmos backend runs the same matcher at startup. Use the CLI to inspect
+inputs, tune matching, or export summaries.
+
+## Usage
+
+Run from the repository root. Stop the backend before accessing its live DuckDB
+file.
 
 ```bash
 uv run colharmonize init
@@ -14,11 +21,14 @@ uv run colharmonize run --db occurrences.duckdb --table main.occurrence \
   --csv --plot
 ```
 
-Writes `taxonomy_update.duckdb` and `run.json`, plus `taxonomy_summary.csv`
-with `--csv` and `taxonomy_match_summary.png` with `--plot`. With
-`--reports-dir` they land in `<reports-dir>/taxonomy/<run_id>/` and
-`latest.json` is updated to point at the run; `--output` writes to an explicit
-directory instead. See [`reports/`](../../reports) for the artifact contract.
+## Output
+
+Each run writes `taxonomy_update.duckdb` and `run.json`. Add `--csv` for
+`taxonomy_summary.csv` and `--plot` for `taxonomy_match_summary.png`.
+
+With `--reports-dir`, outputs go to `<reports-dir>/taxonomy/<run_id>/` and
+`latest.json` points to the run. Use `--output` to choose an explicit directory.
+See the [report format](../../reports/README.md).
 
 The output database contains `input_taxa`, `input_taxon_variants`,
 `taxonomy_matches`, `taxonomy_candidates`, `summary_metrics`, and
@@ -34,13 +44,21 @@ LEFT JOIN harmonized.input_taxon_variants variants
 LEFT JOIN harmonized.taxonomy_matches matches USING (input_taxon_key);
 ```
 
-`--write-back-table main.taxonomy_lookup` instead copies a compact lookup into
-the source database; it creates a new table and fails if that table exists.
+`--write-back-table main.taxonomy_lookup` also copies a compact lookup into the
+source database. It creates a new table and fails if the destination exists.
 
-`--config harmonize.toml` supplies the same settings; CLI values win. The file
-may also hold `geoharmonize`'s tables, which are ignored here. Run
-`colharmonize init --output -` to print the template.
+## Configuration
 
-The matching algorithm — normalization, candidate methods, scoring, the
-species → subspecies → genus rank cascade, and the ambiguity rules — is
-specified in the upstream project, <https://github.com/hhandika/col-taxonomy>.
+Use `--config harmonize.toml` to read settings from a file. CLI values take
+precedence. The file may also contain `geoharmonize` sections; this tool ignores
+them. Run `colharmonize init --output -` to print the template.
+
+The [upstream project](https://github.com/hhandika/col-taxonomy) documents
+normalization, candidate methods, scoring, the species → subspecies → genus rank
+cascade, and ambiguity rules.
+
+## Development
+
+```bash
+uv run --package colharmonize pytest packages/colharmonize/tests -q
+```
