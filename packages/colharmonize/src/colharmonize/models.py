@@ -84,8 +84,10 @@ class EffectiveRunConfig(FrozenModel):
     def sources_must_exist(self) -> EffectiveRunConfig:
         if not self.db.is_file():
             raise ValueError(f"Occurrence database does not exist: {self.db}")
+
         if not self.col.is_file():
             raise ValueError(f"Catalogue of Life source does not exist: {self.col}")
+
         return self
 
 
@@ -132,6 +134,7 @@ class UpdateStatus(StrEnum):
     @property
     def description(self) -> str:
         """Explain what the final resolution state means."""
+
         descriptions = {
             UpdateStatus.MATCHED: "One accepted taxon was resolved with sufficient evidence.",
             UpdateStatus.AMBIGUOUS: (
@@ -141,6 +144,7 @@ class UpdateStatus(StrEnum):
                 "No eligible accepted taxon was found, or the input was invalid or unsupported."
             ),
         }
+
         return descriptions[self]
 
 
@@ -160,6 +164,7 @@ class MatchMethod(StrEnum):
     @property
     def description(self) -> str:
         """Explain how the input taxon was resolved or why it was not."""
+
         descriptions = {
             MatchMethod.EXACT_ACCEPTED: (
                 "The normalized input name exactly matched an accepted name usage."
@@ -189,6 +194,7 @@ class MatchMethod(StrEnum):
                 "No candidate was found, or the input binomial or rank was unsupported."
             ),
         }
+
         return descriptions[self]
 
 

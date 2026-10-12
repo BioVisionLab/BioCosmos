@@ -75,6 +75,7 @@ export default function ColorSearch() {
   // covers the default search that runs on mount.
   const handleSelect = (option: SearchOptionValue) => {
     if (option === selectedOption) return;
+
     setSelectedOption(option);
     setError(null);
     setLoading(true);
@@ -95,9 +96,11 @@ export default function ColorSearch() {
           SEARCH_CANDIDATE_LIMIT,
           controller.signal,
         );
+
         if (current) setResults(searchResults.slice(0, RESULT_LIMIT));
       } catch (searchError) {
         if (!current || controller.signal.aborted) return;
+
         setResults([]);
         setError(
           searchError instanceof Error
@@ -208,6 +211,7 @@ export default function ColorSearch() {
                   cleanSpeciesName(result.speciesKey || result.species),
                 )
               : "";
+
             return (
               // Keyed by position, not by image id: switching colour should
               // swap the contents of six cells that stay put, not unmount six

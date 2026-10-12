@@ -218,12 +218,16 @@ export default function ImageMetadata({
       const res = await fetch(
         `/api/images/id/metadata?imageId=${encodeURIComponent(id)}`,
       );
+
       if (!res.ok) return null;
+
       const data = await res.json();
       cacheRef.current.set(id, data ?? null);
+
       return data ?? null;
     } catch (err) {
       console.error("Error fetching image metadata:", err);
+
       return null;
     }
   };
@@ -233,6 +237,7 @@ export default function ImageMetadata({
     if (!imageId) {
       setMeta(null);
       setLoading(false);
+
       return;
     }
 
@@ -240,20 +245,25 @@ export default function ImageMetadata({
 
     const run = async () => {
       const cached = cacheRef.current.get(imageId);
+
       if (cached !== undefined) {
         setMeta(cached);
         setLoading(false);
+
         return;
       }
 
       setMeta(null);
       setLoading(true);
       const data = await fetchAndCache(imageId);
+
       if (!ignore) setMeta(data);
+
       if (!ignore) setLoading(false);
     };
 
     void run();
+
     return () => {
       ignore = true;
     };
@@ -262,13 +272,18 @@ export default function ImageMetadata({
   // Prefetch neighbor metadata in background (up to two in either direction)
   useEffect(() => {
     const toPrefetch: Array<string | undefined | null> = [];
+
     if (prevImageIds && prevImageIds.length)
       toPrefetch.push(...prevImageIds.slice(-2));
+
     if (nextImageIds && nextImageIds.length)
       toPrefetch.push(...nextImageIds.slice(0, 2));
+
     toPrefetch.forEach((id) => {
       if (!id) return;
+
       if (cacheRef.current.has(id)) return;
+
       void fetchAndCache(id);
     });
   }, [prevImageIds, nextImageIds]);

@@ -21,12 +21,16 @@ function rankText(
   scope: string | null | undefined,
 ) {
   if (value == null || !scope) return undefined;
+
   // The percentile is the share of the other species below this one, so
   // its ends read as ranks rather than "higher than 0%" or "100%".
   if (value <= 0) return `lowest in ${scope}`;
+
   if (value >= 1) return `highest in ${scope}`;
+
   // Keep a near-end value from rounding onto an end it is not at.
   const percent = Math.min(99, Math.max(1, Math.round(value * 100)));
+
   return `higher than ${percent}% of ${scope}`;
 }
 
@@ -48,13 +52,16 @@ export default function SpeciesMorphospace({ species }: { species: string }) {
 
   useEffect(() => {
     if (!near || !species) return;
+
     let cancelled = false;
     fetchSpeciesMorphospace(species)
       .then((result) => {
         if (cancelled) return;
+
         setInfo(result);
       })
       .catch(() => !cancelled && setInfo(null));
+
     return () => {
       cancelled = true;
     };
@@ -68,6 +75,7 @@ export default function SpeciesMorphospace({ species }: { species: string }) {
 
   useEffect(() => {
     if (!scopeKey || scopeKey in scopes) return;
+
     const [rank, key] = scopeKey.split("/") as [Level, string];
     let cancelled = false;
     const store = (result: ScopeMorphospace | null) => {
@@ -77,6 +85,7 @@ export default function SpeciesMorphospace({ species }: { species: string }) {
     fetchScopeMorphospace(rank, key)
       .then(store)
       .catch(() => store(null));
+
     return () => {
       cancelled = true;
     };
@@ -106,6 +115,7 @@ export default function SpeciesMorphospace({ species }: { species: string }) {
             {(["genus", "family"] as const).map((l) => {
               const scopeRef = info[l];
               const disabled = !scopeRef?.available;
+
               return (
                 <button
                   key={l}
@@ -137,6 +147,7 @@ export default function SpeciesMorphospace({ species }: { species: string }) {
           {SIDES.map((side) => {
             const s = info.sides[side];
             const pct = s?.percentile[level];
+
             return (
               <div
                 key={side}

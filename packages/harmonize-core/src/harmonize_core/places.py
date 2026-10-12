@@ -32,15 +32,20 @@ def strip_accents(value: str) -> str:
 @cache
 def normalize_geographic_name(value: str | None) -> str | None:
     """Normalize a geographic name for punctuation-insensitive comparison."""
+
     if value is None or not value.strip():
         return None
+
     return re.sub(r"[^a-z0-9]+", "", strip_accents(value).casefold()) or None
 
 
 @cache
 def normalize_adm1(value: str | None) -> str | None:
     """Normalize ADM1 names while removing generic administrative words."""
+
     if value is None or not value.strip():
         return None
+
     without_admin_words = _ADMIN_WORDS.sub(" ", strip_accents(value).casefold())
+
     return re.sub(r"[^a-z0-9]+", "", without_admin_words) or None

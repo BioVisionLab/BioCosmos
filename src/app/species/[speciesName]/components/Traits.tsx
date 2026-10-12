@@ -57,6 +57,7 @@ function SpeciesTraits({ traits }: { traits: LepTraits | null }) {
   if (!traits || noTraitData(traits)) {
     return <NoData text="No trait data available." />;
   }
+
   return (
     <div>
       <TraitSection title="Morphology">

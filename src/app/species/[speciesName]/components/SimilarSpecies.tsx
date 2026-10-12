@@ -117,8 +117,10 @@ function SimilarSpeciesSection({
     if (!species) {
       setIsLoading(false);
       setRows(null);
+
       return;
     }
+
     // This embedding search is expensive and the panel sits below the fold, so
     // hold off until the reader actually scrolls towards it.
     if (!inView) return;
@@ -139,7 +141,9 @@ function SimilarSpeciesSection({
           side,
           controller.signal,
         );
+
         if (ignore) return;
+
         setRows(data ? data[side] : []);
       } catch (error) {
         // The only throw the helper lets through is the abort, which means a
@@ -147,7 +151,9 @@ function SimilarSpeciesSection({
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
+
         console.error(`Error fetching ${side} similar species:`, error);
+
         if (!ignore) setRows([]);
       } finally {
         if (!ignore) setIsLoading(false);
@@ -220,9 +226,11 @@ function SimilarSpeciesImage({
     const fetchImage = async () => {
       try {
         const response = await fetchThumbnailById(meta.imgId);
+
         if (!ignore) setThumbnailUrl(response);
       } catch (error) {
         console.error("Error fetching similar species image:", error);
+
         if (!ignore) {
           setIsImageReady(true);
           setIsImageFailed(true);
@@ -230,6 +238,7 @@ function SimilarSpeciesImage({
       }
     };
     fetchImage();
+
     return () => {
       ignore = true;
     };
@@ -306,6 +315,7 @@ function SimilarSpeciesImage({
     meta.speciesKey === undefined
       ? speciesHref(meta.species)
       : speciesPageHref(meta.speciesKey);
+
   if (!href) return card;
 
   return (

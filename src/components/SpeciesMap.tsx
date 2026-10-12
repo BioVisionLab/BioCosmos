@@ -29,6 +29,7 @@ export const MARKER_COLORS: Record<MarkerKind, string> = {
 
 export function markerKind(status: string | null | undefined): MarkerKind {
   if (!status) return "unvalidated";
+
   return status === "VALID" ? "valid" : "flagged";
 }
 
@@ -56,17 +57,21 @@ function initialView(points: SpeciesCoordinatePoint[]): {
   center: [number, number];
 } {
   const world: [number, number] = [0, 20];
+
   if (points.length === 0) return { bounds: null, center: world };
+
   let west = 180;
   let south = 90;
   let east = -180;
   let north = -90;
+
   for (const point of points) {
     west = Math.min(west, point.lon);
     east = Math.max(east, point.lon);
     south = Math.min(south, point.lat);
     north = Math.max(north, point.lat);
   }
+
   if (east - west <= 180) {
     return {
       bounds: [
@@ -76,8 +81,10 @@ function initialView(points: SpeciesCoordinatePoint[]): {
       center: world,
     };
   }
+
   const median = (values: number[]) =>
     values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+
   return {
     bounds: null,
     center: [
@@ -154,7 +161,9 @@ const SpeciesMap: React.FC<SpeciesMapProps> = ({
         popupClassName="species-map-popup"
         renderPopup={(mapPoint) => {
           const point = byId.get(String(mapPoint.id));
+
           if (!point) return null;
+
           return <SpecimenRecordCard record={point} />;
         }}
         style={{

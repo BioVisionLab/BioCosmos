@@ -81,6 +81,7 @@ class InstitutionResolver:
     @property
     def fingerprint(self) -> str:
         """Changes when either the rules or the curated entries do."""
+
         return f"v{RESOLVER_VERSION}:{overrides_digest(self.overrides)}"
 
     def resolve_all(self, records: Iterable[InstitutionRecord]) -> dict[str, Institution]:
@@ -90,10 +91,13 @@ class InstitutionResolver:
         """
 
         by_code: dict[str, list[InstitutionRecord]] = defaultdict(list)
+
         for record in records:
             if is_placeholder_code(record.institution_code):
                 continue
+
             by_code[record.institution_code.strip()].append(record)
+
         aggregators = _aggregating_publishers(by_code)
 
         def resolve_one(
@@ -101,15 +105,19 @@ class InstitutionResolver:
         ) -> Institution:
             code, code_records = item
             code_records.sort(key=lambda r: r.occurrences, reverse=True)
+
             return self._resolve_code(code, code_records, aggregators)
 
         with ThreadPoolExecutor(max_workers=max(1, self.max_workers)) as pool:
             resolved = pool.map(resolve_one, by_code.items())
+
             return {institution.code: institution for institution in resolved}
 
     def resolve(self, record: InstitutionRecord) -> Institution:
         """Resolve a single code from one dataset."""
+
         code = record.institution_code.strip()
+
         return self.resolve_all([record]).get(code) or Institution(code=code)
 
     def _resolve_code(
@@ -119,23 +127,29 @@ class InstitutionResolver:
         aggregators: frozenset[str],
     ) -> Institution:
         override = self.overrides.get(code)
+
         if override is not None:
             return self._curated(code, override, records)
 
         verbatim = split_verbatim_name(code)
+
         if verbatim is not None:
             return self._verbatim(code, verbatim[0], records)
 
         retry = False
+
         for record in records[:MAX_DATASETS_PER_CODE]:
             aggregated = bool(record.publisher) and fold(record.publisher or "") in aggregators
+
             try:
                 found = self._from_registry(code, record, aggregated)
             except RegistryError:
                 retry = True
                 continue
+
             if found is not None:
                 return found
+
         return Institution(code=code, retry=retry)
 
     def _curated(
@@ -146,12 +160,15 @@ class InstitutionResolver:
     ) -> Institution:
         publisher: Publisher | None = None
         retry = False
+
         if override.use_publisher:
             try:
                 publisher = self._publisher(records[0]) if records else None
             except RegistryError:
                 retry = True
+
         name = override.name or (publisher.name if publisher else None)
+
         return Institution(
             code=code,
             name=name,
@@ -166,12 +183,15 @@ class InstitutionResolver:
         # country, and only when it is the same institution. A registry error
         # costs the link, not the name, so the answer is kept.
         publisher: Publisher | None = None
+
         if records:
             try:
                 publisher = self._publisher(records[0])
             except RegistryError:
                 publisher = None
+
         same = publisher is not None and name_similarity(publisher.name, name) >= NAME_AGREEMENT
+
         return Institution(
             code=code,
             name=name,
@@ -189,8 +209,10 @@ class InstitutionResolver:
             record.institution_id,
             record.owner_institution_code,
         )
+
         if lookup.match in _EXACT_MATCHES and lookup.institution_key:
             institution = self.registry.institution(lookup.institution_key)
+
             if institution is not None:
                 return self._from_grscicoll(
                     code,
@@ -202,10 +224,13 @@ class InstitutionResolver:
 
         candidates = self.registry.institutions_by_code(code)
         fuzzy_key = lookup.institution_key if lookup.match is LookupMatch.FUZZY else None
+
         if fuzzy_key and all(c.key != fuzzy_key for c in candidates):
             fuzzy = self.registry.institution(fuzzy_key)
             candidates = [*candidates, fuzzy] if fuzzy else candidates
+
         chosen = _choose_candidate(candidates, record, aggregated)
+
         if chosen is not None:
             return self._from_grscicoll(
                 code,
@@ -217,6 +242,7 @@ class InstitutionResolver:
 
         publisher = self._publisher(record)
         name = publisher.name if publisher else record.publisher
+
         if name and code_matches_name(code, name):
             return Institution(
                 code=code,
@@ -225,6 +251,7 @@ class InstitutionResolver:
                 country=(publisher.country if publisher else None) or record.publishing_country,
                 source=MatchSource.GBIF_PUBLISHER,
             )
+
         return None
 
     def _from_grscicoll(
@@ -236,12 +263,15 @@ class InstitutionResolver:
         aggregated: bool,
     ) -> Institution:
         homepage = institution.homepage
+
         if homepage is None and not aggregated:
             # GRSciColl often lacks a homepage the publisher record has. Only
             # borrowed when the two names agree, i.e. they are one institution.
             publisher = self._publisher(record)
+
             if publisher and name_similarity(publisher.name, institution.name) >= NAME_AGREEMENT:
                 homepage = publisher.homepage
+
         return Institution(
             code=code,
             name=institution.name,
@@ -254,6 +284,7 @@ class InstitutionResolver:
     def _publisher(self, record: InstitutionRecord) -> Publisher | None:
         if not record.dataset_key:
             return None
+
         return self.registry.dataset_publisher(record.dataset_key)
 
 
@@ -265,11 +296,14 @@ def _aggregating_publishers(
     Such a publisher is a portal or a host, not the holding institution, so
     its name is no evidence for or against a candidate.
     """
+
     codes_by_publisher: dict[str, set[str]] = defaultdict(set)
+
     for code, records in by_code.items():
         for record in records:
             if record.publisher:
                 codes_by_publisher[fold(record.publisher)].add(fold(code))
+
     return frozenset(name for name, codes in codes_by_publisher.items() if len(codes) > 1)
 
 
@@ -280,24 +314,31 @@ def _choose_candidate(
 ) -> RegistryInstitution | None:
     evidence = [record.publisher]
     owner = record.owner_institution_code
+
     if owner and split_verbatim_name(owner) is not None:
         evidence.append(owner)
+
     texts = [text for text in evidence if text]
 
     scored: list[tuple[float, bool, RegistryInstitution]] = []
+
     for candidate in candidates:
         score = max(
             (name_similarity(candidate.name, text) for text in texts),
             default=0.0,
         )
+
         if score >= NAME_AGREEMENT:
             scored.append((score, candidate.active, candidate))
+
     if scored:
         return max(scored, key=lambda item: (item[0], item[1]))[2]
 
     if aggregated and record.publishing_country:
         local = [c for c in candidates if c.country == record.publishing_country]
         active = [c for c in local if c.active] or local
+
         if len(active) == 1:
             return active[0]
+
     return None

@@ -31,6 +31,21 @@ const eslintConfig = [
   // Last, so it switches off every stylistic rule above that would fight
   // Prettier. Formatting is Prettier's job (`bun run format`).
   eslintConfigPrettier,
+  // Blank lines around control flow, matching the Python rule in AGENTS.md.
+  // Prettier keeps single blank lines, so the two do not conflict.
+  {
+    rules: {
+      "padding-line-between-statements": [
+        "error",
+        {
+          blankLine: "always",
+          prev: "*",
+          next: ["for", "if", "try", "return"],
+        },
+        { blankLine: "always", prev: ["for", "if", "try"], next: "*" },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

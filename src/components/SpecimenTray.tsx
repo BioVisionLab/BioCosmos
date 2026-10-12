@@ -30,6 +30,7 @@ export default function SpecimenTray({
       >
         {Array.from({ length: HERO_SPECIMENS }, (_, slot) => {
           const item = species?.[slot] ?? null;
+
           return (
             <li
               key={item?.slug ?? `slot-${slot}`}

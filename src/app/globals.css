@@ -760,6 +760,11 @@ body {
   text-decoration-color: var(--color-pacific-blue-200);
 }
 
+.bc-key-peach {
+  color: var(--color-burnt-peach-700);
+  text-decoration-color: var(--color-burnt-peach-200);
+}
+
 .dark .bc-key {
   color: var(--color-hunter-green-200);
   text-decoration-color: rgb(98 173 82 / 0.4);
@@ -768,6 +773,11 @@ body {
 .dark .bc-key-blue {
   color: var(--color-pacific-blue-300);
   text-decoration-color: rgb(62 173 193 / 0.35);
+}
+
+.dark .bc-key-peach {
+  color: var(--color-burnt-peach-300);
+  text-decoration-color: rgb(217 83 38 / 0.4);
 }
 
 /* The collection figures: set in the brand gradient, green to blue. */

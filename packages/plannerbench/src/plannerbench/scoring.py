@@ -73,24 +73,31 @@ def validate_calls(raw_calls: Iterable[RawToolCall], spec: PlannerSpec) -> list[
     arguments, and repeat calls to a tool are all rejected. String values are
     trimmed and nulls dropped first, as the pydantic argument models do.
     """
+
     records: list[ToolCallRecord] = []
     seen: set[str] = set()
+
     for raw in raw_calls:
         name, text = raw.name, raw.arguments
+
         if name is None or name not in spec.tool_names:
             records.append(_invalid(name, text, "unknown tool"))
             continue
+
         if name in seen:
             records.append(_invalid(name, text, "duplicate tool call"))
             continue
+
         try:
             decoded = json.loads(text) if isinstance(text, str) else None
         except json.JSONDecodeError:
             records.append(_invalid(name, text, "arguments are not valid JSON"))
             continue
+
         if not isinstance(decoded, dict):
             records.append(_invalid(name, text, "arguments are not a JSON object"))
             continue
+
         arguments = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in decoded.items()
@@ -100,13 +107,16 @@ def validate_calls(raw_calls: Iterable[RawToolCall], spec: PlannerSpec) -> list[
             Draft202012Validator(spec.validation_schemas[name]).iter_errors(arguments),
             key=lambda error: list(error.path),
         )
+
         if errors:
             records.append(_invalid(name, text, errors[0].message))
             continue
+
         seen.add(name)
         records.append(
             ToolCallRecord(name=name, raw_arguments=text, arguments=arguments, valid=True)
         )
+
     return records
 
 
@@ -120,31 +130,42 @@ def _normalize(value: Any) -> str:
 
 def plan_signature(calls: Iterable[ToolCallRecord]) -> str:
     """Canonical form of the accepted calls, for comparing repeats."""
+
     plan = {
         call.name: {key: _normalize(value) for key, value in (call.arguments or {}).items()}
         for call in calls
         if call.valid and call.name
     }
+
     return json.dumps(plan, sort_keys=True)
 
 
 def matches_plan(calls: Iterable[ToolCallRecord], plan: ExpectedPlan) -> bool:
     accepted = {call.name: call.arguments or {} for call in calls if call.valid and call.name}
+
     if set(accepted) != set(plan):
         return False
+
     for tool, expectations in plan.items():
         arguments = accepted[tool]
+
         for key, expected in expectations.items():
             options = expected if isinstance(expected, list) else [expected]
+
             if arguments.get(key) is None:
                 if ABSENT in options:
                     continue
+
                 return False
+
             if expected == ANY_VALUE:
                 continue
+
             values = {_normalize(option) for option in options if option != ABSENT}
+
             if _normalize(arguments[key]) not in values:
                 return False
+
     return True
 
 
@@ -155,8 +176,10 @@ def grade(case: Case, calls: list[ToolCallRecord]) -> bool:
 def _percentile(values: list[float], fraction: float) -> float | None:
     if not values:
         return None
+
     ordered = sorted(values)
     index = max(0, math.ceil(fraction * len(ordered)) - 1)
+
     return round(ordered[index], 3)
 
 
@@ -166,11 +189,14 @@ def summarize(trials: list[Trial], models: list[str], cases: list[Case]) -> list
     Accuracy is over every trial, so an API error counts as a miss. A case is
     consistent when every repeat succeeded and produced the same accepted plan.
     """
+
     by_model: dict[str, list[Trial]] = defaultdict(list)
+
     for trial in trials:
         by_model[trial.model].append(trial)
 
     summaries: list[ModelSummary] = []
+
     for model in models:
         model_trials = by_model.get(model, [])
         ok_trials = [trial for trial in model_trials if trial.status == "ok"]
@@ -180,8 +206,10 @@ def summarize(trials: list[Trial], models: list[str], cases: list[Case]) -> list
         ]
 
         per_case: dict[str, list[Trial]] = defaultdict(list)
+
         for trial in model_trials:
             per_case[trial.case_id].append(trial)
+
         consistent = sum(
             1
             for case in cases
@@ -229,4 +257,5 @@ def summarize(trials: list[Trial], models: list[str], cases: list[Case]) -> list
                 rate_limit_retries=sum(trial.rate_limit_retries for trial in model_trials),
             )
         )
+
     return summaries

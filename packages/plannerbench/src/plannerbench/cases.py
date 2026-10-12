@@ -35,6 +35,7 @@ class Case(BaseModel):
     def _slug(cls, value: str) -> str:
         if value != value.strip() or " " in value:
             raise ValueError("case id must not contain spaces")
+
         return value
 
 
@@ -44,6 +45,7 @@ class CaseFile(BaseModel):
 
 def load_cases(path: Path | None = None) -> list[Case]:
     """Load cases from TOML, defaulting to the packaged set."""
+
     try:
         if path is None:
             text = (
@@ -57,24 +59,30 @@ def load_cases(path: Path | None = None) -> list[Case]:
             source = str(path)
     except FileNotFoundError as exc:
         raise ConfigurationError(f"Case file not found: {path}") from exc
+
     try:
         cases = CaseFile.model_validate(tomllib.loads(text)).cases
     except (tomllib.TOMLDecodeError, ValidationError) as exc:
         raise ConfigurationError(f"Invalid case file {source}: {exc}") from exc
 
     seen: set[str] = set()
+
     for case in cases:
         if case.id in seen:
             raise ConfigurationError(f"Duplicate case id in {source}: {case.id}")
+
         seen.add(case.id)
+
     return cases
 
 
 def check_cases_against_spec(cases: list[Case], spec: PlannerSpec) -> None:
     """Fail early when a case expects a tool the planner is not offered."""
+
     for case in cases:
         for plan in case.accept:
             unknown = set(plan) - spec.tool_names
+
             if unknown:
                 raise ConfigurationError(
                     f"Case '{case.id}' expects tools the spec does not define: {sorted(unknown)}"

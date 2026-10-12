@@ -53,6 +53,7 @@ def eligible_country_records(settings: Settings) -> pd.DataFrame:
     COUNTRY_MISMATCH, NO_REFERENCE_MATCH, AMBIGUOUS_REFERENCE and unevaluated
     coordinates are never eligible.
     """
+
     with connect(settings) as connection:
         images = image_table(connection, settings)
         taxonomy = table(
@@ -75,6 +76,7 @@ def eligible_country_records(settings: Settings) -> pd.DataFrame:
         )
         unique_key(connection, taxonomy, "img_id")
         unique_key(connection, coordinates, "source_id")
+
         return connection.execute(f"""
             WITH eligible AS (
                 SELECT i.img_id, c.reference_gid_0 AS reference_code,
@@ -97,16 +99,22 @@ def eligible_country_records(settings: Settings) -> pd.DataFrame:
 
 def country_summaries(records: pd.DataFrame, features: list, lookup: CountryLookup):
     """Normalize before species deduplication, and retain a full attribution audit."""
+
     records = records.copy()
+
     # Empty strings represent missing values in audit grouping; literal 'NA'
     # remains Namibia. Preserve case/spacing of nonmissing references for review.
     for column in ("reference_code", "reference_country"):
         records[column] = records[column].fillna("")
+
     originals = records[["reference_code", "reference_country"]].drop_duplicates()
+
     if "country_source" not in records:
         raise AnalysisError("Country records must record how each country was resolved.")
+
     polygon_codes = {lookup.feature_code(f) for f in features} - {None}
     rows = []
+
     for original in originals.itertuples(index=False):
         code, method = lookup.resolve(original.reference_code, original.reference_country)
         location = lookup.locations.loc[code] if code else None
@@ -139,6 +147,7 @@ def country_summaries(records: pd.DataFrame, features: list, lookup: CountryLook
                 "location_feature": location.source_feature if representation == "marker" else "",
             }
         )
+
     fields = [
         "reference_code",
         "reference_country",
@@ -175,4 +184,5 @@ def country_summaries(records: pd.DataFrame, features: list, lookup: CountryLook
     )
     richness["mapped"] = richness["representation"] != "unresolved"
     richness = richness.sort_values(["species_count", "country_code"], ascending=[False, True])
+
     return richness, audit

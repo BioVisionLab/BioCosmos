@@ -22,6 +22,7 @@ def test_unknown_toml_key_is_rejected() -> None:
 
 def test_other_tools_tables_are_ignored() -> None:
     """One shared file may carry geoharmonize's tables without breaking this tool."""
+
     project = ProjectConfig.model_validate(
         {"matching": {"top_k": 3}, "coordinates": {"tile_size": 10}}
     )

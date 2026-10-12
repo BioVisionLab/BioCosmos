@@ -47,10 +47,13 @@ def merge_coordinate_config(
     mapping_values: list[str] | None,
 ) -> EffectiveCoordinateRunConfig:
     """Resolve coordinate-validation configuration with CLI values taking precedence."""
+
     coordinate_data = project.coordinates.model_dump()
+
     for shared in INHERITED_FROM_RUN:
         if coordinate_data.get(shared) is None:
             coordinate_data[shared] = getattr(project.run, shared)
+
     coordinate_data = apply_overrides(coordinate_data, overrides)
 
     column_data = project.coordinate_columns.model_dump()
@@ -65,6 +68,7 @@ def merge_coordinate_config(
         },
         "columns": column_data,
     }
+
     try:
         return EffectiveCoordinateRunConfig.model_validate(payload)
     except ValidationError as exc:

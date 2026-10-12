@@ -126,6 +126,7 @@ def group_stats(images: pl.DataFrame) -> pl.DataFrame:
 
 def ellipse_stats(images: pl.DataFrame) -> pl.DataFrame:
     """Mean, SD and correlation of each group's images in each rank's scope space."""
+
     frames = []
 
     for rank in RANKS:
@@ -165,6 +166,7 @@ def species_table(
     groups: Groups, kept: pl.DataFrame, centroids: np.ndarray, side_groups: np.ndarray
 ) -> pl.DataFrame:
     """One row per species, both sides side by side."""
+
     species_ids = np.unique(kept["species_id"].to_numpy())
     frame = groups.taxa.filter(pl.col("species_id").is_in(species_ids.tolist())).sort("species_id")
 
@@ -180,7 +182,6 @@ def species_table(
             how="left",
             maintain_order="left",
         )
-
 
     dorsal, ventral = side_groups[species_ids, 0], side_groups[species_ids, 1]
     both = (dorsal >= 0) & (ventral >= 0)
@@ -200,6 +201,7 @@ def points_frame(
     ellipses: pl.DataFrame,
 ) -> pl.DataFrame:
     """Every kept group placed in every scope it belongs to, in scope order."""
+
     frames = []
 
     for rank in RANKS:
@@ -220,7 +222,7 @@ def points_frame(
 
     if not frames:
         return pl.DataFrame(schema={"scope_order": pl.Int64, **POINT_SCHEMA})
-    
+
     return _blank_to_null(
         pl.concat(frames)
         .join(
@@ -267,7 +269,7 @@ def extremes_table(points: pl.DataFrame, scope: pl.DataFrame) -> pl.DataFrame:
             ),
         ]
     )
-    
+
     return conform(ends.sort("scope_order", "axis", "end_order"), EXTREME_SCHEMA)
 
 
@@ -286,12 +288,15 @@ def scope_metrics(
     Scope by scope, dorsal disparity, then ventral, then the Mantel test, so a
     seed draws the same random numbers into the same place on every run.
     """
+
     group_side = groups.group_side
     scope_rows: list[dict] = []
     disparity_rows: list[dict] = []
+
     for rank in RANKS:
         for scope, space in zip(scopes[rank], spaces[rank], strict=True):
             key = {"scope_rank": rank, "scope_key": scope.key}
+
             for side_number, side in enumerate(SIDES):
                 side_groups_in_scope = scope.groups[group_side[scope.groups] == side_number]
                 result = disparity(
@@ -307,6 +312,7 @@ def scope_metrics(
             pairs = side_groups[scope.species]
             pairs = pairs[(pairs >= 0).all(axis=1)]
             correlation = None
+
             if len(pairs) >= parameters.mantel_min_species:
                 correlation = mantel(
                     centroids[pairs[:, 0]],
@@ -316,6 +322,7 @@ def scope_metrics(
                     max_species=parameters.mantel_max_species,
                     permutation_max_species=parameters.permutation_max_species,
                 )
+
             scope_rows.append(
                 {
                     **key,
@@ -334,6 +341,7 @@ def scope_metrics(
                     "run_id": run_id,
                 }
             )
+
     return (
         pl.DataFrame(scope_rows, schema=SCOPE_SCHEMA),
         pl.DataFrame(disparity_rows, schema=DISPARITY_SCHEMA),

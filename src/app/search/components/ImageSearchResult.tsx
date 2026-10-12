@@ -17,11 +17,13 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
+
       try {
         const data = new FormData();
 
         // Prefer the original File from the in-memory store (preserves MIME type and name)
         const storedFile = getSearchImage(imageUrl);
+
         if (storedFile) {
           data.append("image", storedFile);
           clearSearchImage();
@@ -31,6 +33,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
           const imageBlob = await response.blob();
 
           let mimeType = imageBlob.type;
+
           if (!mimeType) {
             const arr = new Uint8Array(
               await imageBlob.slice(0, 12).arrayBuffer(),
@@ -50,6 +53,7 @@ export function ImageSearchResult({ imageUrl }: { imageUrl: string }) {
               arr[9] === 0x45 &&
               arr[10] === 0x42 &&
               arr[11] === 0x50;
+
             if (isJpeg) mimeType = "image/jpeg";
             else if (isPng) mimeType = "image/png";
             else if (isWebp) mimeType = "image/webp";

@@ -23,6 +23,7 @@ function StatusBadge({ status }: { status: string | null }) {
       />
     );
   }
+
   return (
     <CoordinateStatusBadge
       validation={{
@@ -99,7 +100,9 @@ function viewText(sides: string[]): string | null {
   const known = order.filter((side) => sides.includes(side));
   const other = sides.filter((side) => !order.includes(side));
   const all = [...known, ...other];
+
   if (all.length === 0) return null;
+
   return all
     .map((side) => side.charAt(0).toUpperCase() + side.slice(1))
     .join(", ");

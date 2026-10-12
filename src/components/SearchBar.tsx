@@ -46,6 +46,7 @@ export default function HeaderClient() {
   ) => {
     event.preventDefault();
     const query = searchTerm.trim();
+
     if (!query) return;
 
     setIsSearching(true);
@@ -57,6 +58,7 @@ export default function HeaderClient() {
         const response = await fetch(
           `/api/semantic-search?q=${encodeURIComponent(query)}`,
         );
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
@@ -64,6 +66,7 @@ export default function HeaderClient() {
               `Semantic search failed with status ${response.status}`,
           );
         }
+
         const results: SemanticResultItem[] = await response.json(); // Type the result correctly
 
         // Navigate to search page with identifiers

@@ -86,6 +86,7 @@ function HighlightText({
     return (
       <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
     );
+
   if (!isMatched || !highlight) return <>{text}</>;
 
   // Substring matching case-insensitive
@@ -127,9 +128,11 @@ function MaybeSpeciesLink({
   children: React.ReactNode;
 }) {
   const href = speciesPageHref(speciesKey);
+
   if (!href) {
     return <div className={className}>{children}</div>;
   }
+
   return (
     <Link href={href} className={className}>
       {children}
@@ -237,6 +240,7 @@ function renderCoordinateCell(
 ) {
   const hasLat = lat !== null && lat !== undefined;
   const hasLon = lon !== null && lon !== undefined;
+
   if (!hasLat && !hasLon) {
     return (
       <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
@@ -272,15 +276,18 @@ function renderSpecimenIdCell(specimen: SpecimenMetadata) {
     institution_code: code,
     institution_name: name,
   } = specimen;
+
   if (!catalogNumber && !code) {
     return (
       <span className="text-deep-mocha-400 dark:text-deep-mocha-600">—</span>
     );
   }
+
   const holder = name ?? code;
   const homepage = name ? safeWebUrl(specimen.institution_homepage) : null;
   const holderTitle =
     name && code && code !== name ? `${name} (${code})` : holder;
+
   return (
     <div className="flex flex-col gap-0.5 max-w-48">
       <span className="whitespace-nowrap">{catalogNumber ?? "—"}</span>
@@ -382,6 +389,7 @@ function DbSearch({
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
+
       try {
         const response = await searchDatabase(query, field, page);
         setResults(response.results);
@@ -512,10 +520,12 @@ function DbSearchResults({
   // Reset during render rather than in an effect, so the stale index is
   // never painted against the new rows.
   const [openFor, setOpenFor] = useState(specimens);
+
   if (openFor !== specimens) {
     setOpenFor(specimens);
     setOpenIndex(null);
   }
+
   const specimenImageIds = specimens.map((s) => s.img_id);
   const totalSpeciesPages = Math.ceil(results.length / SPECIES_PER_PAGE);
   const speciesStart = (speciesPage - 1) * SPECIES_PER_PAGE;
@@ -670,6 +680,7 @@ function DbSearchResults({
                   <tbody className="divide-y divide-deep-mocha-200/50 dark:divide-deep-mocha-700/50">
                     {specimens.map((specimen, idx) => {
                       const matched = specimen.matched_fields || [];
+
                       return (
                         <tr
                           key={specimen.img_id || idx}
@@ -871,6 +882,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
     const fetchImage = async () => {
       try {
         const url = await fetchSpeciesThumbnail(data.species);
+
         if (mounted) setImageUrl(url);
       } catch (error) {
         console.error("Error fetching image for DbResultCard:", error);
@@ -879,6 +891,7 @@ function DbResultCard({ data }: { data: DbResultItems }) {
       }
     };
     fetchImage();
+
     return () => {
       mounted = false;
     };

@@ -47,6 +47,7 @@ def coordinate_db(tmp_path: Path) -> Path:
         ],
     )
     connection.close()
+
     return path
 
 
@@ -122,6 +123,7 @@ def gadm_gpkg(tmp_path: Path) -> Path:
             Polygon([(8, 4), (12, 4), (12, 6), (8, 6), (8, 4)]),
         ),
     ]
+
     for feature_id, gid0, country, gid1, adm1, polygon in features:
         connection.execute(
             "INSERT INTO ADM_ADM_1 VALUES (?, ?, ?, ?, ?, ?)",
@@ -132,6 +134,8 @@ def gadm_gpkg(tmp_path: Path) -> Path:
             "INSERT INTO rtree_ADM_ADM_1_geom VALUES (?, ?, ?, ?, ?)",
             [feature_id, min_x, max_x, min_y, max_y],
         )
+
     connection.commit()
     connection.close()
+
     return path

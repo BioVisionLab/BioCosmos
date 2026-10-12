@@ -55,6 +55,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     console.error(`Error fetching image ID ${imageId}:`, error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch image: ${errorMessage}` },
       { status: 500 },

@@ -37,4 +37,5 @@ def occurrence_db(tmp_path: Path) -> Path:
     ]
     connection.executemany("INSERT INTO occurrence VALUES (?, ?, ?, ?, ?, ?)", rows)
     connection.close()
+
     return path

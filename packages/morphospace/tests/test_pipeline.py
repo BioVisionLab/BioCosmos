@@ -11,6 +11,7 @@ from morphospace.cli import app
 from morphospace.models import MorphospaceParameters
 from morphospace.outputs import MorphospaceOutputRepository
 from morphospace.pipeline import execute_run
+from morphospace.sources import load_labels
 
 PARAMETERS = MorphospaceParameters(
     min_images=2, bootstrap=20, permutations=19, rarefy_k=3, batch_size=17
@@ -30,6 +31,7 @@ def _run(collection, output: Path, parameters=PARAMETERS):
 
 def _rows(database: Path, query: str) -> list[tuple]:
     connection = duckdb.connect(str(database), read_only=True)
+
     try:
         return connection.execute(query).fetchall()
     finally:
@@ -134,9 +136,8 @@ def test_cli_run_and_integrate(collection, tmp_path):
 
 
 def test_labels_leave_out_excluded_families(collection):
-    from morphospace.sources import load_labels
-
     connection = duckdb.connect(str(collection.database))
+
     try:
         connection.execute(
             "INSERT INTO image_meta VALUES ('moth_d', 'castnia_x', 'dorsal'), "

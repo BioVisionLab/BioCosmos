@@ -187,6 +187,7 @@ export function fetchCodeDescriptions(): Promise<CodeDescriptions> {
     })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
         return response.json();
       })
       .then((data) => ({
@@ -198,9 +199,11 @@ export function fetchCodeDescriptions(): Promise<CodeDescriptions> {
         console.error("Failed to fetch taxonomy code descriptions:", error);
         // Do not cache the failure: a later badge can try again.
         descriptionsPromise = null;
+
         return FALLBACK_DESCRIPTIONS;
       });
   }
+
   return descriptionsPromise;
 }
 
@@ -219,6 +222,7 @@ export function describeCode(
   descriptions: CodeDescriptions | null,
 ): string | null {
   if (!code || !descriptions) return null;
+
   return descriptions[CODE_GROUPS[kind]][code.trim().toUpperCase()] ?? null;
 }
 
@@ -231,6 +235,7 @@ export function describeCode(
  */
 export function humanizeCode(code: string | null | undefined): string {
   if (!code) return "";
+
   const words = code.trim().toUpperCase().split("_");
   const prefix = words[0];
   const rest =
@@ -242,7 +247,9 @@ export function humanizeCode(code: string | null | undefined): string {
         : word.toLowerCase(),
     )
     .join(" ");
+
   if (rest.length === words.length) return sentence;
+
   return `${prefix.charAt(0)}${prefix.slice(1).toLowerCase()} · ${sentence}`;
 }
 
@@ -296,6 +303,7 @@ function text(value: unknown): string {
 
 function optionalText(value: unknown): string | null {
   const trimmed = text(value);
+
   return trimmed || null;
 }
 
@@ -322,8 +330,10 @@ export function normalizeCandidate(
 /** Normalize the `taxonomy` block of an image metadata payload. */
 export function normalizeTaxonUpdate(raw: unknown): TaxonUpdate | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const status = optionalText(source.updateStatus);
+
   if (!status) return null;
 
   const candidates = Array.isArray(source.candidates)
@@ -360,8 +370,10 @@ export function normalizeTaxonUpdate(raw: unknown): TaxonUpdate | null {
 /** Normalize the classification returned by the species biology endpoint. */
 export function normalizeColTaxonomy(raw: unknown): ColTaxonomy | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const scientificName = text(source.scientificName);
+
   if (!scientificName) return null;
 
   return {
@@ -398,5 +410,6 @@ export function normalizeColTaxonomy(raw: unknown): ColTaxonomy | null {
 /** Read one rank off a classification. */
 export function rankValue(taxonomy: ColTaxonomy, rank: ColRank): string | null {
   const value = taxonomy[rank as keyof ColTaxonomy];
+
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }

@@ -47,6 +47,7 @@ function RankValue({ rank, value }: { rank: string; value: string | null }) {
   );
 
   if (!value) return body;
+
   const href =
     rank === "order"
       ? orderHref(value)
@@ -55,6 +56,7 @@ function RankValue({ rank, value }: { rank: string; value: string | null }) {
         : rank === "genus"
           ? genusHref(value)
           : null;
+
   if (!href) return body;
 
   return (

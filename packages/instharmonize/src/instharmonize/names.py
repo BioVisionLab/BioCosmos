@@ -52,7 +52,9 @@ _TRAILING_ABBREVIATION = re.compile(r"^(?P<name>.+?)\s*\((?P<code>[^()]+)\)\s*$"
 
 def fold(text: str) -> str:
     """Lowercase and strip accents, so "Zoología" compares equal to "zoologia"."""
+
     decomposed = unicodedata.normalize("NFKD", text)
+
     return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
 
 
@@ -62,6 +64,7 @@ def _words(text: str) -> list[str]:
 
 def name_tokens(name: str) -> frozenset[str]:
     """The identifying words of a name, for set comparison."""
+
     return frozenset(w for w in _words(name) if w not in _STOPWORDS and len(w) > 1)
 
 
@@ -74,12 +77,17 @@ def name_similarity(first: str, second: str) -> float:
     "University" alone would pair any two universities -- unless one name is
     a single word.
     """
+
     a, b = name_tokens(first), name_tokens(second)
+
     if not a or not b:
         return 0.0
+
     shared = a & b
+
     if len(shared) < 2 and min(len(a), len(b)) > 1:
         return 0.0
+
     return len(shared) / min(len(a), len(b))
 
 
@@ -91,17 +99,24 @@ def code_matches_name(code: str, name: str) -> bool:
     the initials of the name's words, starting at the first significant word
     ("KSU" in "Kansas State University ...", "UI" in "University of Idaho").
     """
+
     letters = "".join(re.findall(r"[a-z]", fold(code)))
+
     if len(letters) < 2:
         return False
+
     words = _words(name)
+
     if any(len(letters) >= 3 and word.startswith(letters) for word in words):
         return True
 
     significant = [w for w in words if w not in _STOPWORDS]
+
     if not significant or significant[0][0] != letters[0]:
         return False
+
     initials = iter(w[0] for w in words)
+
     return all(letter in initials for letter in letters)
 
 
@@ -117,11 +132,16 @@ def split_verbatim_name(code: str) -> tuple[str, str | None] | None:
     counts as a name when it has at least two words and some lowercase letters;
     codes are short and usually capitalized ("MCZ", "SMNH-NASU", "tesri").
     """
+
     value = " ".join(code.split())
     words = value.split(" ")
+
     if len(words) < 2 or not any(c.islower() for c in value):
         return None
+
     match = _TRAILING_ABBREVIATION.match(value)
+
     if match:
         return match.group("name"), match.group("code").strip()
+
     return value, None

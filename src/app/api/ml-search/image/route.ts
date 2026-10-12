@@ -39,15 +39,18 @@ export async function POST(request: Request) {
     // Check if the FastAPI service responded successfully
     if (!response.ok) {
       let errorBody = "Unknown error from BIOCOSMOS BACKEND service";
+
       try {
         errorBody = await response.text();
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         /* Ignore parsing errors */
       }
+
       console.error(
         `Error from BIOCOSMOS BACKEND service (${response.status}): ${errorBody}`,
       );
+
       if (errorBody.includes("Invalid file type")) {
         throw new Error(
           "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, WEBP.",
@@ -58,6 +61,7 @@ export async function POST(request: Request) {
         );
       }
     }
+
     // Parse the JSON response
     const results = await response.json();
 
@@ -80,6 +84,7 @@ export async function POST(request: Request) {
     console.error("Error during image search API call:", error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json({ error: errorMessage }, { status: 503 });
   }
 }

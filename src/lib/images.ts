@@ -24,12 +24,16 @@ async function fetchSpeciesImageIds(
   const cleanName = cleanSpeciesName(speciesName);
   // pass limit/offset to the server so it can control how many IDs are returned
   const qs: string[] = [];
+
   if (typeof limit === "number")
     qs.push(`limit=${encodeURIComponent(String(limit))}`);
+
   if (typeof offset === "number")
     qs.push(`offset=${encodeURIComponent(String(offset))}`);
+
   // "view" sorts the page dorsal first, then ventral. Same images either way.
   if (order) qs.push(`order=${order}`);
+
   const qsStr = qs.length > 0 ? `&${qs.join("&")}` : "";
   const response = await fetch(
     `${IMAGE_API_BASE}/metadata?scientificName=${encodeURIComponent(cleanName)}${qsStr}`,
@@ -43,6 +47,7 @@ async function fetchSpeciesImageIds(
 
   const data = await response.json();
   let ids: string[] = [];
+
   if (Array.isArray(data)) {
     ids = data as string[];
   } else if (data && Array.isArray((data as any).imageIds)) {
@@ -51,14 +56,17 @@ async function fetchSpeciesImageIds(
     ids = (data as any).ids as string[];
   } else {
     console.warn("Unexpected image metadata response shape:", data);
+
     // Return empty array so callers can handle 'no images' gracefully
     return [];
   }
+
   // Defensive: server should respect the requested `limit`, but slice client-side
   // as a fallback if a larger list is returned.
   if (typeof limit === "number" && ids.length > limit) {
     return ids.slice(0, limit);
   }
+
   return ids;
 }
 
@@ -72,6 +80,7 @@ async function fetchSpeciesImageIds(
  */
 function speciesThumbnailUrl(speciesName: string): string {
   const cleanName = cleanSpeciesName(speciesName);
+
   return `${IMAGE_API_BASE}/species?scientificName=${encodeURIComponent(
     cleanName,
   )}&type=thumbnail`;
@@ -92,6 +101,7 @@ async function fetchSpeciesThumbnail(speciesName: string): Promise<string> {
  */
 function speciesImageUrl(speciesName: string): string {
   const cleanName = cleanSpeciesName(speciesName);
+
   return `${IMAGE_API_BASE}/species?scientificName=${encodeURIComponent(
     cleanName,
   )}&type=full`;

@@ -29,6 +29,7 @@ function isBaseSearchResult(
   if (typeof value !== "object" || value === null) return false;
 
   const result = value as Record<string, unknown>;
+
   return typeof result.imgId === "string" && typeof result.species === "string";
 }
 
@@ -40,6 +41,7 @@ function isColorSearchResult(value: unknown): value is ColorSearchResult {
   if (typeof value !== "object" || value === null) return false;
 
   const result = value as Record<string, unknown>;
+
   return (
     typeof result.imgId === "string" &&
     typeof result.species === "string" &&
@@ -56,6 +58,7 @@ async function readErrorMessage(
 ): Promise<string> {
   try {
     const body: unknown = await response.json();
+
     if (
       typeof body === "object" &&
       body !== null &&
@@ -77,9 +80,11 @@ async function searchByColor(
   signal?: AbortSignal,
 ): Promise<ColorSearchResult[]> {
   const query = color.trim();
+
   if (!query) {
     throw new Error("A color is required to search for butterflies.");
   }
+
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
     throw new Error("Color search limit must be an integer between 1 and 50.");
   }
@@ -99,6 +104,7 @@ async function searchByColor(
   }
 
   const results: unknown = await response.json();
+
   if (!Array.isArray(results) || !results.every(isColorSearchResult)) {
     throw new Error("Color search returned an unexpected response format.");
   }
@@ -136,12 +142,15 @@ async function searchSemantic(
 ): Promise<SemanticSearchPage> {
   const { searchId, offset = 0, refresh = false, signal } = options;
   const params = new URLSearchParams();
+
   if (searchId) {
     params.set("search_id", searchId);
   } else {
     params.set("q", query);
   }
+
   if (offset > 0) params.set("offset", String(offset));
+
   if (refresh) params.set("refresh", "true");
 
   const response = await fetch(`/api/ml-search/agent?${params}`, {
@@ -210,6 +219,7 @@ async function searchFromImage(data: FormData): Promise<MlResultItems[]> {
     }
 
     const results: unknown = await response.json();
+
     if (!Array.isArray(results)) {
       throw new Error("Image search returned an unexpected response format.");
     }

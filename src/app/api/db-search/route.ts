@@ -24,14 +24,17 @@ export async function GET(request: Request) {
     const response = await fetch(
       `${DB_SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${encodeURIComponent(page)}&limit=${LIMIT}`,
     );
+
     if (!response.ok) {
       throw new Error(`Failed to fetch taxon data: ${response.statusText}`);
     }
+
     const taxonData = await response.json();
 
     return NextResponse.json(taxonData);
   } catch (error) {
     console.error("Search API error:", error);
+
     return NextResponse.json(
       { error: "Failed to fetch species data" },
       { status: 500 },

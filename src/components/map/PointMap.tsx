@@ -127,9 +127,13 @@ export default function PointMap({
 
   const addUnderlay = useCallback((map: MapLibreMap) => {
     const underlay = rasterUnderlayRef.current;
+
     if (map.getLayer(UNDERLAY_LAYER_ID)) map.removeLayer(UNDERLAY_LAYER_ID);
+
     if (map.getSource(UNDERLAY_SOURCE_ID)) map.removeSource(UNDERLAY_SOURCE_ID);
+
     underlayIdRef.current = underlay?.id ?? null;
+
     if (!underlay) return;
 
     map.addSource(UNDERLAY_SOURCE_ID, {
@@ -153,6 +157,7 @@ export default function PointMap({
   const addPointsLayer = useCallback(
     (map: MapLibreMap) => {
       addUnderlay(map);
+
       if (!map.getSource(SOURCE_ID)) {
         map.addSource(SOURCE_ID, {
           type: "geojson",
@@ -189,6 +194,7 @@ export default function PointMap({
   // Create the map once. Theme and data changes are applied in place below.
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) {
       return;
     }
@@ -246,11 +252,13 @@ export default function PointMap({
 
     const showPopup = (event: MapLayerMouseEvent) => {
       const feature = event.features?.[0];
+
       if (!feature) {
         return;
       }
 
       const point = feature.properties as unknown as MapPoint;
+
       if (activePointIdRef.current === point.id && popup.isOpen()) {
         return;
       }
@@ -284,6 +292,7 @@ export default function PointMap({
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && popup.isOpen()) popup.remove();
     };
+
     if (interaction === "click") {
       document.addEventListener("keydown", closeOnEscape);
     }
@@ -315,19 +324,24 @@ export default function PointMap({
   // `style.load` adds it from the ref instead.
   useEffect(() => {
     const map = mapRef.current;
+
     if (!map || !map.isStyleLoaded()) return;
+
     if ((rasterUnderlay?.id ?? null) === underlayIdRef.current) return;
+
     addUnderlay(map);
   }, [rasterUnderlay, addUnderlay]);
 
   // Push new points without tearing the map down.
   useEffect(() => {
     const map = mapRef.current;
+
     if (!map) {
       return;
     }
 
     const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
+
     if (source) {
       source.setData(featureCollection);
     }
@@ -335,11 +349,13 @@ export default function PointMap({
 
   useEffect(() => {
     const map = mapRef.current;
+
     if (!map || !resolvedTheme) {
       return;
     }
 
     const styleUrl = getBasemapStyleUrl(isDarkTheme);
+
     if (styleUrl === styleUrlRef.current) {
       return;
     }
@@ -351,6 +367,7 @@ export default function PointMap({
   useEffect(() => {
     const map = mapRef.current;
     const previous = centerRef.current;
+
     if (!map || !previous) {
       return;
     }
@@ -368,6 +385,7 @@ export default function PointMap({
   useEffect(() => {
     const popup = popupRef.current;
     const popupHost = popupHostRef.current;
+
     if (activePoint && popup?.isOpen() && popupHost) {
       popup.setDOMContent(popupHost);
       // In a small map a popup can be taller than the room beside its point,
@@ -376,12 +394,16 @@ export default function PointMap({
       // the map along with it.
       const map = mapRef.current;
       const container = containerRef.current;
+
       if (interaction !== "click" || !map || !container) return;
+
       // Measured a frame later, once MapLibre has re-laid the popup out
       // around its new content.
       const frame = requestAnimationFrame(() => {
         const element = popup.getElement();
+
         if (!element || !popup.isOpen()) return;
+
         const margin = 8;
         // The attribution strip sits over the bottom edge.
         const bottomMargin = 44;
@@ -399,14 +421,17 @@ export default function PointMap({
             : box.bottom > view.bottom - bottomMargin
               ? box.bottom - view.bottom + bottomMargin
               : 0;
+
         if (dx !== 0 || dy !== 0) map.panBy([dx, dy], { duration: 250 });
       });
+
       return () => cancelAnimationFrame(frame);
     }
   }, [activePoint, interaction]);
 
   useEffect(() => {
     const map = mapRef.current;
+
     if (map?.getLayer(LAYER_ID)) {
       map.setPaintProperty(LAYER_ID, "circle-radius", [
         "coalesce",

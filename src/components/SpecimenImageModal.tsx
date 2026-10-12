@@ -46,7 +46,9 @@ async function fetchSpecimenMeta(
   id: string,
 ): Promise<SpecimenImageMeta | null> {
   if (!id) return null;
+
   if (metaCache.has(id)) return metaCache.get(id) ?? null;
+
   if (metaInFlight.has(id)) return (await metaInFlight.get(id)) ?? null;
 
   const request = (async () => {
@@ -54,12 +56,16 @@ async function fetchSpecimenMeta(
       const res = await fetch(
         `/api/images/id/metadata?imageId=${encodeURIComponent(id)}`,
       );
+
       if (!res.ok) return null;
+
       const data = await res.json();
       metaCache.set(id, data ?? null);
+
       return data ?? null;
     } catch (err) {
       console.error("Error fetching image metadata:", err);
+
       return null;
     } finally {
       metaInFlight.delete(id);
@@ -67,6 +73,7 @@ async function fetchSpecimenMeta(
   })();
 
   metaInFlight.set(id, request);
+
   return (await request) ?? null;
 }
 
@@ -80,6 +87,7 @@ function preloadImageBytes(
   onFail: () => void,
 ) {
   if (typeof window === "undefined") return;
+
   const img = new window.Image();
   img.onload = onDone;
   img.onerror = onFail; // don't get stuck retrying a broken image forever
@@ -124,8 +132,10 @@ function SpecimenImageModal({
     (id: string) => {
       setIds((prev) => {
         if (prev.has(id)) return prev;
+
         const next = new Set(prev);
         next.add(id);
+
         return next;
       });
     };
@@ -141,8 +151,10 @@ function SpecimenImageModal({
     let i = from + direction;
     while (i >= 0 && i < ids.length) {
       if (ids[i]) return i;
+
       i += direction;
     }
+
     return null;
   };
 
@@ -150,12 +162,14 @@ function SpecimenImageModal({
   // its immediate neighbors so navigating there is instant.
   useEffect(() => {
     if (!open || !currentId || openIndex == null) return;
+
     let cancelled = false;
 
     setMeta(null);
     setMetaLoading(true);
     fetchSpecimenMeta(currentId).then((data) => {
       if (cancelled) return;
+
       setMeta(data);
       setMetaLoading(false);
     });
@@ -164,8 +178,11 @@ function SpecimenImageModal({
     const nextIdx = findNavigableIndex(openIndex, 1);
     [prevIdx, nextIdx].forEach((idx) => {
       if (idx == null) return;
+
       const id = ids[idx];
+
       if (!id) return;
+
       if (
         !loadedIds.has(id) &&
         !failedIds.has(id) &&
@@ -178,6 +195,7 @@ function SpecimenImageModal({
           () => markFailed(id),
         );
       }
+
       void fetchSpecimenMeta(id); // warm the metadata cache too
     });
 
@@ -190,8 +208,10 @@ function SpecimenImageModal({
   // Lock background scroll while the modal is open.
   useEffect(() => {
     if (!open) return;
+
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
       document.body.style.overflow = original;
     };
@@ -200,18 +220,22 @@ function SpecimenImageModal({
   // Keyboard: Escape closes, left/right arrows navigate.
   useEffect(() => {
     if (!open || openIndex == null) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onOpenIndexChange(null);
       } else if (e.key === "ArrowLeft") {
         const idx = findNavigableIndex(openIndex, -1);
+
         if (idx != null) onOpenIndexChange(idx);
       } else if (e.key === "ArrowRight") {
         const idx = findNavigableIndex(openIndex, 1);
+
         if (idx != null) onOpenIndexChange(idx);
       }
     };
     window.addEventListener("keydown", onKey);
+
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, openIndex, ids]);
@@ -393,9 +417,12 @@ function SpecimenImageModal({
                           shows, so the two views never disagree. */}
                       {(() => {
                         const taxonomy = taxonomyOf(meta);
+
                         if (!taxonomy) return null;
+
                         const accepted = acceptedDisplayName(taxonomy);
                         const showRecorded = nameWasUpdated(taxonomy);
+
                         return (
                           // Ruled off from the fields above, the same way the
                           // species-page panel separates its taxonomy block.

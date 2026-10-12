@@ -28,6 +28,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     // The backend sets the policy: a day for a complete list, minutes for a
     // partial one, nothing for an error.
     const cacheControl = response.headers.get("Cache-Control") ?? "no-store";
+
     return NextResponse.json(data, {
       status: response.status,
       headers: { "Cache-Control": cacheControl },
@@ -35,6 +36,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch literature: ${message}` },
       { status: 502, headers: { "Cache-Control": "no-store" } },

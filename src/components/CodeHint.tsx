@@ -49,10 +49,12 @@ function useCodeDescriptions(enabled = true): CodeDescriptions | null {
     // badge does exactly that, so gating here keeps it from pulling the
     // taxonomy vocabulary it will never read.
     if (!enabled) return;
+
     let active = true;
     void fetchCodeDescriptions().then((loaded) => {
       if (active) setDescriptions(loaded);
     });
+
     return () => {
       active = false;
     };
@@ -72,6 +74,7 @@ function useGeoCodeDescriptions(): GeoCodeDescriptions | null {
     void fetchGeoCodeDescriptions().then((loaded) => {
       if (active) setDescriptions(loaded);
     });
+
     return () => {
       active = false;
     };
@@ -114,7 +117,9 @@ function useTooltipPosition(
 
     const place = () => {
       const trigger = triggerRef.current;
+
       if (!trigger) return;
+
       const rect = trigger.getBoundingClientRect();
       const panel = panelRef.current;
       const width = panel?.offsetWidth ?? TOOLTIP_MAX_WIDTH;
@@ -140,6 +145,7 @@ function useTooltipPosition(
     // Capture, so scrolling the table the trigger sits in also repositions it.
     window.addEventListener("scroll", place, true);
     window.addEventListener("resize", place);
+
     return () => {
       window.removeEventListener("scroll", place, true);
       window.removeEventListener("resize", place);
@@ -320,6 +326,7 @@ export function TaxonStatusBadge({
     const statusText = describeCode(updateStatus, "status", descriptions);
     const methodText = describeCode(matchMethod, "method", descriptions);
     const combined = [statusText, methodText].filter(Boolean).join(" ");
+
     return (
       <CodeHint
         code={updateStatus}

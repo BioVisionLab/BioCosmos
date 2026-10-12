@@ -16,6 +16,7 @@ export async function GET(request: Request) {
   }
 
   console.log(`API: Fetching taxonomy data for species: ${species}`);
+
   try {
     const response = await fetch(
       `${TAXONOMY_SERVICE_URL}/${encodeURIComponent(species)}/biology`,
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
         },
       },
     );
+
     if (!response.ok) {
       const errorData = await response.json();
       console.error(
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
           errorData,
         )}`,
       );
+
       return NextResponse.json(
         {
           error: `Failed to fetch taxonomy data: ${
@@ -42,7 +45,9 @@ export async function GET(request: Request) {
         { status: response.status },
       );
     }
+
     const taxonomyData: SpeciesData = await response.json();
+
     return NextResponse.json(taxonomyData);
   } catch (error) {
     console.error(
@@ -51,6 +56,7 @@ export async function GET(request: Request) {
     );
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch taxonomy data: ${errorMessage}` },
       { status: 500 },

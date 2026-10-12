@@ -55,6 +55,7 @@ export async function GET(request: Request) {
         AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       ]),
     });
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error(
@@ -62,6 +63,7 @@ export async function GET(request: Request) {
           errorData,
         )}`,
       );
+
       return NextResponse.json(
         {
           error: `Failed to fetch similarity data: ${
@@ -71,7 +73,9 @@ export async function GET(request: Request) {
         { status: response.status, headers: { "Cache-Control": "no-store" } },
       );
     }
+
     const similarityData: SimilarSpeciesList = await response.json();
+
     // Pass the backend's own policy through rather than inventing one here,
     // so the two cannot drift. A response that arrived without one is not
     // cached at all.
@@ -89,12 +93,14 @@ export async function GET(request: Request) {
         { status: 504, headers: { "Cache-Control": "no-store" } },
       );
     }
+
     console.error(
       `Error fetching similarity data for species ${species}:`,
       error,
     );
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch similarity data: ${errorMessage}` },
       { status: 500, headers: { "Cache-Control": "no-store" } },

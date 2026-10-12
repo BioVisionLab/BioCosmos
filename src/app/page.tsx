@@ -73,6 +73,7 @@ export default function MainPage() {
  */
 async function SpecimenTraySection() {
   const featured = await fetchFeaturedSpecies();
+
   return (
     <SpecimenTray
       species={featured?.species.slice(0, HERO_SPECIMENS) ?? null}
@@ -83,6 +84,7 @@ async function SpecimenTraySection() {
 async function FeaturedRailSection() {
   const featured = await fetchFeaturedSpecies();
   const rest = featured?.species.slice(HERO_SPECIMENS) ?? [];
+
   return (
     <FeaturedRail
       species={rest.length > 0 ? rest : null}
@@ -105,6 +107,7 @@ async function CollectionSummarySection() {
     fetchTaxonStats(),
     fetchCountryDiversity(),
   ]);
+
   return (
     <CollectionSummary
       counts={
@@ -133,6 +136,7 @@ async function CollectionSummarySection() {
 async function FamilyExplorerSection() {
   const order = await fetchHigherTaxon("order", ORDER_NAME).catch(() => null);
   const families = order ? familiesWithRecords(order) : [];
+
   return <FamilyExplorer families={families.length > 0 ? families : null} />;
 }
 

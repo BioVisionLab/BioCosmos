@@ -31,6 +31,7 @@ export function SpeciesImageGallery({
       setItems([]);
       setSelectedIndex(0);
       setLoading(false);
+
       return;
     }
 
@@ -44,7 +45,9 @@ export function SpeciesImageGallery({
         // Dorsal views first, then ventral, so the gallery opens on the
         // upperside a reader expects.
         const ids = await fetchSpeciesImageIds(speciesName, 8, 0, "view");
+
         if (!ignore) setItems(ids);
+
         // notify initial selection (provide items and selectedIndex)
         if (!ignore && onSelectionChange)
           onSelectionChange({
@@ -60,6 +63,7 @@ export function SpeciesImageGallery({
     };
 
     run();
+
     return () => {
       ignore = true;
     };
@@ -206,6 +210,7 @@ function GalleryFullImage({
   }
 
   if (loading) return <ImageLoading size={128} msg="" />;
+
   if (failedUrl === imgUrl) return <NoImage />;
 
   return (
@@ -256,6 +261,7 @@ function GalleryThumbnail({
   if (!thumbUrl) {
     return null;
   }
+
   return loading ? (
     <ImageLoading size={48} msg="" />
   ) : (

@@ -83,20 +83,26 @@ class Registry(Protocol):
 
 def _web_url(value: Any) -> str | None:
     """The first http(s) URL in a registry homepage field, which may be a list."""
+
     candidates = value if isinstance(value, list) else [value]
+
     for candidate in candidates:
         if isinstance(candidate, str):
             url = candidate.strip()
+
             if url.lower().startswith(("http://", "https://")):
                 return url
+
     return None
 
 
 def _country(record: dict) -> str | None:
     for field in ("address", "mailingAddress"):
         address = record.get(field) or {}
+
         if address.get("country"):
             return address["country"]
+
     return None
 
 
@@ -113,6 +119,7 @@ def _institution(record: dict) -> RegistryInstitution:
 
 def _memoized[T](function: Callable[..., T]) -> Callable[..., T]:
     """Thread-safe memoization; the resolver calls the registry from a pool."""
+
     cache: dict[tuple, T] = {}
     lock = threading.Lock()
 
@@ -123,6 +130,7 @@ def _memoized[T](function: Callable[..., T]) -> Callable[..., T]:
         value = function(*args)
         with lock:
             cache[args] = value
+
         return value
 
     return wrapper
@@ -157,20 +165,25 @@ class GbifRegistry:
         session = requests.Session()
         session.mount("https://", HTTPAdapter(max_retries=retry, pool_maxsize=16))
         session.headers["User-Agent"] = "instharmonize (BioCosmos)"
+
         return session
 
     def _get(self, path: str, params: dict | None = None) -> dict | None:
         """GET a registry path; None on 404, RegistryError on anything else."""
+
         try:
             response = self.session.get(
                 f"{self.api_url}/{path}", params=params, timeout=self.timeout
             )
         except requests.RequestException as error:
             raise RegistryError(f"GBIF registry request failed: {error}") from error
+
         if response.status_code == 404:
             return None
+
         if not response.ok:
             raise RegistryError(f"GBIF registry returned {response.status_code} for {path}")
+
         try:
             return response.json()
         except ValueError as error:
@@ -193,34 +206,44 @@ class GbifRegistry:
             "grscicoll/lookup", {name: value for name, value in params.items() if value}
         )
         match = (body or {}).get("institutionMatch") or {}
+
         try:
             match_type = LookupMatch(match.get("matchType", "NONE"))
         except ValueError:
             match_type = LookupMatch.NONE
+
         entity = match.get("entityMatched") or {}
+
         return LookupResult(match=match_type, institution_key=entity.get("key"))
 
     def _institutions_by_code(self, code: str) -> list[RegistryInstitution]:
         body = self._get("grscicoll/institution", {"code": code, "limit": 50})
+
         return [_institution(record) for record in (body or {}).get("results", [])]
 
     def _institution(self, key: str) -> RegistryInstitution | None:
         body = self._get(f"grscicoll/institution/{key}")
+
         if body is None or body.get("deleted"):
             return None
+
         return _institution(body)
 
     def _dataset_publisher(self, dataset_key: str) -> Publisher | None:
         dataset = self._get(f"dataset/{dataset_key}")
         organization_key = (dataset or {}).get("publishingOrganizationKey")
+
         if not organization_key:
             return None
+
         return self._organization(organization_key)
 
     def _fetch_organization(self, key: str) -> Publisher | None:
         body = self._get(f"organization/{key}")
+
         if body is None:
             return None
+
         return Publisher(
             key=key,
             name=body.get("title", ""),

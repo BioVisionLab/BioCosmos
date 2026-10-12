@@ -44,6 +44,7 @@ function colorExpression(scale: SpeciesScale): ExpressionSpecification {
   scale.breaks.slice(1).forEach((lower, index) => {
     step.push(lower, scale.colors[index + 1]);
   });
+
   return [
     "case",
     ["==", ["typeof", ["feature-state", "species"]], "number"],
@@ -127,6 +128,7 @@ function addCountryLayers(
 
 function applyCounts(map: MapLibreMap, rows: CountryDiversityRow[]) {
   map.removeFeatureState({ source: SOURCE_ID });
+
   for (const row of rows) {
     map.setFeatureState(
       { source: SOURCE_ID, id: row.countryCode },
@@ -147,6 +149,7 @@ function popupContent(
   title.textContent = row?.countryName ?? name;
   root.appendChild(title);
   const detail = document.createElement("div");
+
   if (row) {
     const imputed =
       row.imputedImageCount > 0
@@ -156,7 +159,9 @@ function popupContent(
   } else {
     detail.textContent = "No validated records";
   }
+
   root.appendChild(detail);
+
   if (row && withLink) {
     const link = document.createElement("a");
     link.href = countryHref(row.countryCode);
@@ -164,6 +169,7 @@ function popupContent(
     link.textContent = "View species →";
     root.appendChild(link);
   }
+
   return root;
 }
 
@@ -191,7 +197,9 @@ export default function CountryDiversityMap({
   // Create the map once; the theme and the data are applied in place below.
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) return;
+
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
     const initialDark = document.documentElement.classList.contains("dark");
@@ -218,6 +226,7 @@ export default function CountryDiversityMap({
       )
       .then((style) => {
         if (cancelled) return;
+
         const map = new MapLibreMap({
           container,
           style,
@@ -256,13 +265,16 @@ export default function CountryDiversityMap({
 
         const setHover = (code: string | null) => {
           if (hovered === code) return;
+
           if (hovered) {
             map.setFeatureState(
               { source: SOURCE_ID, id: hovered },
               { hover: false },
             );
           }
+
           hovered = code;
+
           if (code) {
             map.setFeatureState(
               { source: SOURCE_ID, id: code },
@@ -277,7 +289,9 @@ export default function CountryDiversityMap({
         const onMove = (event: MapLayerMouseEvent) => {
           const code = event.features?.[0]?.properties?.code as
             string | undefined;
+
           if (!code) return;
+
           map.getCanvas().style.cursor = rowFor(code) ? "pointer" : "";
           setHover(code);
           popup
@@ -294,7 +308,9 @@ export default function CountryDiversityMap({
           const code = event.features?.[0]?.properties?.code as
             string | undefined;
           const row = code ? rowFor(code) : undefined;
+
           if (!code) return;
+
           if (noHover) {
             // A touch screen has no hover: the first tap shows the numbers,
             // and the popup carries the link onward.
@@ -303,8 +319,10 @@ export default function CountryDiversityMap({
               .setLngLat(event.lngLat)
               .setDOMContent(popupContent(row, code, true))
               .addTo(map);
+
             return;
           }
+
           if (row) routerRef.current.push(countryHref(row.countryCode));
         };
 
@@ -313,6 +331,7 @@ export default function CountryDiversityMap({
             map.on("mousemove", layer, onMove);
             map.on("mouseleave", layer, onLeave);
           }
+
           map.on("click", layer, onClick);
         }
 
@@ -347,7 +366,9 @@ export default function CountryDiversityMap({
   useEffect(() => {
     rowsRef.current = countries;
     const map = mapRef.current;
+
     if (!map?.getLayer(FILL_LAYER)) return;
+
     const color = colorExpression(
       speciesScale(countries, themeRef.current ?? false),
     );
@@ -359,16 +380,19 @@ export default function CountryDiversityMap({
   // Theme swap: a new basemap, then `style.load` re-adds the countries.
   useEffect(() => {
     if (!resolvedTheme || themeRef.current === isDark) return;
+
     themeRef.current = isDark;
     let cancelled = false;
     loadLightBasemapStyle(isDark)
       .then((style) => {
         const map = mapRef.current;
+
         if (!cancelled && map) {
           map.setStyle(style, { diff: false, ...keepProjection(map) });
         }
       })
       .catch(() => undefined);
+
     return () => {
       cancelled = true;
     };

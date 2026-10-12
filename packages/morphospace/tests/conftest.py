@@ -37,12 +37,15 @@ def _unit(vectors: np.ndarray) -> np.ndarray:
 def build_collection(tmp_path: Path, *, identical_sides: bool = False) -> Collection:
     rng = np.random.default_rng(7)
     meta, taxonomy, ids, vectors = [], [], [], []
+
     for genus, epithets in GENERA.items():
         genus_shift = rng.normal(size=WIDTH)
+
         for epithet in epithets:
             dorsal = _unit(genus_shift + rng.normal(size=WIDTH))
             ventral = dorsal if identical_sides else _unit(genus_shift + rng.normal(size=WIDTH))
             name = f"{genus} {epithet}"
+
             for side, centre in (("Dorsal", dorsal), ("ventral", ventral)):
                 for number in range(IMAGES_PER_SIDE):
                     img_id = f"{genus}_{epithet}_{side}_{number}".lower()
@@ -50,6 +53,7 @@ def build_collection(tmp_path: Path, *, identical_sides: bool = False) -> Collec
                     taxonomy.append((img_id, "MATCHED", name, name, FAMILY))
                     ids.append(img_id)
                     vectors.append(_unit(centre + 0.05 * rng.normal(size=WIDTH)))
+
     # An image resolved only to genus rank, and one that never matched: both ignored.
     meta += [("genus_only", "alpha", "dorsal"), ("unmatched", "x_y", "dorsal")]
     taxonomy += [
@@ -83,6 +87,7 @@ def build_collection(tmp_path: Path, *, identical_sides: bool = False) -> Collec
         }
     )
     lancedb.connect(str(lance_dir)).create_table("images", arrow)
+
     return Collection(database, lance_dir, "images")
 
 
