@@ -28,6 +28,7 @@ MAX_CONCURRENCY = 10
 
 def _fail(exc: Exception) -> typer.Exit:
     typer.echo(f"Error: {exc}", err=True)
+
     return typer.Exit(code=2)
 
 
@@ -38,10 +39,13 @@ def _now() -> str:
 def _select_cases(cases: list[Case], wanted: list[str] | None) -> list[Case]:
     if not wanted:
         return cases
+
     known = {case.id for case in cases}
     unknown = [case_id for case_id in wanted if case_id not in known]
+
     if unknown:
         raise ConfigurationError(f"Unknown case ids: {', '.join(unknown)}")
+
     return [case for case in cases if case.id in set(wanted)]
 
 
@@ -56,6 +60,7 @@ def _echo_summary(summaries: list[ModelSummary], cases: list[Case], repeats: int
         f"{'model'.ljust(width)}  accuracy   consistent  no-tool  invalid  errors"
         "  p50     p95     max     prompt  completion   total"
     )
+
     for s in summaries:
         typer.echo(
             f"{s.model.ljust(width)}  {s.accuracy:6.1%}"
@@ -72,6 +77,7 @@ def _echo_summary(summaries: list[ModelSummary], cases: list[Case], repeats: int
     typer.echo(
         f"{'case'.ljust(case_width)}  " + "  ".join(s.model[:12].ljust(12) for s in summaries)
     )
+
     for case in cases:
         cells = "  ".join(f"{s.per_case_correct[case.id]}/{repeats}".ljust(12) for s in summaries)
         typer.echo(f"{case.id.ljust(case_width)}  {cells}")
@@ -80,19 +86,25 @@ def _echo_summary(summaries: list[ModelSummary], cases: list[Case], repeats: int
 def _echo_misses(trials: list[Trial], cases: list[Case]) -> None:
     queries = {case.id: case.query for case in cases}
     misses = [trial for trial in trials if not trial.correct]
+
     if not misses:
         return
+
     typer.echo("\nMisses:")
+
     for trial in misses:
         if trial.status == "error":
             detail = f"ERROR {trial.error}"
         else:
             invalid = [f"{call.name}: {call.error}" for call in trial.calls if not call.valid]
             detail = trial.signature or "{}"
+
             if invalid:
                 detail += f"  invalid={invalid}"
+
             if not trial.calls and trial.content:
                 detail += f"  text={trial.content[:80]!r}"
+
         typer.echo(
             f"  [{trial.model}] {trial.case_id} #{trial.repeat} "
             f"({queries[trial.case_id]!r}): {detail}"
@@ -104,6 +116,7 @@ def cases_command(
     cases_file: Annotated[Path | None, typer.Option("--cases")] = None,
 ) -> None:
     """List the benchmark cases and the plans each accepts."""
+
     try:
         for case in load_cases(cases_file):
             plans = " | ".join(" + ".join(sorted(plan)) or "(no tool)" for plan in case.accept)
@@ -168,15 +181,19 @@ def run_command(
     show_misses: Annotated[bool, typer.Option("--misses/--no-misses")] = True,
 ) -> None:
     """Replay the production planner prompt against one or more models."""
+
     try:
         models = list(dict.fromkeys(models))
         spec = load_spec(spec_path)
         all_cases = load_cases(cases_file)
         cases = _select_cases(all_cases, case_ids)
         check_cases_against_spec(cases, spec)
+
         if not base_url:
             raise ConfigurationError("Set --base-url or LLM_API_URL.")
+
         api_key = os.getenv(api_key_env)
+
         if not api_key:
             raise ConfigurationError(f"Environment variable {api_key_env} is not set.")
     except HarmonizeError as exc:
@@ -219,8 +236,10 @@ def run_command(
 
     if show_misses:
         _echo_misses(trials, cases)
+
     _echo_summary(summaries, cases, repeats)
     retried = sum(trial.rate_limit_retries for trial in trials)
+
     if retried:
         typer.echo(f"\nRate-limited: {retried} retries (lower --rpm if this keeps happening)")
 
@@ -245,10 +264,12 @@ def run_command(
             base_url=base_url,
             summaries=summaries,
         )
+
         try:
             manifest_path = write_run(reports_dir, manifest, trials)
         except HarmonizeError as exc:
             raise _fail(exc) from exc
+
         typer.echo(f"\nWrote {manifest_path}")
 
 

@@ -28,6 +28,7 @@ async function fetchSpecimenData(
   // our internal SpecimenData shape. External APIs may return an array
   // of specimen objects, or an object with different count field names.
   let imageCounts = 0;
+
   if (Array.isArray(raw)) {
     imageCounts = raw.length;
   } else if (raw) {
@@ -51,8 +52,10 @@ async function fetchSpecimenData(
       const metaResp = await fetch(
         `/api/images/metadata?scientificName=${encodeURIComponent(speciesNameEncoded)}`,
       );
+
       if (metaResp.ok) {
         const meta = await metaResp.json();
+
         if (Array.isArray(meta)) {
           specimenData.imageCounts = meta.length;
         } else if (meta && Array.isArray((meta as any).imageIds)) {

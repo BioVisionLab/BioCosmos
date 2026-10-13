@@ -110,10 +110,13 @@ export interface SpeciesMorphospace {
 
 async function getJson<T>(path: string): Promise<T | null> {
   const response = await fetch(`/api/morphospace/${path}`);
+
   if (response.status === 404) return null;
+
   if (!response.ok) {
     throw new Error(`Morphospace request failed: ${response.status}`);
   }
+
   return (await response.json()) as T;
 }
 
@@ -122,6 +125,7 @@ export function fetchScopeMorphospace(
   name: string,
 ): Promise<ScopeMorphospace | null> {
   const key = rank === "all" ? "all" : name.trim().toLowerCase();
+
   return getJson(`${rank}/${encodeURIComponent(key)}`);
 }
 

@@ -178,6 +178,7 @@ function netEdge([x1, y1]: [number, number], [x2, y2]: [number, number]) {
   const dx = ((x2 - x1) / len) * NET_R;
   const dy = ((y2 - y1) / len) * NET_R;
   const f = (n: number) => n.toFixed(2);
+
   return `M${f(x1 + dx)} ${f(y1 + dy)}L${f(x2 - dx)} ${f(y2 - dy)}`;
 }
 
@@ -193,6 +194,7 @@ export function NetworkIcon(props: IconProps) {
     ...NET_INPUTS.flatMap((a) => NET_HIDDEN.map((b) => netEdge(a, b))),
     ...NET_HIDDEN.map((a) => netEdge(a, NET_OUTPUT)),
   ];
+
   return (
     <IconBase {...props} secondary={<path d={edges.join("")} />}>
       {[...NET_INPUTS, ...NET_HIDDEN, NET_OUTPUT].map(([cx, cy]) => (

@@ -38,6 +38,7 @@ def compute_centroids(
         keys: list of (species, side) tuples
         centroids: (M, D) normalized float32 array
     """
+
     logger.info("Computing centroids...")
     t0 = time.time()
 
@@ -54,16 +55,19 @@ def compute_centroids(
     for row in groups.iter_rows(named=True):
         species = row["species"]
         side = row["side"]
+
         if side not in SIDES:
             continue
 
         indices = [id_to_idx[iid] for iid in row["img_id"] if iid in id_to_idx]
+
         if not indices:
             continue
 
         # Mean of normalized embeddings, then re-normalize
         centroid = embeddings[indices].mean(axis=0)
         norm = np.linalg.norm(centroid)
+
         if norm > 0:
             centroid /= norm
 
@@ -72,6 +76,7 @@ def compute_centroids(
 
     centroids = np.array(centroid_list, dtype=np.float32)
     logger.info(f"Computed {len(keys)} centroids in {time.time() - t0:.1f}s")
+
     return keys, centroids
 
 
@@ -89,6 +94,7 @@ def batch_similarity_search(
         top_indices: (M, top_k) int array of image indices
         top_distances: (M, top_k) float array of cosine distances
     """
+
     logger.info(
         f"Running batch similarity search "
         f"({len(centroids)} centroids × {len(embeddings)} images)..."
@@ -126,6 +132,7 @@ def batch_similarity_search(
             )
 
     logger.info(f"Similarity search completed in {time.time() - t0:.1f}s")
+
     return top_indices, top_distances
 
 
@@ -138,12 +145,14 @@ def build_results(
     limit: int,
 ) -> pl.DataFrame:
     """Keep the nearest image of each other species, up to `limit` per centroid."""
+
     logger.info("Building final results...")
     t0 = time.time()
 
     img_species_map = dict(zip(meta["img_id"].to_list(), meta["species"].to_list(), strict=True))
 
     all_rows = []
+
     for i, (query_species, side) in enumerate(keys):
         seen_species = set()
         rank = 0
@@ -151,11 +160,13 @@ def build_results(
         for j in range(top_indices.shape[1]):
             img_id = img_ids[top_indices[i, j]]
             similar_species = img_species_map.get(img_id)
+
             # Images with no metadata row (for example an excluded family)
             if similar_species is None:
                 continue
 
             normalized_similar = similar_species.lower().replace(" ", "_")
+
             if normalized_similar == query_species or normalized_similar in seen_species:
                 continue
 
@@ -171,6 +182,7 @@ def build_results(
                     "rank": rank,
                 }
             )
+
             if rank >= limit:
                 break
 
@@ -186,4 +198,5 @@ def build_results(
         },
     )
     logger.info(f"Built {len(result_df)} result rows in {time.time() - t0:.1f}s")
+
     return result_df

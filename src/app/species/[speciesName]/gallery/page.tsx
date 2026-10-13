@@ -6,5 +6,6 @@ export default async function SpeciesImageGalleryPage({
   params: Promise<{ speciesName: string }>;
 }) {
   const { speciesName } = await params;
+
   return <SpecimenGallery speciesName={speciesName} />;
 }

@@ -59,14 +59,18 @@ export function CoordinateRegionRow({
   className?: string;
 }) {
   const status = validation?.validationStatus;
+
   if (status !== "ADM1_MISMATCH" && status !== "COUNTRY_MISMATCH") {
     return null;
   }
+
   // Finest rank first, like the recorded locality above it.
   const region = [validation?.referenceAdm1, validation?.referenceCountry]
     .filter(Boolean)
     .join(", ");
+
   if (!region) return null;
+
   return (
     <div className={`flex flex-col gap-0.5 min-w-0 ${className}`}>
       <div className="flex flex-wrap items-baseline gap-x-1 min-w-0">
@@ -126,6 +130,7 @@ export function ProvenanceBlock({
   provenance: SpecimenProvenance | null;
 }) {
   if (!provenance?.catalogNumber) return null;
+
   return (
     <div className="col-span-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 min-w-0 leading-normal">
       <span className="flex items-baseline gap-1 min-w-0">
@@ -150,9 +155,11 @@ export function ProvenanceBlock({
 function SpecimenHolder({ provenance }: { provenance: SpecimenProvenance }) {
   const { institutionCode: code, institutionName: name } = provenance;
   const homepage = provenance.institutionHomepage;
+
   if (!name) {
     return <span className={`truncate ${METADATA_VALUE}`}>{code}</span>;
   }
+
   return (
     <span className="flex items-baseline gap-1 min-w-0">
       {homepage ? (

@@ -53,7 +53,9 @@ export function correlationStrength(r: number): string {
         : size >= 0.2
           ? "Weak"
           : "Little or no";
+
   if (size < 0.2) return "Little or no shared pattern";
+
   return r > 0
     ? `${strength}: the two sides vary together`
     : `${strength}: the sides vary in opposite ways`;
@@ -62,6 +64,7 @@ export function correlationStrength(r: number): string {
 /** Where r falls on its full −1 to 1 range, with the three reference points labelled. */
 function MantelScale({ r }: { r: number }) {
   const position = ((Math.max(-1, Math.min(1, r)) + 1) / 2) * 100;
+
   return (
     <div className="mt-2" aria-hidden>
       <div className="relative h-1.5 rounded-full bg-deep-mocha-200 dark:bg-deep-mocha-700">
@@ -87,7 +90,9 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
     .filter((row): row is readonly ["dorsal" | "ventral", SideDisparity] =>
       Boolean(row[1] && row[1].rarefiedMean != null),
     );
+
   if (rows.length === 0) return null;
+
   const max =
     Math.max(...rows.map(([, d]) => d.rarefiedHigh ?? d.rarefiedMean ?? 0)) *
     1.1;
@@ -96,6 +101,7 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
     left = 64,
     right = 56;
   const x = (v: number) => left + (v / max) * (W - left - right);
+
   return (
     <figure className="morphospace-viz">
       <svg
@@ -108,6 +114,7 @@ function SideDisparityChart({ disparity }: { disparity: Disparity }) {
           const y = row * rowH + 14;
           const color =
             side === "dorsal" ? "var(--ms-dorsal)" : "var(--ms-ventral)";
+
           return (
             <g key={side}>
               <text
@@ -185,7 +192,9 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
         ),
     [data.children],
   );
+
   if (genera.length < 3) return null;
+
   // One domain for both axes, fitted to the data, so the 1:1 line stays a
   // diagonal and the points are not crowded into a corner above zero.
   const values = genera.flatMap((g) => [g.dorsal, g.ventral]);
@@ -204,6 +213,7 @@ function GenusDisparityScatter({ data }: { data: ScopeMorphospace }) {
   const rarefyK = data.children
     .flatMap((g) => [g.disparity.dorsal, g.disparity.ventral])
     .find((d) => d?.rarefiedMean != null)?.rarefyK;
+
   return (
     <figure className="morphospace-viz">
       <div className="relative inline-block">
@@ -321,7 +331,9 @@ function GenusDisparityNote({ data }: { data: ScopeMorphospace }) {
   const rarefyK = data.children
     .flatMap((g) => [g.disparity.dorsal, g.disparity.ventral])
     .find((d) => d?.rarefiedMean != null)?.rarefyK;
+
   if (rarefyK == null) return null;
+
   return (
     <p className="text-xs text-deep-mocha-600 dark:text-deep-mocha-400 mr-4">
       In the genus dorso-ventral disparity plot, the spread of color pattern on
@@ -336,6 +348,7 @@ export default function DisparityPanel({ data }: { data: ScopeMorphospace }) {
   const { scope } = data;
   const { r, p, n } = scope.correlation;
   const pc12 = scope.explained[0] + scope.explained[1];
+
   return (
     <div className="morphospace-viz grid gap-4 lg:grid-cols-[1fr_auto] rounded-xl border border-deep-mocha-200 dark:border-deep-mocha-700 bg-white dark:bg-deep-mocha-950 p-4">
       <div className="space-y-4">

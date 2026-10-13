@@ -15,12 +15,14 @@ def test_index_resolves_synonym_and_reuses_cache(col_tsv: Path, tmp_path: Path) 
     assert not first.reused
     assert second.reused
     connection = duckdb.connect(str(first.path), read_only=True)
+
     try:
         accepted_id = connection.execute(
             "SELECT accepted_id FROM usage_lookup WHERE usage_id = 'S1'"
         ).fetchone()[0]
     finally:
         connection.close()
+
     assert accepted_id == "A1"
 
 

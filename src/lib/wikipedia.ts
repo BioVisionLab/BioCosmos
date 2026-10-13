@@ -90,14 +90,18 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
 
   Array.from(cleanRoot.children).forEach((node) => {
     const element = node as HTMLElement;
+
     // Section headings
     if (element.classList.contains("mw-heading2")) {
       seenHeading = true;
       const title = element.querySelector("h2")?.textContent?.trim() || "";
+
       if (DROPPED_SECTIONS.has(title.toLowerCase())) {
         current = null;
+
         return;
       }
+
       current = { type: "section", title: title || "Untitled", html: "" };
       parsedData.push(current);
     }
@@ -109,7 +113,9 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
       // The first row names the taxon; it becomes the card title instead.
       const titleRow = element.querySelector("tr");
       const title = titleRow?.querySelector("th")?.textContent?.trim();
+
       if (title && titleRow?.children.length === 1) titleRow.remove();
+
       alignRankColons(element);
       parsedData.push({ type: "infobox", title, html: element.outerHTML });
     }
@@ -132,6 +138,7 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
         lead = { type: "section", html: "" };
         parsedData.unshift(lead);
       }
+
       lead.html += html;
     }
   }
@@ -139,7 +146,9 @@ const parseWikipediaContent = (htmlContent: string): ParsedContent[] => {
   const sections = parsedData.filter(
     (item) => item.type !== "section" || item.html.trim() !== "",
   );
+
   if (taxonIdentifier) sections.push(taxonIdentifier);
+
   return sections;
 };
 
@@ -152,17 +161,22 @@ function normalizeElements(root: HTMLElement) {
   root.querySelectorAll("[style], [bgcolor], table[width]").forEach((el) => {
     el.removeAttribute("style");
     el.removeAttribute("bgcolor");
+
     if (el.tagName === "TABLE") el.removeAttribute("width");
   });
 
   root.querySelectorAll("a[href]").forEach((el) => {
     const href = el.getAttribute("href") || "";
+
     if (CITATION_ANCHOR.test(href)) return;
+
     if (href.startsWith("#")) {
       // Other in-page anchors point at stripped content; keep the text only.
       el.replaceWith(...Array.from(el.childNodes));
+
       return;
     }
+
     el.setAttribute("href", absoluteUrl(href));
     el.setAttribute("target", "_blank");
     el.setAttribute("rel", "noopener noreferrer");
@@ -170,8 +184,11 @@ function normalizeElements(root: HTMLElement) {
 
   root.querySelectorAll("img").forEach((el) => {
     const src = el.getAttribute("src");
+
     if (src) el.setAttribute("src", absoluteUrl(src));
+
     const srcset = el.getAttribute("srcset");
+
     if (srcset) {
       el.setAttribute(
         "srcset",
@@ -192,7 +209,9 @@ function alignRankColons(infobox: HTMLElement) {
   let split = false;
   infobox.querySelectorAll("tr").forEach((row) => {
     const cells = Array.from(row.children);
+
     if (cells.length !== 2 || cells[0].tagName !== "TD") return;
+
     const label = cells[0] as HTMLElement;
     const walker = label.ownerDocument.createTreeWalker(
       label,
@@ -201,9 +220,12 @@ function alignRankColons(infobox: HTMLElement) {
     let last: Text | null = null;
     while (walker.nextNode()) {
       const text = walker.currentNode as Text;
+
       if (text.data.trim()) last = text;
     }
+
     if (!last || !last.data.trimEnd().endsWith(":")) return;
+
     last.data = last.data.trimEnd().slice(0, -1);
     const colon = label.ownerDocument.createElement("td");
     colon.className = "wiki-rank-colon";
@@ -211,6 +233,7 @@ function alignRankColons(infobox: HTMLElement) {
     label.after(colon);
     split = true;
   });
+
   // Full-width rows (images, statuses, synonyms) now span three columns.
   if (split) {
     infobox.querySelectorAll('[colspan="2"]').forEach((cell) => {
@@ -221,7 +244,9 @@ function alignRankColons(infobox: HTMLElement) {
 
 function absoluteUrl(url: string): string {
   if (url.startsWith("//")) return `https:${url}`;
+
   if (url.startsWith("/")) return `${WIKIPEDIA_ORIGIN}${url}`;
+
   return url;
 }
 
@@ -240,6 +265,7 @@ function parseTaxonIdentifier(table: HTMLElement): ParsedContent | null {
   const isTaxonIdentifier = headerEls.some((el) =>
     /taxon identifiers?/i.test(el.textContent || ""),
   );
+
   if (!isTaxonIdentifier) return null;
 
   const clone = table.cloneNode(true) as HTMLElement;
@@ -252,7 +278,9 @@ function parseTaxonIdentifier(table: HTMLElement): ParsedContent | null {
   const rows: string[] = [];
   clone.querySelectorAll("td li").forEach((item) => {
     const text = item.textContent?.trim();
+
     if (!text || seen.has(text)) return;
+
     seen.add(text);
     rows.push(`<li>${item.innerHTML.trim()}</li>`);
   });
@@ -271,6 +299,7 @@ function cleanWikipediaError(error: string | null): string {
   if (error?.includes("not found") || error?.includes("doesn't exist")) {
     return "No Wikipedia page exists for this species";
   }
+
   return "Failed to load Wikipedia content: " + (error || "Unknown error");
 }
 

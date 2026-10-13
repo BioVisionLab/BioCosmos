@@ -30,18 +30,21 @@ accept = [{ search_by_image_similarity = { reference_species = "Danaus plexippus
 def cases_file(tmp_path: Path) -> Path:
     path = tmp_path / "cases.toml"
     path.write_text(CASES, encoding="utf-8")
+
     return path
 
 
 @pytest.fixture
 def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """Record pacing and backoff waits instead of waiting them out."""
+
     recorded: list[float] = []
 
     async def fake_sleep(seconds: float) -> None:
         recorded.append(seconds)
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
     return recorded
 
 
@@ -65,6 +68,7 @@ def fake_client(monkeypatch: pytest.MonkeyPatch, sleeps: list[float]) -> FakeCli
     )
     monkeypatch.setattr(runner_module, "make_client", lambda *args, **kwargs: client)
     monkeypatch.setenv("LLM_API_KEY", "test-key")
+
     return client
 
 

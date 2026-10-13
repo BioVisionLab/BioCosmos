@@ -48,10 +48,12 @@ class Groups:
     @property
     def group_side(self) -> np.ndarray:
         """Index into SIDES of each group."""
+
         return self.groups["side_index"].to_numpy()
 
     def lookup(self, img_ids: pl.Series) -> pl.DataFrame:
         """`row` (position in `img_ids`), `img_id` and `group_id` of the labelled images."""
+
         return (
             pl.DataFrame({"img_id": img_ids.cast(pl.String)})
             .with_row_index("row")
@@ -60,14 +62,17 @@ class Groups:
 
     def side_groups(self, keep: np.ndarray) -> np.ndarray:
         """`(species, side)` -> kept group number, or -1 where that side has none."""
+
         table = np.full((self.taxa.height, len(SIDES)), -1, dtype=np.int64)
         kept = np.flatnonzero(keep)
         table[self.group_species[kept], self.group_side[kept]] = kept
+
         return table
 
 
 def build_groups(labels: pl.DataFrame) -> Groups:
     """Number the species and their sides in a stable (sorted) order."""
+
     # The first image of each species carries its page key and higher taxa;
     # they are functions of the accepted species, so any row would do.
     taxa = (
@@ -91,6 +96,7 @@ def build_groups(labels: pl.DataFrame) -> Groups:
         .sort("species_id", "side_index")
         .with_row_index("group_id")
     )
+
     return Groups(
         taxa=taxa.with_columns(pl.col("species_id").cast(pl.Int64)),
         groups=groups.with_columns(pl.col("group_id", "species_id").cast(pl.Int64)),
@@ -111,8 +117,10 @@ class CentroidAccumulator:
 
     def add(self, img_ids: pl.Series, vectors: np.ndarray) -> None:
         matched = self.groups.lookup(img_ids)
+
         if matched.height == 0:
             return
+
         rows = matched["row"].to_numpy()
         group_ids = matched["group_id"].to_numpy()
         # A sparse group × image indicator sums each group's rows in one product.
@@ -125,7 +133,9 @@ class CentroidAccumulator:
 
     def centroids(self, min_images: int) -> tuple[np.ndarray, np.ndarray]:
         """Unit-length centroids, and which groups have enough images to keep."""
+
         keep = self.counts >= min_images
         norms = np.linalg.norm(self.sums, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
+
         return (self.sums / norms).astype(np.float32), keep

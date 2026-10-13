@@ -36,6 +36,7 @@ function addProjectionToggle(map: MapLibreMap): void {
  */
 function keepProjection(map: MapLibreMap): StyleSwapOptions {
   const projection = map.getProjection();
+
   return {
     transformStyle: (_previous, next) => ({
       ...next,

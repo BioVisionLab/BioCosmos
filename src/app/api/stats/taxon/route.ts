@@ -12,6 +12,7 @@ export async function GET(): Promise<NextResponse> {
 
     if (!response.ok) {
       const errorData = await response.json();
+
       return NextResponse.json(
         { error: errorData.error || response.statusText },
         { status: response.status },
@@ -19,10 +20,12 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const data = await response.json();
+
     return NextResponse.json(data);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch taxon stats: ${message}` },
       { status: 500 },

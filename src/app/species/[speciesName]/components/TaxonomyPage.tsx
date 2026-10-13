@@ -47,6 +47,7 @@ export default function TaxonomyPage({
 
   useEffect(() => {
     if (!speciesName.trim()) return;
+
     let isMounted = true;
     fetchTaxonomyDetail(speciesName)
       .then((detail) => {
@@ -54,8 +55,10 @@ export default function TaxonomyPage({
       })
       .catch((error) => {
         console.error("Error fetching taxonomy detail:", error);
+
         if (isMounted) setState({ speciesName, status: "failed" });
       });
+
     return () => {
       isMounted = false;
     };
@@ -122,6 +125,7 @@ function ClassificationFacts({ taxonomy }: { taxonomy: TaxonomyData }) {
 
 function DetailSections({ detail }: { detail: TaxonomyDetail }) {
   const unavailable = !detail.detailAvailable;
+
   return (
     <>
       <Card title="Nomenclature">
@@ -312,6 +316,7 @@ function Reference({
 
 function NomenclatureTable({ detail }: { detail: TaxonomyDetail }) {
   const nomenclature = detail.nomenclature;
+
   return (
     <table className="w-full min-w-0">
       <tbody>
@@ -377,7 +382,9 @@ const regionNames = (() => {
 /** CoL records the country as an ISO code; show its name when it is one. */
 function countryName(code: string | null): string | null {
   if (!code) return null;
+
   if (!/^[A-Za-z]{2}$/.test(code)) return code;
+
   try {
     return regionNames?.of(code.toUpperCase()) ?? code;
   } catch {
@@ -394,12 +401,14 @@ function placeLabel(
   countryCode: string | null,
 ): string | null {
   const country = countryName(countryCode);
+
   if (
     locality &&
     country &&
     locality.toLowerCase().includes(country.toLowerCase())
   )
     return locality;
+
   return [locality, country].filter(Boolean).join(" · ") || null;
 }
 
@@ -448,6 +457,7 @@ function TypeSummaryTable({
       ) : (
         <i className="italic">{acceptedName}</i>
       );
+
     return (
       <>
         <table className="w-full min-w-0">
@@ -463,6 +473,7 @@ function TypeSummaryTable({
       </>
     );
   }
+
   const place = placeLabel(summary.locality, summary.country);
   const coordinates = coordinatesLabel(summary.latitude, summary.longitude);
   const typified =
@@ -470,6 +481,7 @@ function TypeSummaryTable({
     summary.typifiedName.toLowerCase() !== acceptedName.toLowerCase()
       ? summary.typifiedName
       : null;
+
   return (
     <table className="w-full min-w-0">
       <tbody>
@@ -494,9 +506,13 @@ function TypeSummaryTable({
 
 function sexLabel(sex: string | null): string | null {
   if (!sex) return null;
+
   const value = sex.toLowerCase();
+
   if (value === "male") return "♂ Male";
+
   if (value === "female") return "♀ Female";
+
   return sex;
 }
 
@@ -606,15 +622,19 @@ function TypeSpecimenCard({ specimen }: { specimen: TypeSpecimen }) {
 
 function usageBadge(usage: NameUsage) {
   if (usage.isAccepted) return <Badge tone="matched">{usage.status}</Badge>;
+
   if (usage.isRecorded) return <Badge tone="unmatched">Recorded here</Badge>;
+
   return <Badge tone="neutral">{usage.status}</Badge>;
 }
 
 function NameUsageTable({ usages }: { usages: NameUsage[] }) {
   const [page, setPage] = useState(1);
+
   if (usages.length === 0) {
     return <Muted>No name usages recorded.</Muted>;
   }
+
   // Header, row and container styles match the specimen table on the
   // database search page, so the two tables read as one system.
   const headerClass = "px-4 py-3 font-semibold whitespace-nowrap";

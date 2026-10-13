@@ -54,26 +54,32 @@ class MorphospaceOutputRepository(ArtifactRepository):
         Either all five tables are replaced or none is, so the backend never
         serves points from one run with disparity from another.
         """
+
         if not self.database_path.is_file():
             raise OutputError(f"Run artifact not found: {self.database_path}")
+
         targets = {
             name: parse_table_identifier(table)
             for name, table in (destinations or default_destinations()).items()
         }
         connection = duckdb.connect(str(backend_db))
         written: dict[str, int] = {}
+
         try:
             existing = [t.display_name for t in targets.values() if _exists(connection, t)]
+
             if existing and not replace:
                 raise OutputError(
                     f"Write-back destination already exists: {', '.join(existing)}. "
                     "Pass --replace to rebuild it."
                 )
+
             alias = quote_identifier(self.attach_alias)
             connection.execute("BEGIN TRANSACTION")
             connection.execute(
                 f"ATTACH {quote_literal(str(self.database_path))} AS {alias} (READ_ONLY)"
             )
+
             for name, target in targets.items():
                 destination = qualified_name(target)
                 connection.execute(
@@ -83,15 +89,18 @@ class MorphospaceOutputRepository(ArtifactRepository):
                     f"CREATE OR REPLACE TABLE {destination} AS "
                     f"SELECT * FROM {alias}.{quote_identifier(name)}"
                 )
+
                 for number, columns in enumerate(TABLE_INDEXES[name]):
                     index = quote_identifier(f"{target.table_name}_idx{number}")
                     column_list = ", ".join(quote_identifier(c) for c in columns)
                     connection.execute(
                         f"CREATE INDEX IF NOT EXISTS {index} ON {destination} ({column_list})"
                     )
+
                 row = connection.execute(f"SELECT count(*) FROM {destination}").fetchone()
                 assert row is not None
                 written[target.display_name] = int(row[0])
+
             connection.execute("COMMIT")
         except Exception:
             with suppress(duckdb.Error):
@@ -99,6 +108,7 @@ class MorphospaceOutputRepository(ArtifactRepository):
             raise
         finally:
             connection.close()
+
         return WriteBackReport(tables=written)
 
 
@@ -108,4 +118,5 @@ def _exists(connection: duckdb.DuckDBPyConnection, table) -> bool:
         [table.schema_name, table.table_name],
     ).fetchone()
     assert row is not None
+
     return bool(row[0])

@@ -56,6 +56,7 @@ function Legend({ data }: { data: CountryDiversity }) {
   const dark = speciesScale(data.countries, true);
   const labels = stepLabels(light.breaks);
   const middle = Math.floor(light.colors.length / 2);
+
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-deep-mocha-600 dark:text-deep-mocha-400">
       <div className="flex items-center gap-2">
@@ -112,6 +113,7 @@ export default function CountryDiversityPanel({
   tableLink?: boolean;
 }) {
   const hasData = data !== null && data.countries.length > 0;
+
   return (
     <div>
       {hasData ? (

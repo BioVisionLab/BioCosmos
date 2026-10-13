@@ -107,9 +107,13 @@ export async function fetchTaxonomyDetail(
     `/api/taxonomy/species?species=${encodeURIComponent(species)}`,
     { headers: { Accept: "application/json" } },
   );
+
   if (response.status === 404) return null;
+
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
   const data = await response.json();
+
   return {
     nomenclature: data.nomenclature,
     nameUsages: Array.isArray(data.nameUsages) ? data.nameUsages : [],

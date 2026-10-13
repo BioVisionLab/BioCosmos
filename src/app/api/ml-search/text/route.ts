@@ -50,10 +50,13 @@ const MAX_LIMIT = 50;
 
 function parseLimit(rawLimit: string | null): number | null {
   if (rawLimit === null) return DEFAULT_LIMIT;
+
   if (rawLimit.trim() === "") return null;
 
   const limit = Number(rawLimit);
+
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) return null;
+
   return limit;
 }
 
@@ -62,6 +65,7 @@ async function readBackendError(response: Response): Promise<string> {
 
   try {
     const body: unknown = await response.json();
+
     if (
       typeof body === "object" &&
       body !== null &&
@@ -123,6 +127,7 @@ export async function GET(request: Request) {
       console.error(
         `Error from CLIP service (${clipResponse.status}): ${errorMessage}`,
       );
+
       return NextResponse.json(
         { error: errorMessage },
         { status: clipResponse.status },
@@ -131,11 +136,13 @@ export async function GET(request: Request) {
 
     // Parse the JSON response (expected to be an array of butterfly result objects)
     const results: unknown = await clipResponse.json();
+
     if (!Array.isArray(results)) {
       console.error(
         "Unexpected response format from BIOCOSMOS BACKEND service. Expected an array.",
         results,
       );
+
       return NextResponse.json(
         { error: "Backend text search returned an invalid response format." },
         { status: 502 },
@@ -160,6 +167,7 @@ export async function GET(request: Request) {
     // Handle fetch errors (e.g., service not running) or other issues
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to contact CLIP service: ${errorMessage}` },
       { status: 503 }, // 503 Service Unavailable

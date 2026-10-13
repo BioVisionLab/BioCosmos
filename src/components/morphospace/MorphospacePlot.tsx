@@ -87,12 +87,14 @@ function readPalette(element: HTMLElement): Palette {
   const token = (name: string) => style.getPropertyValue(`--ms-${name}`).trim();
   // The ring around each point has to match whatever the plot sits on.
   let surface = "";
+
   for (
     let node: HTMLElement | null = element;
     node;
     node = node.parentElement
   ) {
     const background = getComputedStyle(node).backgroundColor;
+
     if (
       background &&
       background !== "rgba(0, 0, 0, 0)" &&
@@ -102,6 +104,7 @@ function readPalette(element: HTMLElement): Palette {
       break;
     }
   }
+
   return {
     dorsal: token("dorsal"),
     ventral: token("ventral"),
@@ -165,6 +168,7 @@ function drawMark(
   tracePath(ctx, shape, x, y, r + 1.5);
   ctx.fillStyle = surface;
   ctx.fill();
+
   if (filled) {
     tracePath(ctx, shape, x, y, r);
     ctx.fillStyle = color;
@@ -200,6 +204,7 @@ export function ShapeIcon({
       {...paint}
     />
   );
+
   return (
     <svg
       width={size}
@@ -261,7 +266,9 @@ function strokeEllipse(
   const a = points.ellSx[i],
     b = points.ellSy[i];
   const rho = points.ellRho[i] ?? 0;
+
   if (cx == null || cy == null || a == null || b == null) return;
+
   // Principal axes of the 2 × 2 covariance.
   const cxx = a * a,
     cyy = b * b,
@@ -275,15 +282,18 @@ function strokeEllipse(
   ctx.lineWidth = 1.5;
   ctx.globalAlpha = 0.8;
   ctx.beginPath();
+
   for (let step = 0; step <= 48; step++) {
     const t = (step / 48) * Math.PI * 2;
     const ex = l1 * Math.cos(t),
       ey = l2 * Math.sin(t);
     const x = sx(cx + ex * Math.cos(angle) - ey * Math.sin(angle));
     const y = sy(cy + ex * Math.sin(angle) + ey * Math.cos(angle));
+
     if (step === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
+
   ctx.stroke();
   ctx.globalAlpha = 1;
 }
@@ -305,7 +315,9 @@ function clipToPlot(
 
 function niceTicks(min: number, max: number, count = 5): number[] {
   const span = max - min;
+
   if (!(span > 0)) return [min];
+
   const raw = span / count;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const step =
@@ -313,9 +325,11 @@ function niceTicks(min: number, max: number, count = 5): number[] {
       .map((m) => m * magnitude)
       .find((s) => span / s <= count) ?? 10 * magnitude;
   const ticks: number[] = [];
+
   for (let t = Math.ceil(min / step) * step; t <= max + 1e-9; t += step) {
     ticks.push(Number(t.toFixed(6)));
   }
+
   return ticks;
 }
 
@@ -366,15 +380,21 @@ export default function MorphospacePlot({
   const options = useMemo(() => {
     const genera = new Map<string, Set<string>>();
     const species = new Map<string, string | null>();
+
     for (let i = 0; i < count; i++) {
       const g = points.genus[i];
+
       if (g) {
         if (!genera.has(g)) genera.set(g, new Set());
+
         genera.get(g)!.add(points.species[i]);
       }
+
       species.set(points.species[i], g);
     }
+
     const out: (MorphospaceSelection & { detail: string })[] = [];
+
     if (scope.rank !== "genus") {
       for (const [g, members] of [...genera].sort((a, b) =>
         a[0].localeCompare(b[0]),
@@ -387,9 +407,11 @@ export default function MorphospacePlot({
         });
       }
     }
+
     for (const name of [...species.keys()].sort()) {
       out.push({ kind: "species", key: name, label: name, detail: "species" });
     }
+
     return out;
   }, [count, points, scope.rank]);
 
@@ -397,18 +419,23 @@ export default function MorphospacePlot({
   // over a selected genus containing it.
   const slotOf = useMemo(() => {
     const slots = new Int8Array(count).fill(-1);
+
     if (selected.length === 0) return slots;
+
     const bySpecies = new Map(
       selected.filter((s) => s.kind === "species").map((s) => [s.key, s.slot]),
     );
     const byGenus = new Map(
       selected.filter((s) => s.kind === "genus").map((s) => [s.key, s.slot]),
     );
+
     for (let i = 0; i < count; i++) {
       const slot =
         bySpecies.get(points.species[i]) ?? byGenus.get(points.genus[i] ?? "");
+
       if (slot !== undefined) slots[i] = slot;
     }
+
     return slots;
   }, [count, points, selected]);
 
@@ -416,29 +443,37 @@ export default function MorphospacePlot({
 
   const visible = useMemo(() => {
     const out: number[] = [];
+
     for (let i = 0; i < count; i++) {
       if (view !== "both" && points.side[i] !== view) continue;
+
       if (onlySelected && hasSelection && slotOf[i] < 0) continue;
+
       out.push(i);
     }
+
     return out;
   }, [count, points.side, view, onlySelected, hasSelection, slotOf]);
 
   // Both sides of each species, for the hover card's two photographs.
   const sidesOf = useMemo(() => {
     const map = new Map<string, Partial<Record<Side, number>>>();
+
     for (let i = 0; i < count; i++) {
       const entry = map.get(points.species[i]) ?? {};
       entry[points.side[i]] = i;
       map.set(points.species[i], entry);
     }
+
     return map;
   }, [count, points]);
 
   // Width tracking and theme changes both trigger a redraw.
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) return;
+
     const resize = new ResizeObserver(([entry]) =>
       setWidth(Math.floor(entry.contentRect.width)),
     );
@@ -448,6 +483,7 @@ export default function MorphospacePlot({
       attributes: true,
       attributeFilter: ["class"],
     });
+
     return () => {
       resize.disconnect();
       theme.disconnect();
@@ -463,14 +499,17 @@ export default function MorphospacePlot({
       maxX = -Infinity,
       minY = Infinity,
       maxY = -Infinity;
+
     for (let i = 0; i < count; i++) {
       minX = Math.min(minX, xs[i]);
       maxX = Math.max(maxX, xs[i]);
       minY = Math.min(minY, ys[i]);
       maxY = Math.max(maxY, ys[i]);
     }
+
     const padX = (maxX - minX || 1) * 0.05;
     const padY = (maxY - minY || 1) * 0.05;
+
     return {
       minX: minX - padX,
       maxX: maxX + padX,
@@ -482,7 +521,9 @@ export default function MorphospacePlot({
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
+
     if (!canvas || !container || width === 0) return;
+
     const palette = readPalette(container);
     const ratio = window.devicePixelRatio || 1;
     canvas.width = width * ratio;
@@ -490,7 +531,9 @@ export default function MorphospacePlot({
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     const ctx = canvas.getContext("2d");
+
     if (!ctx) return;
+
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
@@ -509,6 +552,7 @@ export default function MorphospacePlot({
     ctx.fillStyle = palette.axis;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
+
     for (const t of niceTicks(bounds.minX, bounds.maxX)) {
       const x = Math.round(sx(t)) + 0.5;
       ctx.beginPath();
@@ -517,8 +561,10 @@ export default function MorphospacePlot({
       ctx.stroke();
       ctx.fillText(String(t), x, PADDING.top + plotH + 7);
     }
+
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
+
     for (const t of niceTicks(bounds.minY, bounds.maxY)) {
       const y = Math.round(sy(t)) + 0.5;
       ctx.beginPath();
@@ -527,6 +573,7 @@ export default function MorphospacePlot({
       ctx.stroke();
       ctx.fillText(String(t), PADDING.left - 8, y);
     }
+
     // Axis lines on the plot's left and bottom edges, with outward ticks. The
     // bottom edge is the x axis: its ticks, values and title sit below it, and
     // the low-end thumbnail of the y axis ends exactly on it.
@@ -537,16 +584,19 @@ export default function MorphospacePlot({
     ctx.moveTo(left, PADDING.top);
     ctx.lineTo(left, bottom);
     ctx.lineTo(PADDING.left + plotW, bottom);
+
     for (const t of niceTicks(bounds.minX, bounds.maxX)) {
       const x = Math.round(sx(t)) + 0.5;
       ctx.moveTo(x, bottom);
       ctx.lineTo(x, bottom + 4);
     }
+
     for (const t of niceTicks(bounds.minY, bounds.maxY)) {
       const y = Math.round(sy(t)) + 0.5;
       ctx.moveTo(left - 4, y);
       ctx.lineTo(left, y);
     }
+
     ctx.stroke();
 
     const label = (key: AxisKey) =>
@@ -564,10 +614,12 @@ export default function MorphospacePlot({
     const dense = visible.length > 2000;
     const radius = dense ? 3 : 4;
     const screen = new Float32Array(count * 2).fill(NaN);
+
     for (const i of visible) {
       screen[i * 2] = sx(xs[i]);
       screen[i * 2 + 1] = sy(ys[i]);
     }
+
     screenRef.current = screen;
     scaleRef.current = { sx, sy, palette };
 
@@ -583,12 +635,17 @@ export default function MorphospacePlot({
     if (view === "both") {
       ctx.lineWidth = 1;
       const allLinks = visible.length <= LINK_LIMIT;
+
       for (let i = 0; i + 1 < count; i++) {
         if (points.species[i] !== points.species[i + 1]) continue;
+
         if (Number.isNaN(screen[i * 2]) || Number.isNaN(screen[(i + 1) * 2]))
           continue;
+
         const inSelection = slotOf[i] >= 0;
+
         if (!allLinks && !inSelection) continue;
+
         ctx.strokeStyle = inSelection
           ? palette.series[slotOf[i]]
           : palette.link;
@@ -598,6 +655,7 @@ export default function MorphospacePlot({
         ctx.lineTo(screen[(i + 1) * 2], screen[(i + 1) * 2 + 1]);
         ctx.stroke();
       }
+
       ctx.globalAlpha = 1;
     }
 
@@ -613,17 +671,20 @@ export default function MorphospacePlot({
       );
       ctx.save();
       clipToPlot(ctx, width, height);
+
       for (const i of visible) {
         if (speciesSlots.has(points.species[i])) {
           strokeEllipse(ctx, points, i, sx, sy, color(i));
         }
       }
+
       ctx.restore();
     }
 
     // Points: context first, selection on top.
     for (const i of visible) {
       if (slotOf[i] >= 0) continue;
+
       ctx.globalAlpha = hasSelection ? 1 : dense ? 0.6 : 0.9;
       drawMark(
         ctx,
@@ -636,9 +697,12 @@ export default function MorphospacePlot({
         palette.surface,
       );
     }
+
     ctx.globalAlpha = 1;
+
     for (const i of visible) {
       if (slotOf[i] < 0) continue;
+
       drawMark(
         ctx,
         SHAPES[slotOf[i]],
@@ -653,12 +717,15 @@ export default function MorphospacePlot({
 
     // Hit-testing grid over the drawn points.
     const grid = new Map<string, number[]>();
+
     for (const i of visible) {
       const key = `${Math.floor(screen[i * 2] / HIT_RADIUS)},${Math.floor(screen[i * 2 + 1] / HIT_RADIUS)}`;
       const cell = grid.get(key);
+
       if (cell) cell.push(i);
       else grid.set(key, [i]);
     }
+
     gridRef.current = grid;
     setcolors((previous) =>
       previous.join() === palette.series.join() ? previous : palette.series,
@@ -693,17 +760,23 @@ export default function MorphospacePlot({
   useEffect(() => {
     const overlay = overlayRef.current;
     const scale = scaleRef.current;
+
     if (!overlay || !scale || width === 0) return;
+
     const ratio = window.devicePixelRatio || 1;
     overlay.width = width * ratio;
     overlay.height = height * ratio;
     overlay.style.width = `${width}px`;
     overlay.style.height = `${height}px`;
     const ctx = overlay.getContext("2d");
+
     if (!ctx) return;
+
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
+
     if (hovered == null) return;
+
     const { sx, sy, palette } = scale;
     const name = points.species[hovered];
     const members = visible.filter((i) => points.species[i] === name);
@@ -713,12 +786,16 @@ export default function MorphospacePlot({
         : points.side[i] === "dorsal"
           ? palette.dorsal
           : palette.ventral;
+
     if (xKey === "pc1" && yKey === "pc2") {
       ctx.save();
       clipToPlot(ctx, width, height);
+
       for (const i of members) strokeEllipse(ctx, points, i, sx, sy, color(i));
+
       ctx.restore();
     }
+
     if (members.length === 2) {
       ctx.strokeStyle = palette.axis;
       ctx.lineWidth = 1.5;
@@ -727,6 +804,7 @@ export default function MorphospacePlot({
       ctx.lineTo(sx(xs[members[1]]), sy(ys[members[1]]));
       ctx.stroke();
     }
+
     for (const i of members) {
       ctx.beginPath();
       ctx.arc(sx(xs[i]), sy(ys[i]), 8, 0, Math.PI * 2);
@@ -757,12 +835,14 @@ export default function MorphospacePlot({
     const screen = screenRef.current;
     let best: number | null = null;
     let bestDistance = HIT_RADIUS * HIT_RADIUS;
+
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (const i of gridRef.current.get(`${cx + dx},${cy + dy}`) ?? []) {
           const d = (screen[i * 2] - x) ** 2 + (screen[i * 2 + 1] - y) ** 2;
           // Prefer selected points when two overlap.
           const bias = slotOf[i] >= 0 ? 0.5 : 1;
+
           if (d * bias < bestDistance) {
             bestDistance = d * bias;
             best = i;
@@ -770,6 +850,7 @@ export default function MorphospacePlot({
         }
       }
     }
+
     return best == null
       ? null
       : { i: best, x: screen[best * 2], y: screen[best * 2 + 1] };
@@ -780,12 +861,16 @@ export default function MorphospacePlot({
       const existing = current.find(
         (s) => s.kind === option.kind && s.key === option.key,
       );
+
       if (existing) return current.filter((s) => s !== existing);
+
       if (current.length >= MAX_SELECTION) return current;
+
       // The lowest free slot, so a color follows its entity and removing one
       // selection never repaints the others.
       const used = new Set(current.map((s) => s.slot));
       const slot = SHAPES.findIndex((_, n) => !used.has(n));
+
       return [...current, { ...option, slot }];
     });
   };
@@ -794,8 +879,10 @@ export default function MorphospacePlot({
     hovered != null ? speciesPageHref(points.pageKey[hovered]) : null;
   const tooltipStyle = (() => {
     if (hover == null) return undefined;
+
     const { x, y } = hover;
     const left = x > width - 260 ? x - 252 : x + 14;
+
     return {
       left: Math.max(0, left),
       top: Math.max(0, Math.min(y - 60, height - 200)),
@@ -878,6 +965,7 @@ export default function MorphospacePlot({
             onClick={(e) => {
               const hit = pick(e);
               const href = hit ? speciesPageHref(points.pageKey[hit.i]) : null;
+
               if (href) router.push(href);
             }}
           />
@@ -984,6 +1072,7 @@ function SelectionPicker({
 
   useEffect(() => {
     if (!open) return;
+
     const close = (event: MouseEvent) => {
       if (
         !panelRef.current?.contains(event.target as Node) &&
@@ -993,6 +1082,7 @@ function SelectionPicker({
       }
     };
     document.addEventListener("mousedown", close);
+
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
@@ -1060,6 +1150,7 @@ function SelectionPicker({
             {shown.map((option) => {
               const checked = isSelected(option);
               const disabled = full && !checked;
+
               return (
                 <li key={`${option.kind}:${option.key}`}>
                   <label
@@ -1117,6 +1208,7 @@ function SelectionBar({
   onClear: () => void;
 }) {
   if (selected.length === 0) return null;
+
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
       <ul aria-label="Selected" className="flex flex-wrap gap-1.5">
@@ -1177,6 +1269,7 @@ function Legend({
   ellipse: boolean;
 }) {
   const item = "inline-flex items-center gap-1.5";
+
   return (
     <ul className={`flex flex-wrap gap-x-4 gap-y-1 mb-2 text-xs ${MUTED_TEXT}`}>
       {selection ? (
@@ -1244,6 +1337,7 @@ function RepresentativeImage({
   const [failed, setFailed] = useState(false);
   const frame =
     "shrink-0 rounded-md border border-deep-mocha-200 dark:border-deep-mocha-700 bg-deep-mocha-50 dark:bg-deep-mocha-900";
+
   if (!imgId || failed) {
     return (
       <span
@@ -1254,6 +1348,7 @@ function RepresentativeImage({
       </span>
     );
   }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -1285,6 +1380,7 @@ function HoverCard({
   style?: React.CSSProperties;
 }) {
   const name = points.species[index];
+
   return (
     <div
       className="pointer-events-none absolute z-10 w-60 rounded-lg border border-deep-mocha-300 dark:border-deep-mocha-600 bg-white dark:bg-deep-mocha-950 p-2.5 shadow-lg text-xs"
@@ -1294,6 +1390,7 @@ function HoverCard({
       <div className="mt-2 grid grid-cols-2 gap-2">
         {(["dorsal", "ventral"] as const).map((side) => {
           const i = sides[side];
+
           return (
             <figure
               key={side}
@@ -1340,6 +1437,7 @@ function extremeLink(
   className: string,
 ) {
   const href = speciesPageHref(e.pageKey);
+
   return href ? (
     <a
       href={href}
@@ -1369,6 +1467,7 @@ function YAxisEnds({
   height: number;
 }) {
   if (!low || !high) return null;
+
   const vertical = {
     writingMode: "vertical-rl" as const,
     transform: "rotate(180deg)",
@@ -1405,6 +1504,7 @@ function YAxisEnds({
         size={IMAGE}
       />
     );
+
     return extremeLink(
       e,
       place === "top" ? (
@@ -1421,6 +1521,7 @@ function YAxisEnds({
       `flex flex-col items-center gap-1 ${place === "top" ? "justify-start" : "justify-end"}`,
     );
   };
+
   return (
     <div
       className="grid w-12 shrink-0 justify-items-center"
@@ -1448,6 +1549,7 @@ function XAxisEnds({
   high?: AxisExtreme;
 }) {
   if (!low || !high) return null;
+
   const end = (label: string, e: AxisExtreme, align: string) =>
     extremeLink(
       e,
@@ -1465,6 +1567,7 @@ function XAxisEnds({
       </>,
       `flex items-center gap-2 ${align === "text-right" ? "flex-row-reverse" : ""}`,
     );
+
   return (
     <div className="mt-2 ml-12 flex flex-wrap items-center justify-between gap-2">
       {end(`Low ${axis.toUpperCase()}`, low, "text-left")}
@@ -1487,6 +1590,7 @@ function DataTable({
   total: number;
 }) {
   const { points } = data;
+
   return (
     <div
       className="mt-2 max-h-72 overflow-auto"

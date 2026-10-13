@@ -28,12 +28,14 @@ TaxonomyTableOption = Annotated[str, typer.Option("--taxonomy-table")]
 
 def _fail(exc: Exception) -> typer.Exit:
     typer.echo(f"Error: {exc}", err=True)
+
     return typer.Exit(code=2)
 
 
 def _reports_dir(value: Path | None) -> Path | None:
     if value is not None:
         return value
+
     return DEFAULT_REPORTS_DIR if DEFAULT_REPORTS_DIR.is_dir() else None
 
 
@@ -46,6 +48,7 @@ def inspect_command(
     min_scope_species: Annotated[int, typer.Option("--min-scope-species")] = 3,
 ) -> None:
     """Count what a run would cover, without reading any embedding."""
+
     try:
         labels = load_labels(
             db,
@@ -55,6 +58,7 @@ def inspect_command(
         )
     except HarmonizeError as exc:
         raise _fail(exc) from exc
+
     groups = build_groups(labels)
     kept = (
         groups.images.group_by("group_id")
@@ -63,18 +67,19 @@ def inspect_command(
         .with_columns(kept=pl.col("images") >= min_images)
     )
     typer.echo(f"Labelled images: {len(labels):,}")
-    
+
     for side in SIDES:
         on_side = kept.filter(pl.col("side") == side)
         typer.echo(
             f"  {side}: {int(on_side['images'].sum()):,} images, "
             f"{int(on_side['kept'].sum()):,} species with ≥{min_images} images"
         )
+
     species = kept.filter("kept").group_by("species_id").len("sides")
     both = int((species["sides"] == len(SIDES)).sum())
     typer.echo(f"Species kept: {species.height:,}; seen from both sides: {both:,}")
     taxa = groups.taxa.join(species, on="species_id")
-    
+
     for label, column in (("Families", "family_key"), ("Genera", "genus_key")):
         per_key = taxa.filter(pl.col(column).fill_null("") != "").group_by(column).len()
         eligible = int((per_key["len"] >= min_scope_species).sum())
@@ -105,6 +110,7 @@ def run_command(
     force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Compute the morphospaces into a run artifact. Reads both stores read-only."""
+
     try:
         parameters = MorphospaceParameters(
             embedding_column=column,
@@ -131,31 +137,35 @@ def run_command(
         )
     except (HarmonizeError, ValueError, duckdb.Error) as exc:
         raise _fail(exc) from exc
+
     typer.echo(f"Created {result.database_path}")
     counts = result.counts
-    
+
     typer.echo(
         f"Species: {counts['species']:,}; scopes: {counts['scopes_all']} all, "
         f"{counts['scopes_family']:,} families, {counts['scopes_genus']:,} genera"
     )
-    
+
     typer.echo(f"Runtime: {format_duration(result.runtime_seconds)}")
 
 
 def _resolve_run(run: str, reports_dir: Path | None) -> Path:
     """A run directory, from a path or from `latest` in the reports pointer file."""
-    
+
     if run != "latest":
         return Path(run)
+
     root = _reports_dir(reports_dir)
-    
+
     if root is None or not (root / LATEST_NAME).is_file():
         raise OutputError("No reports/latest.json; pass --run <run directory>.")
+
     pointer = json.loads((root / LATEST_NAME).read_text(encoding="utf-8"))
     entry = pointer.get(REPORT_KIND)
-    
+
     if not isinstance(entry, dict) or "manifest" not in entry:
         raise OutputError(f"reports/latest.json has no {REPORT_KIND!r} run.")
+
     manifest = Path(entry["manifest"])
 
     return (manifest if manifest.is_absolute() else root / manifest).parent
@@ -173,12 +183,13 @@ def integrate_command(
 
     DuckDB allows a single writer: stop the backend first.
     """
+
     try:
         repository = MorphospaceOutputRepository(_resolve_run(run, reports_dir))
         report = repository.write_back(db, default_destinations(prefix), replace=replace)
     except (HarmonizeError, duckdb.Error) as exc:
         raise _fail(exc) from exc
-    
+
     for table, rows in report.tables.items():
         typer.echo(f"Wrote {rows:,} rows to {table}")
 

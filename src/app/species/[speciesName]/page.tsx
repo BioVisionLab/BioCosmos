@@ -50,9 +50,12 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
     const fetchSpeciesData = async () => {
       try {
         const data = await getSpeciesData(speciesName);
+
         if (!mounted) return;
+
         if (data) {
           setSpeciesData(data);
+
           try {
             // cache species data in localStorage so gallery pages (even new tabs)
             // can reuse it without refetching
@@ -106,7 +109,9 @@ function SpeciesContent({ speciesName }: { speciesName: string }) {
   // The family crumb only appears once taxonomy has resolved; genus and
   // species come straight from the slug, so the trail paints immediately.
   const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
+
   if (family) crumbs.push({ label: family, href: familyHref(family) });
+
   crumbs.push({ label: genus, href: genusHref(genus), italic: true });
   crumbs.push({
     label: speciesData?.taxonomy?.species ?? formattedName,

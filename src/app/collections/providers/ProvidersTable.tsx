@@ -20,8 +20,10 @@ function InstitutionCell({
   if (!info) {
     return <span>{code}</span>;
   }
+
   // Registry data is not trusted blindly: only http(s) becomes a link.
   const homepage = safeWebUrl(info.homepage);
+
   return (
     <div className="flex flex-col gap-0.5">
       {homepage ? (
@@ -64,6 +66,7 @@ export default function ProvidersTable({
   const rows = useMemo(() => {
     const entries = Object.entries(institutionCounts ?? {});
     const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
     return entries
       .map(([institution, count]) => ({
         institution,

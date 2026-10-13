@@ -84,12 +84,14 @@ def test_run_outputs_and_preserves_source(
     assert manifest["outputs"]["manifest"].endswith("run.json")
 
     connection = duckdb.connect(str(output / "taxonomy_update.duckdb"), read_only=True)
+
     try:
         runtime_seconds = connection.execute("SELECT runtime_seconds FROM run_metadata").fetchone()[
             0
         ]
     finally:
         connection.close()
+
     assert runtime_seconds > 0
 
     summary_result = runner.invoke(
@@ -160,6 +162,7 @@ def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_pa
     )
     assert result.exit_code == 0, result.output
     connection = duckdb.connect(str(occurrence_db), read_only=True)
+
     try:
         source_count = connection.execute("SELECT count(*) FROM occurrence").fetchone()[0]
         lookup_count = connection.execute(
@@ -181,6 +184,7 @@ def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_pa
         )
     finally:
         connection.close()
+
     assert source_count == 11
     assert lookup_count <= source_count
 
@@ -206,6 +210,7 @@ def test_opt_in_write_back_is_compact(occurrence_db: Path, col_tsv: Path, tmp_pa
     )
     assert second.exit_code == 2
     connection = duckdb.connect(str(occurrence_db), read_only=True)
+
     try:
         assert (
             connection.execute("SELECT count(*) FROM harmonized.taxonomy_lookup").fetchone()[0]

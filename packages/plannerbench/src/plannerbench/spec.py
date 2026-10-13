@@ -42,16 +42,21 @@ def load_spec(path: Path) -> PlannerSpec:
         raise ConfigurationError(
             f"Planner spec not found: {path}. Export it first with: {EXPORT_HINT}"
         )
+
     try:
         spec = PlannerSpec.model_validate(json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, ValidationError) as exc:
         raise ConfigurationError(f"Invalid planner spec {path}: {exc}") from exc
+
     if spec.spec_version != SUPPORTED_SPEC_VERSION:
         raise ConfigurationError(
             f"Unsupported planner spec version {spec.spec_version}; "
             f"expected {SUPPORTED_SPEC_VERSION}. Re-export it with: {EXPORT_HINT}"
         )
+
     missing = spec.tool_names - set(spec.validation_schemas)
+
     if missing:
         raise ConfigurationError(f"Planner spec lacks validation schemas for: {sorted(missing)}")
+
     return spec

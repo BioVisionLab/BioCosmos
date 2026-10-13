@@ -37,9 +37,11 @@ function MaybeSpeciesLink({
   children: React.ReactNode;
 }) {
   const href = speciesPageHref(speciesKey);
+
   if (!href) {
     return <div className={className}>{children}</div>;
   }
+
   return (
     <Link href={href} className={className}>
       {children}
@@ -65,6 +67,7 @@ function computeMatchPercent(score: number) {
 // colour match still scores around 1.38.
 function computeDistancePercent(distance: number) {
   const similarity = 1 - distance / 2;
+
   return Math.max(0, Math.min(100, Math.round(similarity * 100)));
 }
 
@@ -86,14 +89,19 @@ function MLSearchResultCard({
   const getMatchPillClass = (pct: number) => {
     const base =
       "inline-block px-2 py-0.5 rounded-full text-[11px] font-medium";
+
     if (pct < 65)
       return `${base} bg-burnt-peach-100 text-burnt-peach-800 dark:bg-burnt-peach-900 dark:text-burnt-peach-200`;
+
     if (pct < 70)
       return `${base} bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200`;
+
     if (pct < 75)
       return `${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
+
     if (pct < 80)
       return `${base} bg-hunter-green-100 text-hunter-green-800 dark:bg-hunter-green-900 dark:text-hunter-green-200`;
+
     return `${base} bg-hunter-green-200 text-hunter-green-900 dark:bg-hunter-green-800 dark:text-hunter-green-100`;
   };
 
@@ -159,19 +167,25 @@ function TopResultCard({ data }: { data: MlResultItems }) {
     let mounted = true;
     const fetchImages = async () => {
       setLoading(true);
+
       try {
         const speciesImage = await fetchImgById(data.imgId);
+
         if (!mounted) return;
+
         setSpeciesImageUrl(speciesImage);
         const imageIds = await fetchSpeciesImageIds(
           data.speciesKey || data.species,
           5,
         );
+
         if (imageIds.length > 0) {
           const otherImages = await Promise.all(
             imageIds.map((id) => fetchThumbnailById(id)),
           );
+
           if (!mounted) return;
+
           setOtherImageUrl(otherImages);
         }
       } catch (error) {
@@ -181,6 +195,7 @@ function TopResultCard({ data }: { data: MlResultItems }) {
       }
     };
     fetchImages();
+
     return () => {
       mounted = false;
     };
@@ -191,14 +206,19 @@ function TopResultCard({ data }: { data: MlResultItems }) {
   const getMatchPillClass = (pct: number) => {
     const base =
       "inline-block px-2 py-0.5 rounded-full text-[13px] font-medium";
+
     if (pct < 65)
       return `${base} bg-burnt-peach-100 text-burnt-peach-800 dark:bg-burnt-peach-900 dark:text-burnt-peach-200`;
+
     if (pct < 70)
       return `${base} bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200`;
+
     if (pct < 75)
       return `${base} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
+
     if (pct < 80)
       return `${base} bg-hunter-green-100 text-hunter-green-800 dark:bg-hunter-green-900 dark:text-hunter-green-200`;
+
     return `${base} bg-hunter-green-200 text-hunter-green-900 dark:bg-hunter-green-800 dark:text-hunter-green-100`;
   };
 

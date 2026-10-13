@@ -30,6 +30,7 @@ def validated_grid(settings):
     Positions are the parsed coordinates the validation table was checked with,
     not a second parse of the raw image fields.
     """
+
     with connect(settings) as connection:
         images = image_table(connection, settings)
         coordinates = table(
@@ -64,8 +65,10 @@ def validated_grid(settings):
             LEFT JOIN {taxonomy} t USING (img_id)
             WHERE c.validation_status = 'VALID'
         """).df()
+
     if records.empty:
         raise AnalysisError("No images with VALID coordinates are available for the grid maps.")
+
     valid = (
         np.isfinite(records.longitude)
         & np.isfinite(records.latitude)
@@ -73,8 +76,10 @@ def validated_grid(settings):
         & records.latitude.between(-90, 90)
         & ~((records.longitude == 0) & (records.latitude == 0))
     )
+
     if not valid.all():
         raise AnalysisError("Images marked VALID contain unusable coordinates; refresh validation.")
+
     projection = Transformer.from_crs("EPSG:4326", "EPSG:8857", always_xy=True)
     # Canonicalize the antimeridian so +180 and -180 occupy the same cell.
     longitude = (records.longitude.to_numpy() + 180) % 360 - 180
@@ -90,28 +95,35 @@ def validated_grid(settings):
     grid["y_min_m"] = grid.grid_y * CELL_SIZE_M
     grid["cell_area_km2"] = 10_000
     grid["crs"] = "EPSG:8857"
+
     return grid
 
 
 def grid_map(ax, grid, root, column="species_count", title="Species diversity"):
     """Draw one grid panel on an existing axes and return its color mappable."""
+
     projection = Transformer.from_crs("EPSG:4326", "EPSG:8857", always_xy=True)
     features = json.loads((root / "analyses/data/ne_110m_admin_0_countries.geojson").read_text())[
         "features"
     ]
     outlines = []
+
     for feature in features:
         geometry = feature["geometry"]
+
         if geometry is None:
             continue
+
         polygons = (
             geometry["coordinates"]
             if geometry["type"] == "MultiPolygon"
             else [geometry["coordinates"]]
         )
+
         for polygon in polygons:
             x, y = projection.transform(*zip(*polygon[0]))
             outlines.append(Polygon(np.column_stack((x, y))))
+
     ax.add_collection(
         PatchCollection(
             outlines,
@@ -144,12 +156,15 @@ def grid_map(ax, grid, root, column="species_count", title="Species diversity"):
     )
     ax.set_axis_off()
     ax.set_title(title, loc="left")
+
     return collection
 
 
 def plain_log_ticks(colorbar):
     """Label a horizontal log colorbar with plain counts rather than powers of ten."""
+
     colorbar.ax.xaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+
     return colorbar
 
 
@@ -159,8 +174,10 @@ def grid_legend(ax, grid, column):
     Bare land needs no entry: a map of where images are implies that the rest of
     the world has none. A cell drawn outside the colour scale does need one.
     """
+
     if not (grid[column] < 1).any():
         return
+
     ax.legend(
         handles=[Patch(facecolor=ZERO_COLOR, label="Validated images, no accepted species")],
         loc="lower left",

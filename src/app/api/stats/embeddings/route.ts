@@ -5,6 +5,7 @@ const EMBEDDINGS_API_URL = `${API_HOST}/stats/embeddings`;
 
 export async function GET(): Promise<NextResponse> {
   console.log("API: Fetching embedding distributions");
+
   try {
     const response = await fetch(EMBEDDINGS_API_URL, {
       method: "GET",
@@ -12,6 +13,7 @@ export async function GET(): Promise<NextResponse> {
         Accept: "application/json",
       },
     });
+
     if (!response.ok) {
       const errorData = await response.json();
       console.error(
@@ -19,6 +21,7 @@ export async function GET(): Promise<NextResponse> {
           response.status
         } - ${JSON.stringify(errorData)}`,
       );
+
       return NextResponse.json(
         {
           error: `Failed to fetch embedding distributions: ${
@@ -28,12 +31,15 @@ export async function GET(): Promise<NextResponse> {
         { status: response.status },
       );
     }
+
     const embeddingStats = await response.json();
+
     return NextResponse.json(embeddingStats);
   } catch (error) {
     console.error("Error fetching embedding distributions:", error);
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
+
     return NextResponse.json(
       { error: `Failed to fetch embedding distributions: ${errorMessage}` },
       { status: 500 },

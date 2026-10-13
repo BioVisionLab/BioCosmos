@@ -39,6 +39,7 @@ def test_exact_lookup_is_accepted_without_a_name_check(registry) -> None:
 
 def test_fuzzy_code_match_needs_an_agreeing_publisher(registry) -> None:
     """GRSciColl pairs UI with the BLM; the Idaho publisher wins instead."""
+
     registry.by_code["UI"] = [BLM]
     registry.lookups[("UI", "d1")] = LookupResult(LookupMatch.FUZZY, "blm")
     registry.publishers["d1"] = Publisher(
@@ -81,6 +82,7 @@ def test_unrelated_candidate_and_publisher_leave_code_unresolved(registry) -> No
 
 def test_aggregator_publisher_falls_back_to_country(registry) -> None:
     """A portal publishing many codes says nothing by its name."""
+
     registry.by_code["MZH"] = [
         RegistryInstitution(key="mzh", code="MZH", name="Helsinki Zoological Museum", country="FI"),
         RegistryInstitution(key="x", code="MZH", name="Elsewhere", country="SE"),

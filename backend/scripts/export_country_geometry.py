@@ -31,29 +31,36 @@ PRECISION = 2
 def _round(coordinates):
     if isinstance(coordinates[0], (int, float)):
         return [round(value, PRECISION) for value in coordinates]
+
     return [_round(part) for part in coordinates]
 
 
 def _dedupe_ring(ring: list) -> list:
     """Drop consecutive vertices that rounding collapsed onto each other."""
+
     kept = [ring[0]]
+
     for point in ring[1:]:
         if point != kept[-1]:
             kept.append(point)
+
     return kept
 
 
 def _clean_geometry(geometry: dict) -> dict:
     rounded = _round(geometry["coordinates"])
+
     if geometry["type"] == "Polygon":
         rounded = [_dedupe_ring(ring) for ring in rounded]
     else:
         rounded = [[_dedupe_ring(ring) for ring in polygon] for polygon in rounded]
+
     return {"type": geometry["type"], "coordinates": rounded}
 
 
 def _polygons(geometry: dict) -> list:
     cleaned = _clean_geometry(geometry)
+
     return (
         [cleaned["coordinates"]]
         if cleaned["type"] == "Polygon"
@@ -67,11 +74,15 @@ def main() -> None:
     # One feature per code: Somaliland's polygon joins Somalia's, so the map's
     # feature ids (the code) stay unique and hover highlights both together.
     polygons: dict[str, list] = {}
+
     for feature in features:
         code = lookup.feature_code(feature)
+
         if code is None or feature["geometry"] is None:
             continue
+
         polygons.setdefault(code, []).extend(_polygons(feature["geometry"]))
+
     output = [
         {
             "type": "Feature",
@@ -83,9 +94,11 @@ def main() -> None:
         for code, parts in sorted(polygons.items())
     ]
     polygon_codes = set(polygons)
+
     for code, location in sorted(lookup.by_code.items()):
         if code in polygon_codes:
             continue
+
         output.append(
             {
                 "type": "Feature",
@@ -96,6 +109,7 @@ def main() -> None:
                 },
             }
         )
+
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     TARGET.write_text(
         json.dumps(

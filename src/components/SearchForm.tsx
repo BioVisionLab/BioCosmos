@@ -17,6 +17,7 @@ export default function SemanticForm({
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = searchTerm.trim();
+
     if (!query) return;
 
     onSubmit(query, mode);

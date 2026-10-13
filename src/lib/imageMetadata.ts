@@ -58,6 +58,7 @@ export function taxonomyOf(
   meta: SpecimenImageMeta | null | undefined,
 ): TaxonUpdate | null {
   if (!meta) return null;
+
   return normalizeTaxonUpdate(meta.taxonomy);
 }
 
@@ -67,16 +68,21 @@ export function taxonomyOf(
  */
 export function acceptedDisplayName(update: TaxonUpdate | null): string | null {
   if (!update) return null;
+
   return update.displayAcceptedName ?? update.acceptedSpeciesName ?? null;
 }
 
 /** Whether the accepted name differs from the name that was recorded. */
 export function nameWasUpdated(update: TaxonUpdate | null): boolean {
   if (!update?.inputName) return false;
+
   const accepted = acceptedDisplayName(update);
+
   if (!accepted) return true;
+
   const normalize = (value: string) =>
     value.replace(/_/g, " ").trim().toLowerCase();
+
   return normalize(update.inputName) !== normalize(accepted);
 }
 
@@ -90,6 +96,7 @@ export function localityOf(
   meta: SpecimenImageMeta | null | undefined,
 ): SpecimenLocality | null {
   if (!meta) return null;
+
   return normalizeSpecimenLocality(meta.locality);
 }
 
@@ -113,11 +120,15 @@ export function sexOf(
   meta: SpecimenImageMeta | null | undefined,
 ): { display: string; label: string; isSymbol: boolean } | null {
   const raw = typeof meta?.sex === "string" ? meta.sex.trim() : "";
+
   if (!raw) return null;
+
   const mapped = SEX_SYMBOLS[raw.toLowerCase()];
+
   if (mapped) {
     return { display: mapped.symbol, label: mapped.label, isSymbol: true };
   }
+
   return { display: raw, label: raw, isSymbol: false };
 }
 
@@ -126,6 +137,7 @@ export function coordinatesOf(
   meta: SpecimenImageMeta | null | undefined,
 ): CoordinateValidation | null {
   if (!meta) return null;
+
   return normalizeCoordinateValidation(meta.coordinates);
 }
 
@@ -139,17 +151,22 @@ export function provenanceOf(
   meta: SpecimenImageMeta | null | undefined,
 ): SpecimenProvenance | null {
   const raw = meta?.provenance;
+
   if (!raw || typeof raw !== "object") return null;
+
   const obj = raw as Record<string, unknown>;
   const institutionCode =
     typeof obj.institutionCode === "string" ? obj.institutionCode : null;
   const catalogNumber =
     typeof obj.catalogNumber === "string" ? obj.catalogNumber : null;
+
   if (!institutionCode && !catalogNumber) return null;
+
   const institutionName =
     typeof obj.institutionName === "string" && obj.institutionName.trim()
       ? obj.institutionName
       : null;
+
   return {
     institutionCode,
     catalogNumber,
@@ -215,7 +232,9 @@ export function sourceDbHref(
  */
 export function safeWebUrl(rawUrl: unknown): string | null {
   if (typeof rawUrl !== "string") return null;
+
   const trimmed = rawUrl.trim();
+
   if (!trimmed) return null;
 
   const normalized = /^https?:\/\//i.test(trimmed)
@@ -223,13 +242,16 @@ export function safeWebUrl(rawUrl: unknown): string | null {
     : /^www\./i.test(trimmed)
       ? `https://${trimmed}`
       : "";
+
   if (!normalized) return null;
 
   try {
     const parsed = new URL(normalized);
+
     if (parsed.protocol === "http:" || parsed.protocol === "https:") {
       return parsed.toString();
     }
+
     return null;
   } catch {
     return null;

@@ -29,6 +29,7 @@ DEFAULT_LIMIT = 10
 
 def _fail(exc: Exception) -> typer.Exit:
     typer.echo(f"Error: {exc}", err=True)
+
     return typer.Exit(code=2)
 
 
@@ -63,12 +64,16 @@ def run_command(
 
     Stop the backend first: DuckDB allows a single writer.
     """
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     started = time.perf_counter()
+
     try:
         if not db.is_file():
             raise SourceValidationError(f"DuckDB file not found: {db}")
+
         embeddings, img_ids = load_all_embeddings(open_embeddings(lance_dir, lance_table))
+
         try:
             connection = duckdb.connect(str(db))
         except duckdb.Error as exc:
@@ -76,13 +81,17 @@ def run_command(
                 f"Cannot open {db} for writing. Stop the backend first: DuckDB allows a "
                 "single writer, and a second process cannot attach while it holds the file."
             ) from exc
+
         try:
             meta = load_metadata(connection, meta_table)
             species_filter = normalize_species(species) if species else None
             keys, centroids = compute_centroids(meta, embeddings, img_ids, species_filter)
+
             if not keys:
                 typer.echo("No species × side groups found; nothing written.")
+
                 return
+
             top_indices, top_distances = batch_similarity_search(centroids, embeddings, top_k)
             results = build_results(keys, top_indices, top_distances, img_ids, meta, limit)
             write_results(
@@ -93,6 +102,8 @@ def run_command(
             connection.close()
     except (HarmonizeError, duckdb.Error) as exc:
         raise _fail(exc) from exc
+
     typer.echo(f"Wrote {similarity_table} in {format_duration(time.perf_counter() - started)}")
+
     for name, count in counts.items():
         typer.echo(f"  {name}: {count:,}")

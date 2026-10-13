@@ -44,10 +44,12 @@ export default function MorphospaceSection({ rank, name, headingId }: Props) {
 
   useEffect(() => {
     if (!near) return;
+
     let cancelled = false;
     fetchScopeMorphospace(rank, name)
       .then((result) => !cancelled && setData(result))
       .catch(() => !cancelled && setData(null));
+
     return () => {
       cancelled = true;
     };

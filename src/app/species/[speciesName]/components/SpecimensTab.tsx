@@ -40,8 +40,10 @@ function markThumb(
 ) {
   setIds((s) => {
     if (s.has(id)) return s;
+
     const n = new Set(s);
     n.add(id);
+
     return n;
   });
 }
@@ -69,6 +71,7 @@ function SpecimenThumb({
   if (failed) {
     return <NoImage />;
   }
+
   return (
     <>
       <img
@@ -191,30 +194,39 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     try {
       const limit = MAX_PREVIEW;
       const ids = await fetchSpeciesImageIds(name, limit, 0);
+
       if (!mountedFlag) return;
 
       if (!ids || ids.length === 0) {
         setError("No image IDs returned for this species.");
         setItems([]);
+
         return;
       }
 
       setAllIds(ids);
       allIdsRef.current = ids;
+
       // if backend returned fewer than the requested preview, we've loaded all available ids
       if (ids.length < limit) setExhaustedIds(true);
+
       if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts)
         setExhaustedIds(true);
+
       const toUse = ids.slice(0, limit);
       const results = await fetchThumbnailsForIds(toUse);
+
       if (!mountedFlag) return;
+
       results.forEach((r) => {
         if (r.url) createdUrls.current.push(r.url);
+
         thumbCache.current.set(r.id, r.url);
       });
       setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
     } catch (err) {
       console.error("SpecimensTab preview load error:", err);
+
       if (mountedFlag) setError("Failed to load specimen thumbnails.");
     } finally {
       if (mountedFlag) setLoading(false);
@@ -228,15 +240,21 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   async function loadMeta(name?: string, mountedFlag = true) {
     if (!name) {
       setSpecimenData(null);
+
       return;
     }
+
     setSpecimenLoading(true);
+
     try {
       const data = await fetchSpecimenData(name);
+
       if (!mountedFlag) return;
+
       setSpecimenData(data ?? null);
     } catch (err) {
       console.error("Failed to fetch specimen metadata:", err);
+
       if (mountedFlag) setSpecimenData(null);
     } finally {
       if (mountedFlag) setSpecimenLoading(false);
@@ -262,6 +280,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
         .then((url) => ({ id, url }))
         .catch(() => ({ id, url: undefined })),
     );
+
     return Promise.all(promises);
   }
 
@@ -281,24 +300,31 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     try {
       const initialLimit = PAGE_SIZE * INITIAL_PAGES;
       const ids = await fetchSpeciesImageIds(name, initialLimit, 0);
+
       if (!mountedFlag) return;
 
       if (!ids || ids.length === 0) {
         setError("No image IDs returned for this species.");
         setItems([]);
+
         return;
       }
 
       setAllIds(ids);
       allIdsRef.current = ids;
+
       // if backend returned fewer than the initial request, we've loaded all available ids
       if (ids.length < initialLimit) setExhaustedIds(true);
+
       // if specimen metadata is known and we already fetched all images, mark exhausted
       if (specimenData?.imageCounts && ids.length >= specimenData.imageCounts)
         setExhaustedIds(true);
+
       const toUse = ids.slice(0, PAGE_SIZE);
       const results = await fetchThumbnailsForIds(toUse);
+
       if (!mountedFlag) return;
+
       results.forEach((r) => {
         thumbCache.current.set(r.id, r.url);
       });
@@ -307,6 +333,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       void prefetchNextPages(1, 2);
     } catch (err) {
       console.error("SpecimensTab load error:", err);
+
       if (mountedFlag) setError("Failed to load specimen thumbnails.");
     } finally {
       if (mountedFlag) setLoading(false);
@@ -331,23 +358,30 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       const builtIds = built.map((b) => b.id);
       setAllIds(builtIds);
       allIdsRef.current = builtIds;
+
       return;
     }
 
     setLoading(true);
     setAllIds(idsFromSpecimens);
     allIdsRef.current = idsFromSpecimens;
+
     // if the provided specimens list is small, mark as exhausted (no remote load expected)
     if (idsFromSpecimens.length <= PAGE_SIZE) setExhaustedIds(true);
+
     const pageIds = idsFromSpecimens.slice(0, PAGE_SIZE);
+
     try {
       const results = await fetchThumbnailsForIds(pageIds);
       results.forEach((r) => {
         if (r.url) createdUrls.current.push(r.url);
+
         thumbCache.current.set(r.id, r.url);
       });
+
       if (mountedFlag)
         setItems(results.map((r) => ({ id: r.id, thumbUrl: r.url })));
+
       // sync display/committed page
       setCurrentPage(1);
       setDisplayPage(1);
@@ -355,6 +389,7 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       void prefetchNextPages(1, 2);
     } catch (err) {
       console.error(err);
+
       if (mountedFlag) setError("Failed to load thumbnails from specimens.");
     } finally {
       if (mountedFlag) setLoading(false);
@@ -373,7 +408,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     // Use the ref (synchronously updated) when available to avoid stale
     // `allIds` state during rapid append operations. Fallback to `allIds`.
     const idsSource = allIdsRef.current ?? allIds ?? [];
+
     if (idsSource.length === 0) return;
+
     const total = idsSource.length;
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const p = Math.max(1, Math.min(pageCount, page));
@@ -389,7 +426,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     // fetch thumbnails for ids not in cache
     const fetchPromises = pageIds.map((id) => {
       const cached = thumbCache.current.get(id);
+
       if (cached !== undefined) return Promise.resolve({ id, url: cached });
+
       return fetchThumbnailById(id)
         .then((url) => ({ id, url }))
         .catch(() => ({ id, url: undefined }));
@@ -423,17 +462,22 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
   // Prefetch thumbnails for up to `count` pages after `page`
   const prefetchNextPages = async (page: number, count = 2) => {
     const idsSource = allIdsRef.current ?? allIds ?? [];
+
     if (idsSource.length === 0) return;
+
     const startPage = page + 1;
     const endPage = Math.min(
       Math.ceil(idsSource.length / PAGE_SIZE),
       page + count,
     );
+
     for (let p = startPage; p <= endPage; p++) {
       const start = (p - 1) * PAGE_SIZE;
       const ids = idsSource.slice(start, start + PAGE_SIZE);
       const toFetch = ids.filter((id) => !thumbCache.current.has(id));
+
       if (toFetch.length === 0) continue;
+
       try {
         const results = await fetchThumbnailsForIds(toFetch);
         results.forEach((r) => {
@@ -469,9 +513,11 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
 
   const gotoPage = (p: number) => {
     if (!allIds) return;
+
     // The shared pagination control has no in-flight state of its own, so the
     // re-entrancy guard lives here.
     if (isLoadingMore || loading) return;
+
     const requested = Math.max(1, p);
 
     // compute currently loaded pages from available ids
@@ -483,11 +529,13 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
     // If the requested page is already loaded, show it immediately.
     if (requested <= currentLoadedPages) {
       if (requested === currentPage) return; // already viewing
+
       // displayPage gives immediate feedback; actual commit happens in loadPage
       setDisplayPage(requested);
       setLoading(true);
       setError(null);
       loadPage(requested);
+
       return;
     }
 
@@ -507,18 +555,22 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
       // to reduce round trips and avoid races.
       const existing = allIdsRef.current ? allIdsRef.current : [];
       let remaining = neededCount - existing.length;
+
       if (remaining > 0 && speciesName) {
         setIsLoadingMore(true);
+
         try {
           const fetched = await fetchSpeciesImageIds(
             speciesName,
             remaining,
             existing.length,
           );
+
           if (!fetched || fetched.length === 0) {
             setExhaustedIds(true);
           } else {
             const deduped = fetched.filter((id) => !existing.includes(id));
+
             if (deduped.length > 0) {
               const newAll = [...existing, ...deduped];
               setAllIds(newAll);
@@ -640,7 +692,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                     key={id ?? String(idOrPlaceholder)}
                     onClick={() => {
                       if (!id) return;
+
                       const idx = pageIds.indexOf(id);
+
                       if (idx >= 0) setOpenIndexInPage(idx);
                     }}
                     title={id ? "Open full image" : undefined}
@@ -694,7 +748,9 @@ const SpecimensTab: React.FC<SpecimensTabProps> = ({
                   key={id ?? String(idOrPlaceholder)}
                   onClick={() => {
                     if (!id) return;
+
                     const idx = pageIds.indexOf(id);
+
                     if (idx >= 0) setOpenIndexInPage(idx);
                   }}
                   title={id ? "Open full image" : undefined}

@@ -58,9 +58,12 @@ export default function DataTable<Row>({
       ? rows.filter((row) => filterText(row).toLowerCase().includes(needle))
       : rows;
     const column = columns.find((c) => c.key === sort.key);
+
     if (!column?.sortValue) return filtered;
+
     const value = column.sortValue;
     const sign = sort.direction === "asc" ? 1 : -1;
+
     return [...filtered].sort((a, b) => {
       const left = value(a);
       const right = value(b);
@@ -68,6 +71,7 @@ export default function DataTable<Row>({
         typeof left === "number" && typeof right === "number"
           ? left - right
           : String(left).localeCompare(String(right));
+
       return order * sign;
     });
   }, [rows, query, sort, columns, filterText]);
@@ -139,6 +143,7 @@ export default function DataTable<Row>({
                   : sort.direction === "asc"
                     ? ArrowUp
                     : ArrowDown;
+
                 return (
                   <th
                     key={column.key}

@@ -44,11 +44,13 @@ def merge_run_config(
     column_data = project.columns.model_dump(by_alias=True)
     column_data.update(parse_mapping_options(mapping_values))
     matching_data = project.matching.model_dump()
+
     for key in tuple(matching_data):
         if overrides.get(key) is not None:
             matching_data[key] = overrides[key]
 
     require_settings(run_data, ("db", "table", "col", "output"), label="run")
+
     if run_data.get("cache_dir") is None:
         run_data["cache_dir"] = DEFAULT_CACHE_DIR
 
@@ -57,6 +59,7 @@ def merge_run_config(
         "columns": column_data,
         "matching": matching_data,
     }
+
     try:
         return EffectiveRunConfig.model_validate(payload)
     except ValidationError as exc:

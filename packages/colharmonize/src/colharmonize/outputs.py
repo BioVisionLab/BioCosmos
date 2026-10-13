@@ -26,6 +26,7 @@ class OutputRepository(ArtifactRepository):
     def write_back(self, occurrence_db: Path, destination_table: str) -> None:
         destination = parse_table_identifier(destination_table)
         connection = duckdb.connect(str(occurrence_db))
+
         try:
             exists_row = connection.execute(
                 """
@@ -37,10 +38,12 @@ class OutputRepository(ArtifactRepository):
             ).fetchone()
             assert exists_row is not None
             exists = exists_row[0]
+
             if exists:
                 raise OutputError(
                     f"Write-back destination already exists: {destination.display_name}"
                 )
+
             alias = quote_identifier(self.attach_alias)
             connection.execute("BEGIN TRANSACTION")
             connection.execute(

@@ -129,10 +129,13 @@ function parseMonthPresence(traits: LepTraits): Record<string, boolean> {
 
 function parseVoltinism(voltinism: string | undefined): Voltinism {
   const defaultVoltinism = { label: "Unknown", description: "" };
+
   if (!voltinism || voltinism.trim() === "") {
     return defaultVoltinism;
   }
+
   const value = voltinism.toLowerCase();
+
   return voltinismLabels[value] || defaultVoltinism;
 }
 
@@ -141,10 +144,13 @@ function parseDiapauseStage(diapause: string | undefined): DiapauseStage {
     label: "No diapause or data unavailable",
     description: "",
   };
+
   if (!diapause || diapause.trim() === "") {
     return defaultStage;
   }
+
   const value = diapause.toLowerCase();
+
   return diapauseStageLabels[value] || defaultStage;
 }
 
@@ -152,7 +158,9 @@ function parseOvipositionStyle(style: string | undefined): string {
   if (!style || style.trim() === "") {
     return "Unknown";
   }
+
   const value = style.toLowerCase();
+
   return ovipositionStyle[value] || "Unknown";
 }
 
@@ -173,6 +181,7 @@ function normalizeCode<T extends string>(
   fallback: T,
 ): T {
   const candidate = value?.trim().toLowerCase();
+
   return codes.find((code) => code === candidate) ?? fallback;
 }
 
@@ -194,6 +203,7 @@ function isAbsentAllYear(presenceMap: Record<string, boolean>): boolean {
 
 function noTraitData(traits: LepTraits): boolean {
   const keys = Object.keys(traits);
+
   return keys.length === 0;
 }
 

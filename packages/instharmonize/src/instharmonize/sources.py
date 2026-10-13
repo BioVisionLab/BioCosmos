@@ -43,14 +43,18 @@ def holder_code_sql(code_column: str, id_column: str | None = None) -> str:
 
     `code_column` and `id_column` are SQL column references, quoted as needed.
     """
+
     code = f"nullif(trim(CAST({code_column} AS VARCHAR)), '')"
+
     if id_column is None:
         return code
+
     identifier = f"trim(CAST({id_column} AS VARCHAR))"
     named = (
         f"CASE WHEN regexp_matches({identifier}, '{_NAME_LIKE_ID}') "
         f"AND regexp_matches({identifier}, '[a-z]') THEN {identifier} END"
     )
+
     return f"coalesce({code}, {named})"
 
 
@@ -60,9 +64,12 @@ def record_query(relation: str, columns: Iterable[str]) -> str:
     `relation` is a table name or a parenthesized subquery with the GBIF column
     names; `columns` are the ones it actually has.
     """
+
     present = set(columns)
+
     if GBIF_COLUMNS["institution_code"] not in present:
         raise SourceValidationError(f"{relation} has no institutionCode column")
+
     id_column = GBIF_COLUMNS["institution_id"]
     holder = holder_code_sql(
         '"institutionCode"', f'"{id_column}"' if id_column in present else None
@@ -75,6 +82,7 @@ def record_query(relation: str, columns: Iterable[str]) -> str:
         else f"CAST(NULL AS VARCHAR) AS {field}"
         for field, column in GBIF_COLUMNS.items()
     ]
+
     return f"""
         SELECT {", ".join(selects)}, count(*) AS occurrences
         FROM {relation}
@@ -87,6 +95,8 @@ def read_records(
     connection: _Executes, relation: str, columns: Iterable[str]
 ) -> list[InstitutionRecord]:
     """Run `record_query` on any DuckDB connection-like object."""
+
     rows = connection.execute(record_query(relation, columns)).fetchall()
     fields = [*GBIF_COLUMNS, "occurrences"]
+
     return [InstitutionRecord(**dict(zip(fields, row, strict=True))) for row in rows]

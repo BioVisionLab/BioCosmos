@@ -26,6 +26,7 @@ export default function PaginationControls({
   onPageChange: (page: number) => void;
 }) {
   if (totalPages <= 1) return null;
+
   const start = (currentPage - 1) * itemsPerPage + 1;
   const end = Math.min(currentPage * itemsPerPage, totalItems);
 

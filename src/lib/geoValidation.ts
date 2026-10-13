@@ -107,6 +107,7 @@ export function fetchGeoCodeDescriptions(): Promise<GeoCodeDescriptions> {
     })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
         return response.json();
       })
       .then((data) => ({
@@ -119,9 +120,11 @@ export function fetchGeoCodeDescriptions(): Promise<GeoCodeDescriptions> {
         console.error("Failed to fetch geography code descriptions:", error);
         // Do not cache the failure: a later badge can try again.
         geoDescriptionsPromise = null;
+
         return FALLBACK_GEO_DESCRIPTIONS;
       });
   }
+
   return geoDescriptionsPromise;
 }
 
@@ -132,6 +135,7 @@ export function describeGeoCode(
   descriptions: GeoCodeDescriptions | null,
 ): string | null {
   if (!code || !descriptions) return null;
+
   return descriptions[kind][code.trim().toUpperCase()] ?? null;
 }
 
@@ -232,6 +236,7 @@ export function normalizeSpecimenLocality(
   raw: unknown,
 ): SpecimenLocality | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const locality: SpecimenLocality = {
     display: text(source.display),
@@ -244,6 +249,7 @@ export function normalizeSpecimenLocality(
     verbatimLocality: text(source.verbatimLocality),
   };
   const hasAny = Object.values(locality).some((value) => value !== null);
+
   return hasAny ? locality : null;
 }
 
@@ -251,9 +257,12 @@ export function normalizeCoordinateValidation(
   raw: unknown,
 ): CoordinateValidation | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const status = text(source.validationStatus);
+
   if (!status) return null;
+
   return {
     validationStatus: status as CoordinateValidationStatusCode,
     coordinateCheck: text(source.coordinateCheck),
@@ -281,8 +290,10 @@ export function localityLine(
 ): string | null {
   const seen = new Set<string>();
   const kept: string[] = [];
+
   for (const part of parts) {
     if (!part || !part.trim()) continue;
+
     // Accents are stripped as well as punctuation: one GBIF record can carry
     // "Sao Paulo" and "São Paulo" in adjacent ranks, and they are one place.
     const key = part
@@ -290,9 +301,12 @@ export function localityLine(
       .replace(/\p{Diacritic}/gu, "")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
+
     if (!key || seen.has(key)) continue;
+
     seen.add(key);
     kept.push(part.trim());
   }
+
   return kept.length ? kept.join(", ") : null;
 }

@@ -23,10 +23,12 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(
 
   useEffect(() => {
     if (inView) return;
+
     if (!node) return;
 
     if (typeof IntersectionObserver === "undefined") {
       setInView(true);
+
       return;
     }
 
@@ -41,6 +43,7 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(
     );
 
     observer.observe(node);
+
     return () => observer.disconnect();
   }, [node, inView, rootMargin]);
 

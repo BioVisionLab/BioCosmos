@@ -36,6 +36,7 @@ def sum_of_variances(centroids: np.ndarray) -> float:
     For unit-length centroids this is exactly the mean pairwise cosine distance
     (see `mean_pairwise_distance`), so one number serves for both readings.
     """
+
     return float(centroids.astype(np.float64).var(axis=0, ddof=1).sum())
 
 
@@ -46,9 +47,11 @@ def mean_pairwise_distance(centroids: np.ndarray) -> float:
     n × n matrix is never built — and the result equals `sum_of_variances`,
     which is why the tables store only the latter.
     """
+
     n = len(centroids)
     total = centroids.astype(np.float64).sum(axis=0)
     similarity = (float(total @ total) - n) / (n * (n - 1))
+
     return 1.0 - similarity
 
 
@@ -62,25 +65,36 @@ def rarefied_sum_of_variances(
     Resampling every scope at the same `k` gives intervals that can be compared
     across genera of very different sizes.
     """
+
     n = len(centroids)
+
     if n < k:
         return None
+
     if n == k:
         value = sum_of_variances(centroids)
+
         return value, value, value
+
     data = centroids.astype(np.float64)
     values = np.empty(reps)
+
     for rep in range(reps):
         values[rep] = data[rng.choice(n, size=k, replace=False)].var(axis=0, ddof=1).sum()
+
     low, high = np.percentile(values, [2.5, 97.5])
+
     return float(values.mean()), float(low), float(high)
 
 
 def disparity(centroids: np.ndarray, *, k: int, reps: int, rng: np.random.Generator) -> Disparity:
     n = len(centroids)
+
     if n < 2:
         return Disparity(n, None, None, None, None)
+
     rarefied = rarefied_sum_of_variances(centroids, k, reps, rng)
+
     return Disparity(
         n_species=n,
         sum_var=sum_of_variances(centroids),
@@ -92,6 +106,7 @@ def disparity(centroids: np.ndarray, *, k: int, reps: int, rng: np.random.Genera
 
 def dorso_ventral_divergence(dorsal: np.ndarray, ventral: np.ndarray) -> np.ndarray:
     """Cosine distance between each species' dorsal and ventral centroid."""
+
     return 1.0 - np.einsum("ij,ij->i", dorsal.astype(np.float64), ventral.astype(np.float64))
 
 
@@ -113,9 +128,12 @@ def mantel(
     `permutation_max_species`, and r itself above `max_species`, where the
     n × n matrices stop fitting comfortably in memory.
     """
+
     n = len(dorsal)
+
     if n < 3 or n > max_species:
         return Mantel(n, None, None)
+
     d = pdist(dorsal.astype(np.float64), "cosine")
     v = pdist(ventral.astype(np.float64), "cosine")
     # Permuting species only reorders the distances, so their mean and spread
@@ -126,12 +144,16 @@ def mantel(
     scale = float(np.sqrt(d @ d) * np.sqrt(v @ v))
     square = squareform(v).astype(np.float32)
     r = _correlation(d, square, np.arange(n), scale)
+
     if permutations <= 0 or n > permutation_max_species:
         return Mantel(n, r, None)
+
     exceed = 0
+
     for _ in range(permutations):
         if _correlation(d, square, rng.permutation(n), scale) >= r:
             exceed += 1
+
     return Mantel(n, r, (exceed + 1) / (permutations + 1))
 
 
@@ -139,7 +161,10 @@ def _correlation(
     centered: np.ndarray, square: np.ndarray, order: np.ndarray, scale: float
 ) -> float:
     """Pearson r of the centered distances against `square` with its species reordered."""
+
     if scale == 0:
         return 0.0
+
     permuted = squareform(square[np.ix_(order, order)], checks=False)
+
     return float(centered @ permuted) / scale

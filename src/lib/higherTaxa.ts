@@ -114,9 +114,11 @@ function optionalCount(value: unknown): number | null {
 
 function normalizeNode(raw: unknown): TaxonNode | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const key = text(source.key);
   const name = text(source.name);
+
   if (!key || !name) return null;
 
   const children = Array.isArray(source.children)
@@ -146,10 +148,13 @@ function normalizeNode(raw: unknown): TaxonNode | null {
 
 function normalizeImage(raw: unknown): RepresentativeImage | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const imageId = text(source.imgId);
   const species = text(source.species);
+
   if (!imageId || !species) return null;
+
   return {
     imageId,
     species,
@@ -178,21 +183,28 @@ export function pickRepresentatives(
 ): RepresentativeImage[] {
   const seen = new Set<string>();
   const picked: RepresentativeImage[] = [];
+
   for (const image of images) {
     if (picked.length >= limit) break;
+
     // Keyed on where the tile leads, not on the raw record: two records that
     // resolve to the same species page would otherwise take two tiles and
     // show the reader the same name twice.
     const key = speciesHref(image.species);
+
     if (seen.has(key)) continue;
+
     seen.add(key);
     picked.push(image);
   }
+
   // Only reached when distinct species ran out before the grid did.
   for (const image of images) {
     if (picked.length >= limit) break;
+
     if (!picked.includes(image)) picked.push(image);
   }
+
   return picked;
 }
 
@@ -205,11 +217,14 @@ export function familiesWithRecords(taxon: HigherTaxon): TaxonNode[] {
   const visit = (node: TaxonNode) => {
     if (node.rank === "family") {
       if (node.href) families.push(node);
+
       return;
     }
+
     node.children.forEach(visit);
   };
   taxon.tree.forEach(visit);
+
   return families.sort(
     (a, b) => b.imageCount - a.imageCount || a.name.localeCompare(b.name),
   );
@@ -220,8 +235,10 @@ function normalizeHigherTaxon(
   rank: HigherRank,
 ): HigherTaxon | null {
   if (!raw || typeof raw !== "object") return null;
+
   const source = raw as Record<string, unknown>;
   const key = text(source.key);
+
   if (!key) return null;
 
   const counts = (source.counts ?? {}) as Record<string, unknown>;
@@ -277,7 +294,9 @@ function normalizeHigherTaxon(
 export const fetchHigherTaxon = cache(
   async (rank: HigherRank, name: string): Promise<HigherTaxon | null> => {
     if (!API_HOST) return null;
+
     const slug = toTaxonSlug(name);
+
     if (!slug) return null;
 
     const response = await fetch(
@@ -297,6 +316,7 @@ export const fetchHigherTaxon = cache(
     // not. Collapsing the two would tell a reader during an outage that a
     // family they are looking at does not exist.
     if (response.status === 404) return null;
+
     if (!response.ok) {
       throw new Error(
         `Failed to load ${rank} '${slug}': HTTP ${response.status}`,
