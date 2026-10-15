@@ -78,6 +78,8 @@ const CREDENTIALS = [
  * pulled half out. The grid is itself an inline-size container so the tray
  * can measure exactly how far that is.
  *
+ * A small mono eyebrow above the headline says the collection is open, as a
+ * catalog tag would, rather than as a colored key that reads like a warning.
  * The headline's two key phrases carry the green and the blue of the brand
  * with a soft underline (`bc-key`); the lead sets the method in bold. That is
  * all the emphasis the hero has, so it lands on what the site is about.
@@ -103,12 +105,18 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
             </h1>
 
             <p
+              className="bc-rise -mb-3 inline-flex items-center gap-2.5 font-label text-xs font-medium uppercase tracking-[0.08em] text-pacific-blue-700 before:h-0.5 before:w-5 before:bg-current before:content-[''] dark:text-pacific-blue-300"
+              style={{ animationDelay: "60ms" }}
+            >
+              Open access · For research &amp; education
+            </p>
+
+            <p
               className="bc-rise font-display text-[clamp(2rem,1.25rem+2.8vw,3.4rem)] font-semibold leading-[1.08] tracking-tight text-balance text-deep-mocha-900 dark:text-deep-mocha-50"
               style={{ animationDelay: "90ms" }}
             >
-              Explore <em className="bc-key">butterfly diversity</em> from{" "}
-              <em className="bc-key bc-key-blue">museum collections</em>, open
-              to <em className="bc-key bc-key-peach">everyone</em>
+              Explore <em className="bc-key">butterfly diversity</em> from the
+              world’s <em className="bc-key bc-key-blue">museum collections</em>
             </p>
 
             <p
@@ -123,11 +131,9 @@ function Hero({ specimenTray }: { specimenTray?: ReactNode }) {
               <strong className="font-semibold text-deep-mocha-900 dark:text-deep-mocha-50">
                 modern machine learning
               </strong>
-              . We clean, validate, and harmonize records from natural history
-              museums. We use computer vision to analyze complex color patterns
-              and integrate publicly available information on genetics,
-              morphology, distribution, and taxonomy, providing you with a
-              comprehensive resource for butterfly research and education.
+              . We clean and harmonize specimen records from museums, use
+              computer vision to read their color patterns, and link them to
+              public data on genetics, morphology, distribution, and taxonomy.
             </p>
 
             {/* relative z-10: bc-rise leaves a transform behind, which makes
