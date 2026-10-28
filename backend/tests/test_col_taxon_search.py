@@ -485,3 +485,20 @@ class TestTypeSummary:
 
     def test_no_types_give_no_summary(self):
         assert self.summarize([]) is None
+
+
+class TestTaxonOverrides:
+    """A pinned name resolves to its override, as the harmonizer pins it."""
+
+    def test_resolves_to_the_pinned_usage(self, backbone):
+        backbone.taxon_overrides = {"coenonympha pamphilus": "AAA4"}
+
+        result = resolve(backbone, "coenonympha_pamphilus")
+        assert result["colId"] == "AAA4"
+        assert result["scientificName"] == "Aphantopus hyperantus"
+        assert result["family"] == "Nymphalidae"
+
+    def test_other_names_are_unaffected(self, backbone):
+        backbone.taxon_overrides = {"coenonympha pamphilus": "AAA4"}
+
+        assert resolve(backbone, "Coenonympha dubia")["colId"] == "AAA2"

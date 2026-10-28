@@ -5,8 +5,12 @@ CoL release in tests/data/col, because the contract under test is that
 pipeline's output. Faking it would test the fake.
 """
 
+import logging
+import os
+
 import pytest
 
+from app.services.col import ColBackboneService
 from app.services.taxonomy_update import TaxonomyUpdateService
 
 # Occurrences chosen to cover every display outcome.
@@ -108,6 +112,9 @@ def build_service(client, col_dir, tmp_path, **overrides) -> TaxonomyUpdateServi
     service.image_meta_table = "image_meta"
     service.excluded_table = "image_meta_excluded"
     service.exclude_families = []
+    service.col_table = "col_taxonomy"
+    service.taxon_overrides = {}
+    service.family_synonyms = {}
     service.db_client = client
     for key, value in overrides.items():
         setattr(service, key, value)
@@ -603,14 +610,17 @@ class TestAcceptedKey:
     def test_distinct_names_keep_distinct_identities(self):
         from app.services.taxonomy_update import accepted_key
 
-        assert accepted_key({"display_accepted_name": "Junonia coenia"}) != accepted_key(
-            {"display_accepted_name": "Junonia grisea"}
-        )
+        assert accepted_key(
+            {"display_accepted_name": "Junonia coenia"}
+        ) != accepted_key({"display_accepted_name": "Junonia grisea"})
 
     def test_falls_back_to_the_usage_id_without_a_name(self):
         from app.services.taxonomy_update import accepted_key
 
-        assert accepted_key({"accepted_id": "6NHMZ", "display_accepted_name": None}) == "6NHMZ"
+        assert (
+            accepted_key({"accepted_id": "6NHMZ", "display_accepted_name": None})
+            == "6NHMZ"
+        )
 
     def test_nothing_resolved_has_no_identity(self):
         from app.services.taxonomy_update import accepted_key
@@ -631,7 +641,6 @@ class TestAcceptedKey:
 
         monkeypatch.setattr(memory_duckdb, "execute_prepared_to_pl", fail)
         assert service.get_for_images(["img1", "img2"]) == {}
-
 
 
 class TestExcludedFamilies:
@@ -724,3 +733,179 @@ class TestExcludedFamilies:
             memory_duckdb, col_fixture_dir, tmp_path, ["nymphalidae"]
         )
         assert rebuilt is True
+
+
+def ingest_backbone(client, col_dir) -> None:
+    """Load the miniature release into col_taxonomy, as startup does first."""
+    backbone = ColBackboneService.__new__(ColBackboneService)
+    backbone.db_client = client
+    backbone.path = os.path.join(col_dir, "NameUsage.tsv")
+    backbone.table = "col_taxonomy"
+    backbone.clade_rank = "order"
+    backbone.clade_value = "Lepidoptera"
+    backbone.skip_ingestion = False
+    backbone._ingest_name_usage()
+
+
+class TestTaxonOverrides:
+    """A recorded name pinned to a chosen CoL usage, past the computed match."""
+
+    @pytest.fixture
+    def client(self, memory_duckdb, col_fixture_dir):
+        seed_occurrences(memory_duckdb)
+        ingest_backbone(memory_duckdb, col_fixture_dir)
+
+        return memory_duckdb
+
+    def test_pins_the_recorded_name(self, client, col_fixture_dir, tmp_path):
+        service = build_service(
+            client,
+            col_fixture_dir,
+            tmp_path,
+            taxon_overrides={"coenonympha_pamphilus": "AAA4"},
+        )
+        assert service.ensure() is True
+
+        for img_id in ("img1", "img2"):
+            row = status_for(client, img_id)
+            assert row["match_method"] == "MANUAL_OVERRIDE"
+            assert row["update_status"] == "MATCHED"
+            assert row["accepted_id"] == "AAA4"
+            assert row["accepted_family"] == "Nymphalidae"
+            assert row["accepted_species_name"] == "Aphantopus hyperantus"
+            assert row["display_accepted_name"] == "Aphantopus hyperantus"
+            assert row["genus_changed"] is True
+            assert row["epithet_changed"] is True
+
+        # Other names keep their computed match.
+        assert status_for(client, "img4")["match_method"] != "MANUAL_OVERRIDE"
+
+    def test_resolves_a_name_the_matcher_could_not(
+        self, client, col_fixture_dir, tmp_path
+    ):
+        service = build_service(
+            client,
+            col_fixture_dir,
+            tmp_path,
+            taxon_overrides={"nonexistent_taxon": "AAA1"},
+        )
+        service.ensure()
+
+        row = status_for(client, "img5")
+        assert row["update_status"] == "MATCHED"
+        assert row["accepted_name"] == "Coenonympha pamphilus"
+        assert row["accepted_authorship"] == "(Linnaeus, 1758)"
+
+    def test_an_unknown_id_is_skipped_with_a_warning(
+        self, client, col_fixture_dir, tmp_path, caplog
+    ):
+        service = build_service(
+            client,
+            col_fixture_dir,
+            tmp_path,
+            # A synonym is not an accepted usage, so it is no target either.
+            taxon_overrides={
+                "coenonympha_pamphilus": "NOPE",
+                "nonexistent_taxon": "SYN1",
+            },
+        )
+
+        with caplog.at_level(logging.WARNING):
+            assert service.ensure() is True
+
+        assert "['NOPE', 'SYN1']" in caplog.text
+        assert status_for(client, "img1")["accepted_id"] == "AAA1"
+        assert status_for(client, "img5")["update_status"] == "UNMATCHED"
+
+    def test_changing_the_overrides_forces_a_rebuild(
+        self, client, col_fixture_dir, tmp_path
+    ):
+        assert build_service(client, col_fixture_dir, tmp_path).ensure() is True
+        assert build_service(client, col_fixture_dir, tmp_path).ensure() is False
+
+        pinned = build_service(
+            client,
+            col_fixture_dir,
+            tmp_path,
+            taxon_overrides={"nonexistent_taxon": "AAA1"},
+        )
+        assert pinned.ensure() is True
+
+
+class TestFamilySynonyms:
+    """Obsolete family names are folded into the current family."""
+
+    def test_remaps_the_accepted_family(self, memory_duckdb, col_fixture_dir, tmp_path):
+        seed_occurrences(memory_duckdb)
+        service = build_service(
+            memory_duckdb,
+            col_fixture_dir,
+            tmp_path,
+            family_synonyms={"nymphalidae": "Papilionidae"},
+        )
+        service.ensure()
+
+        assert status_for(memory_duckdb, "img1")["accepted_family"] == "Papilionidae"
+        assert status_for(memory_duckdb, "img5")["accepted_family"] is None
+
+    def test_a_synonym_of_an_excluded_family_is_excluded(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        seed_occurrences(memory_duckdb)
+        service = build_service(
+            memory_duckdb,
+            col_fixture_dir,
+            tmp_path,
+            family_synonyms={"nymphalidae": "Castniidae"},
+            exclude_families=["castniidae"],
+        )
+        service.ensure()
+
+        excluded = memory_duckdb.execute(
+            "SELECT img_id FROM image_meta_excluded ORDER BY img_id"
+        ).fetchall()
+        assert ("img1",) in excluded
+        assert memory_duckdb.execute(
+            "SELECT count(*) FROM image_meta_taxonomy WHERE accepted_family IS NOT NULL"
+        ).fetchone() == (0,)
+
+    def test_changing_the_synonyms_forces_a_rebuild(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        seed_occurrences(memory_duckdb)
+        assert build_service(memory_duckdb, col_fixture_dir, tmp_path).ensure() is True
+
+        remapped = build_service(
+            memory_duckdb,
+            col_fixture_dir,
+            tmp_path,
+            family_synonyms={"satyridae": "Nymphalidae"},
+        )
+        assert remapped.ensure() is True
+
+
+class TestDetachedFamilies:
+    def test_warns_about_a_family_with_no_superfamily(
+        self, memory_duckdb, col_fixture_dir, tmp_path, caplog
+    ):
+        seed_occurrences(memory_duckdb)
+        ingest_backbone(memory_duckdb, col_fixture_dir)
+        memory_duckdb.execute(
+            "UPDATE col_taxonomy SET superfamily = NULL WHERE usage_id = 'FAM1'"
+        )
+
+        with caplog.at_level(logging.WARNING):
+            build_service(memory_duckdb, col_fixture_dir, tmp_path).ensure()
+
+        assert "under no superfamily: Nymphalidae" in caplog.text
+
+    def test_quiet_when_every_family_is_placed(
+        self, memory_duckdb, col_fixture_dir, tmp_path, caplog
+    ):
+        seed_occurrences(memory_duckdb)
+        ingest_backbone(memory_duckdb, col_fixture_dir)
+
+        with caplog.at_level(logging.WARNING):
+            build_service(memory_duckdb, col_fixture_dir, tmp_path).ensure()
+
+        assert "under no superfamily" not in caplog.text

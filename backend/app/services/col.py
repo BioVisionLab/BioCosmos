@@ -13,6 +13,8 @@ Two facts drive the ingest:
 
 import logging
 import re
+from collections.abc import Mapping
+from types import MappingProxyType
 
 import duckdb
 
@@ -541,10 +543,17 @@ class ColTaxonSearch:
     # Defaults for instances built without __init__, as the tests do.
     type_material_table = "col_type_material"
     reference_table = "col_reference"
+    taxon_overrides: Mapping[str, str] = MappingProxyType({})
 
     def __init__(self, duckdb: DuckDBClient):
         config = ColConfig()
         self.table = config.table
+        # Keyed the way `search` normalizes a query, so a recorded name with
+        # underscores and one written with spaces find the same override.
+        self.taxon_overrides = {
+            _normalize_name(name): usage_id
+            for name, usage_id in config.taxon_overrides.items()
+        }
         self.vernacular_table = config.vernacular_table
         self.matches_table = config.matches_table
         self.type_material_table = config.type_material_table
@@ -642,6 +651,19 @@ class ColTaxonSearch:
         normalized = _normalize_name(query or "")
         if not normalized:
             return None
+
+        # A pinned name skips the name lookup, which would find the very usage
+        # the override exists to avoid; the harmonizer pins it the same way.
+        pinned = self.taxon_overrides.get(normalized)
+
+        if pinned:
+            return self._lookup(
+                "usage_id = ?",
+                [pinned],
+                query,
+                input_name=query.replace("_", " ").strip(),
+            )
+
         found = self._lookup("name_norm = ?", [normalized], query)
         if found:
             return found

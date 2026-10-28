@@ -244,8 +244,8 @@ hidden or empty.
    ```
 
 Rerun steps 1, 3, and 4 whenever the embeddings change, and steps 3 and 4
-whenever the image metadata or `image_metadata.exclude_families` changes (see
-`AGENTS.md`).
+whenever the image metadata, `image_metadata.exclude_families`, or
+`col.taxon_overrides`/`col.family_synonyms` changes (see `AGENTS.md`).
 
 #### Upgrading an existing LanceDB collection
 
@@ -452,6 +452,7 @@ baseline and don't add new ones rather than expecting a clean run.
 - **API docs:** FastAPI generates interactive documentation at `/docs`.
 - **Configuration:** everything except paths and secrets lives in `backend/app/configs/config.yaml`; LLM prompts are in `backend/app/configs/prompts/`.
 - **Excluded families:** `image_meta` is a view that drops `image_metadata.exclude_families`. Always query `image_meta`, never `image_meta_source`.
+- **Obsolete families and pinned names:** `col.family_synonyms` folds families Catalogue of Life still lists without a superfamily (Satyridae, Danaidae, ...) into the current family, and `col.taxon_overrides` pins a recorded name to a CoL usage id when its exact hit is a stray usage. Startup warns about any family with images and no superfamily.
 - **Search index:** `search_index.build_vector` is `false`, so an ordinary start builds no vector index. Set it `true` for one boot after the embeddings are rebuilt, then back to `false`. Startup logs which path it took.
 - **Dependencies:** add them to the right workspace member, e.g. `uv add --package backend <package>`, and commit the updated root `uv.lock`.
 - **Agent planner:** after changing a planner prompt or tool argument model, re-export the spec (`cd backend && uv run python scripts/export_planner_spec.py`) and compare models with `plannerbench`; see [packages/plannerbench/README.md](packages/plannerbench/README.md).

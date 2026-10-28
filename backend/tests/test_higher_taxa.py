@@ -265,6 +265,13 @@ class TestOrderMembers:
         assert rows["nymphalidae"]["family_name"] == "Nymphalidae"
         assert rows["nymphalidae"]["authorship"] == "Rafinesque, 1815"
 
+    def test_leaves_out_obsolete_families(self, repository):
+        repository.family_synonyms = {"erebidae": "Noctuidae"}
+
+        rows = by_key(repository.order_members("lepidoptera"), "family_key")
+        assert set(rows) == {"nymphalidae", "hesperiidae"}
+        assert rows["nymphalidae"]["image_count"] == 9
+
     def test_another_order_has_no_members(self, repository):
         assert repository.order_members("coleoptera") == []
 
@@ -302,6 +309,15 @@ class TestColTotals:
         totals = repository.col_totals("order", "lepidoptera")
         assert totals["family_total"] == 3
         # Zzzonympha is a homonym in two families; it is one genus name.
+        assert totals["genus_total"] == 3
+        assert totals["species_total"] == 6
+
+    def test_leaves_out_obsolete_families(self, repository):
+        repository.family_synonyms = {"erebidae": "Noctuidae"}
+
+        totals = repository.col_totals("order", "lepidoptera")
+        assert totals["family_total"] == 2
+        # Zzzonympha is still a genus of Nymphalidae.
         assert totals["genus_total"] == 3
         assert totals["species_total"] == 6
 
@@ -353,9 +369,7 @@ class TestGenusMembers:
         assert row["species_name"] == "Coenonympha tullia"
         assert row["recorded_name"] == "Oldgenus renamed"
 
-    def test_links_the_binomial_even_when_a_subspecies_is_commoner(
-        self, repository
-    ):
+    def test_links_the_binomial_even_when_a_subspecies_is_commoner(self, repository):
         """The route is a binomial and matches the recorded string exactly.
 
         Linking a trinomial would be cut to its binomial on the way into the

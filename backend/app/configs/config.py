@@ -323,6 +323,36 @@ class ColConfig:
     def occurrence_status_table(self) -> str:
         return self._col_config.get("occurrence_status_table", "image_meta_taxonomy")
 
+    @property
+    def taxon_overrides(self) -> dict[str, str]:
+        """Recorded name -> CoL usage id the match is pinned to.
+
+        Keys are lowercased and trimmed, the way the recorded name is compared;
+        ids are kept verbatim because CoL ids are case-sensitive.
+        """
+        overrides = self._col_config.get("taxon_overrides") or {}
+
+        return {
+            str(name).strip().lower(): str(usage_id).strip()
+            for name, usage_id in overrides.items()
+            if str(name).strip() and str(usage_id).strip()
+        }
+
+    @property
+    def family_synonyms(self) -> dict[str, str]:
+        """Obsolete family name, lowercased -> the family it now belongs to.
+
+        The values keep their casing, since they replace `accepted_family`,
+        which every reader displays.
+        """
+        synonyms = self._col_config.get("family_synonyms") or {}
+
+        return {
+            str(name).strip().lower(): str(family).strip()
+            for name, family in synonyms.items()
+            if str(name).strip() and str(family).strip()
+        }
+
 
 class LocalityConfig:
     """

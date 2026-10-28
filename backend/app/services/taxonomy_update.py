@@ -25,7 +25,7 @@ from colharmonize.sources import ColSource, TaxonOccurrenceSource
 from harmonize_core.errors import HarmonizeError
 
 from ..configs.config import ColConfig, ImageMetaConfig
-from ..database.duckdb import DuckDBClient, family_kept_sql
+from ..database.duckdb import DuckDBClient, family_current_sql, family_kept_sql
 from ..database.ingestion_state import IngestionState, file_fingerprint
 
 logger = logging.getLogger(__name__)
@@ -109,6 +109,9 @@ class TaxonomyUpdateService:
         self.candidates_table = config.candidates_table
         self.variants_table = config.variants_table
         self.status_table = config.occurrence_status_table
+        self.col_table = config.table
+        self.taxon_overrides = config.taxon_overrides
+        self.family_synonyms = config.family_synonyms
         image_meta = ImageMetaConfig()
         # The harmonizer reads the source minus recorded excluded families,
         # never the published view: that view drops what this run excludes,
@@ -146,6 +149,8 @@ class TaxonomyUpdateService:
         fingerprint = (
             f"{release}|{self._occurrence_fingerprint()}|v{STATUS_SCHEMA_VERSION}"
             f"|exclude:{','.join(self.exclude_families)}"
+            f"|pin:{_pairs(self.taxon_overrides)}"
+            f"|synonyms:{_pairs(self.family_synonyms)}"
         )
         state = IngestionState(self.db_client)
         if state.is_current(UPDATE_SOURCE_KEY, fingerprint) and self._tables_exist():
@@ -399,6 +404,8 @@ class TaxonomyUpdateService:
         # drops it through the excluded table.
         kept = family_kept_sql("accepted_family", self.exclude_families)
         try:
+            self._apply_taxon_overrides()
+            self._apply_family_synonyms()
             self.db_client.execute(
                 f"CREATE OR REPLACE TABLE {self.excluded_table} AS "
                 f"SELECT img_id, accepted_family FROM {RESOLVED_TABLE} WHERE NOT {kept}"
@@ -409,9 +416,12 @@ class TaxonomyUpdateService:
             )
         finally:
             self.db_client.execute(f"DROP TABLE IF EXISTS {RESOLVED_TABLE}")
-        excluded = self.db_client.execute(
+        row = self.db_client.execute(
             f"SELECT count(*) FROM {self.excluded_table}"
-        ).fetchone()[0]
+        ).fetchone()
+        # An aggregate without GROUP BY always yields one row.
+        excluded = row[0] if row else 0
+
         if excluded:
             logger.info(
                 f"{excluded} occurrences resolved to an excluded family "
@@ -422,6 +432,139 @@ class TaxonomyUpdateService:
             f"ON {self.status_table} (img_id)"
         )
         self._verify_row_count()
+        self._warn_detached_families()
+
+    def _apply_taxon_overrides(self) -> None:
+        """Pin the recorded names in `taxon_overrides` to a chosen CoL usage.
+
+        For names whose best match is wrong: Catalogue of Life carries
+        orphaned usages, such as 'Ninguta schrenkii' under a stray Satyridae
+        that hangs straight off Lepidoptera, and an exact hit on one outranks
+        any evidence from the recorded family. An override whose id this
+        backbone does not accept is skipped with a warning, so a new release
+        that drops it cannot fail the update.
+        """
+        if not self.taxon_overrides:
+            return
+
+        if not self.db_client.table_exists(self.col_table):
+            logger.warning(
+                f"No '{self.col_table}' table; taxon overrides were not applied."
+            )
+
+            return
+
+        rows = ", ".join(
+            f"({_literal(name)}, {_literal(usage_id)})"
+            for name, usage_id in sorted(self.taxon_overrides.items())
+        )
+        pins = f"""
+            SELECT pin.recorded, backbone.*
+            FROM (VALUES {rows}) AS pin(recorded, usage_id)
+            JOIN {self.col_table} AS backbone
+              ON backbone.usage_id = pin.usage_id AND backbone.is_accepted
+        """
+        found = {
+            row[0]
+            for row in self.db_client.execute(
+                f"SELECT DISTINCT usage_id FROM ({pins})"
+            ).fetchall()
+        }
+        missing = sorted(set(self.taxon_overrides.values()) - found)
+
+        if missing:
+            logger.warning(
+                f"Taxon overrides name CoL ids this backbone does not accept: "
+                f"{missing}; those names keep their computed match."
+            )
+
+        # The recorded name is compared the way the config keys are stored.
+        # Genus and epithet changes are judged against the recorded name,
+        # written with underscores or spaces.
+        recorded_parts = (
+            "string_split(replace(lower(trim(r.recorded_name)), '_', ' '), ' ')"
+        )
+        self.db_client.execute(
+            f"""
+            UPDATE {RESOLVED_TABLE} AS r SET
+                update_status = 'MATCHED',
+                match_method = 'MANUAL_OVERRIDE',
+                accepted_id = p.usage_id,
+                accepted_name = p.scientific_name,
+                accepted_species_name = CASE
+                    WHEN p.taxon_rank = 'species' THEN p.scientific_name
+                    WHEN p.taxon_rank = 'subspecies'
+                        THEN concat_ws(' ', p.generic_name, p.specific_epithet)
+                END,
+                accepted_rank = p.taxon_rank,
+                accepted_authorship = nullif(trim(p.authorship), ''),
+                accepted_family = p.family,
+                accepted_status = p.status,
+                match_score = NULL,
+                score_margin = NULL,
+                reason_code = NULL,
+                genus_changed = {recorded_parts}[1]
+                    IS DISTINCT FROM lower(p.generic_name),
+                epithet_changed = {recorded_parts}[2]
+                    IS DISTINCT FROM lower(p.specific_epithet),
+                display_accepted_name = CASE
+                    WHEN p.taxon_rank = 'subspecies'
+                        THEN concat_ws(' ', p.generic_name, p.specific_epithet)
+                    ELSE p.scientific_name
+                END
+            FROM ({pins}) AS p
+            WHERE lower(trim(r.recorded_name)) = p.recorded
+            """
+        )
+
+    def _apply_family_synonyms(self) -> None:
+        """Fold obsolete family names, such as Satyridae, into the current ones.
+
+        Runs before the exclusion split, so a synonym of an excluded family is
+        still excluded.
+        """
+        if not self.family_synonyms:
+            return
+
+        current = family_current_sql("accepted_family", self.family_synonyms)
+        self.db_client.execute(
+            f"UPDATE {RESOLVED_TABLE} SET accepted_family = {current} "
+            f"WHERE accepted_family IS NOT NULL"
+        )
+
+    def _warn_detached_families(self) -> None:
+        """Name any resolved family CoL places under no superfamily.
+
+        Every current Lepidoptera family has one. The families without one sit
+        in a legacy branch of the backbone (Satyridae, Danaidae, Arctiidae and
+        the like), so an image resolving there needs a `taxon_overrides` or
+        `family_synonyms` entry.
+        """
+        if not self.db_client.table_exists(self.col_table):
+            return
+
+        rows = self.db_client.execute(
+            f"""
+            SELECT t.accepted_family, count(*) AS images
+            FROM {self.status_table} AS t
+            JOIN {self.col_table} AS c
+              ON c.taxon_rank = 'family'
+             AND c.is_accepted
+             AND coalesce(c.family_norm, c.name_norm) = lower(t.accepted_family)
+            WHERE t.update_status = 'MATCHED'
+              AND nullif(trim(c.superfamily), '') IS NULL
+            GROUP BY t.accepted_family
+            ORDER BY t.accepted_family
+            """
+        ).fetchall()
+
+        if rows:
+            listed = ", ".join(f"{family} ({images})" for family, images in rows)
+            logger.warning(
+                f"Images resolved to families CoL places under no superfamily: "
+                f"{listed}. Add them to col.family_synonyms or pin the names "
+                "in col.taxon_overrides."
+            )
 
     def _verify_row_count(self) -> None:
         """Warn if the variant join changed the number of occurrence rows.
@@ -464,6 +607,18 @@ class TaxonomyUpdateService:
         if result.is_empty():
             return {}
         return dict(zip(result["status"].to_list(), result["total"].to_list()))
+
+
+def _literal(value: str) -> str:
+    """A SQL string literal; DDL and VALUES lists here take no parameters."""
+
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _pairs(mapping: dict[str, str]) -> str:
+    """A stable rendering of a config mapping, for the fingerprint."""
+
+    return ",".join(f"{key}={value}" for key, value in sorted(mapping.items()))
 
 
 def _ident(name: str) -> str:

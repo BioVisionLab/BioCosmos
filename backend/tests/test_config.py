@@ -204,6 +204,35 @@ class TestImageMetaConfig:
 
         assert ImageMetaConfig().exclude_families == ["castniidae"]
 
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            **MOCK_CONFIG,
+            "col": {
+                "taxon_overrides": {" Ninguta_Schrenkii ": " 6TR2G ", "": "X1"},
+                "family_synonyms": {" Satyridae ": "Nymphalidae", "Danaidae": ""},
+            },
+        },
+    )
+    def test_col_overrides_and_synonyms_normalized(self, _mock):
+        from app.configs.config import ColConfig
+
+        cfg = ColConfig()
+        assert cfg.taxon_overrides == {"ninguta_schrenkii": "6TR2G"}
+        assert cfg.family_synonyms == {"satyridae": "Nymphalidae"}
+
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_col_overrides_and_synonyms_default_empty(self, _mock):
+        from app.configs.config import ColConfig
+
+        assert ColConfig().taxon_overrides == {}
+        assert ColConfig().family_synonyms == {}
+
+    def test_shipped_config_folds_satyridae_into_nymphalidae(self):
+        from app.configs.config import ColConfig
+
+        assert ColConfig().family_synonyms["satyridae"] == "Nymphalidae"
+
     def test_shipped_config_excludes_castniidae(self):
         from app.configs.config import ImageMetaConfig
 

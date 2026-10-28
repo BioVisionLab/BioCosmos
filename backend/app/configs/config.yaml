@@ -113,6 +113,26 @@ col:
   variants_table: "col_taxon_variants"
   candidates_table: "col_taxonomy_candidates"
   occurrence_status_table: "image_meta_taxonomy"
+  # Recorded name -> the CoL usage id its match is pinned to, overriding the
+  # computed match on the species page as well as in image_meta_taxonomy.
+  # For names whose exact hit is a stray usage outside the current backbone.
+  taxon_overrides:
+    # Misspelt in the source; the exact hit (FMSWT) sits under a stray
+    # Satyridae. 6TR2G is CoL's Pararge schrenckii, Nymphalidae: Satyrinae.
+    ninguta_schrenkii: "6TR2G"
+  # Obsolete family -> the current family it is folded into. CoL still lists
+  # these under Lepidoptera with no superfamily. A match landing in one is
+  # moved to the current family, and the order page and its totals leave
+  # them out. Startup warns about any family with images and no superfamily.
+  family_synonyms:
+    Satyridae: Nymphalidae
+    Danaidae: Nymphalidae
+    Acraeidae: Nymphalidae
+    Amathusiidae: Nymphalidae
+    Libytheidae: Nymphalidae
+    Arctiidae: Erebidae
+    Lymantriidae: Erebidae
+    Epiplemidae: Uraniidae
   # Unlike the other sources, this one stays on. Those are skipped because
   # their tables are already inside biocosmos.duckdb; col_taxonomy is not, so
   # skipping it leaves the site with no taxonomy at all. The ingest is guarded

@@ -15,6 +15,8 @@ pedantic.
 """
 
 import logging
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Literal
 
 import duckdb
@@ -88,12 +90,14 @@ class HigherTaxonRepository:
     # __init__. Only ever rebound, never mutated.
     _col_present: bool | None = None
     _status_present: bool | None = None
+    family_synonyms: Mapping[str, str] = MappingProxyType({})
 
     def __init__(self, duckdb_client: DuckDBClient):
         col_config = ColConfig()
         self.image_meta_table = ImageMetaConfig().table
         self.col_table = col_config.table
         self.status_table = col_config.occurrence_status_table
+        self.family_synonyms = col_config.family_synonyms
         self.db_client = duckdb_client
         self._col_present = None
         self._status_present = None
@@ -130,6 +134,20 @@ class HigherTaxonRepository:
             self._col_present = self.db_client.table_exists(self.col_table)
         return self._col_present
 
+    def _without_obsolete_families(self) -> tuple[str, list[str]]:
+        """A backbone predicate dropping the families in `family_synonyms`.
+
+        Returns the clause, to append to a WHERE, and its parameters. Both
+        are empty when no synonyms are configured.
+        """
+        if not self.family_synonyms:
+            return "", []
+
+        names = sorted(self.family_synonyms)
+        placeholders = ", ".join("?" for _ in names)
+
+        return f"AND coalesce(family_norm, name_norm) NOT IN ({placeholders})", names
+
     # ------------------------------------------------------------------
     # Members
     # ------------------------------------------------------------------
@@ -156,6 +174,11 @@ class HigherTaxonRepository:
             return []
 
         name_expr = _clean_name("f.scientific_name")
+        # Obsolete families CoL still lists, such as Satyridae, are not part
+        # of the classification the page draws. Their images were folded into
+        # the current family by the taxonomy update.
+        obsolete, obsolete_params = self._without_obsolete_families()
+        params: list = [order_key, *obsolete_params]
         query = f"""
     WITH families AS (
         -- A family's own row may leave its `family` column empty, because
@@ -172,6 +195,7 @@ class HigherTaxonRepository:
         WHERE taxon_rank = 'family'
           AND is_accepted
           AND lower("order") = ?
+          {obsolete}
         QUALIFY row_number() OVER (
             PARTITION BY coalesce(family_norm, name_norm) ORDER BY usage_id
         ) = 1
@@ -199,7 +223,7 @@ class HigherTaxonRepository:
     LEFT JOIN rollup r ON r.family_key = f.family_norm
     ORDER BY f.family_norm
         """
-        return self._rows(query, [order_key], f"order members for '{order_key}'")
+        return self._rows(query, params, f"order members for '{order_key}'")
 
     def family_members(self, family_key: str) -> list[dict]:
         """The genera of one family, with the CoL rank each sits under.
@@ -474,6 +498,10 @@ class HigherTaxonRepository:
         if not self.col_available():
             return None
         predicate = _COL_SCOPE_PREDICATE[scope]
+        # Leave out the obsolete families order_members leaves out, and
+        # everything CoL files under them.
+        obsolete, obsolete_params = self._without_obsolete_families()
+        params: list = [key, *obsolete_params]
         query = f"""
     SELECT count(DISTINCT CASE WHEN taxon_rank = 'family'
                                THEN coalesce(family_norm, name_norm) END)
@@ -486,8 +514,9 @@ class HigherTaxonRepository:
     WHERE is_accepted
       AND taxon_rank IN ('family', 'genus', 'species')
       AND {predicate}
+      {obsolete}
         """
-        rows = self._rows(query, [key], f"CoL totals for {scope} '{key}'")
+        rows = self._rows(query, params, f"CoL totals for {scope} '{key}'")
         return rows[0] if rows else None
 
     # ------------------------------------------------------------------
