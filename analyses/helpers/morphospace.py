@@ -14,9 +14,7 @@ import pandas as pd
 import yaml
 from matplotlib.colors import to_rgba
 from matplotlib.lines import Line2D
-from matplotlib.markers import MarkerStyle
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
-from matplotlib.path import Path as MarkerPath
 from PIL import Image
 
 from analyses.helpers.publication import (
@@ -40,25 +38,23 @@ AXIS_COLOR = "#534646"
 MUTED_TEXT = "#6f5d5d"
 FRAME_EDGE = "#d1c7c7"
 FRAME_FILL = "#f3f1f1"
-# Panel A's groups (families, or genera inside a family): ColorBrewer Dark2 in
-# order, each with its own marker so no group depends on color alone. Groups
-# past the palette are drawn in `OTHER_COLOR`.
-GROUP_COLORS = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#a6761d")
-GROUP_MARKERS = ("o", "s", "^", "D", "v", "P")
-OTHER_COLOR = "#bdbdbd"
+# Panel A's groups (families, or genera inside a family), all drawn as
+# circles: ColorBrewer Dark2 in order, one color for each of the seven
+# families. Inside a family, only the most species-rich genera that fit the
+# palette are drawn.
+GROUP_COLORS = (
+    "#1b9e77",
+    "#d95f02",
+    "#7570b3",
+    "#e7298a",
+    "#66a61e",
+    "#e6ab02",
+    "#a6761d",
+)
 # A group mean's marker size, and the share of its width the white center of a
 # hollow (ventral) mean takes.
 MEAN_SIZE = 200
 HOLLOW_SCALE = 0.52
-# A triangle's is smaller: at the circle's share its band is visibly thinner,
-# and at the circle's band thickness the white all but disappears.
-TRIANGLE_HOLLOW_SCALE = 0.42
-# The vertices matplotlib draws `^` and `v` from, centered on their bounding
-# box rather than on the triangle.
-TRIANGLE_VERTICES = {
-    "^": np.array([[0.0, 1.0], [-1.0, -1.0], [1.0, -1.0]]),
-    "v": np.array([[0.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]),
-}
 # Points shrink and thin out past this many, as on the site.
 DENSE = 2000
 # Outer side of the square frame around each axis-end image, and the padding
@@ -244,20 +240,20 @@ def side_handle(side: str, *, whisker: bool = False) -> Line2D:
     )
 
 
-def group_styles(points: pd.DataFrame, group: str) -> dict[str, tuple[str, str]]:
-    """Color and marker for each group, most species-rich first.
+def group_styles(points: pd.DataFrame, group: str) -> dict[str, str]:
+    """A color for each group, most species-rich first.
 
-    Groups beyond the palette fold into `OTHER_COLOR` rather than reusing a
-    color, since cycled colors could not be told apart.
+    Groups beyond the palette get none and are left out of the panel, since
+    cycled colors could not be told apart.
     """
 
     counts = points.loc[points["side"] == "dorsal", group].dropna().value_counts()
     leaders = counts.index[: len(GROUP_COLORS)]
 
-    return {str(key): (GROUP_COLORS[slot], GROUP_MARKERS[slot]) for slot, key in enumerate(leaders)}
+    return {str(key): GROUP_COLORS[slot] for slot, key in enumerate(leaders)}
 
 
-def draw_group(ax, rows: pd.DataFrame, color: str, marker: str, *, size: float, alpha: float):
+def draw_group(ax, rows: pd.DataFrame, color: str, *, size: float, alpha: float):
     """One group's points: dorsal filled, ventral hollow, both in the group's color."""
 
     for side in SIDES:
@@ -267,7 +263,7 @@ def draw_group(ax, rows: pd.DataFrame, color: str, marker: str, *, size: float, 
             subset["pc1"],
             subset["pc2"],
             s=size,
-            marker=marker,
+            marker="o",
             facecolors=to_rgba(color, alpha) if filled else "none",
             edgecolors=to_rgba(SURFACE, alpha * 0.8) if filled else to_rgba(color, alpha),
             linewidths=0.3 if filled else 0.8,
@@ -276,34 +272,7 @@ def draw_group(ax, rows: pd.DataFrame, color: str, marker: str, *, size: float, 
         )
 
 
-def hollow_center(marker: str) -> tuple[str | MarkerStyle, float]:
-    """The white center of a hollow mean, and its scatter size.
-
-    A symmetric marker shrinks about its own center, which leaves an even ring.
-    A triangle would shrink about its bounding-box center instead, leaving the
-    band thick at the apex and thin along the base, so it is shrunk about its
-    incenter, the point equally far from all three sides.
-    """
-
-    vertices = TRIANGLE_VERTICES.get(marker)
-
-    if vertices is None:
-        return marker, MEAN_SIZE * HOLLOW_SCALE**2
-
-    # Each vertex weighted by the length of the side opposite it.
-    opposite = np.linalg.norm(np.roll(vertices, -1, axis=0) - np.roll(vertices, 1, axis=0), axis=1)
-    incenter = opposite @ vertices / opposite.sum()
-    inset = TRIANGLE_HOLLOW_SCALE * (vertices - incenter) + incenter
-    # Matplotlib scales a path marker by its largest coordinate without
-    # recentering it, so the size is set to keep the inset in the outer
-    # triangle's units.
-    extent = float(np.abs(inset).max())
-    path = MarkerPath(np.vstack([inset, inset[:1]]), closed=True)
-
-    return MarkerStyle(path), MEAN_SIZE * extent**2
-
-
-def draw_group_means(ax, rows: pd.DataFrame, color: str, marker: str) -> None:
+def draw_group_means(ax, rows: pd.DataFrame, color: str) -> None:
     """A group's mean dorsal and mean ventral position, joined, drawn over its points."""
 
     means = pd.DataFrame(rows.groupby("side")[["pc1", "pc2"]].mean()).reindex(list(SIDES))
@@ -327,7 +296,7 @@ def draw_group_means(ax, rows: pd.DataFrame, color: str, marker: str) -> None:
             means.loc[side, "pc1"],
             means.loc[side, "pc2"],
             s=MEAN_SIZE,
-            marker=marker,
+            marker="o",
             facecolors=color,
             edgecolors=AXIS_COLOR,
             linewidths=1.4,
@@ -337,49 +306,44 @@ def draw_group_means(ax, rows: pd.DataFrame, color: str, marker: str) -> None:
         if side == "ventral":
             # Hollowed from inside the filled marker, so the colored ring
             # meets the outline with no white gap between them.
-            center, size = hollow_center(marker)
             ax.scatter(
                 means.loc[side, "pc1"],
                 means.loc[side, "pc2"],
-                s=size,
-                marker=center,
+                s=MEAN_SIZE * HOLLOW_SCALE**2,
+                marker="o",
                 facecolors=SURFACE,
                 edgecolors="none",
                 zorder=8,
             )
 
 
-def draw_points(ax, points: pd.DataFrame, group: str) -> dict[str, tuple[str, str]]:
-    """Species centroids colored and shaped by group, dorsal filled and ventral hollow.
+def draw_points(ax, points: pd.DataFrame, group: str) -> dict[str, str]:
+    """Species centroids colored by group, dorsal filled and ventral hollow.
 
     Groups are drawn largest first, so the smaller ones stay visible on top,
     and each group's mean dorsal and ventral positions are marked and joined.
-    Returns each drawn group's color and marker.
+    Groups past the palette are not drawn. Returns each drawn group's color.
     """
 
     styles = group_styles(points, group)
     dense = len(points) > DENSE
     alpha = 0.55 if dense else 0.85
     size = 14 if dense else 30
-    others = points.loc[~points[group].isin(list(styles))]
 
-    if len(others):
-        draw_group(ax, others, OTHER_COLOR, "o", size=size, alpha=alpha * 0.6)
+    for key, color in styles.items():
+        draw_group(ax, points.loc[points[group] == key], color, size=size, alpha=alpha)
 
-    for key, (color, marker) in styles.items():
-        draw_group(ax, points.loc[points[group] == key], color, marker, size=size, alpha=alpha)
-
-    for key, (color, marker) in styles.items():
-        draw_group_means(ax, points.loc[points[group] == key], color, marker)
+    for key, color in styles.items():
+        draw_group_means(ax, points.loc[points[group] == key], color)
 
     return styles
 
 
-def legend_handle(label: str, color: str, marker: str, *, filled: bool = True) -> Line2D:
+def legend_handle(label: str, color: str, *, filled: bool = True) -> Line2D:
     return Line2D(
         [],
         [],
-        marker=marker,
+        marker="o",
         markersize=9,
         linestyle="",
         markerfacecolor=color if filled else SURFACE,
@@ -676,16 +640,12 @@ def morphospace_panel(ax, summaries: dict[str, pd.DataFrame]) -> None:
     points = summaries["points"]
     group = "family_key" if scope["scope_rank"] == "all" else "genus_key"
     styles = draw_points(ax, points, group)
-    fit_bounds(ax, points)
+    # The axes fit what is drawn, not the genera left out of it.
+    fit_bounds(ax, points.loc[points[group].isin(list(styles))])
     ax.set_xlabel(f"PC1 ({scope['explained_pc1'] * 100:.1f}%)")
     ax.set_ylabel(f"PC2 ({scope['explained_pc2'] * 100:.1f}%)")
     site_axes_style(ax)
-    groups = [
-        legend_handle(key.capitalize(), color, marker) for key, (color, marker) in styles.items()
-    ]
-
-    if not points[group].isin(list(styles)).to_numpy().all():
-        groups.append(legend_handle("Other", OTHER_COLOR, "o"))
+    groups = [legend_handle(key.capitalize(), color) for key, color in styles.items()]
 
     # Groups above the plot; how to read the marks in its empty upper-right corner.
     ax.add_artist(
@@ -710,8 +670,8 @@ def morphospace_panel(ax, summaries: dict[str, pd.DataFrame]) -> None:
     mean_label = "Family mean" if group == "family_key" else "Genus mean"
     ax.legend(
         handles=[
-            legend_handle("Dorsal", AXIS_COLOR, "o"),
-            legend_handle("Ventral", AXIS_COLOR, "o", filled=False),
+            legend_handle("Dorsal", AXIS_COLOR),
+            legend_handle("Ventral", AXIS_COLOR, filled=False),
             Line2D(
                 [],
                 [],

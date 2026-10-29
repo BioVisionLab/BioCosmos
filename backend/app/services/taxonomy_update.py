@@ -44,6 +44,10 @@ RESOLVED_TABLE = "taxonomy_update_resolved"
 # status table missing the columns the current readers project.
 STATUS_SCHEMA_VERSION = 2
 
+# Bumped whenever the rules that fill in a resolved row change, so a database
+# built under the old rules is rebuilt. 1 added the family fallback.
+RESOLUTION_VERSION = 1
+
 # Columns this version writes that an older one did not.
 #
 # Checked in addition to the fingerprint, because a fingerprint describes the
@@ -148,6 +152,7 @@ class TaxonomyUpdateService:
 
         fingerprint = (
             f"{release}|{self._occurrence_fingerprint()}|v{STATUS_SCHEMA_VERSION}"
+            f"|r{RESOLUTION_VERSION}"
             f"|exclude:{','.join(self.exclude_families)}"
             f"|pin:{_pairs(self.taxon_overrides)}"
             f"|synonyms:{_pairs(self.family_synonyms)}"
@@ -405,6 +410,7 @@ class TaxonomyUpdateService:
         kept = family_kept_sql("accepted_family", self.exclude_families)
         try:
             self._apply_taxon_overrides()
+            self._fill_missing_families(resolved_columns.get("family"))
             self._apply_family_synonyms()
             self.db_client.execute(
                 f"CREATE OR REPLACE TABLE {self.excluded_table} AS "
@@ -514,6 +520,61 @@ class TaxonomyUpdateService:
                 END
             FROM ({pins}) AS p
             WHERE lower(trim(r.recorded_name)) = p.recorded
+            """
+        )
+
+    def _fill_missing_families(self, recorded_family: str | None) -> None:
+        """Give a family to matches whose CoL usage has none.
+
+        CoL attaches some species straight to Lepidoptera or Papilionoidea,
+        and keeps others outside the ingested clade, with no classification:
+        an exact hit on one resolves the name but leaves `accepted_family`
+        empty, and the image then belongs to no family page or morphospace.
+        The family comes from the accepted genus when CoL places that genus
+        in exactly one family, and otherwise from the family the occurrence
+        recorded.
+        """
+        genus_family = "NULL"
+        joins = ""
+
+        if self.db_client.table_exists(self.col_table):
+            genus_family = "placed.family"
+            joins += f"""
+            LEFT JOIN (
+                SELECT genus_norm, any_value(family) AS family
+                FROM {self.col_table}
+                WHERE taxon_rank = 'genus' AND is_accepted AND family IS NOT NULL
+                GROUP BY genus_norm
+                HAVING count(DISTINCT family) = 1
+            ) AS placed
+              ON placed.genus_norm = lower(split_part(r.accepted_name, ' ', 1))
+            """
+
+        recorded = "NULL"
+
+        if recorded_family is not None:
+            column = f"occurrence.{_ident(recorded_family)}"
+            # Recorded families are lower-case; accepted ones are capitalized.
+            recorded = (
+                f"nullif(upper(left(trim({column}), 1)) "
+                f"|| lower(substr(trim({column}), 2)), '')"
+            )
+            joins += (
+                f"LEFT JOIN {self.image_meta_table} AS occurrence "
+                "ON occurrence.img_id = r.img_id"
+            )
+
+        self.db_client.execute(
+            f"""
+            UPDATE {RESOLVED_TABLE} AS target
+            SET accepted_family = filled.family
+            FROM (
+                SELECT r.img_id, coalesce({genus_family}, {recorded}) AS family
+                FROM {RESOLVED_TABLE} AS r
+                {joins}
+                WHERE r.update_status = 'MATCHED' AND r.accepted_family IS NULL
+            ) AS filled
+            WHERE target.img_id = filled.img_id AND filled.family IS NOT NULL
             """
         )
 

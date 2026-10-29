@@ -7,6 +7,7 @@ pipeline's output. Faking it would test the fake.
 
 import logging
 import os
+import shutil
 
 import pytest
 
@@ -909,3 +910,59 @@ class TestDetachedFamilies:
             build_service(memory_duckdb, col_fixture_dir, tmp_path).ensure()
 
         assert "under no superfamily" not in caplog.text
+
+
+def release_without_families(col_dir, destination, usage_ids) -> str:
+    """A copy of the miniature release with `col:family` blanked on some rows."""
+    shutil.copytree(col_dir, destination)
+    path = os.path.join(destination, "NameUsage.tsv")
+
+    with open(path, encoding="utf-8") as handle:
+        rows = [line.rstrip("\n").split("\t") for line in handle]
+
+    column = rows[0].index("col:family")
+
+    for row in rows[1:]:
+        if row[0] in usage_ids:
+            row[column] = ""
+
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.writelines("\t".join(row) + "\n" for row in rows)
+
+    return str(destination)
+
+
+class TestMissingFamilies:
+    """A match whose CoL usage has no family takes its genus's, else the recorded one."""
+
+    def harmonize(self, client, col_dir, tmp_path, blank):
+        release = release_without_families(col_dir, tmp_path / "col", blank)
+        seed_occurrences(client)
+        client.execute(
+            "UPDATE image_meta SET family = 'pieridae' WHERE img_id = 'img1'"
+        )
+        ingest_backbone(client, release)
+        build_service(client, release, tmp_path).ensure()
+
+    def test_takes_the_family_of_the_accepted_genus(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        self.harmonize(memory_duckdb, col_fixture_dir, tmp_path, {"AAA1"})
+
+        # Recorded as Pieridae, but CoL places Coenonympha in Nymphalidae.
+        assert status_for(memory_duckdb, "img1")["accepted_family"] == "Nymphalidae"
+
+    def test_falls_back_to_the_recorded_family(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        self.harmonize(memory_duckdb, col_fixture_dir, tmp_path, {"AAA1", "GEN1"})
+
+        assert status_for(memory_duckdb, "img1")["accepted_family"] == "Pieridae"
+        assert status_for(memory_duckdb, "img2")["accepted_family"] == "Nymphalidae"
+
+    def test_unmatched_rows_stay_without_a_family(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        self.harmonize(memory_duckdb, col_fixture_dir, tmp_path, {"AAA1", "GEN1"})
+
+        assert status_for(memory_duckdb, "img5")["accepted_family"] is None
