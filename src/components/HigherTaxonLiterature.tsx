@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { CrossRefAttribution, CrossRefLink } from "@/components/Attribution";
+import Info from "@/components/Info";
+import {
+  LiteratureSummary,
+  type YearBin,
+} from "@/components/literature/LiteratureSummary";
 import {
   LITERATURE_PAGE_SIZE,
   PagedPublications,
   PartialNotice,
-} from "@/app/species/[speciesName]/components/LiteraturePage";
-import { CrossRefAttribution, CrossRefLink } from "@/components/Attribution";
-import Info from "@/components/Info";
+  scrollToHeading,
+  worksThrough,
+} from "@/components/literature/Publications";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
+import { ITALIC_COL_RANKS } from "@/lib/colTaxonomy";
 import {
   type HigherTaxonLiteratureResult,
   type HigherTaxonRank,
@@ -18,7 +25,7 @@ import {
 } from "@/lib/crossref";
 
 /**
- * Publications naming an order, family or genus.
+ * Publications naming a taxon above species.
  *
  * Fetched on mount, and mounted only when the tab is first opened, so a page
  * view that never opens it never calls CrossRef. `onCount` hands the total
@@ -27,13 +34,16 @@ import {
 export default function HigherTaxonLiterature({
   rank,
   name,
-  family,
+  context,
   onCount,
 }: {
   rank: HigherTaxonRank;
   name: string;
-  /** Searched beside a genus to keep out namesakes in other fields. */
-  family?: string | null;
+  /**
+   * Searched beside the name to keep out namesakes in other fields: the
+   * family of a genus, or the genus of a subgenus.
+   */
+  context?: string | null;
   onCount?: (count: number) => void;
 }) {
   const [state, setState] = useState<
@@ -42,11 +52,15 @@ export default function HigherTaxonLiterature({
     | { status: "loaded"; literature: HigherTaxonLiteratureResult }
   >({ status: "loading" });
   const [limit, setLimit] = useState(LITERATURE_PAGE_SIZE);
+  // The year heading to scroll to once the list has grown to include it.
+  // A ref, not state: it only tells the effect below what to do after the
+  // render that shows the year, and must not cause a render of its own.
+  const pendingJump = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    fetchHigherTaxonLiterature(rank, name, family)
+    fetchHigherTaxonLiterature(rank, name, context)
       .then((literature) => {
         if (!isMounted) return;
 
@@ -62,7 +76,14 @@ export default function HigherTaxonLiterature({
     return () => {
       isMounted = false;
     };
-  }, [rank, name, family, onCount]);
+  }, [rank, name, context, onCount]);
+
+  useEffect(() => {
+    if (!pendingJump.current) return;
+
+    scrollToHeading(pendingJump.current);
+    pendingJump.current = null;
+  }, [limit]);
 
   if (state.status === "loading") {
     return <TextLoading msg="Loading literature" />;
@@ -76,8 +97,11 @@ export default function HigherTaxonLiterature({
 
   const { literature } = state;
   const since = literature.fromYear ? ` since ${literature.fromYear}` : "";
-  const italic = rank === "genus";
-  const taxon = italic ? <em>{literature.name}</em> : literature.name;
+  const taxon = ITALIC_COL_RANKS.has(rank) ? (
+    <em>{literature.name}</em>
+  ) : (
+    literature.name
+  );
 
   if (literature.count === 0) {
     return (
@@ -87,6 +111,22 @@ export default function HigherTaxonLiterature({
       </div>
     );
   }
+
+  const jumpToBin = (bin: YearBin) => {
+    const year = String(bin.years[0]);
+    const needed = worksThrough(literature.works, year);
+    const id = `literature-taxon-year-${year}`;
+
+    if (needed <= limit) {
+      scrollToHeading(id);
+
+      return;
+    }
+
+    // Grow the list to hold the year, and scroll once it renders.
+    pendingJump.current = id;
+    setLimit(needed);
+  };
 
   return (
     <div>
@@ -101,7 +141,16 @@ export default function HigherTaxonLiterature({
         {literature.partial ? <PartialNotice /> : null}
       </div>
 
-      {/* The total is on the card's summary line, above. */}
+      <LiteratureSummary
+        lists={[literature.works]}
+        onJumpToBin={jumpToBin}
+        footer={
+          <>
+            {literature.count} naming {taxon}
+          </>
+        }
+      />
+
       <PagedPublications
         publications={literature.works}
         section="taxon"

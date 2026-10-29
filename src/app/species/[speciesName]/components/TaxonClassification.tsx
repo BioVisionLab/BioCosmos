@@ -7,7 +7,7 @@ import {
   ITALIC_COL_RANKS,
   rankValue,
 } from "@/lib/colTaxonomy";
-import { familyHref, genusHref, orderHref } from "@/lib/taxonSlug";
+import { rankHref } from "@/lib/taxonSlug";
 import { TaxonomyData } from "@/lib/speciesData";
 
 function Row({
@@ -34,11 +34,20 @@ function Row({
 /**
  * One rank's value, linked when that rank has a page.
  *
- * Only order (Lepidoptera alone), family and genus do. Reading a classification is where someone is
- * most likely to want to go up a level, and until these rows were links the
- * only way there was the breadcrumb.
+ * Every rank from order (Lepidoptera alone) to subgenus does. Reading a
+ * classification is where someone is most likely to want to go up a level,
+ * and until these rows were links the only way there was the breadcrumb.
  */
-function RankValue({ rank, value }: { rank: string; value: string | null }) {
+function RankValue({
+  rank,
+  value,
+  genus,
+}: {
+  rank: string;
+  value: string | null;
+  /** The genus, which a subgenus page sits under. */
+  genus: string | null;
+}) {
   const label = value ?? "Unknown";
   const body = ITALIC_COL_RANKS.has(rank) ? (
     <i className="italic">{label}</i>
@@ -48,14 +57,7 @@ function RankValue({ rank, value }: { rank: string; value: string | null }) {
 
   if (!value) return body;
 
-  const href =
-    rank === "order"
-      ? orderHref(value)
-      : rank === "family"
-        ? familyHref(value)
-        : rank === "genus"
-          ? genusHref(value)
-          : null;
+  const href = rank === "species" ? null : rankHref(rank, value, genus);
 
   if (!href) return body;
 
@@ -111,7 +113,11 @@ export function SpeciesClassification({
                 key={rank}
                 label={rank.charAt(0).toUpperCase() + rank.slice(1)}
               >
-                <RankValue rank={rank} value={value} />
+                <RankValue
+                  rank={rank}
+                  value={value}
+                  genus={rankValue(taxonomyData, "genus")}
+                />
               </Row>
             ))}
 

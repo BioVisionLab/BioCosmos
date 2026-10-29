@@ -432,7 +432,22 @@ class LiteratureSearch:
         return _sort_newest_first(works)
 
 
-HigherRank = Literal["order", "family", "genus"]
+HigherRank = Literal[
+    "order",
+    "suborder",
+    "superfamily",
+    "family",
+    "subfamily",
+    "tribe",
+    "subtribe",
+    "genus",
+    "subgenus",
+]
+
+# The ranks whose names are matched case-sensitively, and searched beside the
+# taxon above them: the family of a genus, the genus of a subgenus. A
+# family-group name ends in a suffix (-idae, -inae, -ini) no other word has.
+_GENUS_GROUP_RANKS: frozenset[str] = frozenset({"genus", "subgenus"})
 
 
 class HigherTaxonLiteraturePayload(BaseModel):
@@ -440,7 +455,8 @@ class HigherTaxonLiteraturePayload(BaseModel):
 
     name: str
     rank: HigherRank
-    # The family searched beside a genus name; None for an order or family.
+    # The family searched beside a genus name, or the genus beside a
+    # subgenus; None for every rank above genus.
     context: str | None = None
     works: list[LiteratureWork] = []
     # True when a CrossRef request failed, so the list may be incomplete.
@@ -449,7 +465,7 @@ class HigherTaxonLiteraturePayload(BaseModel):
     from_year: int | None = None
 
 
-# A uninomial as the order, family and genus routes receive it.
+# A uninomial as the higher-taxon routes receive it.
 _UNINOMIAL = re.compile(r"[A-Za-z]{2,}")
 
 
@@ -489,7 +505,7 @@ def _higher_taxon_text(item: dict) -> str:
 
 
 class HigherTaxonLiteratureSearch:
-    """Find publications on an order, family or genus.
+    """Find publications on a taxon above species.
 
     Separate from the species search, and tuned apart from it in the
     `higher_taxon_literature` config. One name and no synonyms: a higher
@@ -500,7 +516,8 @@ class HigherTaxonLiteratureSearch:
     A genus is searched beside its family, as the species search's genus
     tier is: many genus names are words in other fields too, and the family
     steers CrossRef's ranking towards the butterfly. Only the genus has to
-    appear in a work for it to be kept.
+    appear in a work for it to be kept. A subgenus is searched beside its
+    genus the same way.
     """
 
     def __init__(
@@ -515,11 +532,12 @@ class HigherTaxonLiteratureSearch:
         self,
         rank: HigherRank,
         query: str,
-        family: str | None = None,
+        context: str | None = None,
     ) -> HigherTaxonLiteraturePayload | None:
         """The works naming the taxon, newest first; None for a malformed name.
 
-        `family` is used only beside a genus, and ignored when malformed.
+        `context` is used only beside a genus or subgenus, and ignored when
+        malformed.
         """
         raw = query.replace("_", " ").strip()
 
@@ -527,17 +545,18 @@ class HigherTaxonLiteratureSearch:
             return None
 
         name = raw.capitalize()
-        context = (family or "").strip()
-        context = (
-            context.capitalize()
-            if rank == "genus" and _UNINOMIAL.fullmatch(context)
+        genus_group = rank in _GENUS_GROUP_RANKS
+        beside = (context or "").replace("_", " ").strip()
+        beside = (
+            beside.capitalize()
+            if genus_group and _UNINOMIAL.fullmatch(beside)
             else None
         )
-        pattern = _taxon_pattern(name, ignore_case=rank != "genus")
+        pattern = _taxon_pattern(name, ignore_case=not genus_group)
         payload = HigherTaxonLiteraturePayload(
-            name=name, rank=rank, context=context, from_year=self.crossref.from_year
+            name=name, rank=rank, context=beside, from_year=self.crossref.from_year
         )
-        search_query = f"{name} {context}" if context else name
+        search_query = f"{name} {beside}" if beside else name
         works: dict[str, LiteratureWork] = {}
         cursor = "*"
 

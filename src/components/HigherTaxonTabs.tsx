@@ -55,8 +55,8 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /**
- * The classification, specimen holders and literature of an order, family or
- * genus, one tab at a time.
+ * The classification, specimen holders and literature of a taxon above
+ * species, one tab at a time.
  *
  * The classification arrives as `children`, rendered on the server: it is
  * the largest thing on the page, and passing it through keeps it out of this
@@ -66,7 +66,7 @@ function plural(count: number, one: string, many: string): string {
 export default function HigherTaxonTabs({
   rank,
   name,
-  family,
+  context,
   classificationCount,
   memberLabel,
   imageCount,
@@ -76,8 +76,11 @@ export default function HigherTaxonTabs({
 }: {
   rank: HigherTaxonRank;
   name: string;
-  /** A genus's family, which its literature search runs beside. */
-  family?: string | null;
+  /**
+   * The taxon its literature search runs beside: a genus's family, or a
+   * subgenus's genus.
+   */
+  context?: string | null;
   /** The members the tree lists, for the tab's badge. */
   classificationCount: number | null;
   /** What those members are, in the plural: "families", "genera", "species". */
@@ -249,7 +252,7 @@ export default function HigherTaxonTabs({
             <HigherTaxonLiterature
               rank={rank}
               name={name}
-              family={family}
+              context={context}
               onCount={setLiteratureCount}
             />
           ) : null}

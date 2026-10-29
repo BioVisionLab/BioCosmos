@@ -5,7 +5,7 @@ import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
-import TaxonBreadcrumb from "@/components/TaxonBreadcrumb";
+import TaxonBreadcrumb, { lineageCrumbs } from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
@@ -72,7 +72,9 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
   return (
     <section className="m-2">
       <TaxonBreadcrumb
-        items={[{ label: "Home", href: "/" }, { label: taxon.name }]}
+        items={lineageCrumbs(taxon.classification, "family", {
+          label: taxon.name,
+        })}
       />
       <HigherTaxonHeader taxon={taxon} />
 

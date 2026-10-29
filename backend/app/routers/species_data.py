@@ -16,7 +16,14 @@ from ..query.higher_taxa import (
     OVERVIEW_PAYLOAD_VERSION,
     FamilyOverview,
     GenusOverview,
+    HigherTaxonOverview,
     OrderOverview,
+    SubfamilyOverview,
+    SubgenusOverview,
+    SuborderOverview,
+    SubtribeOverview,
+    SuperfamilyOverview,
+    TribeOverview,
 )
 from ..query.specimen_data import SpecimenData
 from ..query.species_coordinates import SpeciesCoordinates
@@ -30,7 +37,11 @@ from ..services.col import ColTaxonSearch
 from ..services.taxonomy_update import UPDATE_SOURCE_KEY as TAXONOMY_UPDATE_KEY
 from ..services.crossref import CrossrefClient, get_crossref_client
 from ..services.genetics import GeneticsBusy, GeneticsSummary, get_genetics_summary
-from ..services.literature import HigherTaxonLiteratureSearch, LiteratureSearch
+from ..services.literature import (
+    HigherRank,
+    HigherTaxonLiteratureSearch,
+    LiteratureSearch,
+)
 from .http_cache import (
     GENETICS_CACHE_CONTROL,
     GENETICS_PARTIAL_CACHE_CONTROL,
@@ -186,14 +197,14 @@ def get_higher_taxon_literature_search(
 
 
 async def _higher_taxon_literature(
-    rank: Literal["order", "family", "genus"],
+    rank: HigherRank,
     name: str,
     search: HigherTaxonLiteratureSearch,
-    family: str | None = None,
+    context: str | None = None,
 ) -> JSONResponse:
-    """Shared by the three rank routes, which differ only in the rank."""
+    """Shared by the rank routes, which differ only in the rank."""
     try:
-        payload = await search.search(rank, name, family)
+        payload = await search.search(rank, name, context)
     except Exception:
         logger.exception(f"Error searching literature for {rank} {name}")
         return JSONResponse(
@@ -260,6 +271,75 @@ async def fetch_genus_literature(
     towards the butterfly; only the genus has to appear in a kept work.
     """
     return await _higher_taxon_literature("genus", genus_name, search, family)
+
+
+@router.get(
+    "/genus/{genus_name}/subgenus/{subgenus_name}/literature", tags=["Species Data"]
+)
+async def fetch_subgenus_literature(
+    genus_name: str,
+    subgenus_name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a subgenus, searched beside its genus."""
+    return await _higher_taxon_literature("subgenus", subgenus_name, search, genus_name)
+
+
+@router.get("/suborder/{name}/literature", tags=["Species Data"])
+async def fetch_suborder_literature(
+    name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a suborder. Same shape as the order literature."""
+    return await _higher_taxon_literature("suborder", name, search)
+
+
+@router.get("/superfamily/{name}/literature", tags=["Species Data"])
+async def fetch_superfamily_literature(
+    name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a superfamily. Same shape as the order literature."""
+    return await _higher_taxon_literature("superfamily", name, search)
+
+
+@router.get("/subfamily/{name}/literature", tags=["Species Data"])
+async def fetch_subfamily_literature(
+    name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a subfamily. Same shape as the order literature."""
+    return await _higher_taxon_literature("subfamily", name, search)
+
+
+@router.get("/tribe/{name}/literature", tags=["Species Data"])
+async def fetch_tribe_literature(
+    name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a tribe. Same shape as the order literature."""
+    return await _higher_taxon_literature("tribe", name, search)
+
+
+@router.get("/subtribe/{name}/literature", tags=["Species Data"])
+async def fetch_subtribe_literature(
+    name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a subtribe. Same shape as the order literature."""
+    return await _higher_taxon_literature("subtribe", name, search)
 
 
 @router.get("/species/{scientific_name}/genetics", tags=["Species Data"])
@@ -610,6 +690,82 @@ async def fetch_genus_overview(request: Request, genus_name: str):
             detail="An internal error occurred.",
             headers={"Cache-Control": NO_STORE},
         )
+
+
+async def _overview_response(
+    request: Request, overview: HigherTaxonOverview, label: str
+):
+    """The overview of one taxon, cached under its ETag; 404 when empty.
+
+    Shared by the intermediate ranks. Errors are never cached, so a taxon
+    that fails once is not stuck failing behind a shared cache.
+    """
+    try:
+        payload = await overview.overview()
+        if not payload:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No data found for {overview.rank}: {label}",
+            )
+        return cached_json(
+            payload, etag=_overview_etag(request, overview.rank, overview.key)
+        )
+    except HTTPException as error:
+        error.headers = {**(error.headers or {}), "Cache-Control": NO_STORE}
+        raise
+    except Exception:
+        logger.exception(f"Error fetching {overview.rank} overview for {label}")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred.",
+            headers={"Cache-Control": NO_STORE},
+        )
+
+
+@router.get("/genus/{genus_name}/subgenus/{subgenus_name}", tags=["Species Data"])
+async def fetch_subgenus_overview(
+    request: Request, genus_name: str, subgenus_name: str
+):
+    """Everything the subgenus page renders. Same shape as the genus overview.
+
+    Nested under the genus, because a subgenus name is unique only within it.
+    """
+    overview = SubgenusOverview(
+        request=request, genus=genus_name, subgenus=subgenus_name
+    )
+    return await _overview_response(
+        request, overview, f"{genus_name} ({subgenus_name})"
+    )
+
+
+@router.get("/suborder/{name}", tags=["Species Data"])
+async def fetch_suborder_overview(request: Request, name: str):
+    """Everything the suborder page renders: its families, as on an order."""
+    return await _overview_response(request, SuborderOverview(request, name), name)
+
+
+@router.get("/superfamily/{name}", tags=["Species Data"])
+async def fetch_superfamily_overview(request: Request, name: str):
+    """Everything the superfamily page renders: its families, as on an order."""
+    return await _overview_response(request, SuperfamilyOverview(request, name), name)
+
+
+@router.get("/subfamily/{name}", tags=["Species Data"])
+async def fetch_subfamily_overview(request: Request, name: str):
+    """Everything the subfamily page renders: its genera, by tribe."""
+    return await _overview_response(request, SubfamilyOverview(request, name), name)
+
+
+@router.get("/tribe/{name}", tags=["Species Data"])
+async def fetch_tribe_overview(request: Request, name: str):
+    """Everything the tribe page renders: its genera, by subtribe."""
+    return await _overview_response(request, TribeOverview(request, name), name)
+
+
+@router.get("/subtribe/{name}", tags=["Species Data"])
+async def fetch_subtribe_overview(request: Request, name: str):
+    """Everything the subtribe page renders: its genera."""
+    return await _overview_response(request, SubtribeOverview(request, name), name)
 
 
 @router.get("/family/{family_name}/classification", tags=["Species Data"])

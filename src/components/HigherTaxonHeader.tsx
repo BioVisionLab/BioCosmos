@@ -1,3 +1,4 @@
+import { ITALIC_COL_RANKS } from "@/lib/colTaxonomy";
 import type { HigherTaxon } from "@/lib/higherTaxa";
 
 interface Stat {
@@ -22,7 +23,7 @@ function formatShare(value: number, total: number): string {
 }
 
 /**
- * The name of an order, family or genus, and how much of the collection sits
+ * The name of a taxon above species, and how much of the collection sits
  * under it.
  *
  * Deliberately not the species header. `SpeciesTitle` centres a large name
@@ -31,7 +32,7 @@ function formatShare(value: number, total: number): string {
  * counts that say how much it holds.
  */
 export default function HigherTaxonHeader({ taxon }: { taxon: HigherTaxon }) {
-  const italic = taxon.rank === "genus";
+  const italic = ITALIC_COL_RANKS.has(taxon.rank);
   const vernacular = taxon.classification?.vernacularName;
   const authorship = taxon.classification?.authorship;
 

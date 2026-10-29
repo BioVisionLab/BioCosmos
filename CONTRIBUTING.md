@@ -666,6 +666,9 @@ rather than the container's home directory.
 - `GET /species/{scientific_name}/biology` - Detailed biological profile, taxonomic classification, traits, and similar species.
 - `GET /species/{scientific_name}/similar` - Visually similar species (precomputed or runtime fallback).
 - `GET /species/{scientific_name}/specimens` - Specimen details and images.
+- `GET /order/{name}`, `/suborder/{name}`, `/superfamily/{name}`, `/family/{name}`, `/subfamily/{name}`, `/tribe/{name}`, `/subtribe/{name}`, `/genus/{name}` - Everything a higher-taxon page renders: Catalogue of Life classification, counts and coverage, the classification tree, representative images and holding institutions. Cached for 30 days behind an `ETag`.
+- `GET /genus/{genus}/subgenus/{subgenus}` - The same for a subgenus, nested under its genus because a subgenus name is unique only within one.
+- `GET /{rank}/{name}/literature` and `GET /genus/{genus}/subgenus/{subgenus}/literature` - CrossRef publications naming a higher taxon. The genus route takes `family`, which is searched beside it.
 - `GET /family/{family_name}/classification` - GBIF classification data for a family.
 - `GET /genus/{genus_name}/classification` - GBIF classification data for a genus.
 - `GET /species/{genus}/{specific_epithet}/classification` - GBIF classification data for a species using genus and specific epithet.

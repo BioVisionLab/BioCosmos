@@ -740,6 +740,38 @@ class TestHigherTaxonLiterature:
         assert fake.queries() == ["Nymphalidae"]
         assert payload.context is None
 
+    def test_a_subgenus_is_searched_beside_its_genus(self):
+        fake = FakeCrossref({})
+        search = HigherTaxonLiteratureSearch(fake.client())
+        payload = asyncio.run(search.search("subgenus", "anosia", "danaus"))
+        assert payload is not None
+        assert fake.queries() == ["Anosia Danaus"]
+        assert payload.context == "Danaus"
+
+    def test_a_subgenus_is_matched_case_sensitively(self):
+        """Like a genus: a lower-case word of the same spelling is not it."""
+        fake = FakeCrossref(
+            {
+                "Anosia": [
+                    work("10.1/a", "Anosia in the Neotropics"),
+                    work("10.1/b", "anosia as a clinical sign"),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("subgenus", "anosia")
+        )
+        assert payload is not None
+        assert [w.doi for w in payload.works] == ["https://doi.org/10.1/a"]
+
+    def test_a_subfamily_is_matched_in_any_case(self):
+        fake = FakeCrossref({"Satyrinae": [work("10.1/a", "NOTES ON SATYRINAE")]})
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("subfamily", "satyrinae")
+        )
+        assert payload is not None
+        assert len(payload.works) == 1
+
     def test_a_family_given_in_parentheses_counts_as_named(self):
         """The usual form: "(Lepidoptera: Nymphalidae)" after a binomial.
 
@@ -849,8 +881,8 @@ class StubHigherTaxonSearch:
         self.payload = payload
         self.calls: list[tuple[str, str, str | None]] = []
 
-    async def search(self, rank, name, family=None):
-        self.calls.append((rank, name, family))
+    async def search(self, rank, name, context=None):
+        self.calls.append((rank, name, context))
 
         return self.payload
 
@@ -867,7 +899,19 @@ def higher_taxon_router_client(stub: StubHigherTaxonSearch) -> TestClient:
 
 
 class TestHigherTaxonLiteratureRouter:
-    @pytest.mark.parametrize("rank", ["order", "family", "genus"])
+    @pytest.mark.parametrize(
+        "rank",
+        [
+            "order",
+            "suborder",
+            "superfamily",
+            "family",
+            "subfamily",
+            "tribe",
+            "subtribe",
+            "genus",
+        ],
+    )
     def test_each_rank_route_passes_its_rank(self, rank):
         stub = StubHigherTaxonSearch(
             HigherTaxonLiteraturePayload(name="Danaus", rank=rank)
@@ -886,6 +930,16 @@ class TestHigherTaxonLiteratureRouter:
             "/genus/danaus/literature?family=Nymphalidae"
         )
         assert stub.calls == [("genus", "danaus", "Nymphalidae")]
+
+    def test_the_subgenus_route_passes_its_genus(self):
+        stub = StubHigherTaxonSearch(
+            HigherTaxonLiteraturePayload(name="Anosia", rank="subgenus")
+        )
+        response = higher_taxon_router_client(stub).get(
+            "/genus/danaus/subgenus/anosia/literature"
+        )
+        assert response.status_code == 200
+        assert stub.calls == [("subgenus", "anosia", "danaus")]
 
     def test_partial_result_is_cached_briefly(self):
         stub = StubHigherTaxonSearch(

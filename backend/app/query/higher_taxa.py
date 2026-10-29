@@ -1,14 +1,14 @@
-"""Payloads for the order, family and genus pages.
+"""Payloads for the pages of the ranks above species.
 
 The repository in `app/services/higher_taxa.py` returns one flat row per
 member. This module turns those rows into the nested tree the page renders,
 adds the taxon's own Catalogue of Life classification, and derives the header
 counts without going back to the database.
 
-A family page's tree bottoms out at genus and a genus page's at species, so
-on both of them every node that links somewhere is a leaf and every node that
-has children links nowhere. That is what lets the frontend render the whole
-thing as nested `<details>` without a link ever sitting inside a summary.
+A tree bottoms out at family, genus or species, and those leaves link to
+their pages. The ranks between them (a subfamily on a family page, say) link
+too, when they hold images, but sit on nodes with children; the frontend
+renders those links beside the `<details>` summary rather than inside it.
 """
 
 import json
@@ -22,16 +22,19 @@ from pydantic.alias_generators import to_camel
 
 from ..database.duckdb import DuckDBClient
 from ..database.model import subgenus_name
-from ..services.higher_taxa import HigherTaxonRepository, Scope
+from ..services.higher_taxa import (
+    FAMILY_SET_RANKS,
+    GENUS_SET_RANKS,
+    SUBGENUS_SEPARATOR,
+    HigherTaxonRepository,
+    Scope,
+    subgenus_key,
+)
 from ..services.institution import InstitutionDirectory
-from .taxon_data import FamilySearch, GenusSearch, OrderSearch
+from .taxon_data import RankScopedSearch
 
 logger = logging.getLogger(__name__)
 
-# The ranks that group members on each page, coarsest first. Both lists are
-# ragged in practice: CoL populates subfamily for most butterfly genera, tribe
-# for many, and subtribe for almost none, so a level with nothing in it is
-# omitted rather than rendered empty.
 # Bumped whenever a payload changes for the same ingestion: a new counting
 # rule, a new field. The overview ETag is otherwise the backbone fingerprint,
 # which describes the inputs and cannot speak for the code, so without this a
@@ -41,11 +44,31 @@ logger = logging.getLogger(__name__)
 # 2: images resolved only to genus rank no longer count anywhere.
 # 3: excluded families (Castniidae) no longer count or link anywhere.
 # 4: the images held by each institution.
-OVERVIEW_PAYLOAD_VERSION = 4
+# 5: intermediate ranks have pages, and their tree nodes link to them.
+OVERVIEW_PAYLOAD_VERSION = 5
 
-_ORDER_GROUPING_RANKS = ("suborder", "superfamily")
-_FAMILY_GROUPING_RANKS = ("subfamily", "tribe", "subtribe")
-_GENUS_GROUPING_RANKS = ("subgenus",)
+# The ranks that group members on each page, coarsest first. The lists are
+# ragged in practice: CoL populates subfamily for most butterfly genera, tribe
+# for many, and subtribe for almost none, so a level with nothing in it is
+# omitted rather than rendered empty.
+_GROUPING_RANKS: dict[str, tuple[str, ...]] = {
+    "order": ("suborder", "superfamily"),
+    "suborder": ("superfamily",),
+    "superfamily": (),
+    "family": ("subfamily", "tribe", "subtribe"),
+    "subfamily": ("tribe", "subtribe"),
+    "tribe": ("subtribe",),
+    "subtribe": (),
+    "genus": ("subgenus",),
+    "subgenus": (),
+}
+
+# The ranks with a page of their own whose tree nodes have children, so a
+# grouping node of one links to it. Order is left out: there is one page for
+# it, not one per name.
+_GROUPING_PAGE_RANKS = frozenset(
+    {"suborder", "superfamily", "subfamily", "tribe", "subtribe", "subgenus"}
+)
 
 # Where genera CoL cannot place, or places in another family, are collected.
 # A first-class node rather than a silent omission: dropping them would make
@@ -69,7 +92,8 @@ class TaxonNode(BaseModel):
     recorded_name: str | None = None
     rank: str
     authorship: str | None = None
-    # Only the ranks that have a page of their own carry one.
+    # Only the ranks that have a page of their own carry one, and only when
+    # the collection holds something under them.
     href: str | None = None
     col_id: str | None = None
     col_link: str | None = None
@@ -159,6 +183,34 @@ def _optional(value: object) -> str | None:
 
 def _int(value: object) -> int:
     return int(value) if isinstance(value, (int, float)) else 0
+
+
+def member_rank(scope: Scope) -> str:
+    """The rank of the taxa a page lists: family, genus or species."""
+    if scope in FAMILY_SET_RANKS:
+        return "family"
+
+    if scope == "family" or scope in GENUS_SET_RANKS:
+        return "genus"
+
+    return "species"
+
+
+def rank_href(rank: str, name: str, genus: str | None = None) -> str | None:
+    """The page of an intermediate rank, or None for one without a page.
+
+    The slug is the lowercased name, as on every other rank. A subgenus
+    page sits under its genus, which is the only place its name is unique.
+    """
+    if rank not in _GROUPING_PAGE_RANKS:
+        return None
+
+    slug = "_".join(name.lower().split())
+
+    if rank == "subgenus":
+        return f"/genus/{genus}/subgenus/{slug}" if genus else None
+
+    return f"/{rank}/{slug}"
 
 
 class _Group:
@@ -312,14 +364,17 @@ def _by_name(node: TaxonNode) -> str:
     return node.name.casefold()
 
 
-def _collapse(group: _Group) -> TaxonNode:
-    """Turn a group and everything under it into a node, rolling counts up."""
+def _collapse(group: _Group, genus: str | None = None) -> TaxonNode:
+    """Turn a group and everything under it into a node, rolling counts up.
+
+    `genus` is the genus a subgenus group belongs to, for its link.
+    """
     # Grouping ranks first, then the members that hang off this node
     # directly, each run alphabetical. Interleaving the two would sort a
     # tribe in among the genera that are not in one, which reads as a flat
     # list that has lost its structure.
     children = sorted(
-        (_collapse(child) for child in group.groups.values()), key=_by_name
+        (_collapse(child, genus) for child in group.groups.values()), key=_by_name
     )
     children.extend(sorted(group.children, key=_by_name))
     node = TaxonNode(
@@ -330,6 +385,12 @@ def _collapse(group: _Group) -> TaxonNode:
         placed=group.key != UNPLACED_KEY,
     )
     _accumulate(node)
+
+    # A rank the collection holds nothing of has no page to link to: its
+    # route would answer 404.
+    if node.image_count:
+        node.href = rank_href(node.rank, node.name, genus)
+
     return node
 
 
@@ -369,15 +430,18 @@ def build_tree(rows: list[dict], *, scope: Scope, scope_key: str) -> list[TaxonN
     function of its member rows, which makes it the one part of this feature
     that can be tested without either.
     """
-    if scope == "order":
-        ranks = _ORDER_GROUPING_RANKS
+    ranks = _GROUPING_RANKS[scope]
+    members = member_rank(scope)
+
+    if members == "family":
         leaf_of = _leaf_from_order_row
-    elif scope == "family":
-        ranks = _FAMILY_GROUPING_RANKS
+    elif members == "genus":
         leaf_of = _leaf_from_family_row
     else:
-        ranks = _GENUS_GROUPING_RANKS
         leaf_of = _leaf_from_genus_row
+
+    # Only a genus page groups by subgenus, and its key is the genus.
+    genus = scope_key if scope == "genus" else None
 
     root = _Group("", "", "")
     unplaced: _Group | None = None
@@ -405,7 +469,9 @@ def build_tree(rows: list[dict], *, scope: Scope, scope_key: str) -> list[TaxonN
             cursor = group
         cursor.children.append(leaf)
 
-    tree = sorted((_collapse(group) for group in root.groups.values()), key=_by_name)
+    tree = sorted(
+        (_collapse(group, genus) for group in root.groups.values()), key=_by_name
+    )
     # Members CoL places at no intermediate rank sit directly under the root.
     tree.extend(sorted(root.children, key=_by_name))
     if unplaced is not None:
@@ -426,7 +492,8 @@ def build_rooted_tree(
     """
     # Built directly rather than through `_collapse`, which would re-sort the
     # children and file the grouping ranks in among the members beside them,
-    # and would push the unplaced bucket out of last place.
+    # and would push the unplaced bucket out of last place. The root is the
+    # page itself, so it carries no link.
     root = TaxonNode(
         key=key,
         name=name,
@@ -477,6 +544,24 @@ class HigherTaxonOverview:
         self.name = " ".join((name or "").replace("_", " ").split())
         self.key = self.name.lower()
 
+    def _members(self, repository: HigherTaxonRepository) -> list[dict]:
+        if self.rank == "order":
+            return repository.order_members(self.key)
+
+        if self.rank in FAMILY_SET_RANKS:
+            return repository.family_set_members(self.rank, self.key)
+
+        if self.rank == "family":
+            return repository.family_members(self.key)
+
+        if self.rank in GENUS_SET_RANKS:
+            return repository.genus_set_members(self.rank, self.key)
+
+        if self.rank == "subgenus":
+            return repository.subgenus_members(self.key)
+
+        return repository.genus_members(self.key)
+
     async def overview(self, limit: int = DEFAULT_IMAGE_LIMIT) -> dict | None:
         """Return the page payload, or None when the taxon has no members."""
         if not self.key:
@@ -491,12 +576,7 @@ class HigherTaxonOverview:
         if not repository.harmonized_available():
             return None
 
-        if self.rank == "order":
-            rows = repository.order_members(self.key)
-        elif self.rank == "family":
-            rows = repository.family_members(self.key)
-        else:
-            rows = repository.genus_members(self.key)
+        rows = self._members(repository)
         # Every rank's rows include CoL taxa with nothing in them, so rows
         # alone do not mean the collection holds any of it.
         if not any(_int(row.get("image_count")) for row in rows):
@@ -542,7 +622,9 @@ class HigherTaxonOverview:
         return payload
 
     def _counts(self, rows: list[dict]) -> HigherTaxonCounts:
-        if self.rank == "order":
+        members = member_rank(self.rank)
+
+        if members == "family":
             return HigherTaxonCounts(
                 family_count=sum(1 for row in rows if _int(row.get("image_count"))),
                 genus_count=sum(_int(row.get("genus_count")) for row in rows),
@@ -553,7 +635,7 @@ class HigherTaxonOverview:
         # towards the totals beside these rather than towards these.
         held = [row for row in rows if _int(row.get("image_count"))]
         images = sum(_int(row.get("image_count")) for row in held)
-        if self.rank == "family":
+        if members == "genus":
             return HigherTaxonCounts(
                 genus_count=len(held),
                 species_count=sum(_int(row.get("species_count")) for row in held),
@@ -614,15 +696,14 @@ class HigherTaxonOverview:
                 return name
         return self.key.capitalize()
 
+    def _lookup_name(self) -> str:
+        """The name CoL files this taxon under."""
+        return self.name
+
     async def _classification(self) -> dict | None:
         """The taxon's own lineage, for the header and the breadcrumb."""
-        search = {
-            "order": OrderSearch,
-            "family": FamilySearch,
-            "genus": GenusSearch,
-        }[self.rank]
-        results = await search(
-            request=self.request, query=self.name
+        results = await RankScopedSearch(
+            request=self.request, query=self._lookup_name(), rank=self.rank
         ).get_classification()
         if not results:
             return None
@@ -645,6 +726,81 @@ class GenusOverview(HigherTaxonOverview):
     """A genus page: members are species."""
 
     rank: Scope = "genus"
+
+
+class SuborderOverview(HigherTaxonOverview):
+    """A suborder page: members are families."""
+
+    rank: Scope = "suborder"
+
+
+class SuperfamilyOverview(HigherTaxonOverview):
+    """A superfamily page: members are families."""
+
+    rank: Scope = "superfamily"
+
+
+class SubfamilyOverview(HigherTaxonOverview):
+    """A subfamily page: members are genera, grouped by tribe."""
+
+    rank: Scope = "subfamily"
+
+
+class TribeOverview(HigherTaxonOverview):
+    """A tribe page: members are genera, grouped by subtribe."""
+
+    rank: Scope = "tribe"
+
+
+class SubtribeOverview(HigherTaxonOverview):
+    """A subtribe page: members are genera."""
+
+    rank: Scope = "subtribe"
+
+
+class SubgenusOverview(HigherTaxonOverview):
+    """A subgenus page: members are species.
+
+    Keyed `genus/subgenus`, because a subgenus name is unique only within
+    its genus.
+    """
+
+    rank: Scope = "subgenus"
+
+    def __init__(self, request: Request, genus: str = "", subgenus: str = ""):
+        super().__init__(request=request, name=subgenus)
+        self.genus = "".join((genus or "").split()).lower()
+        self.subgenus = self.key
+        self.key = (
+            subgenus_key(self.genus, self.subgenus)
+            if self.genus and self.subgenus
+            else ""
+        )
+
+    def _lookup_name(self) -> str:
+        # CoL names a subgenus usage `Danaus (Anosia)`.
+        return f"{self.genus} ({self.subgenus})"
+
+    async def _classification(self) -> dict | None:
+        classification = await super()._classification()
+
+        # The backbone falls back to the canonical name, which for a
+        # subgenus is its genus alone and would match any subgenus of it.
+        if not classification:
+            return None
+
+        found = _text(classification.get("subgenus")).lower()
+
+        return classification if found == self.subgenus else None
+
+    def _display_name(self, classification: dict | None) -> str:
+        """`Danaus (Anosia)`, the way a subgenus is cited."""
+        if classification:
+            return super()._display_name(classification)
+
+        genus, subgenus = self.key.split(SUBGENUS_SEPARATOR, 1)
+
+        return f"{genus.capitalize()} ({subgenus.capitalize()})"
 
 
 class _PayloadCache:

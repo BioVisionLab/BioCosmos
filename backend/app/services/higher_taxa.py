@@ -1,4 +1,4 @@
-"""Data access for the order, family and genus pages.
+"""Data access for the pages of the ranks above species.
 
 A higher-taxon page asks three things of the database: which taxa sit below
 this one, how much of the collection each of them accounts for, and which
@@ -29,30 +29,60 @@ from .species_pages import DOMINANT_RECORD, MATCHED_IMAGES
 logger = logging.getLogger(__name__)
 
 
-Scope = Literal["order", "family", "genus"]
+Scope = Literal[
+    "order",
+    "suborder",
+    "superfamily",
+    "family",
+    "subfamily",
+    "tribe",
+    "subtribe",
+    "genus",
+    "subgenus",
+]
 
-# Which harmonized column each page scopes on. Kept as a table rather than
-# interpolating the caller's string: the scope reaches here from a URL.
-#
-# The harmonized table records no order, so an order is scoped through the
-# backbone: its images are those of the families CoL places in it. `{col}` is
-# the backbone's table name, which comes from config and never from a URL.
-_SCOPE_PREDICATE: dict[Scope, str] = {
-    "order": (
-        "lower(t.accepted_family) IN (SELECT coalesce(family_norm, name_norm) "
-        "FROM {col} WHERE taxon_rank = 'family' AND lower(\"order\") = ?)"
-    ),
-    "family": "lower(t.accepted_family) = ?",
-    "genus": "lower(split_part(t.accepted_name, ' ', 1)) = ?",
+# What each page lists. The ranks above family list families, the
+# family-group ranks below it list genera, and a genus or subgenus lists
+# species.
+FAMILY_SET_RANKS: tuple[Scope, ...] = ("order", "suborder", "superfamily")
+GENUS_SET_RANKS: tuple[Scope, ...] = ("subfamily", "tribe", "subtribe")
+
+# The backbone column naming each rank above genus, as SQL. A table rather
+# than interpolating the caller's string: the scope reaches here from a URL.
+# `order` is a reserved word.
+_RANK_COLUMN: dict[str, str] = {
+    "order": '"order"',
+    "suborder": "suborder",
+    "superfamily": "superfamily",
+    "subfamily": "subfamily",
+    "tribe": "tribe",
+    "subtribe": "subtribe",
 }
 
-# The same scopes, stated against the backbone itself, for counting how many
-# taxa Catalogue of Life places in one.
-_COL_SCOPE_PREDICATE: dict[Scope, str] = {
-    "order": 'lower("order") = ?',
-    "family": "family_norm = ?",
-    "genus": "genus_norm = ?",
-}
+# A subgenus key carries its genus, because a subgenus name is unique only
+# within one: `danaus/anosia`.
+SUBGENUS_SEPARATOR = "/"
+
+
+def subgenus_key(genus: str, subgenus: str) -> str:
+    """The one key a subgenus is cached, counted and scoped under."""
+    return f"{genus.lower()}{SUBGENUS_SEPARATOR}{subgenus.lower()}"
+
+
+def _subgenus_sql(alias: str) -> str:
+    """The subgenus a backbone row sits in, lowercased, or NULL.
+
+    CoL writes the classification column as `Danaus (Anosia)` and the species
+    name as `Danaus (Anosia) gilippus`; only the parenthesised part names the
+    subgenus. A bare column value is taken as it stands.
+    """
+    paren = "'\\(([^)]*)\\)'"
+    return (
+        "lower(trim(coalesce("
+        f"nullif(regexp_extract({alias}.subgenus, {paren}, 1), ''), "
+        f"nullif(trim({alias}.subgenus), ''), "
+        f"nullif(regexp_extract({alias}.scientific_name, {paren}, 1), ''))))"
+    )
 
 
 # The images that count towards a higher taxon, and which recorded spelling
@@ -82,8 +112,13 @@ def _clean_name(expression: str) -> str:
     return f"trim(regexp_replace({without_subgenus}, '\\s+', ' ', 'g'))"
 
 
+def _quote(value: str) -> str:
+    """Escape a config value for a SQL string literal."""
+    return value.replace("'", "''")
+
+
 class HigherTaxonRepository:
-    """Read the members and representative images of a family or genus.
+    """Read the members and representative images of a higher taxon.
 
     Shaped like `ColTaxonSearch`: the optional tables are probed once per
     instance (an instance lives for one request) and every method degrades to
@@ -165,8 +200,134 @@ class HigherTaxonRepository:
             image_meta=self.image_meta_table, status=self.status_table
         )
 
+    def _family_sql(self, expression: str) -> str:
+        """A backbone family name with the obsolete families mapped forward.
+
+        CoL still files some genera under a legacy family such as Satyridae,
+        which the taxonomy update has already rewritten to its current one
+        in every image's `accepted_family`. Comparing the two needs the
+        backbone side rewritten the same way. The names come from config.
+        """
+        if not self.family_synonyms:
+            return expression
+
+        cases = " ".join(
+            f"WHEN '{_quote(old)}' THEN '{_quote(new.lower())}'"
+            for old, new in sorted(self.family_synonyms.items())
+        )
+
+        return f"CASE {expression} {cases} ELSE {expression} END"
+
+    def scope_filter(self, scope: Scope, key: str) -> tuple[str, list]:
+        """The images of one taxon, as a predicate on the harmonized table.
+
+        Returns the clause, aliased on `t`, and its parameters. The
+        harmonized table records only the family and the accepted name, so
+        every other rank is scoped through the backbone: the images of an
+        order or superfamily are those of the families CoL places in it, and
+        those of a subfamily, tribe or subtribe are those of its genera.
+
+        A genus is matched together with its family, because 92 genus names
+        in Lepidoptera have an accepted usage in more than one family.
+        """
+        if scope == "family":
+            return "lower(t.accepted_family) = ?", [key]
+
+        if scope == "genus":
+            return "lower(split_part(t.accepted_name, ' ', 1)) = ?", [key]
+
+        if scope in FAMILY_SET_RANKS:
+            column = _RANK_COLUMN[scope]
+
+            return (
+                "lower(t.accepted_family) IN ("
+                "SELECT coalesce(family_norm, name_norm) FROM "
+                f"{self.col_table} WHERE taxon_rank = 'family' "
+                f"AND lower({column}) = ?)"
+            ), [key]
+
+        if scope in GENUS_SET_RANKS:
+            column = _RANK_COLUMN[scope]
+
+            return (
+                f"EXISTS (SELECT 1 FROM ({self._placed_genera()}) g "
+                f"WHERE lower(g.{column}) = ? "
+                "AND g.genus_norm = lower(split_part(t.accepted_name, ' ', 1)) "
+                "AND g.family_norm = lower(t.accepted_family))"
+            ), [key]
+
+        genus, subgenus = key.split(SUBGENUS_SEPARATOR, 1)
+
+        return (
+            "lower(split_part(t.accepted_name, ' ', 1)) = ? "
+            "AND lower(t.accepted_species_name) IN ("
+            f"SELECT c.canonical_key FROM {self.col_table} c "
+            "WHERE c.genus_norm = ? "
+            "AND c.taxon_rank IN ('species', 'subspecies') "
+            "AND c.canonical_key IS NOT NULL "
+            f"AND {_subgenus_sql('c')} = ?)"
+        ), [genus, genus, subgenus]
+
+    def _placed_genera(self) -> str:
+        """One backbone usage per genus and family, as a subquery.
+
+        Some genera have more than one accepted usage in a family once the
+        obsolete families are mapped forward, and they need not agree on the
+        subfamily. The one kept is the one `family_members` places the genus
+        by: CoL's own usage in that family first, then the lowest usage id.
+        That way a subfamily page counts exactly the genera the family page
+        files under it. `family_norm` comes back mapped.
+        """
+        family = self._family_sql("family_norm")
+
+        return f"""
+        SELECT genus_norm,
+               {family} AS family_norm,
+               usage_id,
+               scientific_name,
+               authorship,
+               subfamily,
+               tribe,
+               subtribe,
+               col_link
+        FROM {self.col_table}
+        WHERE taxon_rank = 'genus'
+          AND is_accepted
+          AND genus_norm IS NOT NULL
+        QUALIFY row_number() OVER (
+            PARTITION BY genus_norm, {family}
+            ORDER BY (family_norm = {family}) DESC, usage_id
+        ) = 1"""
+
+    def _col_scope_filter(self, scope: Scope, key: str) -> tuple[str, list]:
+        """The same scopes, stated against the backbone itself.
+
+        For counting how many taxa Catalogue of Life places in one.
+        """
+        if scope == "family":
+            return "family_norm = ?", [key]
+
+        if scope == "genus":
+            return "genus_norm = ?", [key]
+
+        if scope == "subgenus":
+            genus, subgenus = key.split(SUBGENUS_SEPARATOR, 1)
+
+            return (
+                f"genus_norm = ? AND {_subgenus_sql(self.col_table)} = ?",
+                [genus, subgenus],
+            )
+
+        return f"lower({_RANK_COLUMN[scope]}) = ?", [key]
+
     def order_members(self, order_key: str) -> list[dict]:
-        """Every family Catalogue of Life places in one order, with its counts.
+        """Every family Catalogue of Life places in one order, with its counts."""
+        return self.family_set_members("order", order_key)
+
+    def family_set_members(self, scope: Scope, key: str) -> list[dict]:
+        """Every family Catalogue of Life places in a taxon, with its counts.
+
+        Lists the families of an order, suborder or superfamily.
 
         The tree is the backbone's, not the collection's: a family with no
         images here is still a family of the order, and leaving it out would
@@ -175,17 +336,18 @@ class HigherTaxonRepository:
         link.
 
         Without the backbone there is no classification to draw, so there is
-        no order page either.
+        no page either.
         """
         if not self.harmonized_available() or not self.col_available():
             return []
 
+        column = _RANK_COLUMN[scope]
         name_expr = _clean_name("f.scientific_name")
         # Obsolete families CoL still lists, such as Satyridae, are not part
         # of the classification the page draws. Their images were folded into
         # the current family by the taxonomy update.
         obsolete, obsolete_params = self._without_obsolete_families()
-        params: list = [order_key, *obsolete_params]
+        params: list = [key, *obsolete_params]
         query = f"""
     WITH families AS (
         -- A family's own row may leave its `family` column empty, because
@@ -201,7 +363,7 @@ class HigherTaxonRepository:
         FROM {self.col_table}
         WHERE taxon_rank = 'family'
           AND is_accepted
-          AND lower("order") = ?
+          AND lower({column}) = ?
           {obsolete}
         QUALIFY row_number() OVER (
             PARTITION BY coalesce(family_norm, name_norm) ORDER BY usage_id
@@ -230,7 +392,7 @@ class HigherTaxonRepository:
     LEFT JOIN rollup r ON r.family_key = f.family_norm
     ORDER BY f.family_norm
         """
-        return self._rows(query, params, f"order members for '{order_key}'")
+        return self._rows(query, params, f"{scope} members for '{key}'")
 
     def family_members(self, family_key: str) -> list[dict]:
         """The genera of one family, with the CoL rank each sits under.
@@ -330,7 +492,81 @@ class HigherTaxonRepository:
         """
         return self._rows(query, params, f"family members for '{family_key}'")
 
-    def genus_members(self, genus_key: str) -> list[dict]:
+    def genus_set_members(self, scope: Scope, key: str) -> list[dict]:
+        """The genera CoL places in a subfamily, tribe or subtribe.
+
+        Unlike a family's, the list is the backbone's alone: a genus the
+        collection files in the family but CoL does not place has no
+        subfamily to be listed under. Each genus is still counted from the
+        accepted names, matched on genus and family together, so a namesake
+        in another family is not counted here.
+
+        Without the backbone there is no such rank, so no page either.
+        """
+        if not self.harmonized_available() or not self.col_available():
+            return []
+
+        column = _RANK_COLUMN[scope]
+        name_expr = _clean_name("g.scientific_name")
+        query = f"""
+    WITH genera AS (
+        SELECT genus_norm,
+               family_norm,
+               usage_id,
+               scientific_name,
+               nullif(trim(authorship), '') AS authorship,
+               nullif(trim(subfamily), '')  AS subfamily,
+               nullif(trim(tribe), '')      AS tribe,
+               nullif(trim(subtribe), '')   AS subtribe,
+               col_link
+        FROM ({self._placed_genera()})
+        WHERE lower({column}) = ?
+    ), matched AS ({self._matched_images()}
+          AND EXISTS (
+              SELECT 1 FROM genera g
+              WHERE g.genus_norm = lower(split_part(t.accepted_name, ' ', 1))
+                AND g.family_norm = lower(t.accepted_family)
+          )
+    ), rollup AS (
+        SELECT genus_key,
+               family_key,
+               count(DISTINCT accepted_species) AS species_count,
+               count(*)                         AS image_count
+        FROM matched
+        GROUP BY genus_key, family_key
+    )
+    SELECT g.genus_norm AS genus_key,
+           {name_expr} AS genus_name,
+           g.authorship,
+           g.usage_id AS col_id,
+           g.col_link,
+           g.family_norm AS col_family,
+           g.subfamily,
+           g.tribe,
+           g.subtribe,
+           coalesce(r.species_count, 0) AS species_count,
+           coalesce(r.image_count, 0)   AS image_count
+    FROM genera g
+    LEFT JOIN rollup r
+      ON r.genus_key = g.genus_norm AND r.family_key = g.family_norm
+    ORDER BY image_count DESC, genus_key
+        """
+        return self._rows(query, [key], f"{scope} members for '{key}'")
+
+    def subgenus_members(self, key: str) -> list[dict]:
+        """The species of one subgenus; `key` is `genus/subgenus`.
+
+        The genus's own list, narrowed to the species CoL places in the
+        subgenus. Without the backbone there is no subgenus to narrow to.
+        """
+        if not self.col_available():
+            return []
+
+        genus, subgenus = key.split(SUBGENUS_SEPARATOR, 1)
+
+        return self.genus_members(genus, subgenus=subgenus)
+
+    def genus_members(self, genus_key: str, subgenus: str | None = None) -> list[dict]:
         """The species of one genus, each linked to the name it is filed under.
 
         One node per accepted species, because that is what strict
@@ -347,18 +583,36 @@ class HigherTaxonRepository:
         listed too. One the collection holds nothing of has no recorded name
         to link on, so it is keyed on its canonical name and comes back with
         no images; the page shows it without a link.
+
+        With a `subgenus`, only the species CoL places in it.
         """
         if not self.harmonized_available():
             return []
 
         placement = ""
         col_only = ""
+        in_subgenus = ""
+        only_subgenus = ""
+        subgenus_params: list = []
         projection = (
             "NULL AS authorship, NULL AS col_id, NULL AS col_link, "
             "NULL AS col_status, NULL AS subgenus"
         )
         join = ""
         params: list = [genus_key]
+
+        if subgenus is not None:
+            in_subgenus = f"""
+          AND lower(t.accepted_species_name) IN (
+              SELECT c.canonical_key FROM {self.col_table} c
+              WHERE c.genus_norm = ?
+                AND c.taxon_rank IN ('species', 'subspecies')
+                AND c.canonical_key IS NOT NULL
+                AND {_subgenus_sql("c")} = ?
+          )"""
+            params.extend([genus_key, subgenus.lower()])
+            only_subgenus = f"AND {_subgenus_sql('c')} = ?"
+            subgenus_params = [subgenus.lower()]
 
         if self.col_available():
             # canonical_key, not scientific_name: Catalogue of Life writes
@@ -414,11 +668,13 @@ class HigherTaxonRepository:
           AND c.canonical_key NOT IN (
               SELECT lower(accepted_species) FROM scoped
           )
+          {only_subgenus}
         QUALIFY row_number() OVER (
             PARTITION BY c.canonical_key ORDER BY c.usage_id
         ) = 1
     )"""
             params.append(genus_key)
+            params.extend(subgenus_params)
 
         # CoL's own spelling when we have it, because it carries the subgenus
         # parenthetical the harmonized name drops; the accepted name otherwise.
@@ -430,7 +686,7 @@ class HigherTaxonRepository:
 
         query = f"""
     WITH matched AS ({self._matched_images()}
-          AND lower(split_part(t.accepted_name, ' ', 1)) = ?
+          AND lower(split_part(t.accepted_name, ' ', 1)) = ?{in_subgenus}
     ), {_DOMINANT_RECORD}, scoped AS (
         SELECT m.accepted_species,
                d.recorded_key,
@@ -449,7 +705,13 @@ class HigherTaxonRepository:
     {join}{col_only}
     ORDER BY species_key
         """
-        return self._rows(query, params, f"genus members for '{genus_key}'")
+        scope = (
+            f"subgenus '{genus_key} ({subgenus})'"
+            if subgenus
+            else f"genus '{genus_key}'"
+        )
+
+        return self._rows(query, params, f"members for {scope}")
 
     def family_images(self, order_key: str) -> list[dict]:
         """One image to stand for each family of an order that has any.
@@ -504,11 +766,11 @@ class HigherTaxonRepository:
         """
         if not self.col_available():
             return None
-        predicate = _COL_SCOPE_PREDICATE[scope]
+        predicate, scope_params = self._col_scope_filter(scope, key)
         # Leave out the obsolete families order_members leaves out, and
         # everything CoL files under them.
         obsolete, obsolete_params = self._without_obsolete_families()
-        params: list = [key, *obsolete_params]
+        params: list = [*scope_params, *obsolete_params]
         query = f"""
     SELECT count(DISTINCT CASE WHEN taxon_rank = 'family'
                                THEN coalesce(family_norm, name_norm) END)
@@ -547,9 +809,9 @@ class HigherTaxonRepository:
         """
         if not self.harmonized_available():
             return []
-        if scope == "order" and not self.col_available():
+        if scope not in ("family", "genus") and not self.col_available():
             return []
-        predicate = _SCOPE_PREDICATE[scope].format(col=self.col_table)
+        predicate, params = self.scope_filter(scope, key)
 
         query = f"""
     WITH matched AS ({self._matched_images()}
@@ -588,7 +850,7 @@ class HigherTaxonRepository:
         """
         return self._rows(
             query,
-            [key, limit],
+            [*params, limit],
             f"representative images for {scope} '{key}'",
         )
 
@@ -610,7 +872,7 @@ class HigherTaxonRepository:
         if not self.harmonized_available():
             return []
 
-        if scope == "order" and not self.col_available():
+        if scope not in ("family", "genus") and not self.col_available():
             return []
 
         gbif_table = self.gbif_table
@@ -627,7 +889,7 @@ class HigherTaxonRepository:
             if self.db_client.column_exists(gbif_table, "institutionID")
             else None,
         )
-        predicate = _SCOPE_PREDICATE[scope].format(col=self.col_table)
+        predicate, params = self.scope_filter(scope, key)
         # The filter is MATCHED_IMAGES's, restated because that CTE does not
         # carry the occurrence id, and joining image_meta back onto it would
         # count an image twice wherever an img_id repeats.
@@ -658,7 +920,7 @@ class HigherTaxonRepository:
     ORDER BY image_count DESC, institution_code
         """
 
-        return self._rows(query, [key], f"institution counts for {scope} '{key}'")
+        return self._rows(query, params, f"institution counts for {scope} '{key}'")
 
     # ------------------------------------------------------------------
     # Internals

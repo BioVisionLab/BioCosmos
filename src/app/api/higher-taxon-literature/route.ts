@@ -1,10 +1,46 @@
 import { API_HOST } from "@/lib/config";
 import { NextResponse } from "next/server";
 
-const RANKS = new Set(["order", "family", "genus"]);
+const RANKS = new Set([
+  "order",
+  "suborder",
+  "superfamily",
+  "family",
+  "subfamily",
+  "tribe",
+  "subtribe",
+  "genus",
+  "subgenus",
+]);
 
 /**
- * Proxy for the backend literature search on an order, family or genus.
+ * The backend path of one taxon's literature. A genus takes its family as a
+ * query parameter; a subgenus nests under its genus, without which it has no
+ * route.
+ */
+function literaturePath(
+  rank: string,
+  name: string,
+  context: string | undefined,
+): string | null {
+  const encoded = encodeURIComponent(name);
+
+  if (rank === "subgenus") {
+    return context
+      ? `/genus/${encodeURIComponent(context)}/subgenus/${encoded}/literature`
+      : null;
+  }
+
+  const query =
+    rank === "genus" && context
+      ? `?${new URLSearchParams({ family: context })}`
+      : "";
+
+  return `/${rank}/${encoded}/literature${query}`;
+}
+
+/**
+ * Proxy for the backend literature search on a taxon above species.
  *
  * The species route's sibling, for the same reason: CrossRef is called from
  * the backend, which identifies the site, caches its answers and stays inside
@@ -14,26 +50,26 @@ export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const rank = searchParams.get("rank")?.trim() ?? "";
   const name = searchParams.get("name")?.trim();
-  const family = searchParams.get("family")?.trim();
+  const context = searchParams.get("context")?.trim() || undefined;
+  const path =
+    name && RANKS.has(rank) ? literaturePath(rank, name, context) : null;
 
-  if (!RANKS.has(rank) || !name) {
+  if (!path) {
     return NextResponse.json(
       {
         error:
-          "Query parameters 'rank' (order, family or genus) and 'name' are required",
+          "Query parameters 'rank' (a rank above species) and 'name' are " +
+          "required, and 'context' (the genus) for a subgenus",
       },
       { status: 400 },
     );
   }
 
   try {
-    // Only the genus route reads a family; see fetchHigherTaxonLiterature.
-    const query =
-      rank === "genus" && family ? `?${new URLSearchParams({ family })}` : "";
-    const response = await fetch(
-      `${API_HOST}/${rank}/${encodeURIComponent(name)}/literature${query}`,
-      { method: "GET", headers: { Accept: "application/json" } },
-    );
+    const response = await fetch(`${API_HOST}${path}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
     const data = await response.json();
     // The backend sets the policy: a day for a complete list, minutes for a
     // partial one, nothing for an error.

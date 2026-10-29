@@ -5,7 +5,7 @@ import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
-import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
+import TaxonBreadcrumb, { lineageCrumbs } from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
@@ -14,7 +14,7 @@ import {
   fetchHigherTaxon,
   pickRepresentatives,
 } from "@/lib/higherTaxa";
-import { familyHref, genusHref, isCanonicalTaxonSlug } from "@/lib/taxonSlug";
+import { genusHref, isCanonicalTaxonSlug } from "@/lib/taxonSlug";
 
 // See the note on the family page: the thirty-day cache is on the fetch, not
 // on this segment, and this flag does not defeat it.
@@ -59,15 +59,12 @@ export default async function GenusPage({ params }: GenusPageProps) {
 
   if (!taxon) notFound();
 
-  // The family is the one crumb this page cannot know from its own URL. It
-  // comes from the classification, which is why the stub that preceded this
-  // had a literal "Family Name" standing in its place.
+  // The literature search runs beside the family.
   const family = taxon.classification?.family;
-  const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
-
-  if (family) crumbs.push({ label: family, href: familyHref(family) });
-
-  crumbs.push({ label: taxon.name, italic: true });
+  const crumbs = lineageCrumbs(taxon.classification, "genus", {
+    label: taxon.name,
+    italic: true,
+  });
 
   return (
     <section className="m-2">
@@ -92,7 +89,7 @@ export default async function GenusPage({ params }: GenusPageProps) {
       <HigherTaxonTabs
         rank="genus"
         name={taxon.name}
-        family={family}
+        context={family}
         classificationCount={taxon.counts.speciesCount}
         memberLabel="species"
         imageCount={taxon.counts.imageCount}

@@ -226,7 +226,16 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
   };
 }
 
-export type HigherTaxonRank = "order" | "family" | "genus";
+export type HigherTaxonRank =
+  | "order"
+  | "suborder"
+  | "superfamily"
+  | "family"
+  | "subfamily"
+  | "tribe"
+  | "subtribe"
+  | "genus"
+  | "subgenus";
 
 export interface HigherTaxonLiteratureResult {
   name: string;
@@ -242,7 +251,10 @@ export interface HigherTaxonLiteratureResult {
 interface HigherTaxonApiPayload {
   name: string;
   rank: HigherTaxonRank;
-  /** The family searched beside a genus; null for an order or family. */
+  /**
+   * The family searched beside a genus, or the genus beside a subgenus;
+   * null for every rank above genus.
+   */
   context: string | null;
   works: ApiWork[];
   partial: boolean;
@@ -250,21 +262,24 @@ interface HigherTaxonApiPayload {
 }
 
 /**
- * Publications naming an order, family or genus, from the backend's
+ * Publications naming a taxon above species, from the backend's
  * `/{rank}/{name}/literature`. One name, no synonyms: unlike a species, a
  * higher taxon is rarely short of literature.
  *
- * A genus is searched beside its `family` when one is given, because many
- * genus names are words in other fields too.
+ * A genus is searched beside its family, and a subgenus beside its genus,
+ * when the `context` is given, because many such names are words in other
+ * fields too. A subgenus has no route without its genus.
  */
 async function fetchHigherTaxonLiterature(
   rank: HigherTaxonRank,
   name: string,
-  family?: string | null,
+  context?: string | null,
 ): Promise<HigherTaxonLiteratureResult> {
   const params = new URLSearchParams({ rank, name });
 
-  if (rank === "genus" && family) params.set("family", family);
+  if ((rank === "genus" || rank === "subgenus") && context) {
+    params.set("context", context);
+  }
 
   const response = await fetch(`/api/higher-taxon-literature?${params}`, {
     headers: { Accept: "application/json" },

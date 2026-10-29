@@ -1,11 +1,60 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { ITALIC_COL_RANKS, type ColTaxonomy } from "@/lib/colTaxonomy";
+import { rankHref } from "@/lib/taxonSlug";
+
 export interface Crumb {
   label: string;
   /** Absent on the last crumb, which is the page you are already on. */
   href?: string;
   italic?: boolean;
+}
+
+// The ranks a breadcrumb walks, coarsest first: the order the collection
+// covers and every rank under it that can have a page.
+const LINEAGE_RANKS = [
+  "order",
+  "suborder",
+  "superfamily",
+  "family",
+  "subfamily",
+  "tribe",
+  "subtribe",
+  "genus",
+  "subgenus",
+] as const;
+
+/**
+ * Home, then every rank Catalogue of Life places above the taxon, then the
+ * taxon itself. A rank links only when it has a page; the classification
+ * leaves a rank out when CoL does not populate it.
+ */
+export function lineageCrumbs(
+  classification: ColTaxonomy | null,
+  rank: string,
+  current: Crumb,
+): Crumb[] {
+  const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
+  const depth = LINEAGE_RANKS.indexOf(rank as (typeof LINEAGE_RANKS)[number]);
+
+  if (classification && depth > 0) {
+    for (const ancestor of LINEAGE_RANKS.slice(0, depth)) {
+      const value = classification[ancestor];
+
+      if (!value) continue;
+
+      crumbs.push({
+        label: value,
+        href: rankHref(ancestor, value, classification.genus) ?? undefined,
+        italic: ITALIC_COL_RANKS.has(ancestor),
+      });
+    }
+  }
+
+  crumbs.push(current);
+
+  return crumbs;
 }
 
 /**

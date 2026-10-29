@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { COL_RANK_ORDER, ITALIC_COL_RANKS, rankValue } from "@/lib/colTaxonomy";
 import { TaxonomyData } from "@/lib/speciesData";
-import { familyHref, genusHref, orderHref } from "@/lib/taxonSlug";
+import { rankHref } from "@/lib/taxonSlug";
 
 // Each rank sits one step right of its parent.
 const STEP_REM = 0.875;
@@ -17,16 +17,6 @@ const ELBOW =
 const RANK_TAG =
   "shrink-0 text-[0.625rem] uppercase tracking-wider font-semibold " +
   "text-hunter-green-700/80 dark:text-hunter-green-400/80";
-
-function rankHref(rank: string, value: string): string | null {
-  if (rank === "order") return orderHref(value);
-
-  if (rank === "family") return familyHref(value);
-
-  if (rank === "genus") return genusHref(value);
-
-  return null;
-}
 
 /**
  * The lineage from kingdom down to the species, one rung per rank.
@@ -68,7 +58,11 @@ export function ClassificationLadder({
       >
         {rungs.map(({ rank, value }, index) => {
           const isSpecies = index === last && rank === "species";
-          const href = isSpecies ? null : rankHref(rank, value);
+          // Every rank above a species with images holds images, so none
+          // of these links reaches an empty page.
+          const href = isSpecies
+            ? null
+            : rankHref(rank, value, rankValue(taxonomy, "genus"));
           const name = ITALIC_COL_RANKS.has(rank) ? (
             <i className="italic">{value}</i>
           ) : (

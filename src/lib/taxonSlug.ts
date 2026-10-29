@@ -45,6 +45,58 @@ export function genusHref(name: string): string {
 }
 
 /**
+ * The ranks between order and genus whose page is `/{rank}/{name}`. A
+ * family-group name is unique in zoology, so the name alone finds it.
+ */
+export const INTERMEDIATE_RANKS = [
+  "suborder",
+  "superfamily",
+  "subfamily",
+  "tribe",
+  "subtribe",
+] as const;
+
+export type IntermediateRank = (typeof INTERMEDIATE_RANKS)[number];
+
+export function isIntermediateRank(rank: string): rank is IntermediateRank {
+  return (INTERMEDIATE_RANKS as readonly string[]).includes(rank);
+}
+
+/**
+ * A subgenus page sits under its genus, the only place its name is unique.
+ * `name` may be the bare subgenus or CoL's `Genus (Subgenus)`.
+ */
+export function subgenusHref(genus: string, name: string): string {
+  const subgenus = name.match(/\(([^)]*)\)/)?.[1] ?? name;
+
+  return `${genusHref(genus)}/subgenus/${encodeURIComponent(toTaxonSlug(subgenus))}`;
+}
+
+/**
+ * The page of a taxon at any rank above species, or null for a rank with no
+ * page. A subgenus needs its genus, and has no page without one.
+ */
+export function rankHref(
+  rank: string,
+  name: string,
+  genus?: string | null,
+): string | null {
+  if (rank === "order") return orderHref(name);
+
+  if (rank === "family") return familyHref(name);
+
+  if (rank === "genus") return genusHref(name);
+
+  if (rank === "subgenus") return genus ? subgenusHref(genus, name) : null;
+
+  if (isIntermediateRank(rank)) {
+    return `/${rank}/${encodeURIComponent(toTaxonSlug(name))}`;
+  }
+
+  return null;
+}
+
+/**
  * The link to a species page the backend chose, or null when it chose none.
  *
  * Search and similarity results carry a `speciesKey`: the accepted species'
