@@ -882,6 +882,55 @@ class LiteratureConfig:
         return self._int("max_accepted_pages", 2)
 
 
+class HigherTaxonLiteratureConfig:
+    """Depth of the CrossRef search on an order, family or genus
+    (``higher_taxon_literature`` in config.yaml).
+
+    Kept apart from the species settings because the two searches page
+    differently: a family's query returns relevant works deep into its
+    results, but at a lower yield per page than a species' name does. The
+    work types and the year floor are shared, through the CrossRef client.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._config = config.get("higher_taxon_literature", {}) or {}
+
+    @property
+    def rows(self) -> int:
+        """Works per CrossRef page."""
+        return _positive_int(
+            self._config.get("rows", 100), "Higher-taxon literature rows", 100
+        )
+
+    @property
+    def max_pages(self) -> int:
+        """Pages fetched at most, each one CrossRef request."""
+        return _positive_int(
+            self._config.get("max_pages", 5), "Higher-taxon literature max_pages", 5
+        )
+
+    @property
+    def min_paging_yield(self) -> float:
+        """The share of a full page that must be kept to fetch the next one."""
+        value = self._config.get("min_paging_yield", 0.3)
+
+        try:
+            share = float(value)
+        except (TypeError, ValueError):
+            share = -1.0
+
+        if not 0 <= share <= 1:
+            logger.info(
+                "Higher-taxon literature min_paging_yield must be between 0 and 1, "
+                f"got: {value}. Falling back to 0.3."
+            )
+
+            return 0.3
+
+        return share
+
+
 class NcbiConfig:
     """Credentials for the NCBI E-utilities and Datasets APIs.
 

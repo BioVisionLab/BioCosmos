@@ -472,6 +472,70 @@ class TestRepresentativeImages:
         assert len({row["display_name"] for row in rows}) == 5
 
 
+# occurrenceID -> (institutionCode, gbifID). Two rows for occ-i3, the
+# emptier one first by gbifID, as gbif_meta's duplicates arrive.
+GBIF_HOLDERS = [
+    ("occ-i0", "MCZ", 1),
+    ("occ-i1", "MCZ", 2),
+    ("occ-i2", "MCZ", 3),
+    ("occ-i3", None, 4),
+    ("occ-i3", "NHMUK", 5),
+    ("occ-i4", None, 6),
+    # An image that counts nowhere, so its holder must not either.
+    ("occ-i7", "USNM", 7),
+]
+
+
+@pytest.fixture
+def repository_with_holders(repository):
+    client = repository.db_client
+    client.execute("ALTER TABLE image_meta ADD COLUMN uuid VARCHAR")
+    client.execute("UPDATE image_meta SET uuid = 'occ-' || img_id")
+    holders = pl.DataFrame(
+        [
+            {"occurrenceID": occurrence, "institutionCode": code, "gbifID": gbif}
+            for occurrence, code, gbif in GBIF_HOLDERS
+        ],
+        schema={
+            "occurrenceID": pl.String,
+            "institutionCode": pl.String,
+            "gbifID": pl.Int64,
+        },
+    )
+    client.register("seed_holders", holders)
+    client.execute("CREATE TABLE gbif_meta AS SELECT * FROM seed_holders")
+    repository.gbif_table = "gbif_meta"
+    return repository
+
+
+class TestInstitutionCounts:
+    def test_counts_every_image_the_header_counts(self, repository_with_holders):
+        rows = repository_with_holders.institution_counts("family", "nymphalidae")
+        counts = {row["institution_code"]: row["image_count"] for row in rows}
+        # The nine images with a species, as the order overview counts them.
+        assert sum(counts.values()) == 9
+        assert counts == {"MCZ": 3, "NHMUK": 1, "Unknown": 5}
+
+    def test_most_images_first(self, repository_with_holders):
+        rows = repository_with_holders.institution_counts("family", "nymphalidae")
+        assert [row["institution_code"] for row in rows] == ["Unknown", "MCZ", "NHMUK"]
+
+    def test_a_duplicate_occurrence_counts_once_under_its_named_holder(
+        self, repository_with_holders
+    ):
+        rows = repository_with_holders.institution_counts("genus", "aphantopus")
+        counts = {row["institution_code"]: row["image_count"] for row in rows}
+        assert counts == {"NHMUK": 1, "Unknown": 1}
+
+    def test_unmatched_images_count_nowhere(self, repository_with_holders):
+        rows = repository_with_holders.institution_counts("order", "lepidoptera")
+        assert "USNM" not in {row["institution_code"] for row in rows}
+
+    def test_empty_without_gbif_meta(self, repository):
+        repository.gbif_table = "gbif_meta"
+        assert repository.institution_counts("family", "nymphalidae") == []
+
+
 class TestAvailability:
     def test_membership_is_unavailable_without_the_harmonized_taxonomy(
         self, memory_duckdb
@@ -941,6 +1005,35 @@ class TestOrderOverview:
         second = await overview.overview()
         assert second == first
         assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_the_payload_names_each_holder_it_can(
+        self, overview, repository, monkeypatch
+    ):
+        repository.db_client.execute(
+            "CREATE TABLE institution_directory AS "
+            "SELECT 'MCZ' AS code, 'Museum of Comparative Zoology' AS name, "
+            "'https://mcz.harvard.edu' AS homepage, 'US' AS country, "
+            "'grscicoll' AS source"
+        )
+        monkeypatch.setattr(
+            repository,
+            "institution_counts",
+            lambda scope, key: [
+                {"institution_code": "MCZ", "image_count": 6},
+                {"institution_code": "Unknown", "image_count": 3},
+            ],
+        )
+        institutions = (await overview.overview())["institutions"]
+        assert institutions == [
+            {
+                "code": "MCZ",
+                "name": "Museum of Comparative Zoology",
+                "homepage": "https://mcz.harvard.edu",
+                "imageCount": 6,
+            },
+            {"code": "Unknown", "name": None, "homepage": None, "imageCount": 3},
+        ]
 
     @pytest.mark.asyncio
     async def test_an_order_with_no_images_is_not_found(

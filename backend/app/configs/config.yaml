@@ -81,6 +81,15 @@ literature:
   # A second page for the accepted name is fetched only when the first was
   # full and mostly relevant.
   max_accepted_pages: 2
+# The order, family and genus pages search one name and page deeper than the
+# species search, at a lower yield per page. Work types and from_year come
+# from `literature` above.
+higher_taxon_literature:
+  rows: 100
+  # Each page costs one CrossRef request, cached for a week.
+  max_pages: 5
+  # The next page is fetched only while this share of a full page was kept.
+  min_paging_yield: 0.3
 gbif:
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"

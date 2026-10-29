@@ -47,6 +47,29 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
     };
   }, [speciesName]);
 
+  // How many works each list shows, keyed by the species like the result, so
+  // another species starts from the first page again.
+  const [shown, setShown] = useState<{
+    speciesName: string;
+    limits: Record<ListSection, number>;
+  } | null>(null);
+  const limits =
+    shown?.speciesName === speciesName ? shown.limits : INITIAL_LIMITS;
+  // The year heading to scroll to once the list has grown to include it.
+  // A ref, not state: it only tells the effect below what to do after the
+  // render that shows the year, and must not cause a render of its own.
+  const pendingJump = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingJump.current) return;
+
+    scrollToHeading(pendingJump.current);
+    pendingJump.current = null;
+  }, [limits]);
+
+  const setLimit = (section: ListSection, limit: number) =>
+    setShown({ speciesName, limits: { ...limits, [section]: limit } });
+
   const loading = result?.speciesName !== speciesName;
   const literature = loading ? null : result.literature;
   const failed = !loading && literature === null;
@@ -103,7 +126,25 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
         {partial ? <PartialNotice /> : null}
       </div>
 
-      <LiteratureSummary literature={literature} />
+      <LiteratureSummary
+        literature={literature}
+        onJump={(section, year) => {
+          const publications =
+            section === "species" ? species : (genusRelated ?? {});
+          const needed = worksThrough(publications, year);
+          const id = `literature-${section}-year-${year}`;
+
+          if (needed <= limits[section]) {
+            scrollToHeading(id);
+
+            return;
+          }
+
+          // Grow the list to hold the year, and scroll once it renders.
+          pendingJump.current = id;
+          setLimit(section, needed);
+        }}
+      />
 
       {speciesCount > 0 ? (
         <section aria-labelledby="literature-species" className="mb-8">
@@ -128,7 +169,12 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
               </>
             ) : null}
           </p>
-          <PublicationsList publications={species} section="species" />
+          <PagedPublications
+            publications={species}
+            section="species"
+            limit={limits.species}
+            onLimit={(limit) => setLimit("species", limit)}
+          />
         </section>
       ) : null}
 
@@ -140,7 +186,12 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
               ({genusRelatedCount})
             </span>
           </h2>
-          <PublicationsList publications={genusRelated} section="genus" />
+          <PagedPublications
+            publications={genusRelated}
+            section="genus"
+            limit={limits.genus}
+            onLimit={(limit) => setLimit("genus", limit)}
+          />
         </section>
       ) : null}
 
@@ -149,7 +200,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   );
 }
 
-function PartialNotice() {
+export function PartialNotice() {
   return (
     <p className="text-sm text-amber-700 dark:text-amber-400 mt-2">
       CrossRef did not answer every search, so this list may be incomplete. Try
@@ -172,6 +223,104 @@ function NameList({ names }: { names: string[] }) {
   );
 }
 
+type ListSection = "species" | "genus";
+
+function scrollToHeading(id: string) {
+  document
+    .getElementById(id)
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/** Works a list shows at first, and how many more each "Show more" adds. */
+export const LITERATURE_PAGE_SIZE = 20;
+
+const INITIAL_LIMITS: Record<ListSection, number> = {
+  species: LITERATURE_PAGE_SIZE,
+  genus: LITERATURE_PAGE_SIZE,
+};
+
+function countWorks(publications: PublicationsByYear): number {
+  return Object.values(publications).reduce(
+    (total, items) => total + items.length,
+    0,
+  );
+}
+
+/** The newest `limit` works, still grouped by year. */
+function newestWorks(
+  publications: PublicationsByYear,
+  limit: number,
+): PublicationsByYear {
+  const shown: PublicationsByYear = {};
+  let remaining = limit;
+
+  for (const [year, items] of sortYearsDescending(publications)) {
+    if (remaining <= 0) break;
+
+    shown[year] = items.slice(0, remaining);
+    remaining -= shown[year].length;
+  }
+
+  return shown;
+}
+
+/** How many works a list must show for `year` to be on it in full. */
+function worksThrough(publications: PublicationsByYear, year: string): number {
+  let total = 0;
+
+  for (const [key, items] of sortYearsDescending(publications)) {
+    total += items.length;
+
+    if (key === year) break;
+  }
+
+  return total;
+}
+
+/**
+ * A publication list that shows the newest works first and grows by
+ * LITERATURE_PAGE_SIZE at a time. The limit is the caller's, so the summary
+ * chart can grow the list to reach a year it links to.
+ */
+export function PagedPublications({
+  publications,
+  section,
+  limit,
+  onLimit,
+}: {
+  publications: PublicationsByYear;
+  section: "species" | "genus" | "taxon";
+  limit: number;
+  onLimit: (limit: number) => void;
+}) {
+  const total = countWorks(publications);
+  const more = Math.min(LITERATURE_PAGE_SIZE, total - limit);
+
+  return (
+    <div>
+      <PublicationsList
+        publications={newestWorks(publications, limit)}
+        section={section}
+      />
+      {more > 0 ? (
+        <div className="mx-2 mb-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onLimit(limit + LITERATURE_PAGE_SIZE)}
+            className={secondaryButtonClass}
+          >
+            Show {more} more
+          </button>
+          <span className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400">
+            Showing {limit.toLocaleString("en-US")} of{" "}
+            {total.toLocaleString("en-US")}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function sortYearsDescending(publications: PublicationsByYear) {
   return Object.entries(publications).sort(([yearA], [yearB]) => {
     const a = parseInt(yearA, 10);
@@ -187,13 +336,13 @@ function sortYearsDescending(publications: PublicationsByYear) {
   });
 }
 
-function PublicationsList({
+export function PublicationsList({
   publications,
   section,
 }: {
   publications: PublicationsByYear;
   /** Prefixes each year heading's id, which the summary chart links to. */
-  section: "species" | "genus";
+  section: "species" | "genus" | "taxon";
 }) {
   return (
     <div>
@@ -595,6 +744,7 @@ species has papers in that column, else under the genus.
 function YearChart({
   summary,
   speciesYears,
+  onJump,
 }: {
   summary: LiteratureSummaryData & {
     first: number;
@@ -602,6 +752,8 @@ function YearChart({
     peak: YearBin;
   };
   speciesYears: string[];
+  /** Reveal a year's heading in a list and scroll to it. */
+  onJump: (section: ListSection, year: string) => void;
 }) {
   const { bins, binYears, first, last, peak } = summary;
   const [activeStart, setActiveStart] = useState<number | null>(null);
@@ -629,12 +781,9 @@ function YearChart({
     const speciesYear = bin.years.find((year) =>
       speciesYears.includes(String(year)),
     );
-    const id = speciesYear
-      ? `literature-species-year-${speciesYear}`
-      : `literature-genus-year-${bin.years[0]}`;
-    document
-      .getElementById(id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    if (speciesYear) onJump("species", String(speciesYear));
+    else onJump("genus", String(bin.years[0]));
   };
 
   const tickLeft = (year: number) => {
@@ -713,7 +862,13 @@ function YearChart({
   );
 }
 
-function LiteratureSummary({ literature }: { literature: LiteratureResult }) {
+function LiteratureSummary({
+  literature,
+  onJump,
+}: {
+  literature: LiteratureResult;
+  onJump: (section: ListSection, year: string) => void;
+}) {
   const summary = summarizeLiterature([
     literature.species,
     literature.genusRelated,
@@ -758,6 +913,7 @@ function LiteratureSummary({ literature }: { literature: LiteratureResult }) {
         <YearChart
           summary={{ ...summary, first, last, peak }}
           speciesYears={Object.keys(literature.species)}
+          onJump={onJump}
         />
       ) : null}
 

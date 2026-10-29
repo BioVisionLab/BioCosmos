@@ -6,6 +6,7 @@ queries CrossRef under the accepted name and every Catalogue of Life synonym,
 and adds papers on the genus when the species has too few of its own. This
 module only fetches that result and prepares it for display.
 */
+import { ORDER_NAME } from "./taxonSlug";
 import {
   decodeHtmlEntities,
   toAuthorNameCase,
@@ -225,4 +226,72 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
   };
 }
 
-export { fetchLiterature };
+export type HigherTaxonRank = "order" | "family" | "genus";
+
+export interface HigherTaxonLiteratureResult {
+  name: string;
+  rank: HigherTaxonRank;
+  works: PublicationsByYear;
+  count: number;
+  /** True when some CrossRef requests failed, so the list may be incomplete. */
+  partial: boolean;
+  /** The earliest publication year searched; null when every year is. */
+  fromYear: number | null;
+}
+
+interface HigherTaxonApiPayload {
+  name: string;
+  rank: HigherTaxonRank;
+  /** The family searched beside a genus; null for an order or family. */
+  context: string | null;
+  works: ApiWork[];
+  partial: boolean;
+  fromYear: number | null;
+}
+
+/**
+ * Publications naming an order, family or genus, from the backend's
+ * `/{rank}/{name}/literature`. One name, no synonyms: unlike a species, a
+ * higher taxon is rarely short of literature.
+ *
+ * A genus is searched beside its `family` when one is given, because many
+ * genus names are words in other fields too.
+ */
+async function fetchHigherTaxonLiterature(
+  rank: HigherTaxonRank,
+  name: string,
+  family?: string | null,
+): Promise<HigherTaxonLiteratureResult> {
+  const params = new URLSearchParams({ rank, name });
+
+  if (rank === "genus" && family) params.set("family", family);
+
+  const response = await fetch(`/api/higher-taxon-literature?${params}`, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch literature for ${rank} ${name}: ${response.status}`,
+    );
+  }
+
+  const data: HigherTaxonApiPayload = await response.json();
+  // Sentence-casing a title would otherwise lower-case the taxon itself, and
+  // the "(Lepidoptera: Nymphalidae)" most titles carry.
+  const names = [data.name, data.context, ORDER_NAME].filter(
+    (n): n is string => !!n,
+  );
+  const works = data.works.map((w) => toResult(w, names));
+
+  return {
+    name: data.name,
+    rank: data.rank,
+    works: groupByYear(works),
+    count: works.length,
+    partial: data.partial,
+    fromYear: data.fromYear ?? null,
+  };
+}
+
+export { fetchHigherTaxonLiterature, fetchLiterature };

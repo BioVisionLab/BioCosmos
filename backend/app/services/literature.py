@@ -24,7 +24,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from ..configs.config import LiteratureConfig
+from ..configs.config import HigherTaxonLiteratureConfig, LiteratureConfig
 from .col import ColTaxonSearch
 from .crossref import CrossrefClient, CrossrefError
 
@@ -430,3 +430,150 @@ class LiteratureSearch:
             if len(works) >= MAX_GENUS_RESULTS:
                 break
         return _sort_newest_first(works)
+
+
+HigherRank = Literal["order", "family", "genus"]
+
+
+class HigherTaxonLiteraturePayload(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    name: str
+    rank: HigherRank
+    # The family searched beside a genus name; None for an order or family.
+    context: str | None = None
+    works: list[LiteratureWork] = []
+    # True when a CrossRef request failed, so the list may be incomplete.
+    partial: bool = False
+    # The earliest publication year searched; None when every year is.
+    from_year: int | None = None
+
+
+# A uninomial as the order, family and genus routes receive it.
+_UNINOMIAL = re.compile(r"[A-Za-z]{2,}")
+
+
+def _taxon_pattern(name: str, *, ignore_case: bool) -> re.Pattern:
+    """Match a uninomial as a word of its own.
+
+    Never as part of a hyphenated compound: "Morpho-syntax" and
+    "Morpho-anatomical" are linguistics and botany, not the butterfly. A
+    genus is matched case-sensitively, as the species search matches it, so a
+    lower-case word sharing the spelling is not taken for the genus. Family
+    and order names have no such namesakes, and titles often set them in
+    capitals ("NYMPHALIDAE"), so those are matched in any case.
+    """
+    return re.compile(
+        rf"(?<![\w-]){re.escape(name)}(?![\w-])",
+        re.IGNORECASE if ignore_case else 0,
+    )
+
+
+def _plain_text(value: str | None) -> str:
+    """Plain text from a CrossRef title or JATS abstract, parentheses kept.
+
+    `normalize_text` drops every parenthetical to strip a subgenus from a
+    binomial, which would also drop "(Lepidoptera: Nymphalidae)", the usual
+    way a title gives a species' family.
+    """
+    if not value:
+        return ""
+
+    return _WHITESPACE.sub(" ", _TAG.sub(" ", unescape_fully(value))).strip()
+
+
+def _higher_taxon_text(item: dict) -> str:
+    return (
+        f"{_plain_text(_first(item.get('title')))} {_plain_text(item.get('abstract'))}"
+    )
+
+
+class HigherTaxonLiteratureSearch:
+    """Find publications on an order, family or genus.
+
+    Separate from the species search, and tuned apart from it in the
+    `higher_taxon_literature` config. One name and no synonyms: a higher
+    taxon's literature is plentiful, and relevant works continue deep into
+    CrossRef's results at a lower yield per page than a species' name gets,
+    so this pages further than the species search, and on a lower yield.
+
+    A genus is searched beside its family, as the species search's genus
+    tier is: many genus names are words in other fields too, and the family
+    steers CrossRef's ranking towards the butterfly. Only the genus has to
+    appear in a work for it to be kept.
+    """
+
+    def __init__(
+        self,
+        crossref: CrossrefClient,
+        config: HigherTaxonLiteratureConfig | None = None,
+    ):
+        self.crossref = crossref
+        self.config = config or HigherTaxonLiteratureConfig()
+
+    async def search(
+        self,
+        rank: HigherRank,
+        query: str,
+        family: str | None = None,
+    ) -> HigherTaxonLiteraturePayload | None:
+        """The works naming the taxon, newest first; None for a malformed name.
+
+        `family` is used only beside a genus, and ignored when malformed.
+        """
+        raw = query.replace("_", " ").strip()
+
+        if not _UNINOMIAL.fullmatch(raw):
+            return None
+
+        name = raw.capitalize()
+        context = (family or "").strip()
+        context = (
+            context.capitalize()
+            if rank == "genus" and _UNINOMIAL.fullmatch(context)
+            else None
+        )
+        pattern = _taxon_pattern(name, ignore_case=rank != "genus")
+        payload = HigherTaxonLiteraturePayload(
+            name=name, rank=rank, context=context, from_year=self.crossref.from_year
+        )
+        search_query = f"{name} {context}" if context else name
+        works: dict[str, LiteratureWork] = {}
+        cursor = "*"
+
+        for _ in range(self.config.max_pages):
+            try:
+                page, next_cursor = await self.crossref.search_works_page(
+                    search_query, self.config.rows, cursor
+                )
+            except CrossrefError as error:
+                logger.warning(f"Literature search incomplete for {name}: {error}")
+                payload.partial = True
+
+                break
+
+            kept = 0
+
+            for item in page:
+                key = _work_key(item)
+
+                if not key or key in works:
+                    continue
+
+                if not pattern.search(_higher_taxon_text(item)):
+                    continue
+
+                works[key] = to_work(item)
+                kept += 1
+
+            if len(page) < self.config.rows or not next_cursor:
+                break
+
+            if kept < self.config.min_paging_yield * len(page):
+                break
+
+            cursor = next_cursor
+
+        payload.works = _sort_newest_first(list(works.values()))
+
+        return payload

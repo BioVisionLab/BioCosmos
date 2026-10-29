@@ -23,6 +23,7 @@ from pydantic.alias_generators import to_camel
 from ..database.duckdb import DuckDBClient
 from ..database.model import subgenus_name
 from ..services.higher_taxa import HigherTaxonRepository, Scope
+from ..services.institution import InstitutionDirectory
 from .taxon_data import FamilySearch, GenusSearch, OrderSearch
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,8 @@ logger = logging.getLogger(__name__)
 #
 # 2: images resolved only to genus rank no longer count anywhere.
 # 3: excluded families (Castniidae) no longer count or link anywhere.
-OVERVIEW_PAYLOAD_VERSION = 3
+# 4: the images held by each institution.
+OVERVIEW_PAYLOAD_VERSION = 4
 
 _ORDER_GROUPING_RANKS = ("suborder", "superfamily")
 _FAMILY_GROUPING_RANKS = ("subfamily", "tribe", "subtribe")
@@ -97,6 +99,19 @@ class TaxonImage(BaseModel):
     display_name: str
 
 
+class InstitutionShare(BaseModel):
+    """The images of a taxon one institution holds."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    # As GBIF records it, or 'Unknown' for images with no holder on record.
+    code: str
+    # Resolved by instharmonize; None when the code could not be.
+    name: str | None = None
+    homepage: str | None = None
+    image_count: int = 0
+
+
 class HigherTaxonCounts(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -127,6 +142,8 @@ class HigherTaxonPayload(BaseModel):
     counts: HigherTaxonCounts
     tree: list[TaxonNode] = Field(default_factory=list)
     images: list[TaxonImage] = Field(default_factory=list)
+    # Every holder, most images first. The page folds the tail into one slice.
+    institutions: list[InstitutionShare] = Field(default_factory=list)
     # Which optional tables answered, so the page can say why a tree is flat
     # rather than implying CoL has no subfamilies.
     sources: dict[str, bool] = Field(default_factory=dict)
@@ -513,6 +530,9 @@ class HigherTaxonOverview:
                 )
                 for row in images
             ],
+            institutions=self._institutions(
+                repository.institution_counts(self.rank, self.key)
+            ),
             sources={
                 "colTaxonomy": repository.col_available(),
                 "harmonizedTaxonomy": True,
@@ -540,6 +560,28 @@ class HigherTaxonOverview:
                 image_count=images,
             )
         return HigherTaxonCounts(species_count=len(held), image_count=images)
+
+    def _institutions(self, rows: list[dict]) -> list[InstitutionShare]:
+        """Name each holder from the institution directory, where it can."""
+        if not rows:
+            return []
+
+        directory = InstitutionDirectory(self.request.app.state.duck_db).get_all()
+        shares = []
+
+        for row in rows:
+            code = _text(row.get("institution_code"))
+            holder = directory.get(code, {})
+            shares.append(
+                InstitutionShare(
+                    code=code,
+                    name=_optional(holder.get("name")),
+                    homepage=_optional(holder.get("homepage")),
+                    image_count=_int(row.get("image_count")),
+                )
+            )
+
+        return shares
 
     @staticmethod
     def _with_totals(

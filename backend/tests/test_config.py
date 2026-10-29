@@ -4,7 +4,11 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.configs.config import DEFAULT_LITERATURE_WORK_TYPES, LiteratureConfig
+from app.configs.config import (
+    DEFAULT_LITERATURE_WORK_TYPES,
+    HigherTaxonLiteratureConfig,
+    LiteratureConfig,
+)
 
 
 # We need to patch load_config before importing the config classes,
@@ -583,6 +587,38 @@ class TestNcbiConfig:
 
         monkeypatch.setenv("NCBI_API_KEY", "\"abc123'")
         assert NcbiConfig().api_key == "\"abc123'"
+
+
+class TestHigherTaxonLiteratureConfig:
+    @patch("app.configs.config.load_config", return_value={})
+    def test_defaults(self, _mock):
+        cfg = HigherTaxonLiteratureConfig()
+        assert (cfg.rows, cfg.max_pages, cfg.min_paging_yield) == (100, 5, 0.3)
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "higher_taxon_literature": {
+                "rows": 50,
+                "max_pages": 8,
+                "min_paging_yield": "0.1",
+            }
+        },
+    )
+    def test_reads_its_own_section(self, _mock):
+        cfg = HigherTaxonLiteratureConfig()
+        assert (cfg.rows, cfg.max_pages, cfg.min_paging_yield) == (50, 8, 0.1)
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "literature": {"accepted_rows": 7, "max_accepted_pages": 1},
+            "higher_taxon_literature": {"max_pages": 0, "min_paging_yield": 2},
+        },
+    )
+    def test_ignores_the_species_settings_and_bad_values(self, _mock):
+        cfg = HigherTaxonLiteratureConfig()
+        assert (cfg.rows, cfg.max_pages, cfg.min_paging_yield) == (100, 5, 0.3)
 
 
 class TestLiteratureConfig:

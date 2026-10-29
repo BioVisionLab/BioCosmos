@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
+import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
 import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
@@ -88,28 +89,28 @@ export default async function GenusPage({ params }: GenusPageProps) {
         headingId="genus-morphospace"
       />
 
-      <section
-        aria-labelledby="genus-tree"
-        className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg"
-      >
-        <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl flex flex-wrap items-center justify-between gap-3">
-          <h2 id="genus-tree" className="text-2xl font-semibold">
-            Classification
-          </h2>
+      <HigherTaxonTabs
+        rank="genus"
+        name={taxon.name}
+        family={family}
+        classificationCount={taxon.counts.speciesCount}
+        memberLabel="species"
+        imageCount={taxon.counts.imageCount}
+        institutions={taxon.institutions}
+        controls={
           <TaxonomyTreeControls treeId={TREE_ID} label="Filter species" />
-        </div>
-        <div className="p-4">
-          <TaxonomyTree
-            id={TREE_ID}
-            nodes={taxon.tree}
-            bottomRank="species"
-            highlightRank="genus"
-            nodeCount={taxon.nodeCount}
-          />
-          <UnrecordedTaxaNote taxa="species" />
-          <ColAttribution />
-        </div>
-      </section>
+        }
+      >
+        <TaxonomyTree
+          id={TREE_ID}
+          nodes={taxon.tree}
+          bottomRank="species"
+          highlightRank="genus"
+          nodeCount={taxon.nodeCount}
+        />
+        <UnrecordedTaxaNote taxa="species" />
+        <ColAttribution />
+      </HigherTaxonTabs>
     </section>
   );
 }

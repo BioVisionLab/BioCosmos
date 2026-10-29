@@ -30,7 +30,7 @@ from ..services.col import ColTaxonSearch
 from ..services.taxonomy_update import UPDATE_SOURCE_KEY as TAXONOMY_UPDATE_KEY
 from ..services.crossref import CrossrefClient, get_crossref_client
 from ..services.genetics import GeneticsBusy, GeneticsSummary, get_genetics_summary
-from ..services.literature import LiteratureSearch
+from ..services.literature import HigherTaxonLiteratureSearch, LiteratureSearch
 from .http_cache import (
     GENETICS_CACHE_CONTROL,
     GENETICS_PARTIAL_CACHE_CONTROL,
@@ -177,6 +177,89 @@ async def fetch_species_literature(
             else LITERATURE_CACHE_CONTROL
         ),
     )
+
+
+def get_higher_taxon_literature_search(
+    crossref: Annotated[CrossrefClient, Depends(get_crossref_client)],
+) -> HigherTaxonLiteratureSearch:
+    return HigherTaxonLiteratureSearch(crossref)
+
+
+async def _higher_taxon_literature(
+    rank: Literal["order", "family", "genus"],
+    name: str,
+    search: HigherTaxonLiteratureSearch,
+    family: str | None = None,
+) -> JSONResponse:
+    """Shared by the three rank routes, which differ only in the rank."""
+    try:
+        payload = await search.search(rank, name, family)
+    except Exception:
+        logger.exception(f"Error searching literature for {rank} {name}")
+        return JSONResponse(
+            content={"message": "An error occurred while searching literature."},
+            status_code=500,
+            headers={"Cache-Control": NO_STORE},
+        )
+
+    if payload is None:
+        return JSONResponse(
+            content={"message": f"Not a {rank} name: {name}"},
+            status_code=404,
+            headers={"Cache-Control": NO_STORE},
+        )
+
+    return cached_json(
+        payload.model_dump(mode="json", by_alias=True),
+        cache_control=(
+            LITERATURE_PARTIAL_CACHE_CONTROL
+            if payload.partial
+            else LITERATURE_CACHE_CONTROL
+        ),
+    )
+
+
+@router.get("/order/{order_name}/literature", tags=["Species Data"])
+async def fetch_order_literature(
+    order_name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming an order, from CrossRef, newest first.
+
+    Kept only when the title or abstract names the order. `partial` is true
+    when a CrossRef request failed, and the response is then cached only
+    briefly.
+    """
+    return await _higher_taxon_literature("order", order_name, search)
+
+
+@router.get("/family/{family_name}/literature", tags=["Species Data"])
+async def fetch_family_literature(
+    family_name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+):
+    """Publications naming a family. Same shape as the order literature."""
+    return await _higher_taxon_literature("family", family_name, search)
+
+
+@router.get("/genus/{genus_name}/literature", tags=["Species Data"])
+async def fetch_genus_literature(
+    genus_name: str,
+    search: Annotated[
+        HigherTaxonLiteratureSearch, Depends(get_higher_taxon_literature_search)
+    ],
+    family: Annotated[str | None, Query(max_length=64)] = None,
+):
+    """Publications naming a genus. Same shape as the order literature.
+
+    `family`, when given, is searched beside the genus to steer CrossRef
+    towards the butterfly; only the genus has to appear in a kept work.
+    """
+    return await _higher_taxon_literature("genus", genus_name, search, family)
 
 
 @router.get("/species/{scientific_name}/genetics", tags=["Species Data"])

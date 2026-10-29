@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
+import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
 import TaxonBreadcrumb from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
@@ -90,28 +91,27 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
         headingId="family-morphospace"
       />
 
-      <section
-        aria-labelledby="family-tree"
-        className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg"
-      >
-        <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl flex flex-wrap items-center justify-between gap-3">
-          <h2 id="family-tree" className="text-2xl font-semibold">
-            Classification
-          </h2>
+      <HigherTaxonTabs
+        rank="family"
+        name={taxon.name}
+        classificationCount={taxon.counts.genusCount}
+        memberLabel="genera"
+        imageCount={taxon.counts.imageCount}
+        institutions={taxon.institutions}
+        controls={
           <TaxonomyTreeControls treeId={TREE_ID} label="Filter genera" />
-        </div>
-        <div className="p-4">
-          <TaxonomyTree
-            id={TREE_ID}
-            nodes={taxon.tree}
-            bottomRank="genus"
-            highlightRank="family"
-            nodeCount={taxon.nodeCount}
-          />
-          <UnrecordedTaxaNote taxa="genera" />
-          <ColAttribution />
-        </div>
-      </section>
+        }
+      >
+        <TaxonomyTree
+          id={TREE_ID}
+          nodes={taxon.tree}
+          bottomRank="genus"
+          highlightRank="family"
+          nodeCount={taxon.nodeCount}
+        />
+        <UnrecordedTaxaNote taxa="genera" />
+        <ColAttribution />
+      </HigherTaxonTabs>
     </section>
   );
 }

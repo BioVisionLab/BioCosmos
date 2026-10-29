@@ -20,8 +20,9 @@ from types import MappingProxyType
 from typing import Literal
 
 import duckdb
+from instharmonize.sources import holder_code_sql
 
-from ..configs.config import ColConfig, ImageMetaConfig
+from ..configs.config import ColConfig, GbifConfig, ImageMetaConfig
 from ..database.duckdb import DuckDBClient
 from .species_pages import DOMINANT_RECORD, MATCHED_IMAGES
 
@@ -60,6 +61,10 @@ _COL_SCOPE_PREDICATE: dict[Scope, str] = {
 _MATCHED_IMAGES = MATCHED_IMAGES
 _DOMINANT_RECORD = DOMINANT_RECORD
 
+# The holder an image is counted under when GBIF names none; not a provider.
+# The same bucket the collection-wide counts use.
+UNKNOWN_INSTITUTION = "Unknown"
+
 
 def _clean_name(expression: str) -> str:
     """Tidy a name for display: no parenthesised subgenus, no double spaces.
@@ -90,6 +95,7 @@ class HigherTaxonRepository:
     # __init__. Only ever rebound, never mutated.
     _col_present: bool | None = None
     _status_present: bool | None = None
+    gbif_table: str | None = None
     family_synonyms: Mapping[str, str] = MappingProxyType({})
 
     def __init__(self, duckdb_client: DuckDBClient):
@@ -97,6 +103,7 @@ class HigherTaxonRepository:
         self.image_meta_table = ImageMetaConfig().table
         self.col_table = col_config.table
         self.status_table = col_config.occurrence_status_table
+        self.gbif_table = GbifConfig().table
         self.family_synonyms = col_config.family_synonyms
         self.db_client = duckdb_client
         self._col_present = None
@@ -584,6 +591,74 @@ class HigherTaxonRepository:
             [key, limit],
             f"representative images for {scope} '{key}'",
         )
+
+    # ------------------------------------------------------------------
+    # Holders
+    # ------------------------------------------------------------------
+
+    def institution_counts(self, scope: Scope, key: str) -> list[dict]:
+        """How many of a taxon's images each institution holds, most first.
+
+        The images are the ones the header counts, so the counts sum to its
+        image total. The holder comes from gbif_meta, joined and deduplicated
+        exactly as `ImageMetaStats.get_institution_counts` does it for the
+        whole collection, and an image with no GBIF match or no holder on
+        record is counted under 'Unknown' rather than dropped.
+
+        Empty without gbif_meta, or without the occurrence id to join it on.
+        """
+        if not self.harmonized_available():
+            return []
+
+        if scope == "order" and not self.col_available():
+            return []
+
+        gbif_table = self.gbif_table
+
+        if not gbif_table or not self.db_client.table_exists(gbif_table):
+            return []
+
+        if not self.db_client.column_exists(self.image_meta_table, "uuid"):
+            return []
+
+        holder = holder_code_sql(
+            '"institutionCode"',
+            '"institutionID"'
+            if self.db_client.column_exists(gbif_table, "institutionID")
+            else None,
+        )
+        predicate = _SCOPE_PREDICATE[scope].format(col=self.col_table)
+        # The filter is MATCHED_IMAGES's, restated because that CTE does not
+        # carry the occurrence id, and joining image_meta back onto it would
+        # count an image twice wherever an img_id repeats.
+        query = f"""
+    WITH scoped AS (
+        SELECT nullif(trim(CAST(o.uuid AS VARCHAR)), '') AS occurrence_id
+        FROM {self.image_meta_table} o
+        JOIN {self.status_table} t USING (img_id)
+        WHERE t.update_status = 'MATCHED'
+          AND t.accepted_name IS NOT NULL
+          AND t.accepted_species_name IS NOT NULL
+          AND {predicate}
+    ), holders AS (
+        SELECT "occurrenceID" AS occurrence_id,
+               {holder} AS institution_code
+        FROM {gbif_table}
+        WHERE nullif(trim("occurrenceID"), '') IS NOT NULL
+        QUALIFY row_number() OVER (
+            PARTITION BY "occurrenceID"
+            ORDER BY (institution_code IS NULL), "gbifID"
+        ) = 1
+    )
+    SELECT coalesce(h.institution_code, '{UNKNOWN_INSTITUTION}') AS institution_code,
+           count(*) AS image_count
+    FROM scoped s
+    LEFT JOIN holders h USING (occurrence_id)
+    GROUP BY 1
+    ORDER BY image_count DESC, institution_code
+        """
+
+        return self._rows(query, [key], f"institution counts for {scope} '{key}'")
 
     # ------------------------------------------------------------------
     # Internals
