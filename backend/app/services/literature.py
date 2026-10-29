@@ -5,7 +5,8 @@ papers written before a genus transfer use the old combination, and a species
 with little literature of its own left the tab empty. This searches the
 accepted name and its Catalogue of Life synonyms, and when that still finds
 fewer than ``MIN_SPECIES_RESULTS`` papers, adds a separate, clearly labelled
-set of papers on the genus.
+set of papers on the genus. The work types, the year floor and the per-query
+depth come from the ``literature`` section of config.yaml.
 
 CrossRef's relevance ranking is fuzzy, so every hit is kept only if its title
 or abstract actually names the taxon. Names are matched after normalizing
@@ -23,6 +24,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from ..configs.config import LiteratureConfig
 from .col import ColTaxonSearch
 from .crossref import CrossrefClient, CrossrefError
 
@@ -30,13 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Below this many species-level papers, the genus-level section is added.
 MIN_SPECIES_RESULTS = 10
-# Synonyms beyond this are rarely used in the indexed (post-1995) literature,
-# and each one costs a CrossRef request.
-MAX_SYNONYM_QUERIES = 4
-ACCEPTED_ROWS = 50
-SYNONYM_ROWS = 25
-GENUS_ROWS = 100
 MAX_GENUS_RESULTS = 30
+# The accepted name's next page is fetched only when this share of a full page
+# named the species: relevant results are then likely to continue.
+MIN_PAGING_YIELD = 0.5
 
 _TAG = re.compile(r"<[^>]+>")
 _PARENTHETICAL = re.compile(r"\([^)]*\)")
@@ -49,6 +48,8 @@ class LiteratureWork(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     title: str
+    # The CrossRef work type, e.g. "journal-article" or "dataset".
+    publication_type: str | None = None
     authors: list[str]
     published_year: int | None = None
     journal: str | None = None
@@ -76,6 +77,8 @@ class LiteraturePayload(BaseModel):
     min_species_results: int = MIN_SPECIES_RESULTS
     # True when a CrossRef request failed, so the lists may be incomplete.
     partial: bool = False
+    # The earliest publication year searched; None when every year is.
+    from_year: int | None = None
 
 
 def unescape_fully(value: str) -> str:
@@ -191,10 +194,17 @@ def to_work(item: dict) -> LiteratureWork:
         for a in item.get("author") or []
     ]
     title = _first(item.get("title"))
+    publication_type = _first(item.get("type"))
     journal = _first(item.get("container-title"))
+
+    # Books, reports, theses and datasets often have no container title.
+    if journal is None and publication_type != "journal-article":
+        journal = _first(item.get("publisher"))
+
     return LiteratureWork(
         # Markup such as <i> is kept for the frontend to render as italics.
         title=unescape_fully(title) if title else "No title available",
+        publication_type=publication_type,
         authors=[a for a in authors if a],
         published_year=_year(item),
         journal=unescape_fully(journal) if journal else None,
@@ -221,6 +231,20 @@ def _sort_newest_first(works: list[LiteratureWork]) -> list[LiteratureWork]:
     return sorted(works, key=lambda w: -(w.published_year or 0))
 
 
+def _crossref_failed(result: object, accepted: str) -> bool:
+    """Whether a gathered CrossRef result failed. A CrossRef error only makes
+    the search partial; anything else is a bug and is raised."""
+    if not isinstance(result, BaseException):
+        return False
+
+    if not isinstance(result, CrossrefError):
+        raise result
+
+    logger.warning(f"Literature search incomplete for {accepted}: {result}")
+
+    return True
+
+
 def _slug_to_name(query: str) -> str:
     parts = query.replace("_", " ").split()
     if not parts:
@@ -231,9 +255,57 @@ def _slug_to_name(query: str) -> str:
 class LiteratureSearch:
     """Find publications on a species, its synonyms, and, if few, its genus."""
 
-    def __init__(self, taxon_search: ColTaxonSearch, crossref: CrossrefClient):
+    def __init__(
+        self,
+        taxon_search: ColTaxonSearch,
+        crossref: CrossrefClient,
+        config: LiteratureConfig | None = None,
+    ):
         self.taxon_search = taxon_search
         self.crossref = crossref
+        self.config = config or LiteratureConfig()
+
+    async def _accepted_items(
+        self, accepted: str, names: list[str]
+    ) -> tuple[list[dict], bool]:
+        """The accepted name's results, paging on while pages come back full
+        and mostly relevant. Returns the items and whether a later page failed.
+        """
+        rows = self.config.accepted_rows
+        items: list[dict] = []
+        cursor = "*"
+
+        for page_number in range(self.config.max_accepted_pages):
+            try:
+                page, next_cursor = await self.crossref.search_works_page(
+                    accepted, rows, cursor
+                )
+            except CrossrefError:
+                # The first page failing fails the query; a later one only
+                # leaves it short.
+                if page_number == 0:
+                    raise
+
+                logger.warning(f"Later literature page failed for {accepted}.")
+
+                return items, True
+
+            items.extend(page)
+            relevant = sum(
+                1
+                for item in page
+                if any(mentions_name(_searchable_text(item), n) for n in names)
+            )
+
+            if len(page) < rows or not next_cursor:
+                break
+
+            if relevant < MIN_PAGING_YIELD * len(page):
+                break
+
+            cursor = next_cursor
+
+        return items, False
 
     async def search(self, query: str) -> LiteraturePayload | None:
         usages = await self.taxon_search.name_usages(query)
@@ -252,25 +324,37 @@ class LiteratureSearch:
 
         accepted = usages["accepted_name"]
         genus = usages["genus"]
-        synonyms = [s["name"] for s in usages["synonyms"]][:MAX_SYNONYM_QUERIES]
+        synonyms = [s["name"] for s in usages["synonyms"]][
+            : self.config.max_synonym_queries
+        ]
         # Accepted first, so a paper naming both is credited to the accepted name.
         names = [accepted, *synonyms]
 
-        queries = [(accepted, ACCEPTED_ROWS)] + [(s, SYNONYM_ROWS) for s in synonyms]
-        results = await asyncio.gather(
-            *(self.crossref.search_works(q, rows) for q, rows in queries),
+        accepted_result, *synonym_results = await asyncio.gather(
+            self._accepted_items(accepted, names),
+            *(
+                self.crossref.search_works(s, self.config.synonym_rows)
+                for s in synonyms
+            ),
             return_exceptions=True,
         )
         partial = False
         species: dict[str, LiteratureWork] = {}
-        for result in results:
-            if isinstance(result, BaseException):
-                if not isinstance(result, CrossrefError):
-                    raise result
-                logger.warning(f"Literature search incomplete for {accepted}: {result}")
+
+        if _crossref_failed(accepted_result, accepted):
+            partial = True
+        elif isinstance(accepted_result, tuple):
+            items, incomplete = accepted_result
+            partial = incomplete
+            self._collect_species(items, names, accepted, species)
+
+        for result in synonym_results:
+            if _crossref_failed(result, accepted):
                 partial = True
                 continue
-            self._collect_species(result, names, accepted, species)
+
+            if isinstance(result, list):
+                self._collect_species(result, names, accepted, species)
 
         payload = LiteraturePayload(
             accepted_name=accepted,
@@ -278,12 +362,15 @@ class LiteratureSearch:
             family=usages.get("family"),
             synonyms_searched=synonyms,
             partial=partial,
+            from_year=self.crossref.from_year,
         )
 
         if len(species) < MIN_SPECIES_RESULTS and genus:
             genus_query = " ".join(p for p in (genus, usages.get("family")) if p)
             try:
-                items = await self.crossref.search_works(genus_query, GENUS_ROWS)
+                items = await self.crossref.search_works(
+                    genus_query, self.config.genus_rows
+                )
             except CrossrefError as error:
                 logger.warning(f"Genus literature search failed for {genus}: {error}")
                 payload.partial = True

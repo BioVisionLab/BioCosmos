@@ -12,7 +12,10 @@ place the application talks to CrossRef, and follows its etiquette
   semaphore, and request starts are spaced by the rate CrossRef reports in
   ``x-rate-limit-limit`` / ``x-rate-limit-interval``.
 * Back off when told to. A 429 or 503 waits out ``Retry-After`` once, then
-  gives up; the caller reports a partial result rather than hammering.
+  gives up; the caller reports a partial result rather than hammering. A 403
+  means CrossRef has blocked the client, and every request then fails fast
+  for an hour instead of calling again.
+* Page with cursors, never deep offsets, and only when a page was full.
 * Ask for as little as possible. ``select`` trims each record to the fields
   the page renders, and results are cached, with concurrent identical
   requests sharing one call.
@@ -25,7 +28,11 @@ from urllib.parse import urlencode
 
 import httpx
 
-from ..configs.config import CrossrefConfig
+from ..configs.config import (
+    DEFAULT_LITERATURE_WORK_TYPES,
+    CrossrefConfig,
+    LiteratureConfig,
+)
 from .ttl_cache import TtlCache
 
 logger = logging.getLogger(__name__)
@@ -34,23 +41,29 @@ CROSSREF_WORKS_URL = "https://api.crossref.org/works"
 USER_AGENT = "BioCosmos/0.1"
 PROJECT_URL = "https://github.com/agporto/BioCosmos"
 
-# Only what the literature list renders, plus the abstract for matching.
+# Only what the literature list renders, plus the abstract for matching. Books,
+# reports, theses and datasets often have no container title, so their
+# publisher stands in for the journal. (`subtype`, which would tell a preprint
+# from other posted content, is not a selectable field.)
 SELECT_FIELDS = (
-    "DOI,title,author,issued,published-print,published-online,"
-    "volume,issue,page,container-title,abstract"
+    "DOI,type,title,author,issued,published-print,published-online,"
+    "volume,issue,page,container-title,publisher,abstract"
 )
-# CrossRef coverage before the mid-1990s is thin and mostly lacks abstracts.
-WORKS_FILTER = "type:journal-article,from-pub-date:1995-01-01"
 
 # The polite pool currently allows 3 concurrent requests at 3 per second; the
-# public pool fewer. Rates are refined from response headers as they arrive.
+# public pool answers with 1 request per second, one at a time. These hold
+# until the first response; the rate and the concurrency are then refined
+# from its headers.
 POLITE_CONCURRENCY = 3
 PUBLIC_CONCURRENCY = 1
-DEFAULT_RATE_PER_SECOND = 3.0
+POLITE_RATE_PER_SECOND = 3.0
+PUBLIC_RATE_PER_SECOND = 1.0
 
 REQUEST_TIMEOUT_SECONDS = 10.0
 # A Retry-After longer than this is not worth holding a page request open for.
 MAX_RETRY_AFTER_SECONDS = 5.0
+# After a 403, CrossRef has blocked this client; stay away this long.
+BLOCK_COOLDOWN_SECONDS = 60 * 60
 
 # A week: a species' literature grows slowly, and a cached miss costs a reader
 # nothing but a newer paper.
@@ -62,6 +75,21 @@ class CrossrefError(Exception):
     """CrossRef could not be reached or refused the request."""
 
 
+# One page of works and the cursor for the next, None when CrossRef gave none.
+CrossrefPage = tuple[list[dict], str | None]
+
+
+def works_filter(work_types: tuple[str, ...], from_year: int | None) -> str:
+    """The `filter` value: every work type (CrossRef ORs repeated filters on
+    one field), plus a publication-year floor when one is set."""
+    filters = [f"type:{work_type}" for work_type in work_types]
+
+    if from_year is not None:
+        filters.append(f"from-pub-date:{from_year}-01-01")
+
+    return ",".join(filters)
+
+
 class CrossrefClient:
     """Search CrossRef works, within its limits and with caching."""
 
@@ -70,14 +98,20 @@ class CrossrefClient:
         mailto: str | None = None,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
-        cache: TtlCache[list[dict]] | None = None,
+        cache: TtlCache[CrossrefPage] | None = None,
+        work_types: tuple[str, ...] = DEFAULT_LITERATURE_WORK_TYPES,
+        from_year: int | None = None,
     ):
         self.mailto = mailto
+        self.filter = works_filter(work_types, from_year)
+        self.from_year = from_year
         self._transport = transport
         self._cache = cache or TtlCache(CACHE_TTL_SECONDS, CACHE_MAX_ENTRIES)
         self._concurrency = POLITE_CONCURRENCY if mailto else PUBLIC_CONCURRENCY
-        self._min_interval = 1.0 / DEFAULT_RATE_PER_SECOND
+        rate = POLITE_RATE_PER_SECOND if mailto else PUBLIC_RATE_PER_SECOND
+        self._min_interval = 1.0 / rate
         self._next_start = 0.0
+        self._blocked_until = 0.0
         # asyncio primitives belong to the loop they were first used on. The
         # app has one loop, but tests run several, so these are rebuilt when
         # the loop changes rather than created at import.
@@ -107,15 +141,19 @@ class CrossrefClient:
             headers={"User-Agent": self.user_agent, "Accept": "application/json"},
         )
 
-    def build_url(self, query: str, rows: int) -> str:
+    def build_url(self, query: str, rows: int, cursor: str | None = None) -> str:
         params = {
             "query.bibliographic": query,
             "rows": str(rows),
-            "filter": WORKS_FILTER,
+            "filter": self.filter,
             "select": SELECT_FIELDS,
             "sort": "relevance",
             "order": "desc",
         }
+
+        if cursor is not None:
+            params["cursor"] = cursor
+
         if self.mailto:
             params["mailto"] = self.mailto
         return f"{CROSSREF_WORKS_URL}?{urlencode(params)}"
@@ -126,8 +164,22 @@ class CrossrefClient:
         Raises CrossrefError when CrossRef cannot answer; the caller decides
         whether that is fatal or only makes the result partial.
         """
+        items, _ = await self._search(self.build_url(query, rows))
+
+        return items
+
+    async def search_works_page(
+        self, query: str, rows: int, cursor: str = "*"
+    ) -> CrossrefPage:
+        """One cursor page of a bibliographic query, and the next cursor.
+
+        Pass ``"*"`` for the first page and the returned cursor for the next.
+        A page with fewer than ``rows`` items is the last one.
+        """
+        return await self._search(self.build_url(query, rows, cursor))
+
+    async def _search(self, url: str) -> CrossrefPage:
         self._bind_loop()
-        url = self.build_url(query, rows)
         cached = self._cache.get(url)
         if cached is not None:
             return cached
@@ -147,7 +199,7 @@ class CrossrefClient:
         future: asyncio.Future = asyncio.get_running_loop().create_future()
         self._inflight[url] = future
         try:
-            items = await self._fetch(url)
+            page = await self._fetch(url)
         except asyncio.CancelledError:
             future.cancel()
             raise
@@ -158,9 +210,9 @@ class CrossrefClient:
             future.exception()
             raise
         else:
-            self._cache.set(url, items)
-            future.set_result(items)
-            return items
+            self._cache.set(url, page)
+            future.set_result(page)
+            return page
         finally:
             self._inflight.pop(url, None)
 
@@ -175,8 +227,10 @@ class CrossrefClient:
                 now = time.monotonic()
             self._next_start = now + self._min_interval
 
-    def _learn_rate(self, response: httpx.Response) -> None:
-        """Adopt the rate CrossRef reports, e.g. 3 requests per '1s'."""
+    def _learn_limits(self, response: httpx.Response) -> None:
+        """Adopt the limits CrossRef reports: a rate such as 3 requests per
+        '1s', and the number of requests allowed in flight at once."""
+        self._learn_concurrency(response)
         limit = response.headers.get("x-rate-limit-limit")
         interval = response.headers.get("x-rate-limit-interval", "1s")
         try:
@@ -187,9 +241,29 @@ class CrossrefClient:
         if requests > 0 and seconds > 0:
             self._min_interval = seconds / requests
 
-    async def _fetch(self, url: str) -> list[dict]:
+    def _learn_concurrency(self, response: httpx.Response) -> None:
+        try:
+            limit = int(response.headers.get("x-concurrency-limit", ""))
+        except ValueError:
+            return
+
+        if 0 < limit < self._concurrency:
+            logger.info(
+                f"CrossRef allows {limit} concurrent requests; lowering the cap."
+            )
+            self._concurrency = limit
+            # Requests holding the old semaphore finish under it; every later
+            # request waits on the lower cap.
+            self._semaphore = asyncio.Semaphore(limit)
+
+    def _check_block(self) -> None:
+        if time.monotonic() < self._blocked_until:
+            raise CrossrefError("CrossRef has blocked this client; not retrying yet.")
+
+    async def _fetch(self, url: str) -> CrossrefPage:
         assert self._semaphore is not None and self._client is not None
         for attempt in range(2):
+            self._check_block()
             async with self._semaphore:
                 await self._pace()
                 try:
@@ -197,7 +271,18 @@ class CrossrefClient:
                 except httpx.HTTPError as error:
                     raise CrossrefError(f"CrossRef request failed: {error}") from error
 
-            self._learn_rate(response)
+            self._learn_limits(response)
+
+            if response.status_code == 403:
+                self._blocked_until = time.monotonic() + BLOCK_COOLDOWN_SECONDS
+                logger.error(
+                    "CrossRef answered 403: this client is blocked. Literature "
+                    f"searches pause for {BLOCK_COOLDOWN_SECONDS // 60} minutes. Check "
+                    "that CROSSREF_MAILTO is set to a monitored address, since "
+                    "CrossRef writes to it before blocking."
+                )
+                raise CrossrefError("CrossRef answered 403 (blocked).")
+
             if response.status_code in (429, 503) and attempt == 0:
                 delay = _retry_after_seconds(response)
                 logger.warning(
@@ -210,7 +295,9 @@ class CrossrefClient:
                     f"CrossRef answered {response.status_code} for {url}"
                 )
             try:
-                return response.json()["message"]["items"] or []
+                message = response.json()["message"]
+
+                return message["items"] or [], message.get("next-cursor")
             except (ValueError, KeyError, TypeError) as error:
                 raise CrossrefError(f"Unexpected CrossRef response: {error}") from error
         raise CrossrefError("CrossRef is rate limiting requests.")
@@ -241,5 +328,10 @@ def get_crossref_client() -> CrossrefClient:
                 "CROSSREF_MAILTO is not set; literature searches will use "
                 "CrossRef's anonymous public pool, one request at a time."
             )
-        _shared_client = CrossrefClient(mailto)
+        literature = LiteratureConfig()
+        _shared_client = CrossrefClient(
+            mailto,
+            work_types=literature.work_types,
+            from_year=literature.from_year,
+        )
     return _shared_client

@@ -4,6 +4,8 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
+from app.configs.config import DEFAULT_LITERATURE_WORK_TYPES, LiteratureConfig
+
 
 # We need to patch load_config before importing the config classes,
 # so we import inside each test method.
@@ -581,3 +583,42 @@ class TestNcbiConfig:
 
         monkeypatch.setenv("NCBI_API_KEY", "\"abc123'")
         assert NcbiConfig().api_key == "\"abc123'"
+
+
+class TestLiteratureConfig:
+    @patch("app.configs.config.load_config", return_value={})
+    def test_defaults_search_every_year_and_type(self, _mock):
+        cfg = LiteratureConfig()
+        assert cfg.from_year is None
+        assert cfg.work_types == DEFAULT_LITERATURE_WORK_TYPES
+        assert cfg.max_synonym_queries == 6
+        assert (cfg.accepted_rows, cfg.synonym_rows, cfg.genus_rows) == (100, 40, 100)
+        assert cfg.max_accepted_pages == 2
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "literature": {
+                "from_year": "1950",
+                "work_types": ["journal-article", " dataset "],
+                "accepted_rows": 200,
+            }
+        },
+    )
+    def test_reads_configured_values(self, _mock):
+        cfg = LiteratureConfig()
+        assert cfg.from_year == 1950
+        assert cfg.work_types == ("journal-article", "dataset")
+        assert cfg.accepted_rows == 200
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "literature": {"from_year": "soon", "genus_rows": -5, "synonym_rows": "x"}
+        },
+    )
+    def test_invalid_values_fall_back(self, _mock):
+        cfg = LiteratureConfig()
+        assert cfg.from_year is None
+        assert cfg.genus_rows == 100
+        assert cfg.synonym_rows == 40

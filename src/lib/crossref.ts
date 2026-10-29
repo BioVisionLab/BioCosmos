@@ -14,6 +14,8 @@ import {
 
 export interface CrossRefResult {
   title: string;
+  /** The CrossRef work type, e.g. "journal-article" or "dataset". */
+  publicationType?: string;
   authors: string[];
   published_year?: number;
   journal: string;
@@ -29,6 +31,14 @@ export interface CrossRefResult {
   mentions: string[];
 }
 
+/* The bracketed description a citation adds after the title, by CrossRef type. */
+const citationTypeTags: Record<string, string> = {
+  dataset: "Dataset",
+  "posted-content": "Preprint",
+  dissertation: "Dissertation",
+  report: "Report",
+};
+
 /**
  * A plain-text citation for the clipboard, in the order the page shows it:
  * authors, year, title, journal, volume (issue), pages, DOI. Publisher markup
@@ -36,10 +46,13 @@ export interface CrossRefResult {
  */
 export function formatCitation(pub: CrossRefResult): string {
   const title = pub.title.replace(/<[^>]+>/g, "").trim();
+  const tag = pub.publicationType
+    ? citationTypeTags[pub.publicationType]
+    : undefined;
   const parts = [
     pub.authors.length ? `${pub.authors.join(", ")}.` : "",
     pub.published_year ? `(${pub.published_year}).` : "",
-    title ? `${title.replace(/\.$/, "")}.` : "",
+    title ? `${title.replace(/\.$/, "")}${tag ? ` [${tag}]` : ""}.` : "",
   ];
   let source = pub.journal;
 
@@ -72,10 +85,13 @@ export interface LiteratureResult {
   minSpeciesResults: number;
   /** True when some CrossRef requests failed, so the lists may be incomplete. */
   partial: boolean;
+  /** The earliest publication year searched; null when every year is. */
+  fromYear: number | null;
 }
 
 interface ApiWork {
   title: string;
+  publicationType: string | null;
   authors: string[];
   publishedYear: number | null;
   journal: string | null;
@@ -96,6 +112,7 @@ interface ApiPayload {
   genusRelated: ApiWork[] | null;
   minSpeciesResults: number;
   partial: boolean;
+  fromYear: number | null;
 }
 
 function escapeRegExp(value: string): string {
@@ -132,6 +149,7 @@ function formatTitle(raw: string, genera: string[]): string {
 function toResult(work: ApiWork, genera: string[]): CrossRefResult {
   return {
     title: formatTitle(work.title, genera),
+    publicationType: work.publicationType ?? undefined,
     authors: work.authors.length
       ? work.authors.map((a) => toAuthorNameCase(a))
       : ["No authors available"],
@@ -203,6 +221,7 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
     genusRelatedCount: genusRelated?.length ?? 0,
     minSpeciesResults: data.minSpeciesResults,
     partial: data.partial,
+    fromYear: data.fromYear ?? null,
   };
 }
 

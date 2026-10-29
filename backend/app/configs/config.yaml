@@ -52,6 +52,35 @@ morphospace:
   species_table: "morphospace_species"
   disparity_table: "morphospace_disparity"
   extremes_table: "morphospace_extremes"
+# Literature search through the CrossRef REST API, for the species page's
+# literature tab. The contact address (CROSSREF_MAILTO) comes from the
+# environment. Every setting here is part of the request URL, which is the
+# cache key, so a change never serves results cached under the old one.
+literature:
+  # Earliest publication year searched; null searches every year. Records
+  # from before the mid-1990s rarely carry abstracts and are matched on the
+  # title alone.
+  from_year: null
+  # CrossRef work types, OR'ed in one filter.
+  work_types:
+    - journal-article
+    - dataset
+    - book-chapter
+    - book
+    - edited-book
+    - monograph
+    - posted-content
+    - proceedings-article
+    - report
+    - dissertation
+  # Each synonym costs one CrossRef request.
+  max_synonym_queries: 6
+  accepted_rows: 100
+  synonym_rows: 40
+  genus_rows: 100
+  # A second page for the accepted name is fetched only when the first was
+  # full and mostly relevant.
+  max_accepted_pages: 2
 gbif:
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"

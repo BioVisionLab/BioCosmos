@@ -781,6 +781,107 @@ class CrossrefConfig:
         return _env_str("CROSSREF_MAILTO")
 
 
+DEFAULT_LITERATURE_WORK_TYPES = (
+    "journal-article",
+    "dataset",
+    "book-chapter",
+    "book",
+    "edited-book",
+    "monograph",
+    "posted-content",
+    "proceedings-article",
+    "report",
+    "dissertation",
+)
+
+
+def _positive_int(value, label: str, default: int) -> int:
+    """A YAML value meant to be a positive integer, or the default."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        logger.info(f"{label} is not an integer: {value}. Falling back to {default}.")
+
+        return default
+
+    if number <= 0:
+        logger.info(
+            f"{label} must be positive, got: {number}. Falling back to {default}."
+        )
+
+        return default
+
+    return number
+
+
+class LiteratureConfig:
+    """Scope of the CrossRef literature search (``literature`` in config.yaml).
+
+    Every value here shapes the request URL, and so the cache key: a change
+    takes effect on the next search without serving stale results.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._literature_config = config.get("literature", {}) or {}
+
+    @property
+    def from_year(self) -> int | None:
+        """Earliest publication year searched; None searches every year."""
+        value = self._literature_config.get("from_year")
+
+        if value is None:
+            return None
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            logger.info(
+                f"Literature from_year is not a year: {value}. Searching every year."
+            )
+
+            return None
+
+    @property
+    def work_types(self) -> tuple[str, ...]:
+        value = self._literature_config.get("work_types")
+
+        if not value:
+            return DEFAULT_LITERATURE_WORK_TYPES
+
+        if isinstance(value, str):
+            value = [value]
+
+        types = tuple(str(t).strip() for t in value if str(t).strip())
+
+        return types or DEFAULT_LITERATURE_WORK_TYPES
+
+    def _int(self, key: str, default: int) -> int:
+        value = self._literature_config.get(key, default)
+
+        return _positive_int(value, f"Literature {key}", default)
+
+    @property
+    def max_synonym_queries(self) -> int:
+        return self._int("max_synonym_queries", 6)
+
+    @property
+    def accepted_rows(self) -> int:
+        return self._int("accepted_rows", 100)
+
+    @property
+    def synonym_rows(self) -> int:
+        return self._int("synonym_rows", 40)
+
+    @property
+    def genus_rows(self) -> int:
+        return self._int("genus_rows", 100)
+
+    @property
+    def max_accepted_pages(self) -> int:
+        return self._int("max_accepted_pages", 2)
+
+
 class NcbiConfig:
     """Credentials for the NCBI E-utilities and Datasets APIs.
 

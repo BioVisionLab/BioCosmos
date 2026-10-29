@@ -15,9 +15,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.configs.config import DEFAULT_LITERATURE_WORK_TYPES, LiteratureConfig
 from app.routers.species_data import get_literature_search, router
 from app.services.col import ColBackboneService, ColTaxonSearch
-from app.services.crossref import CrossrefClient
+from app.services.crossref import CrossrefClient, CrossrefError
 from app.services.literature import (
     MIN_SPECIES_RESULTS,
     LiteraturePayload,
@@ -189,6 +190,21 @@ class TestMatching:
         assert result.doi == "https://doi.org/10.1/abc"
         assert (result.volume, result.issue, result.pages) == ("12", "3", "1-9")
 
+    def test_to_work_names_a_book_chapter_by_its_publisher(self):
+        item = work("10.1/ch", "Coenonympha in the Alps")
+        item.update({"type": "book-chapter", "publisher": "Springer"})
+        del item["container-title"]
+        assert to_work(item).journal == "Springer"
+
+    def test_to_work_keeps_the_type_and_names_a_dataset_by_its_publisher(self):
+        item = work("10.1/data", "Coenonympha pamphilus wing images")
+        item.update({"type": "dataset", "publisher": "Dryad"})
+        del item["container-title"]
+        result = to_work(item)
+        assert result.publication_type == "dataset"
+        assert result.journal == "Dryad"
+        assert result.model_dump(by_alias=True)["publicationType"] == "dataset"
+
 
 # ---------------------------------------------------------------------------
 # Orchestration
@@ -340,6 +356,13 @@ class TestCrossrefClient:
         assert "mailto:me@example.org" in request.headers["User-Agent"]
         assert "abstract" in params["select"][0]
         assert "has-abstract" not in params["filter"][0]
+        filters = params["filter"][0].split(",")
+        assert {"type:journal-article", "type:dataset"} <= set(filters)
+        assert "type" in params["select"][0].split(",")
+
+    def test_without_mailto_starts_at_the_public_rate(self):
+        assert CrossrefClient(None)._min_interval == pytest.approx(1.0)
+        assert CrossrefClient("t@example.org")._min_interval == pytest.approx(1 / 3)
 
     def test_without_mailto_uses_one_connection(self):
         client = FakeCrossref({}).client(mailto=None)
@@ -392,8 +415,132 @@ class TestCrossrefClient:
         response = httpx.Response(
             200, headers={"x-rate-limit-limit": "5", "x-rate-limit-interval": "1s"}
         )
-        client._learn_rate(response)
+        client._learn_limits(response)
         assert client._min_interval == pytest.approx(0.2)
+
+    def test_lowers_concurrency_to_the_advertised_limit(self):
+        client = CrossrefClient("t@example.org")
+        client._learn_limits(httpx.Response(200, headers={"x-concurrency-limit": "1"}))
+        assert client._concurrency == 1
+        # A higher advertised limit never raises the cap past the pool's.
+        client._learn_limits(httpx.Response(200, headers={"x-concurrency-limit": "9"}))
+        assert client._concurrency == 1
+
+    def test_filter_searches_every_type_and_every_year_by_default(self):
+        client = CrossrefClient("t@example.org")
+        params = parse_qs(urlparse(client.build_url("Danaus plexippus", 10)).query)
+        filters = params["filter"][0].split(",")
+        assert filters == [f"type:{t}" for t in DEFAULT_LITERATURE_WORK_TYPES]
+        assert "cursor" not in params
+
+    def test_from_year_adds_a_floor(self):
+        client = CrossrefClient("t@example.org", from_year=1900)
+        params = parse_qs(urlparse(client.build_url("Danaus plexippus", 10)).query)
+        assert "from-pub-date:1900-01-01" in params["filter"][0].split(",")
+
+    def test_a_403_pauses_every_request(self):
+        calls: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+
+            return httpx.Response(403)
+
+        client = CrossrefClient("t@example.org", transport=httpx.MockTransport(handler))
+        client._min_interval = 0.0
+
+        with pytest.raises(CrossrefError):
+            asyncio.run(client.search_works("Danaus plexippus"))
+
+        with pytest.raises(CrossrefError):
+            asyncio.run(client.search_works("Danaus chrysippus"))
+
+        assert len(calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# Paging
+# ---------------------------------------------------------------------------
+
+
+def literature_config(**overrides) -> LiteratureConfig:
+    config = LiteratureConfig.__new__(LiteratureConfig)
+    config._literature_config = {
+        "accepted_rows": 4,
+        "max_accepted_pages": 2,
+        **overrides,
+    }
+
+    return config
+
+
+class PagedCrossref:
+    """Answers the accepted-name query page by page, by cursor."""
+
+    def __init__(self, pages: dict[str, tuple[list[dict], str | None]]):
+        self.pages = pages
+        self.cursors: list[str | None] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        params = parse_qs(urlparse(str(request.url)).query)
+        query = params["query.bibliographic"][0]
+
+        if query != "Coenonympha pamphilus":
+            return httpx.Response(200, json={"message": {"items": []}})
+
+        cursor = params.get("cursor", [None])[0]
+        self.cursors.append(cursor)
+        items, next_cursor = self.pages.get(cursor or "", ([], None))
+
+        return httpx.Response(
+            200, json={"message": {"items": items, "next-cursor": next_cursor}}
+        )
+
+    def search(self, taxon_search: ColTaxonSearch) -> LiteraturePayload | None:
+        client = CrossrefClient(
+            "t@example.org", transport=httpx.MockTransport(self.handler)
+        )
+        client._min_interval = 0.0
+        search = LiteratureSearch(taxon_search, client, literature_config())
+
+        return asyncio.run(search.search("coenonympha_pamphilus"))
+
+
+class TestAcceptedNamePaging:
+    def test_a_full_relevant_page_fetches_the_next(self, taxon_search):
+        fake = PagedCrossref(
+            {
+                "*": (species_papers(4), "next-1"),
+                "next-1": (
+                    [work("10.1/more", "Coenonympha pamphilus again")],
+                    "next-2",
+                ),
+            }
+        )
+        payload = fake.search(taxon_search)
+        assert fake.cursors == ["*", "next-1"]
+        assert payload is not None
+        assert any((w.doi or "").endswith("10.1/more") for w in payload.species)
+
+    def test_a_mostly_irrelevant_page_stops_paging(self, taxon_search):
+        noise = [work(f"10.1/n{i}", f"Maniola jurtina {i}") for i in range(4)]
+        fake = PagedCrossref({"*": (noise, "next-1")})
+        fake.search(taxon_search)
+        assert fake.cursors == ["*"]
+
+    def test_a_short_page_is_the_last(self, taxon_search):
+        fake = PagedCrossref({"*": (species_papers(3), "next-1")})
+        fake.search(taxon_search)
+        assert fake.cursors == ["*"]
+
+    def test_payload_reports_the_year_floor(self, taxon_search):
+        client = FakeCrossref({}).client()
+        client.from_year = 1950
+        payload = asyncio.run(
+            LiteratureSearch(taxon_search, client).search("coenonympha_pamphilus")
+        )
+        assert payload is not None
+        assert payload.from_year == 1950
 
 
 # ---------------------------------------------------------------------------
