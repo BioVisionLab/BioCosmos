@@ -944,6 +944,7 @@ def pair_images(
     pairs: pd.DataFrame,
     pictures: dict[tuple[str, str], np.ndarray],
     counts: dict[str, int],
+    count_fontsize: float = 10,
 ) -> None:
     """Both species' matched images between each pair label and the axis, with N.
 
@@ -976,7 +977,7 @@ def pair_images(
                 textcoords="offset points",
                 ha="center",
                 va="top",
-                fontsize=10,
+                fontsize=count_fontsize,
                 annotation_clip=False,
             )
 
@@ -1081,17 +1082,19 @@ def pairs_panel(
     pictures: dict[tuple[str, str], np.ndarray],
     title: str = "A) Mimicry pairs",
     legend: bool = True,
+    count_fontsize: float = 10,
 ) -> list:
     """Partner ranks by nearest dorsal image, with each pair's matched images and N.
 
     Pairs that are mutual top ten are highlighted. Returns the legend handles, so a
-    caller drawing `legend=False` can place the legend elsewhere.
+    caller drawing `legend=False` can place the legend elsewhere. `count_fontsize` sizes
+    the N under each image, for figures printed smaller.
     """
 
     rank_panel(
         ax, results.ranks, results.tested, VISUAL_SERIES, results.n_species, results.recovered()
     )
-    pair_images(ax, results.tested, pictures, results.image_counts())
+    pair_images(ax, results.tested, pictures, results.image_counts(), count_fontsize)
     ax.set_title(title, loc="left")
     handles = rank_legend(VISUAL_SERIES)
 

@@ -901,6 +901,7 @@ def benchmark_data(root: Path | None = None) -> pd.DataFrame:
         # Preserve the figure's exclusion while retaining the unindexed baseline.
         frame = frame.loc[frame["index"] != "Flat (brute-force)"].copy()
         frame.attrs["source_run"] = str(manifest_path.parent)
+        frame.attrs["recall_threshold"] = manifest["config"].get("recall_threshold")
 
         return frame
 

@@ -206,20 +206,40 @@ env -u VIRTUAL_ENV uv run --project analyses --extra indexing jupyter lab analys
 - **Dependencies.** The `indexing` extra pins LanceDB `0.39.0` to match the
   backend; keep it aligned.
 - **Parameters.** Configuration cells set sample size, repetitions, warmup,
-  partitions, and PQ subvectors. Subvectors must divide the embedding dimension;
-  training needs at least 256 rows and as many rows as partitions.
+  partitions, PQ subvectors, and the search grids. Partitions and subvectors
+  default to `"auto"`, the backend's rule (`min(4096, √rows)` partitions,
+  `dims / 8` subvectors), so the benchmark builds the index the site builds.
+  Subvectors must divide the embedding dimension; training needs at least 256
+  rows and as many rows as partitions.
+- **Search sweep.** Recall and latency depend on how an index is searched, not
+  only on the index. Each index is built once and searched with every
+  combination of `nprobes_grid`, `ef_grid` (HNSW indexes only), and
+  `refine_grid`, plus the backend's own setting (`nprobes = 20`,
+  `refine_factor = 10`), flagged `is_production`. A full run takes one to two
+  hours.
+- **Queries.** A seeded sample of `query_count` images (default 300) is held out
+  of the searched copy, so no query finds itself.
+- **Recall@k.** The share of the k returned images among the exact k nearest by
+  cosine distance, counting an image tied with the k-th nearest as a hit.
+  `recall_low` and `recall_high` are a 95% bootstrap interval over queries.
 - **Isolation.** Each run copies a fixed source version to
   `results/indexing/<timestamp_uuid>/scratch.lance` and indexes only that copy.
   Allow enough disk space for the copy and indexes. Runs are retained and
   gitignored.
-- **Outputs.** `indexing_benchmark.csv`, `query_timings.csv`,
-  `recommendations.csv`, and `run.json`. Recall@k is against exact top-k by
-  image ID. Queries per second (QPS) measure sequential search and exclude HTTP
-  overhead and model inference. Cold caches and training randomness are not
-  controlled. Recommendations are saved for review; they are not applied.
+- **Outputs.** `indexing_benchmark.csv` (one row per index and search setting),
+  `query_timings.csv`, `recommendations.csv`, and `run.json` (with the resolved
+  build parameters and the held-out query IDs). Searches return only `img_id`
+  and the distance, as the backend's do. Latency and queries per second (QPS)
+  measure sequential, unfiltered search and exclude HTTP overhead, filters, and
+  model inference, so they are lower than the site's response time. Cold caches
+  and training randomness are not controlled. Recommendations compare indexes
+  at matched recall: the fastest setting of each index reaching
+  `recall_threshold`. They are saved for review, not applied.
 
-`index_performance.ipynb` plots the newest completed run at top-k 10, excluding
-`Flat (brute-force)` and keeping `No Index (baseline)`.
+`index_performance.ipynb` plots the newest completed run at top-k 10: one curve
+per index and embedding through its Pareto-optimal settings, the site's setting
+ringed, and the recall threshold dotted. It excludes `Flat (brute-force)`, keeps
+`No Index (baseline)`, and draws runs from before the sweep as single points.
 
 ## Exports
 
@@ -237,4 +257,5 @@ unresolved categories.
 ```bash
 uv run --project analyses ruff check analyses
 uv run --project analyses ruff format --check analyses
+env -u VIRTUAL_ENV uv run --project analyses --extra indexing pytest -q analyses/tests
 ```
