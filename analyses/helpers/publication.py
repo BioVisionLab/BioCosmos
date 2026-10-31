@@ -83,6 +83,8 @@ def load_settings(root: Path | None = None) -> Settings:
         "coordinates": config["locality"]["coordinates_table"],
         "taxonomy": config["col"]["occurrence_status_table"],
         "matches": config["col"]["matches_table"],
+        "provenance": (config.get("provenance") or {}).get("table", "image_meta_provenance"),
+        "institutions": (config.get("institutions") or {}).get("table", "institution_directory"),
         # Written by `morphospace integrate`; see packages/morphospace.
         **{
             f"morphospace_{name}": config.get("morphospace", {}).get(
@@ -223,8 +225,6 @@ def excluded_families(connection, settings: Settings, identifier: str) -> None:
         )
 
 
-# How the recorded aggregator keys print. A record carried by several aggregators
-# keeps its combined key rather than being counted under each one.
 SOURCE_LABELS = {
     "gbif": "GBIF",
     "scanbugs": "SCAN",
@@ -350,8 +350,7 @@ def institution_counts(connection, settings: Settings, images: str) -> pd.DataFr
         GROUP BY o.institution_key, l.code ORDER BY count DESC, category, institution_key
     """
     frame = connection.execute(query).df()
-    # Distinct institutions can share a code; keep them separate and make that
-    # distinction visible rather than plotting indistinguishable labels.
+
     duplicate_labels = frame["category"].duplicated(keep=False)
     frame.loc[duplicate_labels, "category"] = (
         frame.loc[duplicate_labels, "category"]
@@ -681,10 +680,7 @@ def pie_plot(
         counterclock=False,
         wedgeprops={"edgecolor": "white", "linewidth": 1.5},
     )
-    # A legend beside the pie, not labels around each wedge: small adjacent wedges
-    # (e.g. a 99% match status) otherwise stack their labels on top of each other.
-    # It sits to the right, where it fills the space an equal-aspect pie leaves in
-    # its grid cell instead of adding height below the panel.
+
     legend = ax.legend(
         wedges,
         [

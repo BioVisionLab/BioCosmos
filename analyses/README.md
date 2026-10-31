@@ -61,6 +61,7 @@ sync.
 | `morphospace.ipynb`        | `morphospace`: species centroids on shared PCs (A) and rarefied disparity (B); also `morphospace_pca` and `morphospace_disparity` alone                                                                                               |
 | `mimicry.ipynb`            | `mimicry_recovery`: partner ranks of the tested mimicry pairs with their matched images (A) and permutation tests (B)                                                                                                                 |
 | `search_performance.ipynb` | `search_performance`: planner (A–C), mimicry pairs (D), and index (E) panels, drawn by the same helpers as their own notebooks                                                                                                        |
+| `occurrence_export.ipynb`  | Supplementary table `image_occurrences` (Parquet and `.csv.gz`), one row per image, with its column dictionary and a manifest of counts and SHA-256 checksums                                                                       |
 | `screenshot_bento.ipynb`   | A 2 × 2 composite of four app screenshots from `data/screenshots/`                                                                                                                                                                    |
 
 ## Methods and definitions
