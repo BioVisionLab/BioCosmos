@@ -89,6 +89,11 @@ export const REASON_CODE_ROWS: CodeRow[] = [
     description:
       "The recorded name could not be parsed as a usable binomial, so the name was not matched.",
   },
+  {
+    code: "ORDER_MISMATCH",
+    description:
+      "Every candidate was in a different order from the recorded one, so the name was not matched.",
+  },
 ];
 
 /** geoharmonize `CoordinateValidationStatus`, in precedence order. */

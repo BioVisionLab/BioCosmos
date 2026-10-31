@@ -45,8 +45,9 @@ RESOLVED_TABLE = "taxonomy_update_resolved"
 STATUS_SCHEMA_VERSION = 2
 
 # Bumped whenever the rules that fill in a resolved row change, so a database
-# built under the old rules is rebuilt. 1 added the family fallback.
-RESOLUTION_VERSION = 1
+# built under the old rules is rebuilt. 1 added the family fallback; 2 rejects
+# matches outside the recorded order.
+RESOLUTION_VERSION = 2
 
 # Columns this version writes that an older one did not.
 #
@@ -116,6 +117,9 @@ class TaxonomyUpdateService:
         self.col_table = config.table
         self.taxon_overrides = config.taxon_overrides
         self.family_synonyms = config.family_synonyms
+        # Every occurrence belongs to the ingested order, so one that records no
+        # order is held to it when matches outside the recorded order are rejected.
+        self.default_order = config.clade_value if config.clade_rank == "order" else None
         image_meta = ImageMetaConfig()
         # The harmonizer reads the source minus recorded excluded families,
         # never the published view: that view drops what this run excludes,
@@ -156,6 +160,7 @@ class TaxonomyUpdateService:
             f"|exclude:{','.join(self.exclude_families)}"
             f"|pin:{_pairs(self.taxon_overrides)}"
             f"|synonyms:{_pairs(self.family_synonyms)}"
+            f"|order:{self.default_order or ''}"
         )
         state = IngestionState(self.db_client)
         if state.is_current(UPDATE_SOURCE_KEY, fingerprint) and self._tables_exist():
@@ -235,7 +240,7 @@ class TaxonomyUpdateService:
                     occurrence,
                     resolved,
                     index_info.path,
-                    MatchingConfig(),
+                    MatchingConfig(default_order=self.default_order),
                 ).run()
 
             self._load_results(repository.database_path)

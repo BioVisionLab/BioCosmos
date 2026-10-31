@@ -77,7 +77,9 @@ SELECT
         WHEN inputs.reason_code IS NOT NULL OR selected.accepted_id IS NULL THEN 'UNMATCHED'
         ELSE selected.candidate_status
     END AS update_status,
-    inputs.reason_code,
+    coalesce(inputs.reason_code, CASE WHEN selected.accepted_id IS NULL
+        AND inputs.input_taxon_key IN (SELECT input_taxon_key FROM order_rejections)
+        THEN 'ORDER_MISMATCH' END) AS reason_code,
     CASE WHEN selected.accepted_id IS NOT NULL
         THEN inputs.normalized_genus <> selected.accepted_genus
         ELSE false END AS genus_changed,

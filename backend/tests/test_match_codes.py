@@ -108,6 +108,7 @@ class TestDescribe:
     def test_reason_codes(self):
         assert describe_reason_code("UNSUPPORTED_RANK") is not None
         assert describe_reason_code("INVALID_BINOMIAL") is not None
+        assert describe_reason_code("ORDER_MISMATCH") is not None
         assert describe_reason_code("NO_SUCH_REASON") is None
 
 

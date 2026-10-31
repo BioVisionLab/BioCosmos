@@ -116,6 +116,7 @@ def build_service(client, col_dir, tmp_path, **overrides) -> TaxonomyUpdateServi
     service.col_table = "col_taxonomy"
     service.taxon_overrides = {}
     service.family_synonyms = {}
+    service.default_order = None
     service.db_client = client
     for key, value in overrides.items():
         setattr(service, key, value)

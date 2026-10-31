@@ -14,7 +14,8 @@ from colharmonize.models import ColSourceInfo, IndexInfo
 from colharmonize.names import subspecies_epithet_sql
 from colharmonize.sources import ColSource
 
-INDEX_SCHEMA_VERSION = 2
+# 3 added each taxon's order, which matching checks against the recorded order.
+INDEX_SCHEMA_VERSION = 3
 
 
 def _canonical_column(name: str) -> str:
@@ -55,6 +56,7 @@ def _resolve_columns(columns: list[str]) -> dict[str, str | None]:
         "specific_epithet": one("specificEpithet"),
         "infraspecific_epithet": one("infraspecificEpithet"),
         "family": one("family"),
+        "order": one("order"),
         "authorship": one("authorship", "scientificNameAuthorship"),
     }
 
@@ -149,6 +151,7 @@ class ReferenceIndex:
                         nullif(trim({expressions["infraspecific_epithet"]}), '')
                             AS structured_infraspecific_epithet,
                         nullif(trim({expressions["family"]}), '') AS family,
+                        lower(nullif(trim({expressions["order"]}), '')) AS order_norm,
                         nullif(trim({expressions["authorship"]}), '') AS authorship,
                         lower(regexp_replace(trim({expressions["scientific_name"]}),
                             '[_\\s]+', ' ', 'g')) AS usage_name_norm
@@ -195,6 +198,7 @@ class ReferenceIndex:
                     infraspecific_epithet_norm AS accepted_infraspecific_epithet,
                     family AS accepted_family,
                     family_norm,
+                    order_norm,
                     taxon_rank,
                     usage_status AS accepted_status,
                     usage_name_norm,
