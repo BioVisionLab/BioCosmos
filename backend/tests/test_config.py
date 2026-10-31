@@ -469,6 +469,7 @@ class TestLocalityConfig:
         assert cfg.skip is False
         assert cfg.table == "image_meta_locality"
         assert cfg.coordinates_table == "image_meta_coordinates"
+        assert cfg.search_radius_km == 50.0
 
     @patch(
         "app.configs.config.load_config",
@@ -478,6 +479,7 @@ class TestLocalityConfig:
                 "skip": "yes",
                 "table": "custom_locality",
                 "coordinates_table": "custom_coordinates",
+                "search_radius_km": 25,
             },
         },
     )
@@ -488,6 +490,7 @@ class TestLocalityConfig:
         assert cfg.skip is True
         assert cfg.table == "custom_locality"
         assert cfg.coordinates_table == "custom_coordinates"
+        assert cfg.search_radius_km == 25.0
 
 
 class TestSearchIndexConfig:

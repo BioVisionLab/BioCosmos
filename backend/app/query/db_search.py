@@ -2,8 +2,8 @@ import logging
 
 from pydantic import BaseModel
 from fastapi import Request
-import math
 
+from ..configs.config import LocalityConfig
 from ..services.institution import InstitutionDirectory
 from ..services.metadata import SPECIMEN_TRAIT_COLUMNS, ImageMetaService
 from ..services.species_pages import SpeciesPageResolver
@@ -146,16 +146,13 @@ class TextToDbSearch:
                     return DbSearchPayload.empty(query=self.query).model_dump()
 
                 lat, lon = parsed
-                lat_delta = 50000.0 / 111100.0
-                cos_lat = max(math.cos(math.radians(lat)), 0.01)
-                lon_delta = lat_delta / cos_lat
-
-                lat_min, lat_max = lat - lat_delta, lat + lat_delta
-                lon_min, lon_max = lon - lon_delta, lon + lon_delta
-
                 results_df, specimens_df, total_specimens = (
                     meta_service.search_by_coordinate(
-                        lat_min, lat_max, lon_min, lon_max, self.limit, self.offset
+                        lat,
+                        lon,
+                        LocalityConfig().search_radius_km,
+                        self.limit,
+                        self.offset,
                     )
                 )
             elif field != "all":

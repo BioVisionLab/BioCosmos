@@ -1,3 +1,4 @@
+import math
 import torch
 import yaml
 import os
@@ -388,6 +389,21 @@ class LocalityConfig:
     def coordinates_table(self) -> str:
         """Table written by `geoharmonize integrate`, absent until it has run."""
         return self._locality_config.get("coordinates_table", "image_meta_coordinates")
+
+    @property
+    def search_radius_km(self) -> float:
+        """Great-circle radius, in kilometers, of a coordinate search."""
+        radius = float(self._locality_config.get("search_radius_km", 50))
+
+        if not math.isfinite(radius) or radius <= 0:
+            logger.info(
+                f"Locality search_radius_km is not a positive number: {radius}. "
+                "Falling back to 50."
+            )
+
+            return 50.0
+
+        return radius
 
 
 class ProvenanceConfig:

@@ -62,9 +62,9 @@ DENSE = 2000
 AXIS_IMAGE = 62
 FRAME_PAD = 2
 ANNOTATION_SIZE = 12
-# The morphospace grid: a column for the y-axis ends, panel A, panel B; and a
-# row for both plots over one for panel A's x-axis ends. Sharing the rows keeps
-# panel B's plot level with panel A's.
+# The morphospace grid: a column for the y-axis ends, panel a, panel b; and a
+# row for both plots over one for panel a's x-axis ends. Sharing the rows keeps
+# panel b's plot level with panel a's.
 PANEL_COLUMNS = (0.3, 1.25, 1)
 # Height the x-axis ends need, and roughly what the plots' titles, legends and
 # axis labels take from the rest, in inches.
@@ -575,7 +575,7 @@ def place_y_strip(container, ax):
 def morphospace_axes(container):
     """Axes for both morphospace panels, in a figure or subfigure with constrained layout.
 
-    Returns panel A's plot, the strip below it for its x-axis ends, and panel
+    Returns panel a's plot, the strip below it for its x-axis ends, and panel
     B's plot. The empty first column keeps room for the y-axis ends, which
     `axis_ends` places once the layout is final.
     """
@@ -596,10 +596,10 @@ def morphospace_axes(container):
 
 
 def pca_axes(container):
-    """Axes for panel A on its own, in a figure or subfigure with constrained layout.
+    """Axes for panel a on its own, in a figure or subfigure with constrained layout.
 
     Returns the plot and the strip below it for its x-axis ends, laid out as in
-    `morphospace_axes` without panel B's column.
+    `morphospace_axes` without panel b's column.
     """
 
     height = container.bbox.height / container.canvas.figure.dpi
@@ -619,7 +619,7 @@ def axis_ends(container, ax, x_strip, extremes: pd.DataFrame, root: Path | None 
 
     Call after the layout is resolved (``fig.canvas.draw()``) and frozen: the
     y-axis strip is placed from where the axis ended up. Returns that strip,
-    whose left edge is where panel A's title belongs.
+    whose left edge is where panel a's title belongs.
     """
 
     directory, extension = image_directory(project_root(root))

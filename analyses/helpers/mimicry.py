@@ -1081,7 +1081,7 @@ def pairs_panel(
     ax,
     results: MimicryResults,
     pictures: dict[tuple[str, str], np.ndarray],
-    title: str = "A) Mimicry pairs",
+    title: str = "a) Mimicry pairs",
     legend: bool = True,
     count_fontsize: float = 10,
     thumbnail: float = THUMBNAIL,
@@ -1107,7 +1107,7 @@ def pairs_panel(
     return handles
 
 
-def tests_panel(ax, results: MimicryResults, title: str = "B) Permutation tests") -> None:
+def tests_panel(ax, results: MimicryResults, title: str = "b) Permutation tests") -> None:
     """Observed mean partner percentile against each null's 95% interval."""
 
     permutation_panel(ax, results.permutations)
@@ -1116,7 +1116,7 @@ def tests_panel(ax, results: MimicryResults, title: str = "B) Permutation tests"
 
 
 def recovery_figure(results: MimicryResults, pictures: dict[tuple[str, str], np.ndarray]):
-    """A) partner ranks by nearest dorsal image, B) permutation tests."""
+    """a) partner ranks by nearest dorsal image, b) permutation tests."""
 
     fig = plt.figure(figsize=(21, 15), layout="constrained")
     grid = fig.add_gridspec(1, 2, width_ratios=(1, 0.75))

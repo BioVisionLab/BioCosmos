@@ -108,6 +108,9 @@ locality:
   # Written by `geoharmonize integrate`, never by the backend. Absent until
   # that has been run once with the backend stopped; readers degrade to null.
   coordinates_table: "image_meta_coordinates"
+  # Coordinate search matches images within this great-circle distance, in
+  # kilometers, of the point typed.
+  search_radius_km: 50
 # Per-occurrence institution and catalog number, joined out of gbif_meta the
 # same way as locality above, but keyed on who holds the specimen rather than
 # where it was found.

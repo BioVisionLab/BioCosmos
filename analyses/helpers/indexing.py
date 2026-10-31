@@ -48,19 +48,16 @@ def index_benchmark(root: Path | None = None) -> pd.DataFrame:
     the curve that index can reach. `best_index` marks the Pareto leaders across every
     index and setting of one embedding: an index is chosen for one embedding model, so it
     is only compared with the other indexes on the same embeddings. Runs from before the
-    search-setting sweep have one setting per index and load as single points.
+    search-setting sweep have one setting per index and load as single points. Older runs
+    also flag the backend's setting as `is_production`; the flag is dropped.
     """
 
-    benchmark = benchmark_data(root)
+    benchmark = benchmark_data(root).drop(columns="is_production", errors="ignore")
 
     for column in SETTING_COLUMNS:
         if column not in benchmark:
             benchmark[column] = pd.NA
 
-    if "is_production" not in benchmark:
-        benchmark["is_production"] = False
-
-    benchmark["is_production"] = benchmark["is_production"].fillna(False).astype(bool)
     indexed = benchmark.loc[benchmark["index"] != BASELINE]
     frontier = [
         label for _, group in indexed.groupby(["model", "index"]) for label in pareto_leaders(group)
@@ -70,20 +67,6 @@ def index_benchmark(root: Path | None = None) -> pd.DataFrame:
     benchmark["best_index"] = benchmark.index.isin(leaders)
 
     return benchmark
-
-
-def legend_marker(label, *, color, marker="o", edge="white", width=0.8, size=8) -> Line2D:
-    return Line2D(
-        [0],
-        [0],
-        marker=marker,
-        color="none",
-        markerfacecolor=color,
-        markeredgecolor=edge,
-        markeredgewidth=width,
-        markersize=size,
-        label=label,
-    )
 
 
 def models(benchmark: pd.DataFrame) -> list[str]:
@@ -109,7 +92,7 @@ def index_colors(benchmark: pd.DataFrame) -> dict:
 def recall_floor(benchmark: pd.DataFrame, step: float = 0.05) -> float:
     """The lowest recall any panel draws, rounded down to `step`, so panels share an axis."""
 
-    drawn = benchmark.loc[benchmark["frontier"] | benchmark["is_production"], "recall@10"]
+    drawn = benchmark.loc[benchmark["frontier"], "recall@10"]
     threshold = benchmark.attrs.get("recall_threshold") or 1.0
     lowest = min(drawn.min(), threshold) if not drawn.empty else threshold
 
@@ -151,11 +134,10 @@ def index_panel(
     """Recall@10 against mean latency for one embedding: each index's frontier.
 
     Only the Pareto-optimal search settings of each index are drawn, joined in latency
-    order; the backend's search setting is a black-edged diamond even when it is not on
-    the frontier. Recall is on a logit axis, which spreads out the settings near perfect
-    recall instead of stacking them; perfect recall is drawn at `recall_ceiling`. The
-    exact baseline is too slow to share the axis, so it is a note. The dotted line is the
-    recall threshold. `marker_scale` multiplies marker areas, for figures printed smaller.
+    order. Recall is on a logit axis, which spreads out the settings near perfect recall
+    instead of stacking them; perfect recall is drawn at `recall_ceiling`. The exact
+    baseline is too slow to share the axis, so it is a note. The dotted line is the recall
+    threshold. `marker_scale` multiplies marker areas, for figures printed smaller.
     """
 
     colors = index_colors(benchmark)
@@ -179,19 +161,6 @@ def index_panel(
             linewidth=1.6,
             zorder=2,
         )
-        production = group.loc[group["is_production"]]
-
-        if not production.empty:
-            ax.scatter(
-                production["avg_ms"],
-                production["recall@10"].clip(upper=ceiling),
-                color=colors[index],
-                marker="D",
-                edgecolor="black",
-                linewidth=1.1,
-                s=45 * marker_scale,
-                zorder=4,
-            )
 
     floor = floor if floor is not None else recall_floor(benchmark)
     ticks = [tick for tick in RECALL_TICKS if floor < tick < ceiling]
@@ -233,11 +202,6 @@ def index_legend_handles(benchmark: pd.DataFrame) -> list:
         )
         for index, color in index_colors(benchmark).items()
     ]
-
-    if benchmark["is_production"].any():
-        handles.append(
-            legend_marker("Site's setting", color="white", marker="D", edge="black", width=1.1)
-        )
 
     threshold = benchmark.attrs.get("recall_threshold")
 

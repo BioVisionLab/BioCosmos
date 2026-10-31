@@ -14,7 +14,7 @@ import math
 import os
 import platform
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -58,10 +58,6 @@ class SearchSetting:
     refine_factor: int | None = None
 
 
-# The backend's search (`NPROBES`, `REFINE_FACTOR` in backend/app/services/images.py).
-PRODUCTION_SEARCH = SearchSetting(nprobes=20, refine_factor=10)
-
-
 @dataclass(frozen=True)
 class BuildParameters:
     num_partitions: int
@@ -89,7 +85,6 @@ class BenchmarkConfig:
     nprobes_grid: tuple[int | None, ...] = (5, 10, 20, 40, 80, 160)
     ef_grid: tuple[int | None, ...] = (None, 20, 40, 80, 160)
     refine_grid: tuple[int | None, ...] = (None, 2, 5, 10, 20)
-    production: SearchSetting = field(default=PRODUCTION_SEARCH)
     index_types: tuple[str, ...] = INDEX_TYPES
     vector_columns: tuple[str, ...] = VECTOR_COLUMNS
     recall_threshold: float = 0.95
@@ -120,9 +115,6 @@ class BenchmarkConfig:
 
             if any(value is not None and value < 1 for value in grid):
                 raise ValueError(f"{name} values must be positive or None")
-
-        if any(value is not None and value < 1 for value in asdict(self.production).values()):
-            raise ValueError("production search values must be positive or None")
 
         if any(value is not None and value < self.top_k for value in self.ef_grid):
             raise ValueError("ef values must be at least top_k")
@@ -161,7 +153,7 @@ def build_parameters(rows: int, dims: int, config: BenchmarkConfig) -> BuildPara
 def search_settings(
     index_type: str, num_partitions: int, config: BenchmarkConfig
 ) -> list[SearchSetting]:
-    """Every grid combination valid for this index, with the production setting included.
+    """Every grid combination valid for this index.
 
     `ef` only steers HNSW, so other indexes search with its default alone. Probing more
     partitions than the index has is dropped, and so is an `ef` below the candidates the
@@ -181,10 +173,7 @@ def search_settings(
         and (ef is None or ef >= config.top_k * (refine or 1))
     ]
 
-    if config.production not in settings:
-        settings.append(config.production)
-
-    return list(dict.fromkeys(settings))
+    return settings
 
 
 def recall_at_k(found_ids, accepted_ids: set, k: int) -> float:
@@ -469,7 +458,6 @@ def measure(
         "model": model,
         "vector_column": column,
         **asdict(setting),
-        "is_production": not exact and setting == config.production,
         "avg_ms": float(latency.mean()),
         "p50_ms": float(latency.quantile(0.5)),
         "p95_ms": float(latency.quantile(0.95)),

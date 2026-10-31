@@ -27,7 +27,7 @@ def row(index: str, recall: float, ms: float, model: str = "UNICOM", **settings)
     return {"index": index, "model": model, "avg_ms": ms, "recall@10": recall, **settings}
 
 
-def test_swept_run_marks_each_index_frontier_and_production(tmp_path):
+def test_swept_run_marks_each_index_frontier(tmp_path):
     write_run(
         tmp_path,
         [
@@ -45,7 +45,8 @@ def test_swept_run_marks_each_index_frontier_and_production(tmp_path):
     pq = benchmark.loc[(benchmark["index"] == "IVF_PQ") & (benchmark["model"] == "UNICOM")]
 
     assert pq["frontier"].tolist() == [True, False, True]
-    assert benchmark["is_production"].sum() == 2
+    # Older runs flag the backend's setting; the panel no longer uses it.
+    assert "is_production" not in benchmark
     assert benchmark.attrs["recall_threshold"] == 0.95
     assert benchmark.loc[benchmark["index"] == "IVF_HNSW_SQ", "best_index"].item()
 
@@ -76,7 +77,6 @@ def test_legacy_run_without_settings_loads_as_single_points(tmp_path):
     benchmark = index_benchmark(tmp_path)
 
     assert {"nprobes", "ef", "refine_factor"} <= set(benchmark)
-    assert not benchmark["is_production"].any()
     assert benchmark.loc[benchmark["index"] != BASELINE, "frontier"].all()
 
     fig = Figure()

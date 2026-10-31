@@ -11,7 +11,6 @@ import pytest
 from analyses.benchmarks import lance_indexing
 from analyses.benchmarks.lance_indexing import (
     BASELINE,
-    PRODUCTION_SEARCH,
     BenchmarkConfig,
     SearchSetting,
     SourceSettings,
@@ -65,7 +64,6 @@ def small_config(**overrides) -> BenchmarkConfig:
         "nprobes_grid": (1, 8),
         "ef_grid": (None, 40),
         "refine_grid": (None, 10),
-        "production": SearchSetting(nprobes=8, refine_factor=10),
         "index_types": ("IVF_PQ",),
         "vector_columns": ("unicom_embeddings",),
         "bootstrap": 200,
@@ -84,17 +82,12 @@ def test_hnsw_settings_sweep_ef_and_others_do_not():
     # ef 40 cannot serve the 100 candidates a refine factor of 10 fetches for top 10.
     assert all(s.ef is None or (s.refine_factor or 1) * 10 <= s.ef for s in hnsw)
     assert len(hnsw) == 2 * 2 * 2 - 2
-    assert PRODUCTION_SEARCH in ivf and PRODUCTION_SEARCH in hnsw
 
 
-def test_settings_drop_probes_beyond_the_partitions_but_keep_production():
-    config = BenchmarkConfig(
-        nprobes_grid=(5, 160), ef_grid=(None,), refine_grid=(None,), production=SearchSetting(40)
-    )
-    settings = search_settings("IVF_PQ", 100, config)
+def test_settings_drop_probes_beyond_the_partitions():
+    config = BenchmarkConfig(nprobes_grid=(5, 160), ef_grid=(None,), refine_grid=(None,))
 
-    assert SearchSetting(160) not in settings
-    assert settings == [SearchSetting(5), SearchSetting(40)]
+    assert search_settings("IVF_PQ", 100, config) == [SearchSetting(5)]
 
 
 def test_baseline_has_one_setting():
@@ -109,7 +102,6 @@ def test_baseline_has_one_setting():
         {"refine_grid": (2, 2)},
         {"refine_grid": (0,)},
         {"num_partitions": "many"},
-        {"production": SearchSetting(nprobes=0)},
     ],
 )
 def test_config_rejects_invalid_grids(overrides):
@@ -212,7 +204,6 @@ def test_run_sweeps_every_setting_and_records_the_build(source, tmp_path, monkey
     assert len(manifest["query_img_ids"]) == config.query_count
     assert len(indexed) == len(search_settings("IVF_PQ", 8, config))
     assert (frame["index"] == "IVF_HNSW_SQ").sum() == len(search_settings("IVF_HNSW_SQ", 8, config))
-    assert indexed["is_production"].sum() == 1
     assert frame.loc[frame["index"] == BASELINE, "recall@10"].item() == 1.0
     assert (frame["recall_low"] <= frame["recall@10"]).all()
     assert (frame["recall@10"] <= frame["recall_high"]).all()
