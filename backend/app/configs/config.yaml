@@ -10,7 +10,7 @@ images:
   limit: null
   # Maximum resolution in pixels for full-resolution images
   # Example values: 512, 800, 1024, 2048
-  max_resolution: 800
+  max_resolution: 512
   # Maximum resolution in pixels for thumbnail images
   thumbnail_resolution: 128
   # File format for processed images on disk
