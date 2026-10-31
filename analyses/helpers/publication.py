@@ -642,6 +642,12 @@ def bar_plot(
     return ax
 
 
+def share_label(percentage: float) -> str:
+    """A percentage to one decimal, with a nonzero share too small to round shown as such."""
+
+    return "<0.1%" if 0 < percentage < 0.05 else f"{percentage:.1f}%"
+
+
 def pie_plot(
     ax,
     frame: pd.DataFrame,
@@ -682,7 +688,7 @@ def pie_plot(
     legend = ax.legend(
         wedges,
         [
-            f"{display_label(label, keep_case)}: {row.count:,} ({row.percentage:.1f}%)"
+            f"{display_label(label, keep_case)}: {row.count:,} ({share_label(row.percentage)})"
             for label, row in zip(labels, selected.itertuples(), strict=True)
         ],
         loc="center left",
@@ -821,6 +827,31 @@ def align_panel_titles(axes) -> None:
                 fontsize=20,
                 x=(left - box.x0) / box.width,
             )
+
+
+def spread_panels(axes, left: float, right: float) -> None:
+    """Move a row of panels so it spans `left` to `right` in display coordinates.
+
+    Each panel is measured from everything it draws (title, graphic, legend), so the
+    first starts at `left`, the last ends at `right`, and the gaps between neighbours
+    are equal. Call it after the layout is frozen and the titles are placed, because
+    the titles move with their axes.
+    """
+
+    renderer = axes[0].figure.canvas.get_renderer()
+    extents = [ax.get_tightbbox(renderer) for ax in axes]
+    gap = (right - left - sum(extent.width for extent in extents)) / max(len(axes) - 1, 1)
+
+    if gap < 0:
+        raise AnalysisError("The panels are wider than the span they must fill.")
+
+    x = left
+
+    for ax, extent in zip(axes, extents, strict=True):
+        box = ax.get_position()
+        shift = (x - extent.x0) / ax.figure.bbox.width
+        ax.set_position([box.x0 + shift, box.y0, box.width, box.height])
+        x += extent.width + gap
 
 
 def axis_label(frame: pd.DataFrame, proportion: bool) -> str:

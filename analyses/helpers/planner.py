@@ -259,7 +259,7 @@ def per_case_panel(
         cbar_kws={"label": "Correct repeats"},
         ax=ax,
     )
-    ax.set(xlabel="Case", ylabel="Model")
+    ax.set(xlabel="Case ID", ylabel="Model")
     ax.set_title(title, loc=title_loc)
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
     ax.tick_params(axis="x", labelsize=label_size)
