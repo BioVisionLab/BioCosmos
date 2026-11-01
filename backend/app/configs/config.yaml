@@ -10,7 +10,7 @@ images:
   limit: null
   # Maximum resolution in pixels for full-resolution images
   # Example values: 512, 800, 1024, 2048
-  max_resolution: 800
+  max_resolution: 512
   # Maximum resolution in pixels for thumbnail images
   thumbnail_resolution: 128
   # File format for processed images on disk
@@ -52,6 +52,44 @@ morphospace:
   species_table: "morphospace_species"
   disparity_table: "morphospace_disparity"
   extremes_table: "morphospace_extremes"
+# Literature search through the CrossRef REST API, for the species page's
+# literature tab. The contact address (CROSSREF_MAILTO) comes from the
+# environment. Every setting here is part of the request URL, which is the
+# cache key, so a change never serves results cached under the old one.
+literature:
+  # Earliest publication year searched; null searches every year. Records
+  # from before the mid-1990s rarely carry abstracts and are matched on the
+  # title alone.
+  from_year: null
+  # CrossRef work types, OR'ed in one filter.
+  work_types:
+    - journal-article
+    - dataset
+    - book-chapter
+    - book
+    - edited-book
+    - monograph
+    - posted-content
+    - proceedings-article
+    - report
+    - dissertation
+  # Each synonym costs one CrossRef request.
+  max_synonym_queries: 6
+  accepted_rows: 100
+  synonym_rows: 40
+  genus_rows: 100
+  # A second page for the accepted name is fetched only when the first was
+  # full and mostly relevant.
+  max_accepted_pages: 2
+# The order, family and genus pages search one name and page deeper than the
+# species search, at a lower yield per page. Work types and from_year come
+# from `literature` above.
+higher_taxon_literature:
+  rows: 100
+  # Each page costs one CrossRef request, cached for a week.
+  max_pages: 5
+  # The next page is fetched only while this share of a full page was kept.
+  min_paging_yield: 0.3
 gbif:
   file: "gbif-lepi-2024-occurrence.tsv"
   table: "gbif_meta"
@@ -70,6 +108,9 @@ locality:
   # Written by `geoharmonize integrate`, never by the backend. Absent until
   # that has been run once with the backend stopped; readers degrade to null.
   coordinates_table: "image_meta_coordinates"
+  # Coordinate search matches images within this great-circle distance, in
+  # kilometers, of the point typed.
+  search_radius_km: 50
 # Per-occurrence institution and catalog number, joined out of gbif_meta the
 # same way as locality above, but keyed on who holds the specimen rather than
 # where it was found.
@@ -113,6 +154,26 @@ col:
   variants_table: "col_taxon_variants"
   candidates_table: "col_taxonomy_candidates"
   occurrence_status_table: "image_meta_taxonomy"
+  # Recorded name -> the CoL usage id its match is pinned to, overriding the
+  # computed match on the species page as well as in image_meta_taxonomy.
+  # For names whose exact hit is a stray usage outside the current backbone.
+  taxon_overrides:
+    # Misspelt in the source; the exact hit (FMSWT) sits under a stray
+    # Satyridae. 6TR2G is CoL's Pararge schrenckii, Nymphalidae: Satyrinae.
+    ninguta_schrenkii: "6TR2G"
+  # Obsolete family -> the current family it is folded into. CoL still lists
+  # these under Lepidoptera with no superfamily. A match landing in one is
+  # moved to the current family, and the order page and its totals leave
+  # them out. Startup warns about any family with images and no superfamily.
+  family_synonyms:
+    Satyridae: Nymphalidae
+    Danaidae: Nymphalidae
+    Acraeidae: Nymphalidae
+    Amathusiidae: Nymphalidae
+    Libytheidae: Nymphalidae
+    Arctiidae: Erebidae
+    Lymantriidae: Erebidae
+    Epiplemidae: Uraniidae
   # Unlike the other sources, this one stays on. Those are skipped because
   # their tables are already inside biocosmos.duckdb; col_taxonomy is not, so
   # skipping it leaves the site with no taxonomy at all. The ingest is guarded

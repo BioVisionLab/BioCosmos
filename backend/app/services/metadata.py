@@ -1,5 +1,6 @@
 import polars as pl
 import logging
+import math
 import uuid
 
 from typing import List
@@ -111,6 +112,63 @@ _TRAITS_ALIAS = "traits_meta"
 
 # Which joined table owns each searchable column. Anything not listed here
 # belongs to image_meta itself.
+# Mean Earth radius (IUGG), in kilometers, for great-circle distances.
+EARTH_RADIUS_KM = 6371.0088
+
+
+def haversine_sql(lat_ref: str, lon_ref: str) -> str:
+    """Great-circle distance, in kilometers, from a bound point to a row.
+
+    Takes four parameters in order: the point's latitude, its latitude again,
+    and its longitude, each in degrees. The haversine term is capped at 1 so
+    rounding at the antipode cannot push `asin` out of its domain.
+    """
+    return (
+        f"2 * {EARTH_RADIUS_KM} * asin(sqrt(least(1.0,"
+        f" pow(sin(radians({lat_ref} - ?) / 2), 2)"
+        f" + cos(radians(?)) * cos(radians({lat_ref}))"
+        f" * pow(sin(radians({lon_ref} - ?) / 2), 2))))"
+    )
+
+
+def coordinate_prefilter(
+    lat: float, lon: float, radius_km: float
+) -> tuple[float, float, list[tuple[float, float]]]:
+    """A latitude range and longitude ranges that hold every point in reach.
+
+    A coarse box around the circle of `radius_km` about (`lat`, `lon`), so
+    the distance is computed only for the rows inside it. It never leaves a
+    point out: when the circle reaches a pole it spans every longitude, and
+    when it crosses the antimeridian the longitudes split into two ranges.
+    """
+    angular = radius_km / EARTH_RADIUS_KM
+    lat_delta = math.degrees(angular)
+    lat_min = max(lat - lat_delta, -90.0)
+    lat_max = min(lat + lat_delta, 90.0)
+
+    # A circle that takes in a pole spans every longitude.
+    if lat_min <= -90.0 or lat_max >= 90.0:
+        return lat_min, lat_max, [(-180.0, 180.0)]
+
+    # Otherwise the widest longitude it reaches is asin(sin r / cos lat).
+    reach = math.sin(angular) / math.cos(math.radians(lat))
+
+    if reach >= 1.0:
+        return lat_min, lat_max, [(-180.0, 180.0)]
+
+    lon_delta = math.degrees(math.asin(reach))
+    lon_min = lon - lon_delta
+    lon_max = lon + lon_delta
+
+    if lon_min < -180.0:
+        return lat_min, lat_max, [(lon_min + 360.0, 180.0), (-180.0, lon_max)]
+
+    if lon_max > 180.0:
+        return lat_min, lat_max, [(lon_min, 180.0), (-180.0, lon_max - 360.0)]
+
+    return lat_min, lat_max, [(lon_min, lon_max)]
+
+
 _FIELD_OWNER = {
     **{name: _TAXONOMY_ALIAS for name in SPECIMEN_TAXONOMY_COLUMNS},
     **{name: _LOCALITY_ALIAS for name in SPECIMEN_LOCALITY_COLUMNS},
@@ -953,35 +1011,54 @@ class ImageMetaService:
 
     def search_by_coordinate(
         self,
-        lat_min: float,
-        lat_max: float,
-        lon_min: float,
-        lon_max: float,
+        lat: float,
+        lon: float,
+        radius_km: float,
         limit: int,
         offset: int,
     ) -> tuple[pl.DataFrame, pl.DataFrame, int]:
-        """Search metadata by geographic coordinate bounding box."""
+        """Search metadata within `radius_km` of a point.
+
+        The distance is great-circle (haversine), in kilometers. A bounding
+        box from `coordinate_prefilter` narrows the rows first, then the
+        distance decides. Specimens come nearest first.
+        """
+        lat_ref = f"{_OCCURRENCE_ALIAS}.lat"
+        lon_ref = f"{_OCCURRENCE_ALIAS}.lon"
+        distance = haversine_sql(lat_ref, lon_ref)
+        lat_min, lat_max, lon_ranges = coordinate_prefilter(lat, lon, radius_km)
+        lon_clause = " OR ".join(f"{lon_ref} BETWEEN ? AND ?" for _ in lon_ranges)
+        where = f"""
+            {lat_ref} BETWEEN ? AND ?
+              AND ({lon_clause})
+              AND {distance} <= ?
+        """
+        where_params: list[float] = [lat_min, lat_max]
+
+        for lon_min, lon_max in lon_ranges:
+            where_params += [lon_min, lon_max]
+
+        where_params += [lat, lat, lon, radius_km]
+
         query = f"""
             SELECT
                 LOWER(REPLACE(species, ' ', '_')) AS species_key,
                 FIRST(species) AS species,
                 bool_or(TRUE) AS match_field
             FROM {self.specimen_source()}
-            WHERE lat BETWEEN ? AND ?
-              AND lon BETWEEN ? AND ?
+            WHERE {where}
             GROUP BY species_key
         """
-        params = [lat_min, lat_max, lon_min, lon_max]
-        results_df = self.db_client.execute_prepared_to_pl(query, params)
+        results_df = self.db_client.execute_prepared_to_pl(query, where_params)
 
         specimen_query = f"""
             SELECT {self.specimen_projection()}
             FROM {self.specimen_source()}
-            WHERE lat BETWEEN ? AND ?
-              AND lon BETWEEN ? AND ?
+            WHERE {where}
+            ORDER BY {distance}, {_OCCURRENCE_ALIAS}.img_id
             LIMIT ? OFFSET ?
         """
-        specimen_params = [lat_min, lat_max, lon_min, lon_max, limit, offset]
+        specimen_params = [*where_params, lat, lat, lon, limit, offset]
         specimens_df = self.db_client.execute_prepared_to_pl(
             specimen_query, specimen_params
         )
@@ -989,11 +1066,9 @@ class ImageMetaService:
         count_query = f"""
             SELECT COUNT(*)
             FROM {self.specimen_source()}
-            WHERE lat BETWEEN ? AND ?
-              AND lon BETWEEN ? AND ?
+            WHERE {where}
         """
-        count_params = [lat_min, lat_max, lon_min, lon_max]
-        count_df = self.db_client.execute_prepared_to_pl(count_query, count_params)
+        count_df = self.db_client.execute_prepared_to_pl(count_query, where_params)
         total_specimens = count_df[0, 0] if not count_df.is_empty() else 0
 
         return results_df, specimens_df, total_specimens

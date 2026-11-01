@@ -15,11 +15,22 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routers.species_data import get_literature_search, router
+from app.configs.config import (
+    DEFAULT_LITERATURE_WORK_TYPES,
+    HigherTaxonLiteratureConfig,
+    LiteratureConfig,
+)
+from app.routers.species_data import (
+    get_higher_taxon_literature_search,
+    get_literature_search,
+    router,
+)
 from app.services.col import ColBackboneService, ColTaxonSearch
-from app.services.crossref import CrossrefClient
+from app.services.crossref import CrossrefClient, CrossrefError
 from app.services.literature import (
     MIN_SPECIES_RESULTS,
+    HigherTaxonLiteraturePayload,
+    HigherTaxonLiteratureSearch,
     LiteraturePayload,
     LiteratureSearch,
     congeners_mentioned,
@@ -189,6 +200,21 @@ class TestMatching:
         assert result.doi == "https://doi.org/10.1/abc"
         assert (result.volume, result.issue, result.pages) == ("12", "3", "1-9")
 
+    def test_to_work_names_a_book_chapter_by_its_publisher(self):
+        item = work("10.1/ch", "Coenonympha in the Alps")
+        item.update({"type": "book-chapter", "publisher": "Springer"})
+        del item["container-title"]
+        assert to_work(item).journal == "Springer"
+
+    def test_to_work_keeps_the_type_and_names_a_dataset_by_its_publisher(self):
+        item = work("10.1/data", "Coenonympha pamphilus wing images")
+        item.update({"type": "dataset", "publisher": "Dryad"})
+        del item["container-title"]
+        result = to_work(item)
+        assert result.publication_type == "dataset"
+        assert result.journal == "Dryad"
+        assert result.model_dump(by_alias=True)["publicationType"] == "dataset"
+
 
 # ---------------------------------------------------------------------------
 # Orchestration
@@ -340,6 +366,13 @@ class TestCrossrefClient:
         assert "mailto:me@example.org" in request.headers["User-Agent"]
         assert "abstract" in params["select"][0]
         assert "has-abstract" not in params["filter"][0]
+        filters = params["filter"][0].split(",")
+        assert {"type:journal-article", "type:dataset"} <= set(filters)
+        assert "type" in params["select"][0].split(",")
+
+    def test_without_mailto_starts_at_the_public_rate(self):
+        assert CrossrefClient(None)._min_interval == pytest.approx(1.0)
+        assert CrossrefClient("t@example.org")._min_interval == pytest.approx(1 / 3)
 
     def test_without_mailto_uses_one_connection(self):
         client = FakeCrossref({}).client(mailto=None)
@@ -392,8 +425,132 @@ class TestCrossrefClient:
         response = httpx.Response(
             200, headers={"x-rate-limit-limit": "5", "x-rate-limit-interval": "1s"}
         )
-        client._learn_rate(response)
+        client._learn_limits(response)
         assert client._min_interval == pytest.approx(0.2)
+
+    def test_lowers_concurrency_to_the_advertised_limit(self):
+        client = CrossrefClient("t@example.org")
+        client._learn_limits(httpx.Response(200, headers={"x-concurrency-limit": "1"}))
+        assert client._concurrency == 1
+        # A higher advertised limit never raises the cap past the pool's.
+        client._learn_limits(httpx.Response(200, headers={"x-concurrency-limit": "9"}))
+        assert client._concurrency == 1
+
+    def test_filter_searches_every_type_and_every_year_by_default(self):
+        client = CrossrefClient("t@example.org")
+        params = parse_qs(urlparse(client.build_url("Danaus plexippus", 10)).query)
+        filters = params["filter"][0].split(",")
+        assert filters == [f"type:{t}" for t in DEFAULT_LITERATURE_WORK_TYPES]
+        assert "cursor" not in params
+
+    def test_from_year_adds_a_floor(self):
+        client = CrossrefClient("t@example.org", from_year=1900)
+        params = parse_qs(urlparse(client.build_url("Danaus plexippus", 10)).query)
+        assert "from-pub-date:1900-01-01" in params["filter"][0].split(",")
+
+    def test_a_403_pauses_every_request(self):
+        calls: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+
+            return httpx.Response(403)
+
+        client = CrossrefClient("t@example.org", transport=httpx.MockTransport(handler))
+        client._min_interval = 0.0
+
+        with pytest.raises(CrossrefError):
+            asyncio.run(client.search_works("Danaus plexippus"))
+
+        with pytest.raises(CrossrefError):
+            asyncio.run(client.search_works("Danaus chrysippus"))
+
+        assert len(calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# Paging
+# ---------------------------------------------------------------------------
+
+
+def literature_config(**overrides) -> LiteratureConfig:
+    config = LiteratureConfig.__new__(LiteratureConfig)
+    config._literature_config = {
+        "accepted_rows": 4,
+        "max_accepted_pages": 2,
+        **overrides,
+    }
+
+    return config
+
+
+class PagedCrossref:
+    """Answers the accepted-name query page by page, by cursor."""
+
+    def __init__(self, pages: dict[str, tuple[list[dict], str | None]]):
+        self.pages = pages
+        self.cursors: list[str | None] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        params = parse_qs(urlparse(str(request.url)).query)
+        query = params["query.bibliographic"][0]
+
+        if query != "Coenonympha pamphilus":
+            return httpx.Response(200, json={"message": {"items": []}})
+
+        cursor = params.get("cursor", [None])[0]
+        self.cursors.append(cursor)
+        items, next_cursor = self.pages.get(cursor or "", ([], None))
+
+        return httpx.Response(
+            200, json={"message": {"items": items, "next-cursor": next_cursor}}
+        )
+
+    def search(self, taxon_search: ColTaxonSearch) -> LiteraturePayload | None:
+        client = CrossrefClient(
+            "t@example.org", transport=httpx.MockTransport(self.handler)
+        )
+        client._min_interval = 0.0
+        search = LiteratureSearch(taxon_search, client, literature_config())
+
+        return asyncio.run(search.search("coenonympha_pamphilus"))
+
+
+class TestAcceptedNamePaging:
+    def test_a_full_relevant_page_fetches_the_next(self, taxon_search):
+        fake = PagedCrossref(
+            {
+                "*": (species_papers(4), "next-1"),
+                "next-1": (
+                    [work("10.1/more", "Coenonympha pamphilus again")],
+                    "next-2",
+                ),
+            }
+        )
+        payload = fake.search(taxon_search)
+        assert fake.cursors == ["*", "next-1"]
+        assert payload is not None
+        assert any((w.doi or "").endswith("10.1/more") for w in payload.species)
+
+    def test_a_mostly_irrelevant_page_stops_paging(self, taxon_search):
+        noise = [work(f"10.1/n{i}", f"Maniola jurtina {i}") for i in range(4)]
+        fake = PagedCrossref({"*": (noise, "next-1")})
+        fake.search(taxon_search)
+        assert fake.cursors == ["*"]
+
+    def test_a_short_page_is_the_last(self, taxon_search):
+        fake = PagedCrossref({"*": (species_papers(3), "next-1")})
+        fake.search(taxon_search)
+        assert fake.cursors == ["*"]
+
+    def test_payload_reports_the_year_floor(self, taxon_search):
+        client = FakeCrossref({}).client()
+        client.from_year = 1950
+        payload = asyncio.run(
+            LiteratureSearch(taxon_search, client).search("coenonympha_pamphilus")
+        )
+        assert payload is not None
+        assert payload.from_year == 1950
 
 
 # ---------------------------------------------------------------------------
@@ -435,5 +592,366 @@ class TestLiteratureRouter:
 
     def test_non_species_returns_404(self):
         response = router_client(None).get("/species/danaus/literature")
+        assert response.status_code == 404
+        assert response.headers["Cache-Control"] == "no-store"
+
+
+# ---------------------------------------------------------------------------
+# Higher taxa
+# ---------------------------------------------------------------------------
+
+
+class FailingCrossref:
+    """Fails every request after the first `ok` with a server error."""
+
+    def __init__(self, ok: int, items: list[dict]):
+        self.ok = ok
+        self.items = items
+        self.calls = 0
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        self.calls += 1
+
+        if self.calls > self.ok:
+            return httpx.Response(400, json={"message": "bad"})
+
+        return httpx.Response(
+            200, json={"message": {"items": self.items, "next-cursor": "next"}}
+        )
+
+
+def higher_taxon_config(**overrides) -> HigherTaxonLiteratureConfig:
+    config = HigherTaxonLiteratureConfig.__new__(HigherTaxonLiteratureConfig)
+    config._config = {"rows": 4, "max_pages": 5, "min_paging_yield": 0.3, **overrides}
+
+    return config
+
+
+def higher_taxon_search(handler, **config) -> HigherTaxonLiteratureSearch:
+    client = CrossrefClient("t@example.org", transport=httpx.MockTransport(handler))
+    client._min_interval = 0.0
+
+    return HigherTaxonLiteratureSearch(client, higher_taxon_config(**config))
+
+
+class PagedQuery:
+    """Answers one query page by page, by cursor, and logs the cursors."""
+
+    def __init__(self, pages: dict[str, tuple[list[dict], str | None]]):
+        self.pages = pages
+        self.cursors: list[str] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        cursor = parse_qs(urlparse(str(request.url)).query).get("cursor", ["*"])[0]
+        self.cursors.append(cursor)
+        items, next_cursor = self.pages.get(cursor, ([], None))
+
+        return httpx.Response(
+            200, json={"message": {"items": items, "next-cursor": next_cursor}}
+        )
+
+
+class TestHigherTaxonLiterature:
+    def test_keeps_only_works_naming_the_taxon(self):
+        fake = FakeCrossref(
+            {
+                "Nymphalidae": [
+                    work("10.1/a", "Phylogeny of Nymphalidae", 2015),
+                    work("10.1/b", "A butterfly survey", 2021),
+                    work(
+                        "10.1/c",
+                        "Wing patterns",
+                        2023,
+                        abstract="<jats:p>Across the Nymphalidae ...</jats:p>",
+                    ),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("family", "nymphalidae")
+        )
+        assert payload is not None
+        assert fake.queries() == ["Nymphalidae"]
+        assert payload.name == "Nymphalidae"
+        assert payload.rank == "family"
+        # Newest first, and the survey that never names the family is dropped.
+        assert [w.doi for w in payload.works] == [
+            "https://doi.org/10.1/c",
+            "https://doi.org/10.1/a",
+        ]
+        assert payload.partial is False
+
+    def test_a_lower_case_word_is_not_the_genus(self):
+        fake = FakeCrossref(
+            {
+                "Morpho": [
+                    work("10.1/a", "Structural color in Morpho butterflies"),
+                    work("10.1/b", "Leaf morpho types and morpho-space"),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("genus", "morpho")
+        )
+        assert payload is not None
+        assert [w.doi for w in payload.works] == ["https://doi.org/10.1/a"]
+
+    def test_a_hyphenated_compound_is_not_the_genus(self):
+        fake = FakeCrossref(
+            {
+                "Morpho": [
+                    work("10.1/a", "Blue Morpho wing scales"),
+                    work("10.1/b", "The Historical Morpho-Syntax of Chinese"),
+                    work("10.1/c", "Morpho-Anatomical Traits of Colchicum"),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("genus", "morpho")
+        )
+        assert payload is not None
+        assert [w.doi for w in payload.works] == ["https://doi.org/10.1/a"]
+
+    def test_a_genus_is_searched_beside_its_family(self):
+        fake = FakeCrossref(
+            {
+                "Morpho Nymphalidae": [
+                    work("10.1/a", "Morpho butterflies of Peru"),
+                    work("10.1/b", "A Nymphalidae checklist"),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search(
+                "genus", "morpho", "nymphalidae"
+            )
+        )
+        assert payload is not None
+        assert fake.queries() == ["Morpho Nymphalidae"]
+        assert payload.context == "Nymphalidae"
+        # Only the genus has to appear; the family alone does not keep a work.
+        assert [w.doi for w in payload.works] == ["https://doi.org/10.1/a"]
+
+    def test_a_family_context_is_ignored_above_genus(self):
+        fake = FakeCrossref({})
+        search = HigherTaxonLiteratureSearch(fake.client())
+        payload = asyncio.run(search.search("family", "nymphalidae", "papilionidae"))
+        assert payload is not None
+        assert fake.queries() == ["Nymphalidae"]
+        assert payload.context is None
+
+    def test_a_subgenus_is_searched_beside_its_genus(self):
+        fake = FakeCrossref({})
+        search = HigherTaxonLiteratureSearch(fake.client())
+        payload = asyncio.run(search.search("subgenus", "anosia", "danaus"))
+        assert payload is not None
+        assert fake.queries() == ["Anosia Danaus"]
+        assert payload.context == "Danaus"
+
+    def test_a_subgenus_is_matched_case_sensitively(self):
+        """Like a genus: a lower-case word of the same spelling is not it."""
+        fake = FakeCrossref(
+            {
+                "Anosia": [
+                    work("10.1/a", "Anosia in the Neotropics"),
+                    work("10.1/b", "anosia as a clinical sign"),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("subgenus", "anosia")
+        )
+        assert payload is not None
+        assert [w.doi for w in payload.works] == ["https://doi.org/10.1/a"]
+
+    def test_a_subfamily_is_matched_in_any_case(self):
+        fake = FakeCrossref({"Satyrinae": [work("10.1/a", "NOTES ON SATYRINAE")]})
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("subfamily", "satyrinae")
+        )
+        assert payload is not None
+        assert len(payload.works) == 1
+
+    def test_a_family_given_in_parentheses_counts_as_named(self):
+        """The usual form: "(Lepidoptera: Nymphalidae)" after a binomial.
+
+        The species search drops parentheticals to strip a subgenus; this
+        search must not, or it loses most of what it finds.
+        """
+        fake = FakeCrossref(
+            {
+                "Nymphalidae": [
+                    work(
+                        "10.1/a",
+                        "Biology of Issoria lathonia (Lepidoptera: Nymphalidae)",
+                    ),
+                    work(
+                        "10.1/b",
+                        "Wing scales",
+                        abstract="<jats:p>In Morpho (Nymphalidae), ...</jats:p>",
+                    ),
+                ]
+            }
+        )
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("family", "nymphalidae")
+        )
+        assert payload is not None
+        assert len(payload.works) == 2
+
+    def test_a_family_name_in_capitals_is_kept(self):
+        fake = FakeCrossref({"Nymphalidae": [work("10.1/a", "NYMPHALIDAE")]})
+        payload = asyncio.run(
+            HigherTaxonLiteratureSearch(fake.client()).search("family", "nymphalidae")
+        )
+        assert payload is not None
+        assert len(payload.works) == 1
+
+    def test_pages_on_past_the_species_limit_while_the_yield_holds(self):
+        def page(prefix: str, relevant: int) -> list[dict]:
+            return [
+                work(f"10.1/{prefix}{i}", "Nymphalidae" if i < relevant else "Other")
+                for i in range(4)
+            ]
+
+        fake = PagedQuery(
+            {
+                "*": (page("a", 2), "c2"),
+                "c2": (page("b", 2), "c3"),
+                "c3": (page("c", 2), "c4"),
+                # One in four is below the 0.3 floor: the last page fetched.
+                "c4": (page("d", 1), "c5"),
+                "c5": (page("e", 4), None),
+            }
+        )
+        payload = asyncio.run(
+            higher_taxon_search(fake.handler).search("family", "nymphalidae")
+        )
+        assert fake.cursors == ["*", "c2", "c3", "c4"]
+        assert payload is not None
+        assert len(payload.works) == 7
+
+    def test_max_pages_caps_the_requests(self):
+        pages: dict[str, tuple[list[dict], str | None]] = {
+            "*" if i == 0 else f"c{i}": (
+                [work(f"10.1/{i}-{j}", "Nymphalidae") for j in range(4)],
+                f"c{i + 1}",
+            )
+            for i in range(10)
+        }
+        fake = PagedQuery(pages)
+        asyncio.run(
+            higher_taxon_search(fake.handler, max_pages=3).search(
+                "family", "nymphalidae"
+            )
+        )
+        assert len(fake.cursors) == 3
+
+    def test_a_malformed_name_is_refused_without_a_request(self):
+        fake = FakeCrossref({})
+        search = HigherTaxonLiteratureSearch(fake.client())
+        assert asyncio.run(search.search("family", "nymphalidae; drop")) is None
+        assert asyncio.run(search.search("genus", "danaus plexippus")) is None
+        assert asyncio.run(search.search("genus", "not-a-name")) is None
+        assert fake.requests == []
+
+    def test_a_later_page_failing_keeps_the_first_and_flags_partial(self):
+        papers = [work(f"10.1/p{i}", f"Nymphalidae study {i}") for i in range(4)]
+        fake = FailingCrossref(ok=1, items=papers)
+        payload = asyncio.run(
+            higher_taxon_search(fake.handler).search("family", "nymphalidae")
+        )
+        assert payload is not None
+        assert fake.calls == 2
+        assert len(payload.works) == 4
+        assert payload.partial is True
+
+    def test_the_first_page_failing_is_an_empty_partial_list(self):
+        fake = FailingCrossref(ok=0, items=[])
+        payload = asyncio.run(
+            higher_taxon_search(fake.handler).search("order", "lepidoptera")
+        )
+        assert payload is not None
+        assert payload.works == []
+        assert payload.partial is True
+
+
+class StubHigherTaxonSearch:
+    def __init__(self, payload):
+        self.payload = payload
+        self.calls: list[tuple[str, str, str | None]] = []
+
+    async def search(self, rank, name, context=None):
+        self.calls.append((rank, name, context))
+
+        return self.payload
+
+    def provide(self) -> "StubHigherTaxonSearch":
+        return self
+
+
+def higher_taxon_router_client(stub: StubHigherTaxonSearch) -> TestClient:
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_higher_taxon_literature_search] = stub.provide
+
+    return TestClient(app)
+
+
+class TestHigherTaxonLiteratureRouter:
+    @pytest.mark.parametrize(
+        "rank",
+        [
+            "order",
+            "suborder",
+            "superfamily",
+            "family",
+            "subfamily",
+            "tribe",
+            "subtribe",
+            "genus",
+        ],
+    )
+    def test_each_rank_route_passes_its_rank(self, rank):
+        stub = StubHigherTaxonSearch(
+            HigherTaxonLiteraturePayload(name="Danaus", rank=rank)
+        )
+        response = higher_taxon_router_client(stub).get(f"/{rank}/danaus/literature")
+        assert response.status_code == 200
+        assert stub.calls == [(rank, "danaus", None)]
+        assert "max-age=86400" in response.headers["Cache-Control"]
+        assert response.json()["works"] == []
+
+    def test_the_genus_route_passes_its_family(self):
+        stub = StubHigherTaxonSearch(
+            HigherTaxonLiteraturePayload(name="Danaus", rank="genus")
+        )
+        higher_taxon_router_client(stub).get(
+            "/genus/danaus/literature?family=Nymphalidae"
+        )
+        assert stub.calls == [("genus", "danaus", "Nymphalidae")]
+
+    def test_the_subgenus_route_passes_its_genus(self):
+        stub = StubHigherTaxonSearch(
+            HigherTaxonLiteraturePayload(name="Anosia", rank="subgenus")
+        )
+        response = higher_taxon_router_client(stub).get(
+            "/genus/danaus/subgenus/anosia/literature"
+        )
+        assert response.status_code == 200
+        assert stub.calls == [("subgenus", "anosia", "danaus")]
+
+    def test_partial_result_is_cached_briefly(self):
+        stub = StubHigherTaxonSearch(
+            HigherTaxonLiteraturePayload(name="Danaus", rank="genus", partial=True)
+        )
+        response = higher_taxon_router_client(stub).get("/genus/danaus/literature")
+        assert "max-age=300" in response.headers["Cache-Control"]
+        assert response.json()["fromYear"] is None
+
+    def test_a_malformed_name_returns_404(self):
+        response = higher_taxon_router_client(StubHigherTaxonSearch(None)).get(
+            "/family/not-a-name/literature"
+        )
         assert response.status_code == 404
         assert response.headers["Cache-Control"] == "no-store"

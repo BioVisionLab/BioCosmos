@@ -3,8 +3,9 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
+import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
-import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
+import TaxonBreadcrumb, { lineageCrumbs } from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
@@ -13,7 +14,7 @@ import {
   fetchHigherTaxon,
   pickRepresentatives,
 } from "@/lib/higherTaxa";
-import { familyHref, genusHref, isCanonicalTaxonSlug } from "@/lib/taxonSlug";
+import { genusHref, isCanonicalTaxonSlug } from "@/lib/taxonSlug";
 
 // See the note on the family page: the thirty-day cache is on the fetch, not
 // on this segment, and this flag does not defeat it.
@@ -58,15 +59,12 @@ export default async function GenusPage({ params }: GenusPageProps) {
 
   if (!taxon) notFound();
 
-  // The family is the one crumb this page cannot know from its own URL. It
-  // comes from the classification, which is why the stub that preceded this
-  // had a literal "Family Name" standing in its place.
+  // The literature search runs beside the family.
   const family = taxon.classification?.family;
-  const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
-
-  if (family) crumbs.push({ label: family, href: familyHref(family) });
-
-  crumbs.push({ label: taxon.name, italic: true });
+  const crumbs = lineageCrumbs(taxon.classification, "genus", {
+    label: taxon.name,
+    italic: true,
+  });
 
   return (
     <section className="m-2">
@@ -88,28 +86,28 @@ export default async function GenusPage({ params }: GenusPageProps) {
         headingId="genus-morphospace"
       />
 
-      <section
-        aria-labelledby="genus-tree"
-        className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg"
-      >
-        <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl flex flex-wrap items-center justify-between gap-3">
-          <h2 id="genus-tree" className="text-2xl font-semibold">
-            Classification
-          </h2>
+      <HigherTaxonTabs
+        rank="genus"
+        name={taxon.name}
+        context={family}
+        classificationCount={taxon.counts.speciesCount}
+        memberLabel="species"
+        imageCount={taxon.counts.imageCount}
+        institutions={taxon.institutions}
+        controls={
           <TaxonomyTreeControls treeId={TREE_ID} label="Filter species" />
-        </div>
-        <div className="p-4">
-          <TaxonomyTree
-            id={TREE_ID}
-            nodes={taxon.tree}
-            bottomRank="species"
-            highlightRank="genus"
-            nodeCount={taxon.nodeCount}
-          />
-          <UnrecordedTaxaNote taxa="species" />
-          <ColAttribution />
-        </div>
-      </section>
+        }
+      >
+        <TaxonomyTree
+          id={TREE_ID}
+          nodes={taxon.tree}
+          bottomRank="species"
+          highlightRank="genus"
+          nodeCount={taxon.nodeCount}
+        />
+        <UnrecordedTaxaNote taxa="species" />
+        <ColAttribution />
+      </HigherTaxonTabs>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-"""Tests for the order, family and genus page data.
+"""Tests for the data behind the pages of the ranks above species.
 
 These run against a real in-memory DuckDB with the miniature Catalogue of Life
 release actually ingested, because the behaviour under test *is* the SQL:
@@ -26,11 +26,15 @@ from app.query.higher_taxa import (
     HigherTaxonCounts,
     HigherTaxonOverview,
     OrderOverview,
+    SubfamilyOverview,
+    SubgenusOverview,
+    SuperfamilyOverview,
     TaxonNode,
     attach_family_images,
     build_order_tree,
     build_rooted_tree,
     build_tree,
+    rank_href,
 )
 from app.services.col import ColBackboneService
 from app.services.higher_taxa import HigherTaxonRepository
@@ -265,6 +269,13 @@ class TestOrderMembers:
         assert rows["nymphalidae"]["family_name"] == "Nymphalidae"
         assert rows["nymphalidae"]["authorship"] == "Rafinesque, 1815"
 
+    def test_leaves_out_obsolete_families(self, repository):
+        repository.family_synonyms = {"erebidae": "Noctuidae"}
+
+        rows = by_key(repository.order_members("lepidoptera"), "family_key")
+        assert set(rows) == {"nymphalidae", "hesperiidae"}
+        assert rows["nymphalidae"]["image_count"] == 9
+
     def test_another_order_has_no_members(self, repository):
         assert repository.order_members("coleoptera") == []
 
@@ -302,6 +313,15 @@ class TestColTotals:
         totals = repository.col_totals("order", "lepidoptera")
         assert totals["family_total"] == 3
         # Zzzonympha is a homonym in two families; it is one genus name.
+        assert totals["genus_total"] == 3
+        assert totals["species_total"] == 6
+
+    def test_leaves_out_obsolete_families(self, repository):
+        repository.family_synonyms = {"erebidae": "Noctuidae"}
+
+        totals = repository.col_totals("order", "lepidoptera")
+        assert totals["family_total"] == 2
+        # Zzzonympha is still a genus of Nymphalidae.
         assert totals["genus_total"] == 3
         assert totals["species_total"] == 6
 
@@ -353,9 +373,7 @@ class TestGenusMembers:
         assert row["species_name"] == "Coenonympha tullia"
         assert row["recorded_name"] == "Oldgenus renamed"
 
-    def test_links_the_binomial_even_when_a_subspecies_is_commoner(
-        self, repository
-    ):
+    def test_links_the_binomial_even_when_a_subspecies_is_commoner(self, repository):
         """The route is a binomial and matches the recorded string exactly.
 
         Linking a trinomial would be cut to its binomial on the way into the
@@ -456,6 +474,70 @@ class TestRepresentativeImages:
         # One tile per species across the order's families.
         assert len(rows) == 5
         assert len({row["display_name"] for row in rows}) == 5
+
+
+# occurrenceID -> (institutionCode, gbifID). Two rows for occ-i3, the
+# emptier one first by gbifID, as gbif_meta's duplicates arrive.
+GBIF_HOLDERS = [
+    ("occ-i0", "MCZ", 1),
+    ("occ-i1", "MCZ", 2),
+    ("occ-i2", "MCZ", 3),
+    ("occ-i3", None, 4),
+    ("occ-i3", "NHMUK", 5),
+    ("occ-i4", None, 6),
+    # An image that counts nowhere, so its holder must not either.
+    ("occ-i7", "USNM", 7),
+]
+
+
+@pytest.fixture
+def repository_with_holders(repository):
+    client = repository.db_client
+    client.execute("ALTER TABLE image_meta ADD COLUMN uuid VARCHAR")
+    client.execute("UPDATE image_meta SET uuid = 'occ-' || img_id")
+    holders = pl.DataFrame(
+        [
+            {"occurrenceID": occurrence, "institutionCode": code, "gbifID": gbif}
+            for occurrence, code, gbif in GBIF_HOLDERS
+        ],
+        schema={
+            "occurrenceID": pl.String,
+            "institutionCode": pl.String,
+            "gbifID": pl.Int64,
+        },
+    )
+    client.register("seed_holders", holders)
+    client.execute("CREATE TABLE gbif_meta AS SELECT * FROM seed_holders")
+    repository.gbif_table = "gbif_meta"
+    return repository
+
+
+class TestInstitutionCounts:
+    def test_counts_every_image_the_header_counts(self, repository_with_holders):
+        rows = repository_with_holders.institution_counts("family", "nymphalidae")
+        counts = {row["institution_code"]: row["image_count"] for row in rows}
+        # The nine images with a species, as the order overview counts them.
+        assert sum(counts.values()) == 9
+        assert counts == {"MCZ": 3, "NHMUK": 1, "Unknown": 5}
+
+    def test_most_images_first(self, repository_with_holders):
+        rows = repository_with_holders.institution_counts("family", "nymphalidae")
+        assert [row["institution_code"] for row in rows] == ["Unknown", "MCZ", "NHMUK"]
+
+    def test_a_duplicate_occurrence_counts_once_under_its_named_holder(
+        self, repository_with_holders
+    ):
+        rows = repository_with_holders.institution_counts("genus", "aphantopus")
+        counts = {row["institution_code"]: row["image_count"] for row in rows}
+        assert counts == {"NHMUK": 1, "Unknown": 1}
+
+    def test_unmatched_images_count_nowhere(self, repository_with_holders):
+        rows = repository_with_holders.institution_counts("order", "lepidoptera")
+        assert "USNM" not in {row["institution_code"] for row in rows}
+
+    def test_empty_without_gbif_meta(self, repository):
+        repository.gbif_table = "gbif_meta"
+        assert repository.institution_counts("family", "nymphalidae") == []
 
 
 class TestAvailability:
@@ -654,16 +736,69 @@ class TestTreeAssembly:
         )
         assert tree[0].href == "/genus/aphantopus"
 
-    def test_grouping_ranks_never_link(self):
-        """Only ranks with a page of their own are links, which is also what
-        keeps a link out of every `<summary>` on the rendered page."""
+    def test_a_grouping_rank_with_images_links_to_its_page(self):
         tree = build_tree(
             [_family_row("aphantopus", subfamily="Satyrinae", tribe="Coenonymphini")],
             scope="family",
             scope_key="nymphalidae",
         )
+        assert tree[0].href == "/subfamily/satyrinae"
+        assert tree[0].children[0].href == "/tribe/coenonymphini"
+
+    def test_a_grouping_rank_without_images_links_nowhere(self):
+        """Its page would answer 404."""
+        tree = build_tree(
+            [_family_row("ghostus", subfamily="Satyrinae", image_count=0)],
+            scope="family",
+            scope_key="nymphalidae",
+        )
         assert tree[0].href is None
-        assert tree[0].children[0].href is None
+
+    def test_the_root_links_nowhere(self):
+        """The root is the page being read."""
+        tree = build_rooted_tree(
+            [_family_row("aphantopus", subfamily="Satyrinae")],
+            scope="subfamily",
+            key="satyrinae",
+            name="Satyrinae",
+        )
+        assert tree[0].href is None
+
+    def test_a_subgenus_links_under_its_genus(self):
+        tree = build_tree(
+            [
+                {
+                    "species_key": "danaus_genutia",
+                    "species_name": "Danaus genutia",
+                    "recorded_name": "Danaus genutia",
+                    "subgenus": "Danaus (Salatura)",
+                    "image_count": 2,
+                }
+            ],
+            scope="genus",
+            scope_key="danaus",
+        )
+        assert tree[0].href == "/genus/danaus/subgenus/salatura"
+
+    def test_the_unplaced_bucket_links_nowhere(self):
+        tree = build_tree(
+            [_family_row("ghost", col_id=None)],
+            scope="family",
+            scope_key="nymphalidae",
+        )
+        assert tree[-1].href is None
+
+    def test_a_subfamily_page_groups_its_genera_by_tribe(self):
+        tree = build_tree(
+            [
+                _family_row("aphantopus", subfamily="Satyrinae", tribe="Coenonymphini"),
+                # The family-only unplaced bucket does not apply here.
+                _family_row("lonely", subfamily="Satyrinae", col_family="erebidae"),
+            ],
+            scope="subfamily",
+            scope_key="satyrinae",
+        )
+        assert [node.name for node in tree] == ["Coenonymphini", "Lonely"]
 
     def test_a_subgenus_is_reduced_to_its_parenthetical(self):
         """Catalogue of Life writes `Genus (Subgenus)`; only the second half
@@ -929,6 +1064,35 @@ class TestOrderOverview:
         assert calls == []
 
     @pytest.mark.asyncio
+    async def test_the_payload_names_each_holder_it_can(
+        self, overview, repository, monkeypatch
+    ):
+        repository.db_client.execute(
+            "CREATE TABLE institution_directory AS "
+            "SELECT 'MCZ' AS code, 'Museum of Comparative Zoology' AS name, "
+            "'https://mcz.harvard.edu' AS homepage, 'US' AS country, "
+            "'grscicoll' AS source"
+        )
+        monkeypatch.setattr(
+            repository,
+            "institution_counts",
+            lambda scope, key: [
+                {"institution_code": "MCZ", "image_count": 6},
+                {"institution_code": "Unknown", "image_count": 3},
+            ],
+        )
+        institutions = (await overview.overview())["institutions"]
+        assert institutions == [
+            {
+                "code": "MCZ",
+                "name": "Museum of Comparative Zoology",
+                "homepage": "https://mcz.harvard.edu",
+                "imageCount": 6,
+            },
+            {"code": "Unknown", "name": None, "homepage": None, "imageCount": 3},
+        ]
+
+    @pytest.mark.asyncio
     async def test_an_order_with_no_images_is_not_found(
         self, overview, repository, monkeypatch
     ):
@@ -1002,7 +1166,20 @@ class TestTaxaWithoutRecords:
         assert require_node(tree, "Danaus ghost").species_count == 0
         assert tree[0].species_count == 1
 
-    @pytest.mark.parametrize("scope", ["family", "genus"])
+    @pytest.mark.parametrize(
+        "scope",
+        [
+            "order",
+            "suborder",
+            "superfamily",
+            "family",
+            "subfamily",
+            "tribe",
+            "subtribe",
+            "genus",
+            "subgenus",
+        ],
+    )
     def test_every_rank_roots_its_tree_on_the_taxon(self, scope):
         tree = build_rooted_tree([], scope=scope, key="x", name="X")
         assert [(node.rank, node.name) for node in tree] == [(scope, "X")]
@@ -1053,3 +1230,251 @@ def test_family_images_attach_to_family_nodes_only():
     assert (family.img_id, family.img_name) == ("i1", "X y")
     assert require_node(tree, "Papilionoidea").img_id is None
     assert tree[0].img_id is None
+
+
+class TestRankHref:
+    def test_a_family_group_rank_links_on_its_name(self):
+        assert rank_href("superfamily", "Papilionoidea") == "/superfamily/papilionoidea"
+
+    def test_a_subgenus_needs_its_genus(self):
+        assert rank_href("subgenus", "Anosia", "danaus") == (
+            "/genus/danaus/subgenus/anosia"
+        )
+        assert rank_href("subgenus", "Anosia") is None
+
+    @pytest.mark.parametrize("rank", ["order", "family", "genus", "unplaced"])
+    def test_ranks_linked_elsewhere_get_no_grouping_link(self, rank):
+        assert rank_href(rank, "Anything") is None
+
+
+def _add_images(client, rows: list[tuple[str, str, str, str]]) -> None:
+    """Add (img_id, recorded species, accepted name, accepted family) rows."""
+    for img_id, species, accepted, family in rows:
+        client.execute_prepared(
+            "INSERT INTO image_meta (img_id, species, family, class_dv) "
+            "VALUES (?, ?, ?, 'dorsal')",
+            [img_id, species, family.lower()],
+        )
+        client.execute_prepared(
+            "INSERT INTO image_meta_taxonomy (img_id, update_status, "
+            "accepted_name, accepted_species_name, display_accepted_name, "
+            "accepted_family) VALUES (?, 'MATCHED', ?, ?, ?, ?)",
+            [img_id, accepted, accepted, accepted, family],
+        )
+
+
+class TestIntermediateMembers:
+    def test_a_superfamily_lists_its_col_families(self, repository):
+        families = by_key(
+            repository.family_set_members("superfamily", "papilionoidea"),
+            "family_key",
+        )
+        assert set(families) == {"nymphalidae", "hesperiidae"}
+        assert families["nymphalidae"]["image_count"] == 9
+        assert families["hesperiidae"]["image_count"] == 0
+
+    def test_a_suborder_lists_its_col_families(self, repository):
+        families = repository.family_set_members("suborder", "glossata")
+        assert [row["family_key"] for row in families] == ["erebidae"]
+
+    def test_a_subfamily_lists_only_the_genera_col_places_in_it(self, repository):
+        """Coenonympha's own row names no subfamily, so it is not listed,
+        even though one of its species' rows does."""
+        genera = by_key(
+            repository.genus_set_members("subfamily", "satyrinae"), "genus_key"
+        )
+        assert set(genera) == {"aphantopus"}
+        assert genera["aphantopus"]["image_count"] == 2
+        assert genera["aphantopus"]["tribe"] == "Coenonymphini"
+
+    def test_a_tribe_lists_its_genera(self, repository):
+        genera = repository.genus_set_members("tribe", "coenonymphini")
+        assert [row["genus_key"] for row in genera] == ["aphantopus"]
+
+    def test_a_genus_namesake_in_another_family_is_not_counted(self, repository):
+        _add_images(
+            repository.db_client,
+            [("x1", "aphantopus_hyperantus", "Aphantopus hyperantus", "Erebidae")],
+        )
+        genera = by_key(
+            repository.genus_set_members("subfamily", "satyrinae"), "genus_key"
+        )
+        assert genera["aphantopus"]["image_count"] == 2
+
+    def test_a_second_usage_does_not_move_a_genus(self, repository):
+        """A stray usage under an obsolete family must not outvote the one CoL
+        files in the family itself, or the subfamily page and the family
+        page would place the genus differently."""
+        repository.family_synonyms = {"satyridae": "Nymphalidae"}
+        repository.db_client.execute(
+            "INSERT INTO col_taxonomy SELECT * REPLACE ("
+            "'AAA0' AS usage_id, 'satyridae' AS family_norm, "
+            "'Elsewhereinae' AS subfamily) "
+            "FROM col_taxonomy WHERE usage_id = 'GEN4'"
+        )
+        assert repository.genus_set_members("subfamily", "elsewhereinae") == []
+        genera = repository.genus_set_members("subfamily", "satyrinae")
+        assert [(row["genus_key"], row["col_id"]) for row in genera] == [
+            ("aphantopus", "GEN4")
+        ]
+        images = repository.representative_images("subfamily", "elsewhereinae")
+        assert images == []
+
+    def test_an_unknown_subfamily_has_no_members(self, repository):
+        assert repository.genus_set_members("subfamily", "nosuchinae") == []
+
+    def test_without_the_backbone_there_are_no_members(
+        self, repository_without_backbone
+    ):
+        assert (
+            repository_without_backbone.genus_set_members("subfamily", "satyrinae")
+            == []
+        )
+        assert (
+            repository_without_backbone.family_set_members(
+                "superfamily", "papilionoidea"
+            )
+            == []
+        )
+
+    def test_a_subgenus_lists_only_its_species(self, repository):
+        """The fixture names the subgenus only inside the species name."""
+        _add_images(
+            repository.db_client,
+            [("x2", "zzzonympha_tricolor", "Zzzonympha tricolor", "Nymphalidae")],
+        )
+        species = by_key(repository.subgenus_members("zzzonympha/sub"), "species_key")
+        assert set(species) == {"zzzonympha_tricolor"}
+        assert species["zzzonympha_tricolor"]["image_count"] == 1
+
+    def test_a_subgenus_lists_its_col_species_without_images(self, repository):
+        species = repository.subgenus_members("zzzonympha/sub")
+        assert [(row["species_key"], row["image_count"]) for row in species] == [
+            ("zzzonympha_tricolor", 0)
+        ]
+
+    def test_another_subgenus_of_the_genus_is_empty(self, repository):
+        assert repository.subgenus_members("zzzonympha/other") == []
+
+
+class TestIntermediateScopes:
+    def test_subfamily_totals_count_what_col_places_in_it(self, repository):
+        totals = repository.col_totals("subfamily", "satyrinae")
+        assert totals is not None
+        assert totals["genus_total"] == 1
+        assert totals["species_total"] == 2
+
+    def test_superfamily_totals_count_its_families(self, repository):
+        totals = repository.col_totals("superfamily", "papilionoidea")
+        assert totals is not None
+        assert totals["family_total"] == 2
+
+    def test_subgenus_totals_count_its_species(self, repository):
+        totals = repository.col_totals("subgenus", "zzzonympha/sub")
+        assert totals is not None
+        assert totals["species_total"] == 1
+
+    def test_subfamily_images_are_its_genera_images(self, repository):
+        images = repository.representative_images("subfamily", "satyrinae")
+        assert [row["display_name"] for row in images] == ["Aphantopus hyperantus"]
+
+    def test_superfamily_images_span_its_families(self, repository):
+        images = repository.representative_images("superfamily", "papilionoidea")
+        # Every species with images in Nymphalidae, its only family with any.
+        assert len(images) == len(
+            repository.representative_images("family", "nymphalidae")
+        )
+
+    def test_subgenus_images_stay_inside_it(self, repository):
+        _add_images(
+            repository.db_client,
+            [("x3", "zzzonympha_tricolor", "Zzzonympha tricolor", "Nymphalidae")],
+        )
+        images = repository.representative_images("subgenus", "zzzonympha/sub")
+        assert [row["img_id"] for row in images] == ["x3"]
+
+
+def _request_for(repository) -> Request:
+    return cast(
+        Request,
+        SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(duck_db=repository.db_client))
+        ),
+    )
+
+
+class TestIntermediateOverview:
+    @pytest.fixture(autouse=True)
+    def patched(self, repository, monkeypatch):
+        PAYLOAD_CACHE.clear()
+        monkeypatch.setattr(
+            higher_taxa_query, "HigherTaxonRepository", lambda _db: repository
+        )
+        monkeypatch.setattr(
+            HigherTaxonOverview, "_classification", AsyncMock(return_value=None)
+        )
+        yield
+        PAYLOAD_CACHE.clear()
+
+    @pytest.mark.asyncio
+    async def test_a_subfamily_page_counts_genera(self, repository):
+        payload = await SubfamilyOverview(
+            _request_for(repository), "Satyrinae"
+        ).overview()
+        assert payload is not None
+        assert payload["rank"] == "subfamily"
+        assert payload["counts"]["genusCount"] == 1
+        assert payload["counts"]["speciesCount"] == 1
+        assert payload["counts"]["imageCount"] == 2
+        assert payload["tree"][0]["rank"] == "subfamily"
+        tribe = payload["tree"][0]["children"][0]
+        assert (tribe["name"], tribe["href"]) == (
+            "Coenonymphini",
+            "/tribe/coenonymphini",
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_superfamily_page_counts_families(self, repository):
+        payload = await SuperfamilyOverview(
+            _request_for(repository), "papilionoidea"
+        ).overview()
+        assert payload is not None
+        assert payload["counts"]["familyCount"] == 1
+        assert payload["counts"]["familyTotal"] == 2
+
+    @pytest.mark.asyncio
+    async def test_a_subgenus_page_is_keyed_on_its_genus(self, repository):
+        _add_images(
+            repository.db_client,
+            [("x4", "zzzonympha_tricolor", "Zzzonympha tricolor", "Nymphalidae")],
+        )
+        overview = SubgenusOverview(
+            _request_for(repository), genus="Zzzonympha", subgenus="Sub"
+        )
+        payload = await overview.overview()
+        assert overview.key == "zzzonympha/sub"
+        assert payload is not None
+        assert payload["name"] == "Zzzonympha (Sub)"
+        assert payload["counts"]["speciesCount"] == 1
+
+    @pytest.mark.asyncio
+    async def test_a_subfamily_with_no_images_is_not_found(self, repository):
+        overview = SubfamilyOverview(_request_for(repository), "Nosuchinae")
+        assert await overview.overview() is None
+
+
+class TestSubgenusClassification:
+    @pytest.mark.asyncio
+    async def test_a_classification_of_another_subgenus_is_rejected(
+        self, repository, monkeypatch
+    ):
+        """The backbone's canonical fallback matches any subgenus of a genus."""
+        monkeypatch.setattr(
+            HigherTaxonOverview,
+            "_classification",
+            AsyncMock(return_value={"subgenus": "Other"}),
+        )
+        overview = SubgenusOverview(
+            _request_for(repository), genus="zzzonympha", subgenus="sub"
+        )
+        assert await overview._classification() is None

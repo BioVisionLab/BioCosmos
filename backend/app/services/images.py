@@ -33,20 +33,21 @@ POSTFILTER_POOL_SIZES = (5_000, 50_000)
 
 # Search parameters for the ANN index on the embedding columns.
 #
-# Twenty probes is LanceDB's own default. The refine factor is the one that
-# earns its keep: it pulls ten times the requested rows off the quantized
-# index and re-ranks them against the full-precision stored vectors.
+# Query-time settings for the vector index (`search_index.vector_type` in
+# config.yaml, IvfHnswSq). The refine factor pulls that many times the
+# requested rows off the quantized index and re-ranks them against the
+# full-precision stored vectors; without it, quantization returned about three
+# wrong images in every ten, a wrong answer on a panel that makes a claim about
+# the collection.
 #
-# Measured on the 619,787-image collection, against exact cosine distance
-# computed by hand for the union of both candidate sets: without refinement
-# only 70% of the top ten matched the true top ten, and with it 100%. Product
-# quantization was not making the search approximate at the margins -- it was
-# returning three different images in every ten. That is a wrong answer on a
-# panel that makes a claim about the collection, and worth the cost: roughly
-# 50ms to 350ms per search, which now runs in a worker thread rather than on
-# the event loop.
-NPROBES = 20
-REFINE_FACTOR = 10
+# Chosen from the index benchmark (`analyses/benchmarks/image_indexing.ipynb`)
+# on IvfHnswSq, against exact cosine search over 300 held-out queries: 80
+# probes with a refine factor of 2 reach recall@10 of 1.000 on UNICOM and 0.999
+# on CLIP, and are slightly faster than the previous 20 probes with a factor of
+# 10, which reached 0.997 and 0.982. Searches run in a worker thread rather
+# than on the event loop.
+NPROBES = 80
+REFINE_FACTOR = 2
 
 
 def quote_sql(value: object) -> str:
@@ -497,10 +498,10 @@ class ImagePersistData:
             # projection that leaves it out, but warns that it will stop.
             .select(["img_id", "_distance"])
             # Both are no-ops on an unindexed column and only take effect once
-            # the IVF-PQ index exists. `nprobes` buys recall back from
+            # the vector index exists. `nprobes` buys recall back from
             # partitioning; `refine_factor` re-ranks the shortlist against the
-            # full-precision vectors, which is what keeps product quantization
-            # from changing *which* species come back rather than just how
+            # full-precision vectors, which is what keeps quantization from
+            # changing *which* species come back rather than just how
             # fast they arrive. That distinction matters here: this endpoint
             # makes a claim about the collection, not a suggestion.
             .nprobes(NPROBES)

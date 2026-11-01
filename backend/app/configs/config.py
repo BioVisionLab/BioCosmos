@@ -1,3 +1,4 @@
+import math
 import torch
 import yaml
 import os
@@ -323,6 +324,36 @@ class ColConfig:
     def occurrence_status_table(self) -> str:
         return self._col_config.get("occurrence_status_table", "image_meta_taxonomy")
 
+    @property
+    def taxon_overrides(self) -> dict[str, str]:
+        """Recorded name -> CoL usage id the match is pinned to.
+
+        Keys are lowercased and trimmed, the way the recorded name is compared;
+        ids are kept verbatim because CoL ids are case-sensitive.
+        """
+        overrides = self._col_config.get("taxon_overrides") or {}
+
+        return {
+            str(name).strip().lower(): str(usage_id).strip()
+            for name, usage_id in overrides.items()
+            if str(name).strip() and str(usage_id).strip()
+        }
+
+    @property
+    def family_synonyms(self) -> dict[str, str]:
+        """Obsolete family name, lowercased -> the family it now belongs to.
+
+        The values keep their casing, since they replace `accepted_family`,
+        which every reader displays.
+        """
+        synonyms = self._col_config.get("family_synonyms") or {}
+
+        return {
+            str(name).strip().lower(): str(family).strip()
+            for name, family in synonyms.items()
+            if str(name).strip() and str(family).strip()
+        }
+
 
 class LocalityConfig:
     """
@@ -358,6 +389,21 @@ class LocalityConfig:
     def coordinates_table(self) -> str:
         """Table written by `geoharmonize integrate`, absent until it has run."""
         return self._locality_config.get("coordinates_table", "image_meta_coordinates")
+
+    @property
+    def search_radius_km(self) -> float:
+        """Great-circle radius, in kilometers, of a coordinate search."""
+        radius = float(self._locality_config.get("search_radius_km", 50))
+
+        if not math.isfinite(radius) or radius <= 0:
+            logger.info(
+                f"Locality search_radius_km is not a positive number: {radius}. "
+                "Falling back to 50."
+            )
+
+            return 50.0
+
+        return radius
 
 
 class ProvenanceConfig:
@@ -749,6 +795,156 @@ class CrossrefConfig:
     @property
     def mailto(self) -> str | None:
         return _env_str("CROSSREF_MAILTO")
+
+
+DEFAULT_LITERATURE_WORK_TYPES = (
+    "journal-article",
+    "dataset",
+    "book-chapter",
+    "book",
+    "edited-book",
+    "monograph",
+    "posted-content",
+    "proceedings-article",
+    "report",
+    "dissertation",
+)
+
+
+def _positive_int(value, label: str, default: int) -> int:
+    """A YAML value meant to be a positive integer, or the default."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        logger.info(f"{label} is not an integer: {value}. Falling back to {default}.")
+
+        return default
+
+    if number <= 0:
+        logger.info(
+            f"{label} must be positive, got: {number}. Falling back to {default}."
+        )
+
+        return default
+
+    return number
+
+
+class LiteratureConfig:
+    """Scope of the CrossRef literature search (``literature`` in config.yaml).
+
+    Every value here shapes the request URL, and so the cache key: a change
+    takes effect on the next search without serving stale results.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._literature_config = config.get("literature", {}) or {}
+
+    @property
+    def from_year(self) -> int | None:
+        """Earliest publication year searched; None searches every year."""
+        value = self._literature_config.get("from_year")
+
+        if value is None:
+            return None
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            logger.info(
+                f"Literature from_year is not a year: {value}. Searching every year."
+            )
+
+            return None
+
+    @property
+    def work_types(self) -> tuple[str, ...]:
+        value = self._literature_config.get("work_types")
+
+        if not value:
+            return DEFAULT_LITERATURE_WORK_TYPES
+
+        if isinstance(value, str):
+            value = [value]
+
+        types = tuple(str(t).strip() for t in value if str(t).strip())
+
+        return types or DEFAULT_LITERATURE_WORK_TYPES
+
+    def _int(self, key: str, default: int) -> int:
+        value = self._literature_config.get(key, default)
+
+        return _positive_int(value, f"Literature {key}", default)
+
+    @property
+    def max_synonym_queries(self) -> int:
+        return self._int("max_synonym_queries", 6)
+
+    @property
+    def accepted_rows(self) -> int:
+        return self._int("accepted_rows", 100)
+
+    @property
+    def synonym_rows(self) -> int:
+        return self._int("synonym_rows", 40)
+
+    @property
+    def genus_rows(self) -> int:
+        return self._int("genus_rows", 100)
+
+    @property
+    def max_accepted_pages(self) -> int:
+        return self._int("max_accepted_pages", 2)
+
+
+class HigherTaxonLiteratureConfig:
+    """Depth of the CrossRef search on an order, family or genus
+    (``higher_taxon_literature`` in config.yaml).
+
+    Kept apart from the species settings because the two searches page
+    differently: a family's query returns relevant works deep into its
+    results, but at a lower yield per page than a species' name does. The
+    work types and the year floor are shared, through the CrossRef client.
+    """
+
+    def __init__(self):
+        config = load_config()
+        self._config = config.get("higher_taxon_literature", {}) or {}
+
+    @property
+    def rows(self) -> int:
+        """Works per CrossRef page."""
+        return _positive_int(
+            self._config.get("rows", 100), "Higher-taxon literature rows", 100
+        )
+
+    @property
+    def max_pages(self) -> int:
+        """Pages fetched at most, each one CrossRef request."""
+        return _positive_int(
+            self._config.get("max_pages", 5), "Higher-taxon literature max_pages", 5
+        )
+
+    @property
+    def min_paging_yield(self) -> float:
+        """The share of a full page that must be kept to fetch the next one."""
+        value = self._config.get("min_paging_yield", 0.3)
+
+        try:
+            share = float(value)
+        except (TypeError, ValueError):
+            share = -1.0
+
+        if not 0 <= share <= 1:
+            logger.info(
+                "Higher-taxon literature min_paging_yield must be between 0 and 1, "
+                f"got: {value}. Falling back to 0.3."
+            )
+
+            return 0.3
+
+        return share
 
 
 class NcbiConfig:

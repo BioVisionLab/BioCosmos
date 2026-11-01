@@ -232,9 +232,47 @@ class MatchPipeline:
         )
 
     def _generate_candidates(self) -> None:
+        self.connection.execute(
+            "CREATE TEMP TABLE order_rejections (input_taxon_key VARCHAR PRIMARY KEY)"
+        )
+
         # Each stage receives only inputs with no evidence from earlier stages.
         for rank in ("species", "subspecies", "genus"):
             self._generate_rank_candidates(rank)
+            self._reject_other_orders()
+
+    def _reject_other_orders(self) -> None:
+        """Drop candidates placed in another order than the recorded one.
+
+        A name can be reused across orders, and a release can move a usage into a homonym
+        in another order (CoL 2026-10-16 put the butterfly Capys under a bug family). The
+        candidate is removed before the next stage runs, so a later stage can still find a
+        match; an input left with none is reported as ORDER_MISMATCH. An input that records
+        no order is held to `default_order`; with neither, or a candidate without an
+        order, the candidate is kept.
+        """
+
+        default = self.matching.default_order
+        recorded = [default.strip().lower() if default else None]
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO order_rejections
+            SELECT DISTINCT c.input_taxon_key
+            FROM raw_candidates c
+            JOIN input_taxa i USING (input_taxon_key)
+            WHERE c.accepted_order <> coalesce(i.normalized_order, ?)
+            """,
+            recorded,
+        )
+        self.connection.execute(
+            """
+            DELETE FROM raw_candidates c
+            USING input_taxa i
+            WHERE c.input_taxon_key = i.input_taxon_key
+              AND c.accepted_order <> coalesce(i.normalized_order, ?)
+            """,
+            recorded,
+        )
 
     def _generate_rank_candidates(self, rank: str) -> None:
         unresolved = (
@@ -286,6 +324,7 @@ class MatchPipeline:
             a.accepted_genus,
             a.accepted_epithet,
             a.accepted_family,
+            a.order_norm AS accepted_order,
             a.accepted_status,
             a.taxon_rank AS accepted_rank,
             '{rank}' AS match_stage,

@@ -37,7 +37,7 @@ const FIELD_GROUPS: SearchFieldGroup[] = [
     options: [
       { value: "country", label: "Country" },
       { value: "state_province", label: "State / Province" },
-      { value: "coordinate", label: "Coordinate (10,000 km² area)" },
+      { value: "coordinate", label: "Coordinate (within 50 km)" },
     ],
   },
   { label: "Traits (LepTraits)", options: TRAIT_FIELD_OPTIONS },

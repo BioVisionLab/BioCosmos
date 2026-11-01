@@ -189,9 +189,12 @@ class RankScopedSearch:
 
     rank: str = ""
 
-    def __init__(self, request: Request, query: str = ""):
+    def __init__(self, request: Request, query: str = "", rank: str | None = None):
         self.name = query.strip()
         self.request = request
+
+        if rank is not None:
+            self.rank = rank
 
     async def get_classification(self) -> list[dict]:
         """Return the CoL classification for this name at this rank."""

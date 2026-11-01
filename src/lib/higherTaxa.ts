@@ -1,5 +1,5 @@
 /**
- * Data for the order, family and genus pages.
+ * Data for the pages of the ranks above species.
  *
  * Server-only: `API_HOST` is not a `NEXT_PUBLIC_` variable, so this module is
  * imported by server components and never reaches the browser. Nothing on
@@ -17,7 +17,34 @@ import {
 } from "@/lib/colTaxonomy";
 import { speciesHref, toTaxonSlug } from "@/lib/taxonSlug";
 
-export type HigherRank = "order" | "family" | "genus";
+export type HigherRank =
+  | "order"
+  | "suborder"
+  | "superfamily"
+  | "family"
+  | "subfamily"
+  | "tribe"
+  | "subtribe"
+  | "genus"
+  | "subgenus";
+
+/**
+ * The API path of one taxon. A subgenus is named `genus/subgenus` and nests
+ * under its genus, because its name is unique only within it.
+ */
+function higherTaxonPath(rank: HigherRank, name: string): string | null {
+  if (rank === "subgenus") {
+    const [genus, subgenus] = name.split("/").map(toTaxonSlug);
+
+    if (!genus || !subgenus) return null;
+
+    return `genus/${encodeURIComponent(genus)}/subgenus/${encodeURIComponent(subgenus)}`;
+  }
+
+  const slug = toTaxonSlug(name);
+
+  return slug ? `${rank}/${encodeURIComponent(slug)}` : null;
+}
 
 /**
  * Thirty days.
@@ -44,7 +71,10 @@ export interface TaxonNode {
   recordedName: string | null;
   rank: ColRank | "unplaced";
   authorship: string | null;
-  /** Only the ranks that have a page of their own carry one. */
+  /**
+   * Only the ranks that have a page of their own carry one, and only when
+   * the collection holds something under them.
+   */
   href: string | null;
   colLink: string | null;
   /** Families with images below this node; set only on an order's tree. */
@@ -66,6 +96,16 @@ export interface RepresentativeImage {
   /** The recorded key, which is what the species route resolves on. */
   species: string;
   displayName: string;
+}
+
+/** The images of a taxon one institution holds. */
+export interface InstitutionShare {
+  /** As GBIF records it, or "Unknown" for images with no holder on record. */
+  code: string;
+  /** The resolved full name; null when the code could not be resolved. */
+  name: string | null;
+  homepage: string | null;
+  imageCount: number;
 }
 
 export interface HigherTaxon {
@@ -91,6 +131,8 @@ export interface HigherTaxon {
   };
   tree: TaxonNode[];
   images: RepresentativeImage[];
+  /** Every holder, most images first. */
+  institutions: InstitutionShare[];
   sources: { colTaxonomy: boolean; harmonizedTaxonomy: boolean };
   /** Every node in the tree, used to decide how much of it opens by default. */
   nodeCount: number;
@@ -159,6 +201,23 @@ function normalizeImage(raw: unknown): RepresentativeImage | null {
     imageId,
     species,
     displayName: text(source.displayName) || species.replace(/_/g, " "),
+  };
+}
+
+function normalizeInstitution(raw: unknown): InstitutionShare | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const source = raw as Record<string, unknown>;
+  const code = text(source.code);
+  const imageCount = count(source.imageCount);
+
+  if (!code || imageCount <= 0) return null;
+
+  return {
+    code,
+    name: optionalText(source.name),
+    homepage: optionalText(source.homepage),
+    imageCount,
   };
 }
 
@@ -269,6 +328,11 @@ function normalizeHigherTaxon(
           .map(normalizeImage)
           .filter((image): image is RepresentativeImage => image !== null)
       : [],
+    institutions: Array.isArray(source.institutions)
+      ? source.institutions
+          .map(normalizeInstitution)
+          .filter((share): share is InstitutionShare => share !== null)
+      : [],
     sources: {
       colTaxonomy: sources.colTaxonomy === true,
       harmonizedTaxonomy: sources.harmonizedTaxonomy === true,
@@ -295,22 +359,20 @@ export const fetchHigherTaxon = cache(
   async (rank: HigherRank, name: string): Promise<HigherTaxon | null> => {
     if (!API_HOST) return null;
 
-    const slug = toTaxonSlug(name);
+    const path = higherTaxonPath(rank, name);
 
-    if (!slug) return null;
+    if (!path) return null;
 
-    const response = await fetch(
-      `${API_HOST}/${rank}/${encodeURIComponent(slug)}`,
-      {
-        headers: { Accept: "application/json" },
-        next: {
-          revalidate: HIGHER_TAXON_REVALIDATE,
-          // Lets a post-release hook flush every higher-taxon page at once
-          // with revalidateTag, instead of waiting out the thirty days.
-          tags: ["higher-taxon", `higher-taxon:${rank}:${slug}`],
-        },
+    const slug = path.slice(path.indexOf("/") + 1);
+    const response = await fetch(`${API_HOST}/${path}`, {
+      headers: { Accept: "application/json" },
+      next: {
+        revalidate: HIGHER_TAXON_REVALIDATE,
+        // Lets a post-release hook flush every higher-taxon page at once
+        // with revalidateTag, instead of waiting out the thirty days.
+        tags: ["higher-taxon", `higher-taxon:${rank}:${slug}`],
       },
-    );
+    });
 
     // A taxon that does not exist is a 404 page; a backend that is down is
     // not. Collapsing the two would tell a reader during an outage that a

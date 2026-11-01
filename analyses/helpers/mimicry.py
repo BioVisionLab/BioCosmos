@@ -944,6 +944,8 @@ def pair_images(
     pairs: pd.DataFrame,
     pictures: dict[tuple[str, str], np.ndarray],
     counts: dict[str, int],
+    count_fontsize: float = 10,
+    thumbnail: float = THUMBNAIL,
 ) -> None:
     """Both species' matched images between each pair label and the axis, with N.
 
@@ -955,10 +957,10 @@ def pair_images(
     for position, row in enumerate(pairs.itertuples()):
         for slot, name in enumerate((row.accepted_b, row.accepted_a)):
             pixels = pictures[(row.pair, name)]
-            x = -THUMBNAIL_GAP - slot * (THUMBNAIL + THUMBNAIL_GAP) - THUMBNAIL / 2
+            x = -THUMBNAIL_GAP - slot * (thumbnail + THUMBNAIL_GAP) - thumbnail / 2
             ax.add_artist(
                 AnnotationBbox(
-                    OffsetImage(pixels, zoom=THUMBNAIL / pixels.shape[1]),
+                    OffsetImage(pixels, zoom=thumbnail / pixels.shape[1]),
                     (0, position),
                     xycoords=("axes fraction", "data"),
                     xybox=(x, 0),
@@ -969,18 +971,18 @@ def pair_images(
                 )
             )
             ax.annotate(
-                f"N = {counts[name]:,}",
+                f"N={counts[name]:,}",
                 (0, position),
                 xycoords=("axes fraction", "data"),
-                xytext=(x, -THUMBNAIL / 2 + 2),
+                xytext=(x, -thumbnail / 2 + 2),
                 textcoords="offset points",
                 ha="center",
                 va="top",
-                fontsize=10,
+                fontsize=count_fontsize,
                 annotation_clip=False,
             )
 
-    ax.tick_params(axis="y", length=0, pad=2 * (THUMBNAIL + THUMBNAIL_GAP) + THUMBNAIL_GAP)
+    ax.tick_params(axis="y", length=0, pad=2 * (thumbnail + THUMBNAIL_GAP) + THUMBNAIL_GAP)
 
 
 def rank_legend(series) -> list:
@@ -1079,19 +1081,23 @@ def pairs_panel(
     ax,
     results: MimicryResults,
     pictures: dict[tuple[str, str], np.ndarray],
-    title: str = "A) Mimicry pairs",
+    title: str = "a) Mimicry pairs",
     legend: bool = True,
+    count_fontsize: float = 10,
+    thumbnail: float = THUMBNAIL,
 ) -> list:
     """Partner ranks by nearest dorsal image, with each pair's matched images and N.
 
     Pairs that are mutual top ten are highlighted. Returns the legend handles, so a
-    caller drawing `legend=False` can place the legend elsewhere.
+    caller drawing `legend=False` can place the legend elsewhere. `count_fontsize` sizes
+    the N under each image and `thumbnail` the images themselves, in points, for figures
+    printed smaller.
     """
 
     rank_panel(
         ax, results.ranks, results.tested, VISUAL_SERIES, results.n_species, results.recovered()
     )
-    pair_images(ax, results.tested, pictures, results.image_counts())
+    pair_images(ax, results.tested, pictures, results.image_counts(), count_fontsize, thumbnail)
     ax.set_title(title, loc="left")
     handles = rank_legend(VISUAL_SERIES)
 
@@ -1101,7 +1107,7 @@ def pairs_panel(
     return handles
 
 
-def tests_panel(ax, results: MimicryResults, title: str = "B) Permutation tests") -> None:
+def tests_panel(ax, results: MimicryResults, title: str = "b) Permutation tests") -> None:
     """Observed mean partner percentile against each null's 95% interval."""
 
     permutation_panel(ax, results.permutations)
@@ -1110,7 +1116,7 @@ def tests_panel(ax, results: MimicryResults, title: str = "B) Permutation tests"
 
 
 def recovery_figure(results: MimicryResults, pictures: dict[tuple[str, str], np.ndarray]):
-    """A) partner ranks by nearest dorsal image, B) permutation tests."""
+    """a) partner ranks by nearest dorsal image, b) permutation tests."""
 
     fig = plt.figure(figsize=(21, 15), layout="constrained")
     grid = fig.add_gridspec(1, 2, width_ratios=(1, 0.75))

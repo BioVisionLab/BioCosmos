@@ -4,6 +4,12 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
+from app.configs.config import (
+    DEFAULT_LITERATURE_WORK_TYPES,
+    HigherTaxonLiteratureConfig,
+    LiteratureConfig,
+)
+
 
 # We need to patch load_config before importing the config classes,
 # so we import inside each test method.
@@ -203,6 +209,35 @@ class TestImageMetaConfig:
         from app.configs.config import ImageMetaConfig
 
         assert ImageMetaConfig().exclude_families == ["castniidae"]
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            **MOCK_CONFIG,
+            "col": {
+                "taxon_overrides": {" Ninguta_Schrenkii ": " 6TR2G ", "": "X1"},
+                "family_synonyms": {" Satyridae ": "Nymphalidae", "Danaidae": ""},
+            },
+        },
+    )
+    def test_col_overrides_and_synonyms_normalized(self, _mock):
+        from app.configs.config import ColConfig
+
+        cfg = ColConfig()
+        assert cfg.taxon_overrides == {"ninguta_schrenkii": "6TR2G"}
+        assert cfg.family_synonyms == {"satyridae": "Nymphalidae"}
+
+    @patch("app.configs.config.load_config", return_value=MOCK_CONFIG)
+    def test_col_overrides_and_synonyms_default_empty(self, _mock):
+        from app.configs.config import ColConfig
+
+        assert ColConfig().taxon_overrides == {}
+        assert ColConfig().family_synonyms == {}
+
+    def test_shipped_config_folds_satyridae_into_nymphalidae(self):
+        from app.configs.config import ColConfig
+
+        assert ColConfig().family_synonyms["satyridae"] == "Nymphalidae"
 
     def test_shipped_config_excludes_castniidae(self):
         from app.configs.config import ImageMetaConfig
@@ -434,6 +469,7 @@ class TestLocalityConfig:
         assert cfg.skip is False
         assert cfg.table == "image_meta_locality"
         assert cfg.coordinates_table == "image_meta_coordinates"
+        assert cfg.search_radius_km == 50.0
 
     @patch(
         "app.configs.config.load_config",
@@ -443,6 +479,7 @@ class TestLocalityConfig:
                 "skip": "yes",
                 "table": "custom_locality",
                 "coordinates_table": "custom_coordinates",
+                "search_radius_km": 25,
             },
         },
     )
@@ -453,6 +490,7 @@ class TestLocalityConfig:
         assert cfg.skip is True
         assert cfg.table == "custom_locality"
         assert cfg.coordinates_table == "custom_coordinates"
+        assert cfg.search_radius_km == 25.0
 
 
 class TestSearchIndexConfig:
@@ -552,3 +590,74 @@ class TestNcbiConfig:
 
         monkeypatch.setenv("NCBI_API_KEY", "\"abc123'")
         assert NcbiConfig().api_key == "\"abc123'"
+
+
+class TestHigherTaxonLiteratureConfig:
+    @patch("app.configs.config.load_config", return_value={})
+    def test_defaults(self, _mock):
+        cfg = HigherTaxonLiteratureConfig()
+        assert (cfg.rows, cfg.max_pages, cfg.min_paging_yield) == (100, 5, 0.3)
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "higher_taxon_literature": {
+                "rows": 50,
+                "max_pages": 8,
+                "min_paging_yield": "0.1",
+            }
+        },
+    )
+    def test_reads_its_own_section(self, _mock):
+        cfg = HigherTaxonLiteratureConfig()
+        assert (cfg.rows, cfg.max_pages, cfg.min_paging_yield) == (50, 8, 0.1)
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "literature": {"accepted_rows": 7, "max_accepted_pages": 1},
+            "higher_taxon_literature": {"max_pages": 0, "min_paging_yield": 2},
+        },
+    )
+    def test_ignores_the_species_settings_and_bad_values(self, _mock):
+        cfg = HigherTaxonLiteratureConfig()
+        assert (cfg.rows, cfg.max_pages, cfg.min_paging_yield) == (100, 5, 0.3)
+
+
+class TestLiteratureConfig:
+    @patch("app.configs.config.load_config", return_value={})
+    def test_defaults_search_every_year_and_type(self, _mock):
+        cfg = LiteratureConfig()
+        assert cfg.from_year is None
+        assert cfg.work_types == DEFAULT_LITERATURE_WORK_TYPES
+        assert cfg.max_synonym_queries == 6
+        assert (cfg.accepted_rows, cfg.synonym_rows, cfg.genus_rows) == (100, 40, 100)
+        assert cfg.max_accepted_pages == 2
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "literature": {
+                "from_year": "1950",
+                "work_types": ["journal-article", " dataset "],
+                "accepted_rows": 200,
+            }
+        },
+    )
+    def test_reads_configured_values(self, _mock):
+        cfg = LiteratureConfig()
+        assert cfg.from_year == 1950
+        assert cfg.work_types == ("journal-article", "dataset")
+        assert cfg.accepted_rows == 200
+
+    @patch(
+        "app.configs.config.load_config",
+        return_value={
+            "literature": {"from_year": "soon", "genus_rows": -5, "synonym_rows": "x"}
+        },
+    )
+    def test_invalid_values_fall_back(self, _mock):
+        cfg = LiteratureConfig()
+        assert cfg.from_year is None
+        assert cfg.genus_rows == 100
+        assert cfg.synonym_rows == 40

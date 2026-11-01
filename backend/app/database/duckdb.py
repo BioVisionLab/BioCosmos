@@ -18,8 +18,29 @@ def family_kept_sql(column: str, families: list[str]) -> str:
     """
     if not families:
         return "TRUE"
-    literals = ", ".join("'" + name.replace("'", "''") + "'" for name in families)
+    literals = ", ".join(_sql_literal(name) for name in families)
     return f"({column} IS NULL OR lower(trim({column})) NOT IN ({literals}))"
+
+
+def family_current_sql(column: str, synonyms: dict[str, str]) -> str:
+    """`column` with each obsolete family name replaced by its current family.
+
+    `synonyms` keys are already lowercased and trimmed (ColConfig does it).
+    Inlined for the same reason as `family_kept_sql`.
+    """
+    if not synonyms:
+        return column
+
+    branches = " ".join(
+        f"WHEN {_sql_literal(old)} THEN {_sql_literal(new)}"
+        for old, new in sorted(synonyms.items())
+    )
+
+    return f"(CASE lower(trim({column})) {branches} ELSE {column} END)"
+
+
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
 
 
 class DuckDBClient:

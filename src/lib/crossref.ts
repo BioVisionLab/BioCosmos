@@ -6,6 +6,7 @@ queries CrossRef under the accepted name and every Catalogue of Life synonym,
 and adds papers on the genus when the species has too few of its own. This
 module only fetches that result and prepares it for display.
 */
+import { ORDER_NAME } from "./taxonSlug";
 import {
   decodeHtmlEntities,
   toAuthorNameCase,
@@ -14,6 +15,8 @@ import {
 
 export interface CrossRefResult {
   title: string;
+  /** The CrossRef work type, e.g. "journal-article" or "dataset". */
+  publicationType?: string;
   authors: string[];
   published_year?: number;
   journal: string;
@@ -29,6 +32,14 @@ export interface CrossRefResult {
   mentions: string[];
 }
 
+/* The bracketed description a citation adds after the title, by CrossRef type. */
+const citationTypeTags: Record<string, string> = {
+  dataset: "Dataset",
+  "posted-content": "Preprint",
+  dissertation: "Dissertation",
+  report: "Report",
+};
+
 /**
  * A plain-text citation for the clipboard, in the order the page shows it:
  * authors, year, title, journal, volume (issue), pages, DOI. Publisher markup
@@ -36,10 +47,13 @@ export interface CrossRefResult {
  */
 export function formatCitation(pub: CrossRefResult): string {
   const title = pub.title.replace(/<[^>]+>/g, "").trim();
+  const tag = pub.publicationType
+    ? citationTypeTags[pub.publicationType]
+    : undefined;
   const parts = [
     pub.authors.length ? `${pub.authors.join(", ")}.` : "",
     pub.published_year ? `(${pub.published_year}).` : "",
-    title ? `${title.replace(/\.$/, "")}.` : "",
+    title ? `${title.replace(/\.$/, "")}${tag ? ` [${tag}]` : ""}.` : "",
   ];
   let source = pub.journal;
 
@@ -72,10 +86,13 @@ export interface LiteratureResult {
   minSpeciesResults: number;
   /** True when some CrossRef requests failed, so the lists may be incomplete. */
   partial: boolean;
+  /** The earliest publication year searched; null when every year is. */
+  fromYear: number | null;
 }
 
 interface ApiWork {
   title: string;
+  publicationType: string | null;
   authors: string[];
   publishedYear: number | null;
   journal: string | null;
@@ -96,6 +113,7 @@ interface ApiPayload {
   genusRelated: ApiWork[] | null;
   minSpeciesResults: number;
   partial: boolean;
+  fromYear: number | null;
 }
 
 function escapeRegExp(value: string): string {
@@ -132,6 +150,7 @@ function formatTitle(raw: string, genera: string[]): string {
 function toResult(work: ApiWork, genera: string[]): CrossRefResult {
   return {
     title: formatTitle(work.title, genera),
+    publicationType: work.publicationType ?? undefined,
     authors: work.authors.length
       ? work.authors.map((a) => toAuthorNameCase(a))
       : ["No authors available"],
@@ -203,7 +222,91 @@ async function fetchLiterature(speciesName: string): Promise<LiteratureResult> {
     genusRelatedCount: genusRelated?.length ?? 0,
     minSpeciesResults: data.minSpeciesResults,
     partial: data.partial,
+    fromYear: data.fromYear ?? null,
   };
 }
 
-export { fetchLiterature };
+export type HigherTaxonRank =
+  | "order"
+  | "suborder"
+  | "superfamily"
+  | "family"
+  | "subfamily"
+  | "tribe"
+  | "subtribe"
+  | "genus"
+  | "subgenus";
+
+export interface HigherTaxonLiteratureResult {
+  name: string;
+  rank: HigherTaxonRank;
+  works: PublicationsByYear;
+  count: number;
+  /** True when some CrossRef requests failed, so the list may be incomplete. */
+  partial: boolean;
+  /** The earliest publication year searched; null when every year is. */
+  fromYear: number | null;
+}
+
+interface HigherTaxonApiPayload {
+  name: string;
+  rank: HigherTaxonRank;
+  /**
+   * The family searched beside a genus, or the genus beside a subgenus;
+   * null for every rank above genus.
+   */
+  context: string | null;
+  works: ApiWork[];
+  partial: boolean;
+  fromYear: number | null;
+}
+
+/**
+ * Publications naming a taxon above species, from the backend's
+ * `/{rank}/{name}/literature`. One name, no synonyms: unlike a species, a
+ * higher taxon is rarely short of literature.
+ *
+ * A genus is searched beside its family, and a subgenus beside its genus,
+ * when the `context` is given, because many such names are words in other
+ * fields too. A subgenus has no route without its genus.
+ */
+async function fetchHigherTaxonLiterature(
+  rank: HigherTaxonRank,
+  name: string,
+  context?: string | null,
+): Promise<HigherTaxonLiteratureResult> {
+  const params = new URLSearchParams({ rank, name });
+
+  if ((rank === "genus" || rank === "subgenus") && context) {
+    params.set("context", context);
+  }
+
+  const response = await fetch(`/api/higher-taxon-literature?${params}`, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch literature for ${rank} ${name}: ${response.status}`,
+    );
+  }
+
+  const data: HigherTaxonApiPayload = await response.json();
+  // Sentence-casing a title would otherwise lower-case the taxon itself, and
+  // the "(Lepidoptera: Nymphalidae)" most titles carry.
+  const names = [data.name, data.context, ORDER_NAME].filter(
+    (n): n is string => !!n,
+  );
+  const works = data.works.map((w) => toResult(w, names));
+
+  return {
+    name: data.name,
+    rank: data.rank,
+    works: groupByYear(works),
+    count: works.length,
+    partial: data.partial,
+    fromYear: data.fromYear ?? null,
+  };
+}
+
+export { fetchHigherTaxonLiterature, fetchLiterature };

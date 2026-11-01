@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
+import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import TaxonBreadcrumb from "@/components/TaxonBreadcrumb";
 import TaxonImageStrip from "@/components/TaxonImageStrip";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
@@ -67,28 +68,27 @@ export default async function OrderPage() {
         />
       </section>
 
-      <section
-        aria-labelledby="order-tree"
-        className="bg-linear-to-r from-white/50 to-white/30 dark:from-pacific-blue-900/30 dark:to-deep-mocha-800/50 rounded-xl backdrop-blur-lg"
-      >
-        <div className="bg-linear-to-br from-pacific-blue-500/20 to-hunter-green-300/10 p-4 rounded-t-xl flex flex-wrap items-center justify-between gap-3">
-          <h2 id="order-tree" className="text-2xl font-semibold">
-            Classification
-          </h2>
+      <HigherTaxonTabs
+        rank="order"
+        name={taxon.name}
+        classificationCount={taxon.counts.familyCount}
+        memberLabel="families"
+        imageCount={taxon.counts.imageCount}
+        institutions={taxon.institutions}
+        controls={
           <TaxonomyTreeControls treeId={TREE_ID} label="Filter families" />
-        </div>
-        <div className="p-4">
-          <TaxonomyTree
-            id={TREE_ID}
-            nodes={taxon.tree}
-            bottomRank="family"
-            highlightRank="order"
-            nodeCount={taxon.nodeCount}
-          />
-          <UnrecordedTaxaNote taxa="families" />
-          <ColAttribution />
-        </div>
-      </section>
+        }
+      >
+        <TaxonomyTree
+          id={TREE_ID}
+          nodes={taxon.tree}
+          bottomRank="family"
+          highlightRank="order"
+          nodeCount={taxon.nodeCount}
+        />
+        <UnrecordedTaxaNote taxa="families" />
+        <ColAttribution />
+      </HigherTaxonTabs>
     </section>
   );
 }

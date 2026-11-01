@@ -77,3 +77,4 @@ results/
 .claude
 *.zip
 analyses/data/screenshots/
+*.tar.gz

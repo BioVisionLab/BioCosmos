@@ -244,15 +244,15 @@ def test_index_cache_and_structured_epithet(tmp_path):
     )
     assert connection.execute("SELECT accepted_id FROM taxonomy_matches").fetchone()[0] == "U"
     connection.close()
-    assert INDEX_SCHEMA_VERSION == 2
-    assert index.path.name == "reference-v2.duckdb"
+    assert INDEX_SCHEMA_VERSION == 3
+    assert index.path.name == "reference-v3.duckdb"
     manager = ReferenceIndex(tmp_path / "cache")
     source = ColSource(tmp_path / "reference.tsv")
     assert manager.ensure(source).reused
-    legacy = index.path.with_name("reference-v1.duckdb")
+    legacy = index.path.with_name("reference-v2.duckdb")
     index.path.rename(legacy)
     rebuilt = manager.ensure(source)
-    assert not rebuilt.reused and rebuilt.path.name == "reference-v2.duckdb"
+    assert not rebuilt.reused and rebuilt.path.name == "reference-v3.duckdb"
     assert legacy.is_file()
     with duckdb.connect(str(index.path), read_only=True) as connection:
         assert (

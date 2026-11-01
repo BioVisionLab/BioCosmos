@@ -2,18 +2,22 @@
 
 import { CrossRefAttribution, CrossRefLink } from "@/components/Attribution";
 import Info from "@/components/Info";
+import {
+  LiteratureSummary,
+  type YearBin,
+} from "@/components/literature/LiteratureSummary";
+import {
+  LITERATURE_PAGE_SIZE,
+  NameList,
+  PagedPublications,
+  PartialNotice,
+  scrollToHeading,
+  worksThrough,
+} from "@/components/literature/Publications";
 import { TextLoading } from "@/components/Loadings";
 import { NoData } from "@/components/NoData";
-import {
-  CrossRefResult,
-  LiteratureResult,
-  PublicationsByYear,
-  fetchLiterature,
-  formatCitation,
-} from "@/lib/crossref";
-import CopyButton from "@/components/CopyButton";
-import Link from "next/link";
-import { JSX, useEffect, useState } from "react";
+import { LiteratureResult, fetchLiterature } from "@/lib/crossref";
+import { useEffect, useRef, useState } from "react";
 
 interface LiteraturePageProps {
   speciesName: string;
@@ -47,6 +51,29 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
     };
   }, [speciesName]);
 
+  // How many works each list shows, keyed by the species like the result, so
+  // another species starts from the first page again.
+  const [shown, setShown] = useState<{
+    speciesName: string;
+    limits: Record<ListSection, number>;
+  } | null>(null);
+  const limits =
+    shown?.speciesName === speciesName ? shown.limits : INITIAL_LIMITS;
+  // The year heading to scroll to once the list has grown to include it.
+  // A ref, not state: it only tells the effect below what to do after the
+  // render that shows the year, and must not cause a render of its own.
+  const pendingJump = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingJump.current) return;
+
+    scrollToHeading(pendingJump.current);
+    pendingJump.current = null;
+  }, [limits]);
+
+  const setLimit = (section: ListSection, limit: number) =>
+    setShown({ speciesName, limits: { ...limits, [section]: limit } });
+
   const loading = result?.speciesName !== speciesName;
   const literature = loading ? null : result.literature;
   const failed = !loading && literature === null;
@@ -76,12 +103,14 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
     genusRelated,
     genusRelatedCount,
     partial,
+    fromYear,
   } = literature;
+  const since = fromYear ? ` since ${fromYear}` : "";
 
   if (speciesCount === 0 && genusRelatedCount === 0) {
     return (
       <div className="mx-auto items-center">
-        <NoData text="No relevant literature found since 1995." />
+        <NoData text={`No relevant literature found${since}.`} />
         {partial ? <PartialNotice /> : null}
       </div>
     );
@@ -92,13 +121,34 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
       <div className="mb-4">
         <Info>
           <p>
-            This literature list is automatically fetched from <CrossRefLink />{" "}
-            and kept only when the title or abstract matches the taxon name. It
-            may still contain irrelevant publications.
+            This list of journal articles, datasets, books, preprints,
+            proceedings, reports and dissertations is automatically fetched from{" "}
+            <CrossRefLink /> and kept only when the title or abstract matches
+            the taxon name. It may still contain irrelevant publications.
           </p>
         </Info>
         {partial ? <PartialNotice /> : null}
       </div>
+
+      <SpeciesLiteratureSummary
+        literature={literature}
+        onJump={(section, year) => {
+          const publications =
+            section === "species" ? species : (genusRelated ?? {});
+          const needed = worksThrough(publications, year);
+          const id = `literature-${section}-year-${year}`;
+
+          if (needed <= limits[section]) {
+            scrollToHeading(id);
+
+            return;
+          }
+
+          // Grow the list to hold the year, and scroll once it renders.
+          pendingJump.current = id;
+          setLimit(section, needed);
+        }}
+      />
 
       {speciesCount > 0 ? (
         <section aria-labelledby="literature-species" className="mb-8">
@@ -109,7 +159,7 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
             </span>
           </h2>
           <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400 mb-2">
-            Publications found for this species from about the past 30 years.
+            Publications found for this species{since}.
             {synonymsSearched.length > 0 ? (
               <>
                 {" "}
@@ -123,7 +173,12 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
               </>
             ) : null}
           </p>
-          <PublicationsList publications={species} />
+          <PagedPublications
+            publications={species}
+            section="species"
+            limit={limits.species}
+            onLimit={(limit) => setLimit("species", limit)}
+          />
         </section>
       ) : null}
 
@@ -135,7 +190,12 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
               ({genusRelatedCount})
             </span>
           </h2>
-          <PublicationsList publications={genusRelated} />
+          <PagedPublications
+            publications={genusRelated}
+            section="genus"
+            limit={limits.genus}
+            onLimit={(limit) => setLimit("genus", limit)}
+          />
         </section>
       ) : null}
 
@@ -144,168 +204,55 @@ export function LiteraturePage({ speciesName }: LiteraturePageProps) {
   );
 }
 
-function PartialNotice() {
-  return (
-    <p className="text-sm text-amber-700 dark:text-amber-400 mt-2">
-      CrossRef did not answer every search, so this list may be incomplete. Try
-      again in a few minutes.
-    </p>
-  );
-}
+type ListSection = "species" | "genus";
 
-/** Italic names joined by commas, e.g. "A, B and C". */
-function NameList({ names }: { names: string[] }) {
-  return (
-    <>
-      {names.map((name, i) => (
-        <span key={name}>
-          {i > 0 ? (i === names.length - 1 ? " and " : ", ") : ""}
-          <em>{name}</em>
-        </span>
-      ))}
-    </>
-  );
-}
-
-function sortYearsDescending(publications: PublicationsByYear) {
-  return Object.entries(publications).sort(([yearA], [yearB]) => {
-    const a = parseInt(yearA, 10);
-    const b = parseInt(yearB, 10);
-
-    if (isNaN(a) && isNaN(b)) return 0;
-
-    if (isNaN(a)) return 1;
-
-    if (isNaN(b)) return -1;
-
-    return b - a;
-  });
-}
-
-function PublicationsList({
-  publications,
-}: {
-  publications: PublicationsByYear;
-}) {
-  return (
-    <div>
-      {sortYearsDescending(publications).map(([year, items]) => (
-        <div key={year} className="m-2">
-          <h3 className="text-xl font-semibold text-pacific-blue-700 dark:text-pacific-blue-400">
-            {year}
-          </h3>
-          <div className="border-l-2 border-pacific-blue-500 mx-2 pl-4 pb-2">
-            {items.map((pub, index) => (
-              <Publication key={pub.doi ?? `${year}-${index}`} pub={pub} />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Publication({ pub }: { pub: CrossRefResult }) {
-  return (
-    <div>
-      <JournalTitle title={pub.title} />
-      {pub.matchedVia === "synonym" && pub.matchedName ? (
-        <p className="text-xs text-hunter-green-700 dark:text-hunter-green-400 mb-1">
-          Published as <em>{pub.matchedName}</em>
-        </p>
-      ) : null}
-      {pub.mentions.length > 0 ? (
-        <p className="text-xs text-hunter-green-700 dark:text-hunter-green-400 mb-1">
-          Mentions <NameList names={pub.mentions} />
-        </p>
-      ) : null}
-      <p className="text-sm text-deep-mocha-600 dark:text-deep-mocha-400 mb-1">
-        {pub.authors.join(", ")}.{" "}
-        {pub.published_year ? ` (${pub.published_year}). ` : ""}
-        <span className="italic">{pub.journal}</span>
-        {pub.volume ? `, ${pub.volume}` : ""}
-        {pub.issue ? ` (${pub.issue})` : ""}
-        {pub.pages ? `, pp. ${pub.pages}` : ""}.
-        {pub.doi ? (
-          <span>
-            {" "}
-            <Link
-              href={pub.doi}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-pacific-blue-700 dark:hover:text-pacific-blue-300"
-            >
-              {pub.doi}
-            </Link>
-          </span>
-        ) : (
-          ""
-        )}
-      </p>
-      <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
-        {pub.doi ? <JournalViewButton doi={pub.doi} /> : null}
-        <CopyButton
-          text={formatCitation(pub)}
-          label="Copy citation"
-          buttonText="Copy Citation"
-          className={secondaryButtonClass}
-        />
-      </div>
-    </div>
-  );
-}
+const INITIAL_LIMITS: Record<ListSection, number> = {
+  species: LITERATURE_PAGE_SIZE,
+  genus: LITERATURE_PAGE_SIZE,
+};
 
 /*
-Show title in standard format but detect italic tags for species names
+The summary over both lists. A column jumps to its newest year under the
+species when the species has papers in it, else under the genus.
 */
-function JournalTitle({ title }: { title: string }) {
+function SpeciesLiteratureSummary({
+  literature,
+  onJump,
+}: {
+  literature: LiteratureResult;
+  onJump: (section: ListSection, year: string) => void;
+}) {
+  const speciesYears = Object.keys(literature.species);
+  const synonymCount = Object.values(literature.species)
+    .flat()
+    .filter((pub) => pub.matchedVia === "synonym").length;
+
+  const jumpToBin = (bin: YearBin) => {
+    const speciesYear = bin.years.find((year) =>
+      speciesYears.includes(String(year)),
+    );
+
+    if (speciesYear) onJump("species", String(speciesYear));
+    else onJump("genus", String(bin.years[0]));
+  };
+
   return (
-    <p className="font-medium text-lg">
-      {(() => {
-        const parts: (string | JSX.Element)[] = [];
-        // Publishers mark italics with <i>, <em> or JATS <italic>.
-        const regex = /<(i|em|italic)>(.*?)<\/\1>/gi;
-        let lastIndex = 0;
-        let match: RegExpExecArray | null;
-        let k = 0;
-
-        while ((match = regex.exec(title)) !== null) {
-          if (match.index > lastIndex) {
-            parts.push(title.slice(lastIndex, match.index));
-          }
-
-          parts.push(<em key={`i-${k++}`}>{match[2]}</em>);
-          lastIndex = regex.lastIndex;
-        }
-
-        if (lastIndex < title.length) {
-          parts.push(title.slice(lastIndex));
-        }
-
-        return parts.length ? parts : title;
-      })()}
-    </p>
-  );
-}
-
-const publicationButtonBase =
-  "inline-flex items-center gap-1 border px-2 py-1 rounded-md text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pacific-blue-700 dark:focus-visible:outline-pacific-blue-300";
-
-/* Primary: white on pacific-blue-700 is 6.3:1, on 800 (hover) 10.5:1. */
-const primaryButtonClass = `${publicationButtonBase} border-pacific-blue-700 bg-pacific-blue-700 font-medium text-white hover:border-pacific-blue-800 hover:bg-pacific-blue-800`;
-
-const secondaryButtonClass = `${publicationButtonBase} border-pacific-blue-700 text-pacific-blue-700 hover:bg-pacific-blue-700/10 dark:border-pacific-blue-300 dark:text-pacific-blue-300 dark:hover:bg-pacific-blue-300/10`;
-
-/* `doi` is already a resolvable https://doi.org/... URL. */
-function JournalViewButton({ doi }: { doi: string }) {
-  return (
-    <Link
-      href={doi}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={primaryButtonClass}
-    >
-      View Publication
-    </Link>
+    <LiteratureSummary
+      lists={[literature.species, literature.genusRelated]}
+      onJumpToBin={jumpToBin}
+      footer={
+        <>
+          {literature.speciesCount} on the species
+          {synonymCount > 0 ? ` (${synonymCount} under earlier names)` : ""}
+          {literature.genus && literature.genusRelatedCount > 0 ? (
+            <>
+              {" "}
+              · {literature.genusRelatedCount} on the genus{" "}
+              <em>{literature.genus}</em>
+            </>
+          ) : null}
+        </>
+      }
+    />
   );
 }
