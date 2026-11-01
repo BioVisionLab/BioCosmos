@@ -59,6 +59,10 @@ REASON_CODE_DESCRIPTIONS: dict[str, str] = {
         "The recorded name could not be parsed as a usable binomial, "
         "so the name was not matched."
     ),
+    "ORDER_MISMATCH": (
+        "Every candidate was in a different order from the recorded one, "
+        "so the name was not matched."
+    ),
 }
 
 

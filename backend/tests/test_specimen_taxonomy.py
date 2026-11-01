@@ -211,9 +211,7 @@ class TestWithTaxonomy:
         assert len(specimens) == 3
 
     def test_coordinate_search_carries_the_update(self, with_taxonomy):
-        _, specimens, total = with_taxonomy.search_by_coordinate(
-            0.0, 2.0, 1.0, 3.0, 50, 0
-        )
+        _, specimens, total = with_taxonomy.search_by_coordinate(1.0, 2.0, 50.0, 50, 0)
         assert total == 3
         assert set(specimens["update_status"].to_list()) == {"MATCHED", "UNMATCHED"}
 
@@ -231,7 +229,7 @@ class TestWithoutTaxonomy:
             lambda s: s.search_all_fields(
                 ["family", "species"], "%nymphalidae%", 50, 0
             ),
-            lambda s: s.search_by_coordinate(0.0, 2.0, 1.0, 3.0, 50, 0),
+            lambda s: s.search_by_coordinate(1.0, 2.0, 50.0, 50, 0),
         ],
         ids=["by_field", "all_fields", "by_coordinate"],
     )

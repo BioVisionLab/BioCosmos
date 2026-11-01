@@ -195,7 +195,7 @@ def test_db_search_species_list_is_not_paged(mock_request):
 
 def test_db_search_coordinate(mock_request):
     # Search for Los Angeles coordinate (34.0522, -118.2437)
-    # This should match 'img1', 'img2', 'img3' (within ~100m bounding box)
+    # This should match 'img1', 'img2', 'img3' (all within 50 km)
     searcher = TextToDbSearch(request=mock_request, query="34.0522, -118.2437", field="coordinate")
     res = searcher.search()
     assert res is not None

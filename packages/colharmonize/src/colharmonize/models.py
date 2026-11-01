@@ -44,6 +44,9 @@ class MatchingConfig(FrozenModel):
     genus_distance: int = Field(default=2, ge=0, le=5)
     min_genus_similarity: float = Field(default=0.90, ge=0, le=1)
     min_score_margin: int = Field(default=25, ge=0, le=1000)
+    # Order assumed for inputs that record none, so the order guard still covers them.
+    # Set it when every input belongs to one order; leave it unset otherwise.
+    default_order: str | None = None
 
 
 class RunConfig(FrozenModel):
@@ -214,7 +217,7 @@ class RunManifest(FrozenModel):
     col_sha256: str
     reference_index: str
     detected_columns: dict[str, str]
-    matching: dict[str, int | float]
+    matching: dict[str, int | float | str | None]
     outputs: dict[str, str]
     artifacts: list[ArtifactDigest] = Field(default_factory=list)
     counts: dict[str, int]

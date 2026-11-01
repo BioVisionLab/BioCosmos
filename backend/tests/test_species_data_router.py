@@ -539,6 +539,57 @@ class TestHigherTaxonEndpoints:
         assert response.status_code == 500
         assert response.headers.get("cache-control") == "no-store"
 
+    @pytest.mark.parametrize(
+        ("path", "overview_class"),
+        [
+            ("/suborder/glossata", "SuborderOverview"),
+            ("/superfamily/papilionoidea", "SuperfamilyOverview"),
+            ("/subfamily/satyrinae", "SubfamilyOverview"),
+            ("/tribe/coenonymphini", "TribeOverview"),
+            ("/subtribe/coenonymphina", "SubtribeOverview"),
+            ("/genus/danaus/subgenus/anosia", "SubgenusOverview"),
+        ],
+    )
+    def test_intermediate_overviews_are_cached_like_a_family(
+        self, path, overview_class
+    ):
+        with patch(f"app.routers.species_data.{overview_class}") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "subfamily"
+            instance.key = "satyrinae"
+            instance.overview = AsyncMock(return_value=OVERVIEW)
+            response = client.get(path)
+        assert response.status_code == 200
+        assert "max-age=2592000" in response.headers["cache-control"]
+
+    @pytest.mark.parametrize("failure", [None, Exception("boom")])
+    def test_an_intermediate_overview_failure_is_not_cached(self, failure):
+        with patch("app.routers.species_data.SubfamilyOverview") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "subfamily"
+            instance.key = "nosuchinae"
+            instance.overview = (
+                AsyncMock(side_effect=failure)
+                if failure
+                else AsyncMock(return_value=None)
+            )
+            response = client.get("/subfamily/nosuchinae")
+        assert response.status_code == (500 if failure else 404)
+        assert response.headers.get("cache-control") == "no-store"
+
+    def test_the_subgenus_route_passes_genus_and_subgenus(self):
+        with patch("app.routers.species_data.SubgenusOverview") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "subgenus"
+            instance.key = "danaus/anosia"
+            instance.overview = AsyncMock(return_value=OVERVIEW)
+            client.get("/genus/danaus/subgenus/anosia")
+        assert MockOverview.call_args.kwargs == {
+            "request": MockOverview.call_args.kwargs["request"],
+            "genus": "danaus",
+            "subgenus": "anosia",
+        }
+
     @patch("app.routers.species_data.OrderOverview")
     def test_order_overview_success(self, MockOrder):
         instance = MockOrder.return_value

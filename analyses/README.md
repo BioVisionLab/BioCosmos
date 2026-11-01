@@ -54,13 +54,14 @@ sync.
 
 | Notebook                   | Figure                                                                                                                                                                                                                                |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data_summary.ipynb`       | `dataset_overview`: dorso-ventral (A), image providers (B), source aggregators (C), family (D), top ten accepted species (E), validated-coordinate grid (F), species richness by country (G), morphospace (H), rarefied disparity (I) |
+| `data_summary.ipynb`       | `dataset_overview`: dorso-ventral (a), image providers (b), source aggregators (c), validated-coordinate grid (d), family (e), species richness by country (f), top ten accepted species (g), morphospace (h), rarefied disparity (i) |
 | `harmonization.ipynb`      | `harmonization_metrics`: coordinate-validation outcomes and taxonomic match methods for images and unique input taxa                                                                                                                  |
 | `index_performance.ipynb`  | `indexing_benchmark`: latest completed index run, latency against recall@10                                                                                                                                                           |
 | `model_performance.ipynb`  | Planner accuracy against latency and tokens, and per-case accuracy                                                                                                                                                                    |
-| `morphospace.ipynb`        | `morphospace`: species centroids on shared PCs (A) and rarefied disparity (B); also `morphospace_pca` and `morphospace_disparity` alone                                                                                               |
-| `mimicry.ipynb`            | `mimicry_recovery`: partner ranks of the tested mimicry pairs with their matched images (A) and permutation tests (B)                                                                                                                 |
-| `search_performance.ipynb` | `search_performance`: planner (A–C), mimicry pairs (D), and index (E) panels, drawn by the same helpers as their own notebooks                                                                                                        |
+| `morphospace.ipynb`        | `morphospace`: species centroids on shared PCs (a) and rarefied disparity (b); also `morphospace_pca` and `morphospace_disparity` alone                                                                                               |
+| `mimicry.ipynb`            | `mimicry_recovery`: partner ranks of the tested mimicry pairs with their matched images (a) and permutation tests (b)                                                                                                                 |
+| `search_performance.ipynb` | `search_performance`: planner (a–c), mimicry pairs (d), and index (e) panels, drawn by the same helpers as their own notebooks                                                                                                        |
+| `occurrence_export.ipynb`  | Supplementary table `image_occurrences` (Parquet and `.csv.gz`), one row per image, with its column dictionary and a manifest of counts and SHA-256 checksums                                                                       |
 | `screenshot_bento.ipynb`   | A 2 × 2 composite of four app screenshots from `data/screenshots/`                                                                                                                                                                    |
 
 ## Methods and definitions
@@ -106,12 +107,12 @@ notebooks.
   requires a nonblank `locality` or `verbatim_locality`.
 - **Validation.** Categories come from the coordinate-validation table. Images
   without a matching validation row are "Not evaluated."
-- **Grid (panel F).** `VALID` coordinates fall into a 100 × 100 km EPSG:8857
+- **Grid (panel d).** `VALID` coordinates fall into a 100 × 100 km EPSG:8857
   equal-area grid anchored at (0, 0), with lower bounds included. Cells count
   images on a log scale with no correction for sampling effort; gray land has no
   validated images. `dataset_overview_cells.csv` adds distinct accepted species
   and cell bounds.
-- **Countries (panel G).** An image with an accepted species maps to a country
+- **Countries (panel f).** An image with an accepted species maps to a country
   when its coordinate falls in exactly one GADM region and nothing contradicts
   it: `COUNTRY_MATCH` (including `ADM1_MISMATCH`) or `COUNTRY_NOT_PROVIDED`,
   where the country is imputed from the coordinate. The `country_source` column
@@ -128,12 +129,12 @@ notebooks.
 
 ### Providers and aggregators
 
-- **Providers (panel B).** GBIF `institutionID` takes precedence over
+- **Providers (panel b).** GBIF `institutionID` takes precedence over
   `institutionCode`. A code-only record joins an ID only when the code maps to
   one ID; otherwise it is "Conflicting attribution." Duplicate GBIF rows do not
   multiply counts. Providers outside the top five are grouped as "Other
   providers." URLs and names are not used to infer attribution.
-- **Aggregators (panel C).** Counts recorded `source_db` keys using display
+- **Aggregators (panel c).** Counts recorded `source_db` keys using display
   names (`gbif` → GBIF, `scanbugs` → SCAN, `ecdysis` → Ecdysis). Combined keys
   such as `gbif/scanbugs` remain a single category; blank keys are "Unknown."
 
@@ -206,20 +207,38 @@ env -u VIRTUAL_ENV uv run --project analyses --extra indexing jupyter lab analys
 - **Dependencies.** The `indexing` extra pins LanceDB `0.39.0` to match the
   backend; keep it aligned.
 - **Parameters.** Configuration cells set sample size, repetitions, warmup,
-  partitions, and PQ subvectors. Subvectors must divide the embedding dimension;
-  training needs at least 256 rows and as many rows as partitions.
+  partitions, PQ subvectors, and the search grids. Partitions and subvectors
+  default to `"auto"`, the backend's rule (`min(4096, √rows)` partitions,
+  `dims / 8` subvectors), so the benchmark builds the index the site builds.
+  Subvectors must divide the embedding dimension; training needs at least 256
+  rows and as many rows as partitions.
+- **Search sweep.** Recall and latency depend on how an index is searched, not
+  only on the index. Each index is built once and searched with every
+  combination of `nprobes_grid`, `ef_grid` (HNSW indexes only), and
+  `refine_grid`. A full run takes one to two hours.
+- **Queries.** A seeded sample of `query_count` images (default 300) is held out
+  of the searched copy, so no query finds itself.
+- **Recall@k.** The share of the k returned images among the exact k nearest by
+  cosine distance, counting an image tied with the k-th nearest as a hit.
+  `recall_low` and `recall_high` are a 95% bootstrap interval over queries.
 - **Isolation.** Each run copies a fixed source version to
   `results/indexing/<timestamp_uuid>/scratch.lance` and indexes only that copy.
   Allow enough disk space for the copy and indexes. Runs are retained and
   gitignored.
-- **Outputs.** `indexing_benchmark.csv`, `query_timings.csv`,
-  `recommendations.csv`, and `run.json`. Recall@k is against exact top-k by
-  image ID. Queries per second (QPS) measure sequential search and exclude HTTP
-  overhead and model inference. Cold caches and training randomness are not
-  controlled. Recommendations are saved for review; they are not applied.
+- **Outputs.** `indexing_benchmark.csv` (one row per index and search setting),
+  `query_timings.csv`, `recommendations.csv`, and `run.json` (with the resolved
+  build parameters and the held-out query IDs). Searches return only `img_id`
+  and the distance, as the backend's do. Latency and queries per second (QPS)
+  measure sequential, unfiltered search and exclude HTTP overhead, filters, and
+  model inference, so they are lower than the site's response time. Cold caches
+  and training randomness are not controlled. Recommendations compare indexes
+  at matched recall: the fastest setting of each index reaching
+  `recall_threshold`. They are saved for review, not applied.
 
-`index_performance.ipynb` plots the newest completed run at top-k 10, excluding
-`Flat (brute-force)` and keeping `No Index (baseline)`.
+`index_performance.ipynb` plots the newest completed run at top-k 10: one curve
+per index and embedding through its Pareto-optimal settings, the site's setting
+ringed, and the recall threshold dotted. It excludes `Flat (brute-force)`, keeps
+`No Index (baseline)`, and draws runs from before the sweep as single points.
 
 ## Exports
 
@@ -237,4 +256,5 @@ unresolved categories.
 ```bash
 uv run --project analyses ruff check analyses
 uv run --project analyses ruff format --check analyses
+env -u VIRTUAL_ENV uv run --project analyses --extra indexing pytest -q analyses/tests
 ```

@@ -83,6 +83,8 @@ def load_settings(root: Path | None = None) -> Settings:
         "coordinates": config["locality"]["coordinates_table"],
         "taxonomy": config["col"]["occurrence_status_table"],
         "matches": config["col"]["matches_table"],
+        "provenance": (config.get("provenance") or {}).get("table", "image_meta_provenance"),
+        "institutions": (config.get("institutions") or {}).get("table", "institution_directory"),
         # Written by `morphospace integrate`; see packages/morphospace.
         **{
             f"morphospace_{name}": config.get("morphospace", {}).get(
@@ -223,8 +225,6 @@ def excluded_families(connection, settings: Settings, identifier: str) -> None:
         )
 
 
-# How the recorded aggregator keys print. A record carried by several aggregators
-# keeps its combined key rather than being counted under each one.
 SOURCE_LABELS = {
     "gbif": "GBIF",
     "scanbugs": "SCAN",
@@ -350,8 +350,7 @@ def institution_counts(connection, settings: Settings, images: str) -> pd.DataFr
         GROUP BY o.institution_key, l.code ORDER BY count DESC, category, institution_key
     """
     frame = connection.execute(query).df()
-    # Distinct institutions can share a code; keep them separate and make that
-    # distinction visible rather than plotting indistinguishable labels.
+
     duplicate_labels = frame["category"].duplicated(keep=False)
     frame.loc[duplicate_labels, "category"] = (
         frame.loc[duplicate_labels, "category"]
@@ -642,6 +641,12 @@ def bar_plot(
     return ax
 
 
+def share_label(percentage: float) -> str:
+    """A percentage to one decimal, with a nonzero share too small to round shown as such."""
+
+    return "<0.1%" if 0 < percentage < 0.05 else f"{percentage:.1f}%"
+
+
 def pie_plot(
     ax,
     frame: pd.DataFrame,
@@ -675,14 +680,11 @@ def pie_plot(
         counterclock=False,
         wedgeprops={"edgecolor": "white", "linewidth": 1.5},
     )
-    # A legend beside the pie, not labels around each wedge: small adjacent wedges
-    # (e.g. a 99% match status) otherwise stack their labels on top of each other.
-    # It sits to the right, where it fills the space an equal-aspect pie leaves in
-    # its grid cell instead of adding height below the panel.
+
     legend = ax.legend(
         wedges,
         [
-            f"{display_label(label, keep_case)}: {row.count:,} ({row.percentage:.1f}%)"
+            f"{display_label(label, keep_case)}: {row.count:,} ({share_label(row.percentage)})"
             for label, row in zip(labels, selected.itertuples(), strict=True)
         ],
         loc="center left",
@@ -823,6 +825,31 @@ def align_panel_titles(axes) -> None:
             )
 
 
+def spread_panels(axes, left: float, right: float) -> None:
+    """Move a row of panels so it spans `left` to `right` in display coordinates.
+
+    Each panel is measured from everything it draws (title, graphic, legend), so the
+    first starts at `left`, the last ends at `right`, and the gaps between neighbours
+    are equal. Call it after the layout is frozen and the titles are placed, because
+    the titles move with their axes.
+    """
+
+    renderer = axes[0].figure.canvas.get_renderer()
+    extents = [ax.get_tightbbox(renderer) for ax in axes]
+    gap = (right - left - sum(extent.width for extent in extents)) / max(len(axes) - 1, 1)
+
+    if gap < 0:
+        raise AnalysisError("The panels are wider than the span they must fill.")
+
+    x = left
+
+    for ax, extent in zip(axes, extents, strict=True):
+        box = ax.get_position()
+        shift = (x - extent.x0) / ax.figure.bbox.width
+        ax.set_position([box.x0 + shift, box.y0, box.width, box.height])
+        x += extent.width + gap
+
+
 def axis_label(frame: pd.DataFrame, proportion: bool) -> str:
     population = str(frame["population"].iloc[0])
 
@@ -901,6 +928,7 @@ def benchmark_data(root: Path | None = None) -> pd.DataFrame:
         # Preserve the figure's exclusion while retaining the unindexed baseline.
         frame = frame.loc[frame["index"] != "Flat (brute-force)"].copy()
         frame.attrs["source_run"] = str(manifest_path.parent)
+        frame.attrs["recall_threshold"] = manifest["config"].get("recall_threshold")
 
         return frame
 
