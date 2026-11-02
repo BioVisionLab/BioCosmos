@@ -62,17 +62,38 @@ jobs:
 
       - name: Build backend image
         run: |
-          podman build --ignorefile .containerignore \
+          podman build --pull=always --ignorefile .containerignore \
                        -t ${{ steps.img.outputs.backend }}:latest \
                        -t ${{ steps.img.outputs.backend }}:${{ github.sha }} \
                        -f backend/Dockerfile .
 
       - name: Build frontend image
         run: |
-          podman build --ignorefile .containerignore \
+          podman build --pull=always --ignorefile .containerignore \
                        -t ${{ steps.img.outputs.frontend }}:latest \
                        -t ${{ steps.img.outputs.frontend }}:${{ github.sha }} \
                        -f Dockerfile.frontend .
+
+      # Fail the deploy before anything is pushed or restarted if either image
+      # has a fixable critical or high vulnerability. Accepted exceptions go in
+      # .trivyignore with a reason and a review date.
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.3.1
+        with:
+          version: v0.76.1
+
+      - name: Scan images
+        run: |
+          # Scan both images before failing, so one run reports every finding.
+          status=0
+          for image in ${{ steps.img.outputs.backend }} ${{ steps.img.outputs.frontend }}; do
+            podman save -o "$RUNNER_TEMP/image.tar" "$image:${{ github.sha }}"
+            trivy image --input "$RUNNER_TEMP/image.tar" \
+                        --severity CRITICAL,HIGH --ignore-unfixed \
+                        --ignorefile .trivyignore --exit-code 1 || status=1
+            rm -f "$RUNNER_TEMP/image.tar"
+          done
+          exit $status
 
       - name: Push images
         run: |

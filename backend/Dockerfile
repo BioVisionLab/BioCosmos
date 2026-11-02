@@ -1,7 +1,10 @@
 FROM python:3.12-slim
 
+# Pull in Debian security fixes newer than the base image.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 # Install uv.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 
 # Set the working directory
 WORKDIR /app
