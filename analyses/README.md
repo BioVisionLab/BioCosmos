@@ -59,7 +59,7 @@ sync.
 | `index_performance.ipynb`  | `indexing_benchmark`: latest completed index run, latency against recall@10                                                                                                                                                           |
 | `model_performance.ipynb`  | Planner accuracy against latency and tokens, and per-case accuracy                                                                                                                                                                    |
 | `morphospace.ipynb`        | `morphospace`: species centroids on shared PCs (a) and rarefied disparity (b); also `morphospace_pca` and `morphospace_disparity` alone                                                                                               |
-| `mimicry.ipynb`            | `mimicry_recovery`: partner ranks of the tested mimicry pairs with their matched images (a) and permutation tests (b)                                                                                                                 |
+| `mimicry.ipynb`            | `mimicry_recovery`: partner ranks of the tested mimicry pairs with their matched images                                                                                                                                               |
 | `search_performance.ipynb` | `search_performance`: planner (a–c), mimicry pairs (d), and index (e) panels, drawn by the same helpers as their own notebooks                                                                                                        |
 | `occurrence_export.ipynb`  | Supplementary table `image_occurrences` (Parquet and `.csv.gz`), one row per image, with its column dictionary and a manifest of counts and SHA-256 checksums                                                                       |
 | `screenshot_bento.ipynb`   | A 2 × 2 composite of four app screenshots from `data/screenshots/`                                                                                                                                                                    |
@@ -163,11 +163,6 @@ backend stopped.
   agree on one species (_Adelpha bredowii_ → _Limenitis bredowii_). Only pairs
   with dorsal images of both species are tested; the notebook lists excluded
   pairs, which should agree with the CSV's `Availability` column.
-- **Statistic.** Mean partner percentile over both directions (1 = nearest, 0.5
-  = chance), against three nulls: **Random** partners, **Query congeners** for
-  congeneric pairs, and **Partner congeners**. With 10,000 permutations, the
-  minimum p-value is 1/10,001. `pair_tests` reports exact per-pair results;
-  `leave_one_out` drops pairs sharing a species.
 - **Mutual top 10.** Highlighted pairs where each species is in the other's top
   ten. Each pair shows the image used to score each species and its dorsal image
   count, N.

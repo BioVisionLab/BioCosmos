@@ -61,7 +61,6 @@ AVAILABILITY_COLUMN = "Availability"
 AVAILABILITY = ("Available", "Unavailable")
 # How a candidate species is scored against a query centroid.
 NEAREST = "Nearest dorsal image"
-NULLS = ("Random", "Query congeners", "Partner congeners")
 # The site lists a species' ten most similar species.
 SITE_TOP = 10
 HIGHLIGHT = "#fff1c2"
@@ -69,8 +68,6 @@ HIGHLIGHT = "#fff1c2"
 THUMBNAIL = 54
 THUMBNAIL_GAP = 6
 THUMBNAIL_PIXELS = 320
-# Exports the combined search figure carries; the tests stay with `mimicry_recovery`.
-PANEL_EXPORTS = ("counts", "coverage", "ranks", "recovery", "representatives")
 
 
 @dataclass(frozen=True)
@@ -511,10 +508,6 @@ def percentiles(ranks: np.ndarray, n_others: int) -> np.ndarray:
     return 1 - (ranks - 1) / (n_others - 1)
 
 
-def percentile_matrix(retrieval: Retrieval) -> np.ndarray:
-    return percentiles(rank_matrix(retrieval), len(retrieval.species) - 1)
-
-
 def directions(pairs: pd.DataFrame) -> pd.DataFrame:
     """Both query directions of every pair, as accepted species."""
 
@@ -551,197 +544,6 @@ def partner_ranks(retrieval: Retrieval, pairs: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([rows, pd.DataFrame(records)], axis=1)
 
 
-def null_pools(retrieval: Retrieval, rows: pd.DataFrame, null: str) -> list[np.ndarray]:
-    """Candidate partners each row's null draws from; the query is never a candidate.
-
-    "Random": any other collection species. "Query congeners": for a pair within one
-    genus, the query's other congeners, since related species look alike regardless
-    of mimicry; a pair across genera keeps the random pool. "Partner congeners": the
-    partner's other congeners, asking whether the query resembles its partner more
-    than the partner's relatives; empty when the partner's genus has no other species.
-    """
-
-    genus = np.array([name.split(" ")[0] for name in retrieval.species])
-    lookup = {name: index for index, name in enumerate(retrieval.species)}
-    everyone = np.arange(len(retrieval.species))
-    pools = []
-
-    for row in rows.itertuples():
-        query, partner = lookup[row.query], lookup[row.partner]
-
-        if null == "Random":
-            pool = everyone
-        elif null == "Query congeners":
-            same_genus = genus[query] == genus[partner]
-            pool = np.flatnonzero(genus == genus[query]) if same_genus else everyone
-        elif null == "Partner congeners":
-            pool = np.flatnonzero(genus == genus[partner])
-            pool = pool[pool != partner]
-        else:
-            raise AnalysisError(f"Unknown null: {null}")
-
-        pools.append(pool[pool != query])
-
-    return pools
-
-
-def permutation_test(
-    retrieval: Retrieval,
-    ranks: pd.DataFrame,
-    n_permutations: int = 10_000,
-    seed: int = 0,
-    nulls: tuple[str, ...] = NULLS,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Mean partner percentile against partners drawn from each null pool.
-
-    Each permutation keeps every query and replaces its partner with a species drawn
-    from that row's pool. Rows with an empty pool are left out of that null, and the
-    observed mean is taken over the same rows. The one-sided p-value counts null means
-    at least as high as the observed mean, with the observed arrangement counted once.
-    """
-
-    rows = ranks.loc[ranks["mode"] == retrieval.mode].reset_index(drop=True)
-    matrix = percentile_matrix(retrieval)
-    rng = np.random.default_rng(seed)
-    summaries, distributions = [], []
-
-    for null in nulls:
-        pools = null_pools(retrieval, rows, null)
-        used = np.array([len(pool) > 0 for pool in pools])
-
-        if not used.any():
-            raise AnalysisError(f"No row has a candidate under the {null} null.")
-
-        observed = float(rows.loc[used, "partner_percentile"].mean())
-        draws = np.empty((int(used.sum()), n_permutations))
-        kept = [(row, pool) for row, pool, use in zip(rows.itertuples(), pools, used) if use]
-
-        for index, (row, pool) in enumerate(kept):
-            row_percentiles = matrix[retrieval.queries.index(row.query)]
-            draws[index] = row_percentiles[rng.choice(pool, size=n_permutations)]
-
-        means = draws.mean(axis=0)
-        summaries.append(
-            {
-                "mode": retrieval.mode,
-                "null": null,
-                "query_rows": len(rows),
-                "rows_used": int(used.sum()),
-                "congeneric_rows": int(
-                    sum(r.query.split(" ")[0] == r.partner.split(" ")[0] for r in rows.itertuples())
-                ),
-                "observed_mean_percentile": observed,
-                "null_mean": float(means.mean()),
-                "null_low_2_5": float(np.quantile(means, 0.025)),
-                "null_high_97_5": float(np.quantile(means, 0.975)),
-                "p_value": (1 + int((means >= observed).sum())) / (n_permutations + 1),
-                "permutations": n_permutations,
-                "seed": seed,
-            }
-        )
-        distributions.append(pd.DataFrame({"mode": retrieval.mode, "null": null, "mean": means}))
-
-    return pd.DataFrame(summaries), pd.concat(distributions, ignore_index=True)
-
-
-def pair_tests(
-    retrieval: Retrieval, ranks: pd.DataFrame, nulls: tuple[str, ...] = NULLS
-) -> pd.DataFrame:
-    """One row per pair and null: both directions' percentiles and exact p-values.
-
-    A direction's p-value is the share of its null candidates, plus the partner
-    itself, whose percentile is at least the partner's: the chance that a partner
-    drawn from that pool sits as near the query. Pairs are the unit of inference;
-    the pooled permutation statistic equals the mean of `mean_percentile`.
-    """
-
-    rows = ranks.loc[ranks["mode"] == retrieval.mode].reset_index(drop=True)
-    matrix = percentile_matrix(retrieval)
-    lookup = {name: index for index, name in enumerate(retrieval.species)}
-    records = []
-
-    for null in nulls:
-        for row, pool in zip(rows.itertuples(), null_pools(retrieval, rows, null), strict=True):
-            row_percentiles = matrix[retrieval.queries.index(row.query)]
-            p_value = np.nan
-
-            if len(pool):
-                candidates = np.union1d(pool, [lookup[row.partner]])
-                observed = row_percentiles[lookup[row.partner]]
-                p_value = float((row_percentiles[candidates] >= observed).mean())
-
-            records.append(
-                {
-                    "pair": row.pair,
-                    "mode": retrieval.mode,
-                    "null": null,
-                    "direction": row.direction,
-                    "percentile": row.partner_percentile,
-                    "p": p_value,
-                }
-            )
-
-    frame = pd.DataFrame(records).pivot_table(
-        index=["pair", "mode", "null"],
-        columns="direction",
-        values=["percentile", "p"],
-        dropna=False,
-    )
-    frame.columns = [
-        f"{value}_{direction.replace('→', '_to_')}" for value, direction in frame.columns
-    ]
-    frame["mean_percentile"] = frame[["percentile_A_to_B", "percentile_B_to_A"]].mean(axis=1)
-    frame = frame.reset_index()
-    # Keep the pairs table's pair order and the declared null order.
-    frame["pair"] = pd.Categorical(frame["pair"], pd.unique(rows["pair"]), ordered=True)
-    frame["null"] = pd.Categorical(frame["null"], nulls, ordered=True)
-    frame = frame.sort_values(["null", "pair"]).astype({"pair": str, "null": str})
-
-    return frame[
-        [
-            "pair",
-            "mode",
-            "null",
-            "percentile_A_to_B",
-            "percentile_B_to_A",
-            "mean_percentile",
-            "p_A_to_B",
-            "p_B_to_A",
-        ]
-    ].reset_index(drop=True)
-
-
-def shared_species(tested: pd.DataFrame) -> list[str]:
-    """Species in more than one tested pair, whose pairs are not independent."""
-
-    members = pd.concat([tested["accepted_a"], tested["accepted_b"]])
-    counts = members.value_counts()
-
-    return sorted(counts.index[counts > 1])
-
-
-def leave_one_out(
-    retrieval: Retrieval,
-    ranks: pd.DataFrame,
-    tested: pd.DataFrame,
-    n_permutations: int = 10_000,
-    seed: int = 0,
-) -> pd.DataFrame:
-    """Permutation tests without every pair holding each species shared by pairs."""
-
-    frames = []
-
-    for name in shared_species(tested):
-        kept = tested.loc[(tested["accepted_a"] != name) & (tested["accepted_b"] != name), "pair"]
-        subset = ranks.loc[ranks["pair"].isin(kept)]
-        summary = permutation_test(retrieval, subset, n_permutations, seed)[0]
-        summary.insert(0, "dropped_species", name)
-        summary.insert(1, "pairs_left", len(kept))
-        frames.append(summary)
-
-    return pd.concat(frames, ignore_index=True)
-
-
 @dataclass(frozen=True)
 class MimicryResults:
     """Everything the mimicry figures draw and export."""
@@ -753,9 +555,6 @@ class MimicryResults:
     tested: pd.DataFrame
     ranks: pd.DataFrame
     recovery: pd.DataFrame
-    permutations: pd.DataFrame
-    pair_tests: pd.DataFrame
-    leave_one_out: pd.DataFrame
     # The images drawn beside each pair: each partner's image nearest the query.
     representatives: pd.DataFrame
     n_species: int
@@ -783,9 +582,6 @@ class MimicryResults:
             "coverage": self.coverage,
             "ranks": self.ranks,
             "recovery": self.recovery,
-            "permutations": self.permutations,
-            "pair_tests": self.pair_tests,
-            "leave_one_out": self.leave_one_out,
             "representatives": self.representatives,
         }
 
@@ -811,10 +607,8 @@ class MimicryResults:
 def mimicry_results(
     settings: Settings,
     root: Path | None = None,
-    n_permutations: int = 10_000,
-    seed: int = 0,
 ) -> MimicryResults:
-    """Rank, test, and pick representative images for every testable published pair."""
+    """Rank and pick representative images for every testable published pair."""
 
     pairs = load_pairs(project_root(root) / "analyses/data/mimicry_pairs.csv")
     images = species_images(settings)
@@ -841,9 +635,6 @@ def mimicry_results(
         tested,
         ranks,
         recovered_pairs(ranks),
-        permutation_test(retrieval, ranks, n_permutations, seed)[0],
-        pair_tests(retrieval, ranks),
-        leave_one_out(retrieval, ranks, tested, n_permutations, seed),
         examples,
         n_species,
         len(images),
@@ -1021,50 +812,6 @@ def rank_legend(series) -> list:
     return handles
 
 
-def p_label(p_value: float, permutations: int) -> str:
-    """A p-value at the permutation floor, 1 / (n + 1), reads as a bound."""
-
-    floor = 1 / (permutations + 1)
-
-    return f"p ≤ {floor:.1g}" if p_value <= floor else f"p = {p_value:.2g}"
-
-
-def permutation_panel(ax, summary: pd.DataFrame) -> None:
-    """Observed mean partner percentile against each null's 95% interval."""
-
-    labels = list(summary["null"])
-    y = np.arange(len(summary))
-    ax.hlines(y, summary["null_low_2_5"], summary["null_high_97_5"], color="0.55", linewidth=4)
-    ax.scatter(summary["null_mean"], y, color="0.55", s=60, zorder=3, label="Null mean, 95%")
-    ax.scatter(
-        summary["observed_mean_percentile"],
-        y,
-        marker="D",
-        s=110,
-        color="black",
-        zorder=4,
-        label="Observed mean",
-    )
-
-    for row, position in zip(summary.itertuples(), y, strict=True):
-        ax.annotate(
-            p_label(row.p_value, row.permutations),
-            (1.02, position),
-            xytext=(8, 0),
-            textcoords="offset points",
-            va="center",
-            fontsize=15,
-            annotation_clip=False,
-        )
-
-    ax.set_yticks(y, labels)
-    ax.set_ylim(len(summary) - 0.5, -0.5)
-    ax.set_xlim(min(0.3, float(summary["null_low_2_5"].min()) - 0.05), 1.02)
-    ax.set_xlabel("Mean partner percentile (1 = nearest)")
-    ax.grid(axis="y", color="0.92", linewidth=1)
-    sns.despine(ax=ax)
-
-
 # (mode, vertical offset, color, legend label): ColorBrewer Dark2.
 VISUAL_SERIES = ((NEAREST, 0.0, "#1b9e77", "Scored by nearest dorsal image"),)
 # Legends below a panel clear its tick labels and axis title whatever its height.
@@ -1081,7 +828,7 @@ def pairs_panel(
     ax,
     results: MimicryResults,
     pictures: dict[tuple[str, str], np.ndarray],
-    title: str = "a) Mimicry pairs",
+    title: str = "",
     legend: bool = True,
     count_fontsize: float = 10,
     thumbnail: float = THUMBNAIL,
@@ -1107,20 +854,10 @@ def pairs_panel(
     return handles
 
 
-def tests_panel(ax, results: MimicryResults, title: str = "b) Permutation tests") -> None:
-    """Observed mean partner percentile against each null's 95% interval."""
-
-    permutation_panel(ax, results.permutations)
-    ax.set_title(title, loc="left")
-    ax.legend(**LEGEND_BELOW)
-
-
 def recovery_figure(results: MimicryResults, pictures: dict[tuple[str, str], np.ndarray]):
-    """a) partner ranks by nearest dorsal image, b) permutation tests."""
+    """Partner ranks by nearest dorsal image, untitled."""
 
-    fig = plt.figure(figsize=(21, 15), layout="constrained")
-    grid = fig.add_gridspec(1, 2, width_ratios=(1, 0.75))
-    pairs_panel(fig.add_subplot(grid[0]), results, pictures)
-    tests_panel(fig.add_subplot(grid[1]), results)
+    fig, ax = plt.subplots(figsize=(12, 15), layout="constrained")
+    pairs_panel(ax, results, pictures)
 
     return fig
