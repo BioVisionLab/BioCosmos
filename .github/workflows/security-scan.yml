@@ -1,0 +1,38 @@
+name: Security-Scan
+
+# New vulnerabilities are published against images that have not changed, and
+# deploys only run on pushes to release, so scan the published images weekly to
+# catch them before the UFIT scanner does.
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [biocosmos-backend, biocosmos-frontend]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.3.1
+        with:
+          version: v0.76.1
+
+      - name: Scan published image
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          trivy image --severity CRITICAL,HIGH --ignore-unfixed \
+                      --ignorefile .trivyignore --exit-code 1 \
+                      "ghcr.io/${OWNER}/${{ matrix.image }}:latest"

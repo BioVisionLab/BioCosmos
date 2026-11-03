@@ -1,0 +1,6 @@
+# Vulnerabilities accepted in the Trivy scans of the deploy and security-scan
+# workflows. List one ID per line, each with a comment giving the reason and a
+# date to review it by, for example:
+#
+# # No fix reachable: the vulnerable code path is not used. Review by 2027-01-15.
+# CVE-2026-00000
