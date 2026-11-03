@@ -1,65 +1,54 @@
 # morphospace
 
-Compute dorso-ventral morphospaces, disparity, and correlation from UNICOM image
-embeddings. The resulting tables supply the species, genus, and family pages and
-the publication notebooks.
+Precompute dorso-ventral PCA morphospaces, morphological disparity, and dorsal–ventral Mantel correlations from 768-D UNICOM image embeddings. The resulting DuckDB tables power the morphospace views on species, genus, and family pages as well as the publication figures in [`analyses/`](../../analyses/README.md).
 
-## Computed quantities
+## Computed Quantities
 
-| Quantity                  | Definition                                                                                                                                                                                                                                               |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Centroid                  | Mean of a species' L2-normalized UNICOM vectors for one side, normalized again. Retained when that side has at least `--min-images` images.                                                                                                              |
-| Dispersion                | Mean cosine distance from a species' images to its centroid, measuring intraspecific variation.                                                                                                                                                          |
-| Representative image      | The medoid: the image closest to the centroid.                                                                                                                                                                                                           |
-| Scope                     | `all`; every family; every genus with at least `--min-scope-species` species.                                                                                                                                                                            |
-| Shared PCA                | One PCA per scope, fitted on stacked dorsal and ventral centroids so both sides share axes. Uses species with both sides when at least three are available. The largest loading on each PC is set positive to keep axis directions stable across runs.   |
-| Ellipse                   | Mean, standard deviations, and correlation of a species' images projected onto PC1 × PC2.                                                                                                                                                                |
-| Axis extremes             | The species at each end of each axis, which show what the axis captures.                                                                                                                                                                                 |
-| Disparity                 | Sum of variances of the species centroids in the full 768-dimensional embedding, per scope and side. It is also rarefied to `--rarefy-k` species (`--bootstrap` resamples, 95% interval). For unit vectors, it equals the mean pairwise cosine distance. |
-| Dorso-ventral divergence  | Cosine distance between a species' dorsal and ventral centroids.                                                                                                                                                                                         |
-| Dorso-ventral correlation | Mantel correlation (r) between the dorsal and ventral species distance matrices, for scopes with at least five species with both sides. There is a permutation p-value up to `--permutation-max-species`.                                                |
+| Quantity | Definition |
+| :--- | :--- |
+| **Centroid** | Mean of a species' L2-normalized UNICOM vectors for one wing side (`dorsal` or `ventral`), re-normalized to unit length. Computed when that side has at least `--min-images` images (default `3`). |
+| **Dispersion** | Mean cosine distance from a species' images to its side centroid (intraspecific variation). |
+| **Representative image** | The medoid specimen image (the image closest to the species' side centroid). |
+| **Scope** | `all` (the entire butterfly collection), each family, and each genus with at least `--min-scope-species` species (default `3`). |
+| **Shared PCA** | One PCA per scope fitted on stacked dorsal and ventral species centroids so both wing sides share the same PC1–PC3 axes. Signs are stabilized by setting each component's largest loading positive. |
+| **Species ellipse** | Mean, standard deviations, and PC1 × PC2 correlation of a species' individual images projected onto the scope's PCA axes. |
+| **Axis extremes** | The species at the minimum and maximum ends of each PCA axis, alongside their medoid images. |
+| **Disparity** | Sum of variances of species centroids across all 768 embedding dimensions per scope and side (equal to half the mean squared Euclidean distance, or mean pairwise cosine distance for unit vectors). Also rarefied to `--rarefy-k` species (`5` by default) over `--bootstrap` resamples (`200` by default, reporting mean and 95% interval). |
+| **Dorso-ventral divergence** | Cosine distance between a species' dorsal and ventral centroids. |
+| **Dorso-ventral correlation** | Mantel correlation (`r`) between dorsal and ventral pairwise species distance matrices for scopes with at least 5 species represented on both sides (with a permutation p-value up to `--permutation-max-species`). |
 
-The computation streams the embeddings from LanceDB in two passes to limit
-memory use. The collection has roughly 600,000 vectors of 768 dimensions.
+Embeddings are streamed from LanceDB in two passes so the full ~600,000 × 768 collection fits comfortably in memory.
 
 ## Usage
 
-Run from the repository root with `$DUCK_DIR` and `$LANCE_DIR` exported in your
-shell. Stop the backend before opening its live DuckDB file, including for
-`inspect` and `run`: the API holds it open read-write. `inspect` and `run` open
-the source stores read-only; `integrate` writes the results into DuckDB.
+Run from the repository root with `$DUCK_DIR` and `$LANCE_DIR` exported in your shell. **Stop the backend first** (`inspect` and `run` open the databases read-only, and `integrate` writes to `biocosmos.duckdb`, which cannot be attached while FastAPI holds it open):
 
 ```bash
+# Check eligible scopes and species counts
 uv run morphospace inspect --db "$DUCK_DIR/biocosmos.duckdb"
+
+# Compute morphospaces and save artifacts under reports/morphospace/<run_id>/
 uv run morphospace run --db "$DUCK_DIR/biocosmos.duckdb" --lance-dir "$LANCE_DIR/biocosmos.lance"
+
+# Copy the latest run's tables into biocosmos.duckdb
 uv run morphospace integrate --db "$DUCK_DIR/biocosmos.duckdb" --replace
 ```
 
-## Output and integration
+## Output and Database Tables
 
-`run` writes `reports/morphospace/<run_id>/morphospace.duckdb` and
-`morphospace_run.json`, then points `reports/latest.json` at the run. Use
-`integrate` to copy the latest run into five tables in one transaction, or pass
-`--run <dir>` to select a run explicitly:
+`morphospace run` writes `morphospace.duckdb` and `morphospace_run.json` under `reports/morphospace/<run_id>/` and updates `reports/latest.json` (see [`reports/README.md`](../../reports/README.md)).
 
-| Table                   | One row per                                             |
-| ----------------------- | ------------------------------------------------------- |
-| `morphospace_scope`     | scope: explained variance, correlation, run ID          |
-| `morphospace_points`    | scope × species × side: PC1–PC3, ellipse, medoid        |
-| `morphospace_species`   | species: per-side count, dispersion, medoid; divergence |
-| `morphospace_disparity` | scope × side                                            |
-| `morphospace_extremes`  | scope × axis × end                                      |
+`morphospace integrate` copies the run into five tables in `biocosmos.duckdb` inside a single transaction (configured under `morphospace:` in `backend/app/configs/config.yaml`):
 
-The names are listed under `morphospace:` in `backend/app/configs/config.yaml`,
-which the backend and `analyses/` both read. Until the tables are integrated,
-the `/morphospace` endpoints return 404 and the pages omit the morphospace
-section.
+| Table | Contents (one row per ...) |
+| :--- | :--- |
+| `morphospace_scope` | Scope (`all`, family, or genus): species counts, explained variance, Mantel correlation, and `run_id` |
+| `morphospace_points` | Scope × species × wing side: PC1–PC3 coordinates, image ellipse parameters, and medoid `img_id` |
+| `morphospace_species` | Species: per-side image counts, dispersion, medoid `img_id`, and dorso-ventral divergence |
+| `morphospace_disparity` | Scope × wing side: full `sum_var` and rarefied disparity (`rarefied_mean`, 95% CI) |
+| `morphospace_extremes` | Scope × PC axis × end (`low` / `high`): extreme species and medoid `img_id` |
 
-Rebuild and integrate after changing the embeddings, taxonomy, or excluded
-families. Restart the backend first when changing
-`image_metadata.exclude_families` so the filtered metadata view is current. The
-publication figure is generated by
-[`morphospace.ipynb`](../../analyses/notebooks/morphospace.ipynb).
+Re-run `morphospace run` and `morphospace integrate --replace` whenever embeddings, taxonomy, or `image_metadata.exclude_families` change.
 
 ## Development
 

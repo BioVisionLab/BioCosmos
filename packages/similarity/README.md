@@ -1,50 +1,44 @@
 # similarity
 
-Precompute the visually similar species shown on species pages. Results go into
-the backend's `species_similarity` table, read by
-`backend/app/query/precomputed_similarity.py`.
+Precompute the visually similar species displayed on BioCosmos species pages. Results are written to the `species_similarity` table in `biocosmos.duckdb` and read by `backend/app/query/precomputed_similarity.py`.
 
-## How similarity is computed
+## How Similarity Is Computed
 
-For each species and side (dorsal or ventral), the tool computes a centroid from
-L2-normalized UNICOM embeddings and compares it with every image by cosine
-distance, using a batched matrix multiplication. It takes the nearest `--top-k`
-images, keeps the nearest image of each other species, and saves the first
-`--limit` species with their ranks and distances.
+For every species and wing side (`dorsal` or `ventral`):
 
-Species and side labels come from `image_meta` (`species`, `class_dv`), the
-backend's filtered view. Families in `image_metadata.exclude_families`
-(currently Castniidae) are excluded from queries and matches even though their
-embeddings remain in LanceDB. The computation holds all embeddings in memory:
-about 600,000 × 768 float32 values, or roughly 2 GB.
+1. Computes the L2-normalized mean (centroid) of that species' UNICOM embeddings for that side.
+2. Compares each centroid against all images in LanceDB by cosine distance using batched matrix multiplication.
+3. Fetches the nearest `--top-k` images (default `800`), keeps the closest image of each distinct other species, and stores the top `--limit` species (default `10`) along with their rank and cosine distance.
+
+Species and wing-side labels are read from the backend's filtered `image_meta` view (`species`, `class_dv`). Families listed in `image_metadata.exclude_families` (such as Castniidae) are automatically excluded from both queries and candidate matches. All embeddings (~600,000 × 768 `float32` values, ~2 GB) are held in memory during the batch computation.
 
 ## Usage
 
-Run from the repository root with `$DUCK_DIR` and `$LANCE_DIR` exported in your
-shell. Stop the backend first: the command writes into its DuckDB file, and
-DuckDB allows a single writer.
+Run from the repository root with `$DUCK_DIR` and `$LANCE_DIR` exported in your shell. **Stop the backend first** so `similarity` can open `biocosmos.duckdb` for writing:
 
 ```bash
 uv run similarity run --db "$DUCK_DIR/biocosmos.duckdb" --lance-dir "$LANCE_DIR/biocosmos.lance"
 ```
 
-A full run replaces all rows in one transaction. Use
-`--species "vanessa cardui"` to recompute only that species, or `--force` to
-drop and recreate the table first.
+- A full run replaces all rows in a single transaction.
+- Pass `--species "vanessa cardui"` to recompute a single species.
+- Pass `--force` to drop and recreate `species_similarity` before inserting.
 
-Rerun after changing the embeddings, image metadata, or excluded families. After
-changing `image_metadata.exclude_families`, restart the backend to refresh
-`image_meta`, then stop it before running similarity.
+Re-run `similarity run` whenever embeddings, image metadata, taxonomy overrides, or `image_metadata.exclude_families` change (restart the backend first if `exclude_families` changed so the `image_meta` view is updated, then stop it).
 
-## Options
+## CLI Options
 
-| Option               | Default              | Meaning                                                  |
-| -------------------- | -------------------- | -------------------------------------------------------- |
-| `--lance-table`      | `nymphalidae`        | LanceDB embedding table                                  |
-| `--meta-table`       | `image_meta`         | Filtered metadata view supplying image labels            |
-| `--similarity-table` | `species_similarity` | Output table                                             |
-| `--top-k`            | 800                  | Nearest images fetched per centroid before deduplication |
-| `--limit`            | 10                   | Similar species kept per species × side                  |
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `--db` | required | Path to the backend DuckDB database (`biocosmos.duckdb`) |
+| `--lance-dir` | required | Path to the LanceDB directory (`biocosmos.lance`) |
+| `--lance-table` | `nymphalidae` | LanceDB table containing image embeddings |
+| `--meta-table` | `image_meta` | DuckDB view/table supplying species and `class_dv` labels |
+| `--similarity-table` | `species_similarity` | Destination DuckDB table |
+| `--top-k` | `800` | Nearest images fetched per centroid before species deduplication |
+| `--limit` | `10` | Visually similar species retained per species and wing side |
+| `--species` | all | Recompute only the specified species |
+| `--force` | `False` | Drop and recreate `--similarity-table` |
 
 ## Development
 
