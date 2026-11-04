@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import { ITALIC_COL_RANKS } from "@/lib/colTaxonomy";
 import type { TaxonNode } from "@/lib/higherTaxa";
@@ -89,11 +89,12 @@ export interface TaxonomyTreeProps {
  * React state that triggers a re-render, or every node would snap back to the
  * state the server chose. Nothing does today.
  *
- * Leaves link by their name. A grouping node with a page of its own (a
- * subfamily on a family page, say) links through a separate "page" link
- * floated onto its row, outside the `<summary>`: a link inside one would
- * nest one control in another, and clicking it could also toggle the
- * disclosure.
+ * Every node with a page links by its name, leaves and grouping nodes
+ * alike. A grouping node's name cannot sit inside its `<summary>`, which is
+ * a button, without nesting one control in another, so such a node's row is
+ * drawn outside the `<details>` and its `<summary>` shrinks to the chevron,
+ * laid over the row where the chevron always sits. A grouping node without
+ * a page keeps its whole row as the summary, so clicking the name toggles.
  */
 export default function TaxonomyTree({
   nodes,
@@ -145,10 +146,20 @@ function TreeNode({
     eager ||
     !childrenAreTerminal ||
     (bottomRank === "family" && node.imageCount > 0);
+  const linked = !!nodeHref(node, highlightRank);
+  const label = (
+    <NodeLabel
+      node={node}
+      bottomRank={bottomRank}
+      highlightRank={highlightRank}
+    />
+  );
 
   return (
     <li className={ITEM} data-taxon-name={node.name.toLowerCase()}>
-      {hasChildren && node.href ? <GroupPageLink node={node} /> : null}
+      {hasChildren && linked ? (
+        <span className={`${ROW} pl-5`}>{label}</span>
+      ) : null}
       {hasChildren ? (
         <details
           open={open}
@@ -157,17 +168,21 @@ function TreeNode({
           data-default-open={open ? "true" : "false"}
           className="group/node"
         >
-          <summary className={`${ROW} ${SUMMARY}`}>
-            <ChevronRight
-              aria-hidden="true"
-              className="h-3.5 w-3.5 shrink-0 self-center text-hunter-green-600 dark:text-hunter-green-400 transition-transform duration-150 group-open/node:rotate-90"
-            />
-            <NodeLabel
-              node={node}
-              bottomRank={bottomRank}
-              highlightRank={highlightRank}
-            />
-          </summary>
+          {linked ? (
+            // Over the row drawn above, in the chevron's usual place. Named,
+            // since the chevron is all it holds.
+            <summary
+              aria-label={`${node.rank} ${node.name}`}
+              className={`absolute left-3 top-px flex h-6 w-6 items-center justify-center rounded-md ${SUMMARY}`}
+            >
+              <Chevron />
+            </summary>
+          ) : (
+            <summary className={`${ROW} ${SUMMARY}`}>
+              <Chevron />
+              {label}
+            </summary>
+          )}
           <ul className={LIST}>
             {node.children.map((child) => (
               <TreeNode
@@ -181,39 +196,27 @@ function TreeNode({
           </ul>
         </details>
       ) : (
-        <span className={`${ROW} pl-5`}>
-          <NodeLabel
-            node={node}
-            bottomRank={bottomRank}
-            highlightRank={highlightRank}
-          />
-        </span>
+        <span className={`${ROW} pl-5`}>{label}</span>
       )}
     </li>
   );
 }
 
-/**
- * The page of a grouping node, set on its row beside the disclosure.
- *
- * Floated rather than placed after the `<details>`, which would put it under
- * the whole subtree, and outside the `<summary>` for the reason given on
- * TaxonomyTree.
- */
-function GroupPageLink({ node }: { node: TaxonNode }) {
-  if (!node.href) return null;
-
+function Chevron() {
   return (
-    <Link
-      href={node.href}
-      prefetch={false}
-      className="float-right ml-2 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-pacific-blue-700 hover:underline focus-visible:outline-2 focus-visible:outline-pacific-blue-700 dark:text-pacific-blue-300 dark:focus-visible:outline-pacific-blue-300"
-    >
-      {node.rank} page
-      <span className="sr-only">: {node.name}</span>
-      <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
-    </Link>
+    <ChevronRight
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0 self-center text-hunter-green-600 dark:text-hunter-green-400 transition-transform duration-150 group-open/node:rotate-90"
+    />
   );
+}
+
+/**
+ * Where a node's name links: its page, unless it is the taxon the page is
+ * already about, which is highlighted instead.
+ */
+function nodeHref(node: TaxonNode, highlightRank?: string): string | null {
+  return highlightRank && node.rank === highlightRank ? null : node.href;
 }
 
 function NodeLabel({
@@ -226,9 +229,7 @@ function NodeLabel({
   highlightRank?: string;
 }) {
   const italic = ITALIC_COL_RANKS.has(node.rank) ? "italic" : "";
-  // The name links only on a leaf. A grouping node's page link sits beside
-  // its disclosure instead; see GroupPageLink.
-  const href = node.rank === bottomRank ? node.href : null;
+  const href = nodeHref(node, highlightRank);
   // A terminal node without a page: a family, genus or species Catalogue of
   // Life lists but the collection holds nothing of. Shown, because it is part
   // of the classification, but set back so it does not read as a dead link.
