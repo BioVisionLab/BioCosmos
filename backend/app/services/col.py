@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 import duckdb
+import yaml
 
 from ..configs.config import ColConfig
 from ..database.duckdb import DuckDBClient
@@ -25,6 +26,7 @@ from ..database.model import (
     ColNameUsage,
     ColNomenclature,
     ColReference,
+    ColRelease,
     ColTaxonomy,
     ColTaxonomyDetail,
     ColTypeSpecimen,
@@ -155,6 +157,9 @@ COL_INDEXES = {
 
 BACKBONE_SOURCE_KEY = "col_taxonomy"
 
+# The ColDP `metadata.yaml` fields kept to name the release, in column order.
+RELEASE_FIELDS = tuple(ColRelease.model_fields)
+
 # Logged once per process, not once per lookup: a single page view makes three
 # lookups, and a whole search page many more.
 _BACKBONE_WARNING_EMITTED = False
@@ -192,6 +197,46 @@ def _read_csv_expr(placeholder: str = "?") -> str:
     )
 
 
+def read_release_metadata(path: str) -> ColRelease | None:
+    """Parse the release a ColDP `metadata.yaml` describes.
+
+    YAML reads `issued` as a date and `key` as an integer, so every field is
+    kept as text. None when the file is missing, unreadable, or names no
+    version.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            metadata = yaml.safe_load(handle)
+    except (OSError, yaml.YAMLError) as error:
+        logger.info(f"Cannot read the CoL release metadata at '{path}': {error}")
+        return None
+
+    if not isinstance(metadata, dict) or not metadata.get("version"):
+        logger.info(f"CoL release metadata at '{path}' names no version.")
+        return None
+
+    fields = {
+        name: str(metadata[name]).strip()
+        for name in RELEASE_FIELDS
+        if metadata.get(name) is not None
+    }
+
+    return ColRelease(**fields)
+
+
+def read_release(db_client: DuckDBClient, table: str) -> ColRelease | None:
+    """The release recorded at the last backbone ingest, or None."""
+    if not db_client.table_exists(table):
+        return None
+
+    rows = db_client.execute_to_pl(f"SELECT * FROM {table} LIMIT 1")
+
+    if rows.is_empty():
+        return None
+
+    return ColRelease(**rows.row(0, named=True))
+
+
 class ColBackboneService:
     """Ingest the CoL name usage table and its vernacular names."""
 
@@ -206,6 +251,8 @@ class ColBackboneService:
         self.type_material_table = config.type_material_table
         self.reference_path = config.reference_path
         self.reference_table = config.reference_table
+        self.metadata_path = config.metadata_path
+        self.release_table = config.release_table
         self.clade_rank = config.clade_rank
         self.clade_value = config.clade_value
         self.skip_ingestion = config.skip
@@ -229,6 +276,12 @@ class ColBackboneService:
             and self._schema_current()
         ):
             logger.info("CoL backbone is already current; skipping ingestion.")
+
+            # A database built before the release was recorded gains it
+            # without reloading the whole backbone.
+            if not self.db_client.table_exists(self.release_table):
+                self._ingest_release()
+
             return
 
         try:
@@ -237,6 +290,7 @@ class ColBackboneService:
             self._ingest_vernacular_names()
             self._ingest_type_material()
             self._ingest_references()
+            self._ingest_release()
             state.mark(BACKBONE_SOURCE_KEY, fingerprint)
             logger.info(
                 f"CoL backbone ingested: {self.count_entries()} usages "
@@ -478,6 +532,31 @@ class ColBackboneService:
             f"CREATE INDEX IF NOT EXISTS col_reference_id_idx "
             f"ON {self.reference_table} (reference_id)"
         )
+
+    def _ingest_release(self) -> None:
+        """Record which CoL release the backbone was built from.
+
+        Kept in the database rather than read from COL_DIR on request, so the
+        label names the data actually loaded even after the directory moves on
+        to a newer release. A missing or unreadable file leaves the table
+        empty: the release is a label, never a reason to fail the ingest.
+        """
+        definition = ", ".join(f"{_quoted(name)} VARCHAR" for name in RELEASE_FIELDS)
+        self.db_client.execute(
+            f"CREATE OR REPLACE TABLE {self.release_table} ({definition})"
+        )
+        release = read_release_metadata(self.metadata_path)
+
+        if release is None:
+            return
+
+        placeholders = ", ".join("?" for _ in RELEASE_FIELDS)
+        values = release.model_dump()
+        self.db_client.execute_prepared(
+            f"INSERT INTO {self.release_table} VALUES ({placeholders})",
+            [values[name] for name in RELEASE_FIELDS],
+        )
+        logger.info(f"CoL release recorded: {release.version}.")
 
     def count_entries(self) -> int | None:
         """Count the usages in the ingested backbone."""

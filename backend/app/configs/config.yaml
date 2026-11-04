@@ -142,6 +142,10 @@ col:
   reference_file: "Reference.tsv"
   type_material_table: "col_type_material"
   reference_table: "col_reference"
+  # The release's own metadata, recorded at ingest so the site can name the
+  # release the backbone was built from.
+  metadata_file: "metadata.yaml"
+  release_table: "col_release"
   # Restrict the ingested backbone to one clade. Leave clade_value empty for all of CoL.
   clade_rank: "order"
   clade_value: "Lepidoptera"

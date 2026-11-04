@@ -78,6 +78,9 @@ UNPLACED_LABEL = "Unplaced in this classification"
 
 DEFAULT_IMAGE_LIMIT = 20
 
+# The most species one page of a taxon's species list may ask for.
+MAX_SPECIES_PAGE_LIMIT = 100
+
 
 class TaxonNode(BaseModel):
     """One row of the expand/collapse tree."""
@@ -121,6 +124,18 @@ class TaxonImage(BaseModel):
     # The recorded species key, which is what /species/{name} resolves on.
     species: str
     display_name: str
+
+
+class HigherTaxonSpeciesPage(BaseModel):
+    """One page of every species a taxon holds, one image each."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    # Species with images in the taxon, across every page.
+    total: int = 0
+    page: int = 1
+    limit: int = DEFAULT_IMAGE_LIMIT
+    species: list[TaxonImage] = Field(default_factory=list)
 
 
 class InstitutionShare(BaseModel):
@@ -620,6 +635,44 @@ class HigherTaxonOverview:
         ).model_dump(by_alias=True)
         PAYLOAD_CACHE.put(duck_db, self.rank, self.key, limit, payload)
         return payload
+
+    def species_page(
+        self, page: int = 1, limit: int = DEFAULT_IMAGE_LIMIT
+    ) -> dict | None:
+        """One page of the taxon's species, or None when it holds none.
+
+        Ordered as the representative strip is, most images first, so the
+        first page is that strip. A page past the last is empty but still
+        reports the total, so the caller can send the reader to the last one.
+        """
+        if not self.key:
+            return None
+
+        repository = HigherTaxonRepository(self.request.app.state.duck_db)
+        rows = repository.representative_images(
+            self.rank, self.key, limit, (page - 1) * limit
+        )
+        # Past the end there are no rows to carry the total; ask for it.
+        total_rows = rows or (
+            repository.representative_images(self.rank, self.key, 1) if page > 1 else []
+        )
+
+        if not total_rows:
+            return None
+
+        return HigherTaxonSpeciesPage(
+            total=_int(total_rows[0].get("species_total")),
+            page=page,
+            limit=limit,
+            species=[
+                TaxonImage(
+                    img_id=_text(row.get("img_id")),
+                    species=_text(row.get("species")),
+                    display_name=_text(row.get("display_name")),
+                )
+                for row in rows
+            ],
+        ).model_dump(by_alias=True)
 
     def _counts(self, rows: list[dict]) -> HigherTaxonCounts:
         members = member_rank(self.rank)

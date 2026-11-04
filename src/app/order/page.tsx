@@ -5,14 +5,12 @@ import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import TaxonBreadcrumb from "@/components/TaxonBreadcrumb";
-import TaxonImageStrip from "@/components/TaxonImageStrip";
+import TaxonSpeciesList, {
+  parseSpeciesPage,
+} from "@/components/TaxonSpeciesList";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
-import {
-  REPRESENTATIVE_IMAGE_LIMIT,
-  fetchHigherTaxon,
-  pickRepresentatives,
-} from "@/lib/higherTaxa";
+import { fetchHigherTaxon } from "@/lib/higherTaxa";
 import { ORDER_NAME, ORDER_PATH } from "@/lib/taxonSlug";
 
 // Never pre-rendered at build time: API_HOST is unavailable during the Docker
@@ -45,7 +43,12 @@ export async function generateMetadata(): Promise<Metadata> {
  * the collection's: every family CoL places in the order is listed, and those
  * with nothing photographed here are shown without a link.
  */
-export default async function OrderPage() {
+export default async function OrderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string | string[] }>;
+}) {
+  const { page } = await searchParams;
   // No loading.tsx beside this file, for the reason given on the family page:
   // it would turn notFound() into a soft 404.
   const taxon = await fetchHigherTaxon("order", ORDER_NAME);
@@ -60,11 +63,13 @@ export default async function OrderPage() {
       <HigherTaxonHeader taxon={taxon} />
 
       <section className="mb-10" aria-labelledby="order-images">
-        <h2 id="order-images" className="text-2xl font-semibold mb-3">
-          Species in this order
-        </h2>
-        <TaxonImageStrip
-          images={pickRepresentatives(taxon.images, REPRESENTATIVE_IMAGE_LIMIT)}
+        <TaxonSpeciesList
+          rank="order"
+          taxonKey={taxon.key}
+          page={parseSpeciesPage(page)}
+          href={ORDER_PATH}
+          title="Species in this order"
+          headingId="order-images"
         />
       </section>
 

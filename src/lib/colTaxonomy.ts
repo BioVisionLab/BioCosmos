@@ -18,15 +18,31 @@ export type { CodeTone } from "./codeTone";
 
 /**
  * The Catalogue of Life release the taxonomy on this site was reconciled
- * against.
+ * against, as a fallback.
  *
- * EDIT THIS ONE CONSTANT when a taxonomic update is performed — it is the only
- * place the release is written down, and every attribution on the site reads
- * it from here. A release named in one component and stale in another is
- * worse than none: a reader cannot tell which classification they are looking
- * at.
+ * The site names the release the backend actually ingested: the backend
+ * records it from the release's `metadata.yaml` and serves it from
+ * `GET /taxonomy/release`, which the root layout reads once for every page
+ * (see `ColReleaseProvider`). This constant only shows when that request
+ * fails or the backend has no release recorded, so keep it on the release in
+ * use, but it no longer has to be edited for the label to be right.
  */
-export const COL_RELEASE = "v2026-08-26 XR";
+export const COL_RELEASE = "v2026-10-16 XR";
+
+/** A Catalogue of Life release, as `GET /taxonomy/release` serves it. */
+export interface ColRelease {
+  version: string;
+  issued: string | null;
+  alias: string | null;
+  doi: string | null;
+  key: string | null;
+  url: string | null;
+}
+
+/** The label attributions show, e.g. `v2026-10-16 XR`. */
+export function formatColRelease(release: ColRelease): string {
+  return `v${release.version}`;
+}
 
 export type UpdateStatusCode = "MATCHED" | "AMBIGUOUS" | "UNMATCHED";
 

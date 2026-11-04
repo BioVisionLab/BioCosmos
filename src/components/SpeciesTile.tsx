@@ -23,6 +23,11 @@ export interface SpeciesTileProps {
    * where six spinners would claim work that is not happening.
    */
   placeholder?: "spinner" | "empty";
+  /**
+   * The image's `sizes`. The default is right for `LANDING_GRID`; a tile in
+   * any other grid passes its own.
+   */
+  sizes?: string;
 }
 
 /**
@@ -30,7 +35,7 @@ export interface SpeciesTileProps {
  * rounded panel.
  *
  * Shared by the featured butterflies, the visual-search results and the
- * higher-taxon strips, and laid out like the ML search result card — the
+ * higher-taxon species lists, and laid out like the ML search result card — the
  * name sits inside the panel under a square image well, rather than hanging
  * below the panel as a loose caption — so every grid of species on the site
  * reads as the same object.
@@ -44,6 +49,7 @@ export function SpeciesTile({
   label,
   alt,
   placeholder = "spinner",
+  sizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 17vw",
 }: SpeciesTileProps) {
   // Tracked by URL rather than by a boolean: the visual-search slots swap
   // their `src` in place, and a boolean would report the outgoing image as
@@ -73,7 +79,7 @@ export function SpeciesTile({
             src={imageUrl}
             alt={alt}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 17vw"
+            sizes={sizes}
             className={`object-contain transition-opacity duration-200 ${
               ready ? "opacity-100" : "opacity-0"
             }`}
