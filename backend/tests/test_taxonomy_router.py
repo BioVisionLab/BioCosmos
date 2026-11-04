@@ -1,4 +1,4 @@
-"""Tests for the taxonomy code-description endpoint."""
+"""Tests for the taxonomy code-description and release endpoints."""
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -10,9 +10,10 @@ from app.services.col_match_codes import (
 )
 
 
-def build_client() -> TestClient:
+def build_client(duck_db=None) -> TestClient:
     app = FastAPI()
     app.include_router(taxonomy.router)
+    app.state.duck_db = duck_db
     return TestClient(app)
 
 
@@ -38,3 +39,31 @@ class TestTaxonomyCodes:
         for group in payload.values():
             for description in group.values():
                 assert isinstance(description, str) and description.strip()
+
+
+class TestTaxonomyRelease:
+    def test_returns_the_recorded_release(self, memory_duckdb):
+        memory_duckdb.execute(
+            "CREATE TABLE col_release (version VARCHAR, issued VARCHAR, "
+            "alias VARCHAR, doi VARCHAR, key VARCHAR, url VARCHAR)"
+        )
+        memory_duckdb.execute(
+            "INSERT INTO col_release VALUES "
+            "('2026-10-16 XR', '2026-10-16', 'COL26.10 XR', NULL, '316691', NULL)"
+        )
+        response = build_client(memory_duckdb).get("/taxonomy/release")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "version": "2026-10-16 XR",
+            "issued": "2026-10-16",
+            "alias": "COL26.10 XR",
+            "doi": None,
+            "key": "316691",
+            "url": None,
+        }
+
+    def test_no_release_is_not_found(self, memory_duckdb):
+        response = build_client(memory_duckdb).get("/taxonomy/release")
+
+        assert response.status_code == 404

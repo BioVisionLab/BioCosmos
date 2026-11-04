@@ -311,6 +311,22 @@ def year_from(value: str | None) -> int | None:
     return int(match.group(1)) if match else None
 
 
+class ColRelease(BaseModel):
+    """The Catalogue of Life release the backbone was built from.
+
+    Read from the ColDP `metadata.yaml` at ingest, so the label the site shows
+    names the data actually loaded. Only `version` is required; the rest are
+    carried for a citation or a link when the release records them.
+    """
+
+    version: str
+    issued: str | None = None
+    alias: str | None = None
+    doi: str | None = None
+    key: str | None = None
+    url: str | None = None
+
+
 class ColReference(BaseModel):
     """A bibliographic reference from the CoL release."""
 

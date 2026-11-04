@@ -1,5 +1,5 @@
-import { COL_RELEASE } from "@/lib/colTaxonomy";
 import Callout from "@/components/Callout";
+import { ColReleaseLabel } from "@/components/ColReleaseProvider";
 import CopyButton from "@/components/CopyButton";
 import Note from "@/components/Note";
 import { ArrowUpRight, ExternalLink, Quote } from "lucide-react";
@@ -333,14 +333,14 @@ export function NcbiLink() {
 
 /**
  * @param release The Catalogue of Life release, named so a reader can tell
- *   which backbone produced the classification above it. Defaults to the one
- *   constant the whole site reads; pass `null` only where the release is
- *   already stated nearby.
+ *   which backbone produced the classification above it. Defaults to the
+ *   release the backend ingested (see `ColReleaseProvider`); pass `null` only
+ *   where the release is already stated nearby.
  */
 export function ColAttribution({
   leadingText = "Source: ",
   isLarge = false,
-  release = COL_RELEASE,
+  release,
 }: {
   leadingText?: string;
   isLarge?: boolean;
@@ -359,16 +359,17 @@ export function ColAttribution({
       >
         Catalogue of Life
       </a>
-      {release ? <span className="whitespace-nowrap"> ({release})</span> : null}
+      {release === null ? null : (
+        <span className="whitespace-nowrap">
+          {" "}
+          (<ColReleaseLabel release={release} />)
+        </span>
+      )}
     </p>
   );
 }
 
-export function ColDataSourceInfo({
-  release = COL_RELEASE,
-}: {
-  release?: string | null;
-}) {
+export function ColDataSourceInfo({ release }: { release?: string | null }) {
   return (
     <div className={infoPanelClass}>
       <p>
@@ -381,8 +382,13 @@ export function ColDataSourceInfo({
         >
           the Catalogue of Life
         </a>
-        {release ? ` (${release})` : ""}. Each recorded name is matched to an
-        accepted Catalogue of Life usage.
+        {release === null ? null : (
+          <>
+            {" "}
+            (<ColReleaseLabel release={release} />)
+          </>
+        )}
+        . Each recorded name is matched to an accepted Catalogue of Life usage.
       </p>
     </div>
   );

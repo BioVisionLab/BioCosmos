@@ -266,8 +266,17 @@ class ColConfig:
         return self._resolve(self._col_config.get("reference_file", "Reference.tsv"))
 
     @property
+    def metadata_path(self) -> str:
+        """Path to metadata.yaml, which names the CoL release."""
+        return self._resolve(self._col_config.get("metadata_file", "metadata.yaml"))
+
+    @property
     def table(self) -> str:
         return self._col_config.get("table", "col_taxonomy")
+
+    @property
+    def release_table(self) -> str:
+        return self._col_config.get("release_table", "col_release")
 
     @property
     def type_material_table(self) -> str:

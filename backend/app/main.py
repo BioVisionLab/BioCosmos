@@ -23,7 +23,7 @@ from .configs.config import (
     ProvenanceConfig,
     SearchIndexConfig,
 )
-from .services.col import ColBackboneService
+from .services.col import ColBackboneService, read_release
 from .services.locality import LocalityService
 from .services.institution import InstitutionService
 from .services.provenance import ProvenanceService
@@ -188,7 +188,9 @@ def report_taxonomy_readiness(duck_db) -> None:
             "release and restart to build it."
         )
     else:
-        logger.info("CoL taxonomy backbone ready.")
+        release = read_release(duck_db, col_config.release_table)
+        version = release.version if release else "release not recorded"
+        logger.info(f"CoL taxonomy backbone ready ({version}).")
 
     if not duck_db.table_exists(col_config.occurrence_status_table):
         logger.warning(
