@@ -2,6 +2,7 @@ import { ImageLoading } from "@/components/Loadings";
 import NoImage from "@/components/NoImage";
 import SearchForm from "@/components/SearchForm";
 import PaginationControls from "@/components/PaginationControls";
+import { SPECIES_GRID, SPECIES_GRID_PAGE_SIZE } from "@/components/speciesGrid";
 import Tips from "@/components/Tips";
 import { CoordinateStatusBadge, TaxonStatusBadge } from "@/components/CodeHint";
 import { ColAttribution, GadmAttribution } from "@/components/Attribution";
@@ -485,7 +486,7 @@ function DbSearch({
   );
 }
 
-const SPECIES_PER_PAGE = 20;
+const SPECIES_PER_PAGE = SPECIES_GRID_PAGE_SIZE;
 
 function DbSearchResults({
   results,
@@ -575,7 +576,7 @@ function DbSearchResults({
                 </h2>
                 <Tips message="Click on an image card to navigate to the species detail page." />
               </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,140px),1fr))] gap-3 sm:gap-4">
+              <div className={SPECIES_GRID}>
                 {paginatedSpecies.map((item, index) => (
                   <Suspense
                     key={speciesStart + index}

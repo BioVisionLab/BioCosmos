@@ -9,13 +9,14 @@
 
 import { cache } from "react";
 
+import { SPECIES_GRID_PAGE_SIZE } from "@/components/speciesGrid";
 import { API_HOST } from "@/lib/config";
 import {
   normalizeColTaxonomy,
   type ColRank,
   type ColTaxonomy,
 } from "@/lib/colTaxonomy";
-import { speciesHref, toTaxonSlug } from "@/lib/taxonSlug";
+import { toTaxonSlug } from "@/lib/taxonSlug";
 
 export type HigherRank =
   | "order"
@@ -55,9 +56,6 @@ function higherTaxonPath(rank: HigherRank, name: string): string | null {
  * shared cache can notice sooner than thirty days when one happens.
  */
 export const HIGHER_TAXON_REVALIDATE = 60 * 60 * 24 * 30;
-
-/** How many tiles the representative image strip holds. */
-export const REPRESENTATIVE_IMAGE_LIMIT = 20;
 
 export interface TaxonNode {
   key: string;
@@ -229,45 +227,6 @@ function countNodes(nodes: TaxonNode[]): number {
 }
 
 /**
- * At most one image per species, so twenty tiles show twenty species rather
- * than twenty specimens of whichever one happens to be best photographed.
- *
- * The backend spreads them the same way. Doing it again here costs nothing
- * and means a regression there degrades a grid instead of misrepresenting how
- * varied a family is.
- */
-export function pickRepresentatives(
-  images: RepresentativeImage[],
-  limit: number,
-): RepresentativeImage[] {
-  const seen = new Set<string>();
-  const picked: RepresentativeImage[] = [];
-
-  for (const image of images) {
-    if (picked.length >= limit) break;
-
-    // Keyed on where the tile leads, not on the raw record: two records that
-    // resolve to the same species page would otherwise take two tiles and
-    // show the reader the same name twice.
-    const key = speciesHref(image.species);
-
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    picked.push(image);
-  }
-
-  // Only reached when distinct species ran out before the grid did.
-  for (const image of images) {
-    if (picked.length >= limit) break;
-
-    if (!picked.includes(image)) picked.push(image);
-  }
-
-  return picked;
-}
-
-/**
  * An order's families that have a page, most-photographed first: the order a
  * reader browsing by family is likeliest to want them in.
  */
@@ -388,3 +347,68 @@ export const fetchHigherTaxon = cache(
     return normalizeHigherTaxon(await response.json(), rank);
   },
 );
+
+/** One page of every species a taxon holds images of, one image each. */
+export interface HigherTaxonSpeciesPage {
+  /** Species across every page. */
+  total: number;
+  page: number;
+  limit: number;
+  species: RepresentativeImage[];
+}
+
+/** How many species one page of a higher taxon's species list holds. */
+export const SPECIES_PER_PAGE = SPECIES_GRID_PAGE_SIZE;
+
+/**
+ * One page of a higher taxon's species, most-photographed first, or null when
+ * it holds none.
+ *
+ * Cached and tagged like the overview, so the post-release flush that clears
+ * a taxon's page clears every page of its species list with it.
+ */
+export async function fetchHigherTaxonSpecies(
+  rank: HigherRank,
+  name: string,
+  page: number,
+): Promise<HigherTaxonSpeciesPage | null> {
+  if (!API_HOST) return null;
+
+  const path = higherTaxonPath(rank, name);
+
+  if (!path) return null;
+
+  const slug = path.slice(path.indexOf("/") + 1);
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(SPECIES_PER_PAGE),
+  });
+  const response = await fetch(`${API_HOST}/${path}/species?${query}`, {
+    headers: { Accept: "application/json" },
+    next: {
+      revalidate: HIGHER_TAXON_REVALIDATE,
+      tags: ["higher-taxon", `higher-taxon:${rank}:${slug}`],
+    },
+  });
+
+  if (response.status === 404) return null;
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load the species of ${rank} '${slug}': HTTP ${response.status}`,
+    );
+  }
+
+  const source = (await response.json()) as Record<string, unknown>;
+
+  return {
+    total: count(source.total),
+    page: count(source.page) || page,
+    limit: count(source.limit) || SPECIES_PER_PAGE,
+    species: Array.isArray(source.species)
+      ? source.species
+          .map(normalizeImage)
+          .filter((image): image is RepresentativeImage => image !== null)
+      : [],
+  };
+}

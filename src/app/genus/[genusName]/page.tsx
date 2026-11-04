@@ -6,14 +6,12 @@ import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
 import TaxonBreadcrumb, { lineageCrumbs } from "@/components/TaxonBreadcrumb";
-import TaxonImageStrip from "@/components/TaxonImageStrip";
+import TaxonSpeciesList, {
+  parseSpeciesPage,
+} from "@/components/TaxonSpeciesList";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
-import {
-  REPRESENTATIVE_IMAGE_LIMIT,
-  fetchHigherTaxon,
-  pickRepresentatives,
-} from "@/lib/higherTaxa";
+import { fetchHigherTaxon } from "@/lib/higherTaxa";
 import { genusHref, isCanonicalTaxonSlug } from "@/lib/taxonSlug";
 
 // See the note on the family page: the thirty-day cache is on the fetch, not
@@ -24,6 +22,7 @@ const TREE_ID = "genus-classification-tree";
 
 interface GenusPageProps {
   params: Promise<{ genusName: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }
 
 export async function generateMetadata({
@@ -44,8 +43,12 @@ export async function generateMetadata({
   };
 }
 
-export default async function GenusPage({ params }: GenusPageProps) {
+export default async function GenusPage({
+  params,
+  searchParams,
+}: GenusPageProps) {
   const { genusName } = await params;
+  const { page } = await searchParams;
   const raw = decodeURIComponent(genusName);
 
   // Deliberately no `loading.tsx` beside this file. A loading boundary puts
@@ -72,11 +75,13 @@ export default async function GenusPage({ params }: GenusPageProps) {
       <HigherTaxonHeader taxon={taxon} />
 
       <section className="mb-10" aria-labelledby="genus-images">
-        <h2 id="genus-images" className="text-2xl font-semibold mb-3">
-          Species in this genus
-        </h2>
-        <TaxonImageStrip
-          images={pickRepresentatives(taxon.images, REPRESENTATIVE_IMAGE_LIMIT)}
+        <TaxonSpeciesList
+          rank="genus"
+          taxonKey={taxon.key}
+          page={parseSpeciesPage(page)}
+          href={genusHref(taxon.name)}
+          title="Species in this genus"
+          headingId="genus-images"
         />
       </section>
 

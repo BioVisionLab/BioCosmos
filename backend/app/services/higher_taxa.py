@@ -793,9 +793,9 @@ class HigherTaxonRepository:
     # ------------------------------------------------------------------
 
     def representative_images(
-        self, scope: Scope, key: str, limit: int = 20
+        self, scope: Scope, key: str, limit: int = 20, offset: int = 0
     ) -> list[dict]:
-        """One image of each of up to `limit` species.
+        """One image of each of up to `limit` species, after skipping `offset`.
 
         One per species, never two. The strip sits under a heading saying
         these are the species in the group, so a second specimen of the
@@ -805,7 +805,9 @@ class HigherTaxonRepository:
 
         Deterministic. These responses are cached for thirty days behind an
         ETag, so the same URL has to return the same images for the life of
-        that cache.
+        that cache. The same ordering is what lets `offset` page through every
+        species of the taxon, and each row carries `species_total`, how many
+        species there are to page through.
         """
         if not self.harmonized_available():
             return []
@@ -820,15 +822,17 @@ class HigherTaxonRepository:
         SELECT accepted_species, count(*) AS image_count
         FROM matched GROUP BY accepted_species
     ), top_species AS (
-        SELECT accepted_species, image_count
+        -- The window runs before the LIMIT, so it counts every species.
+        SELECT accepted_species, image_count, count(*) OVER () AS species_total
         FROM counted
         ORDER BY image_count DESC, accepted_species
-        LIMIT ?
+        LIMIT ? OFFSET ?
     ), ranked AS (
         SELECT m.img_id,
                d.recorded_key,
                m.accepted_species,
                c.image_count,
+               c.species_total,
                row_number() OVER (
                    PARTITION BY m.accepted_species
                    -- Dorsal is the canonical spread-wing view; a grid of
@@ -843,14 +847,15 @@ class HigherTaxonRepository:
     )
     SELECT img_id,
            recorded_key AS species,
-           accepted_species AS display_name
+           accepted_species AS display_name,
+           species_total
     FROM ranked
     WHERE within_species = 1
     ORDER BY image_count DESC, accepted_species
         """
         return self._rows(
             query,
-            [*params, limit],
+            [*params, limit, offset],
             f"representative images for {scope} '{key}'",
         )
 
