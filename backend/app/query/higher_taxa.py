@@ -15,6 +15,7 @@ import json
 import logging
 import re
 from collections import OrderedDict
+from typing import Literal
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -637,20 +638,25 @@ class HigherTaxonOverview:
         return payload
 
     def species_page(
-        self, page: int = 1, limit: int = DEFAULT_IMAGE_LIMIT
+        self,
+        page: int = 1,
+        limit: int = DEFAULT_IMAGE_LIMIT,
+        sort: Literal["name", "images"] = "name",
     ) -> dict | None:
         """One page of the taxon's species, or None when it holds none.
 
-        Ordered as the representative strip is, most images first, so the
-        first page is that strip. A page past the last is empty but still
-        reports the total, so the caller can send the reader to the last one.
+        Ordered alphabetically by species by default, so a reader can find a
+        name in a list that runs to many pages; `images` orders them as the
+        representative strip is, most images first. A page past the last is
+        empty but still reports the total, so the caller can send the reader to
+        the last one.
         """
         if not self.key:
             return None
 
         repository = HigherTaxonRepository(self.request.app.state.duck_db)
         rows = repository.representative_images(
-            self.rank, self.key, limit, (page - 1) * limit
+            self.rank, self.key, limit, (page - 1) * limit, alphabetical=sort == "name"
         )
         # Past the end there are no rows to carry the total; ask for it.
         total_rows = rows or (
