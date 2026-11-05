@@ -1,255 +1,171 @@
-# Publication analyses and backend benchmarks
+# BioCosmos Analyses
 
-Publication notebooks read the backend databases and export figures with their
-summary data. The index benchmark measures search performance on an isolated
-copy of the image table. Both workflows leave the source databases unchanged.
+Jupyter notebooks, plotting helpers, and benchmarks that generate the publication figures, summary tables, and supplementary occurrence exports for the BioCosmos manuscript.
 
-## Layout
+## Directory Layout
 
-| Path                                                                | Contents                                                                   |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `notebooks/`                                                        | One notebook per publication figure                                        |
-| `benchmarks/`                                                       | `image_indexing.ipynb` and its implementation, `lance_indexing.py`         |
-| `helpers/publication.py`                                            | Configuration, database queries, aggregation, and plotting                 |
-| `helpers/country_mapping.py`                                        | Country normalization                                                      |
-| `helpers/grid_mapping.py`                                           | Equal-area grid maps                                                       |
-| `helpers/planner.py`, `indexing.py`, `mimicry.py`, `morphospace.py` | Panels shared by a figure's own notebook and the combined figures          |
-| `data/`                                                             | Mimicry pairs, basemap, and app screenshots ([provenance](data/README.md)) |
-| `results/`                                                          | Generated figures and CSVs (gitignored)                                    |
+| Path | Purpose |
+| :--- | :--- |
+| `notebooks/` | Notebooks that generate publication figures and supplementary dataset exports |
+| `benchmarks/` | Standalone LanceDB vector-index benchmark (`image_indexing.ipynb`, `lance_indexing.py`) |
+| `helpers/publication.py` | Database connections, SQL summaries, validation labels, palettes, and figure/CSV export |
+| `helpers/country_mapping.py` | Country normalization (`harmonize-core`) and Natural Earth polygon/marker matching |
+| `helpers/grid_mapping.py` | Equal Earth 2° × 2° spatial grid aggregation and map plotting |
+| `helpers/morphospace.py` | Dorso-ventral PCA morphospace, axis-end specimen thumbnails, and rarefied disparity plots |
+| `helpers/mimicry.py` | Butterfly mimicry-pair visual similarity ranking in LanceDB (`UNICOM` vs. `CLIP`) |
+| `helpers/planner.py` | `plannerbench` run loader, Pareto frontier detection, and accuracy/cost plots |
+| `helpers/indexing.py` | Vector-index benchmark loader, Pareto frontier filtering, and recall/latency panels |
+| `helpers/occurrences.py` | Dataset-wide occurrence export (Parquet, gzipped CSV, column dictionary, and JSON manifest) |
+| `data/` | Reference inputs: mimicry pairs, Natural Earth basemap, and app screenshots ([`data/README.md`](data/README.md)) |
+| `results/` | Generated figures, CSVs, occurrence files, and index benchmark runs (gitignored) |
+| `tests/` | Pytest suite for the vector-index benchmark and plotting helpers |
 
-Notebooks import helpers as `analyses.helpers.<module>`.
+## Quick Start
 
-## Setup
+### 1. Install dependencies
 
-`analyses/` is a standalone uv project with its own environment and lockfile.
-Run these commands from the repository root:
+`analyses/` uses its own `pyproject.toml` and `uv.lock` so notebook and plotting libraries stay separate from the web application. Run from the repository root:
 
 ```bash
 env -u VIRTUAL_ENV uv sync --project analyses --locked
-env -u VIRTUAL_ENV uv run --project analyses jupyter lab analyses/notebooks
 ```
 
-`env -u VIRTUAL_ENV` removes the active environment setting for that command, so
-uv uses `analyses/.venv`. Do not add `--active`, which would select the active
-environment instead. Select the `analyses/.venv` kernel in Jupyter and run each
-notebook from top to bottom. Add dependencies with
-`uv add --project analyses <dependency>` to keep the project and lockfile in
-sync.
+> `env -u VIRTUAL_ENV` ensures `uv` targets `analyses/.venv` even if another virtual environment is active in your shell.
+
+### 2. Stop the backend
+
+DuckDB allows only one process to open the database file while a writer is attached. **Stop the FastAPI backend** before running any notebook that queries DuckDB.
+
+### 3. Launch JupyterLab
+
+```bash
+env -u VIRTUAL_ENV uv run --project analyses jupyter lab
+```
 
 ## Prerequisites
 
-- `DUCK_DIR` and `LANCE_DIR` come from `backend/.env` (existing environment
-  variables take precedence). Database and table names come from
-  `backend/app/configs/config.yaml`. Relative paths resolve from `backend/`.
-- The backend must already have built the image metadata, GBIF, locality, and
-  taxonomy tables. Build coordinate validation with `geoharmonize integrate` and
-  morphospace tables with `morphospace run` followed by `morphospace integrate`.
-- Stop the backend first, or point `DUCK_DIR` at an offline snapshot. The API
-  holds DuckDB open read-write, preventing another process from attaching.
-  Notebooks do not stop services or copy live databases.
-- Missing tables or columns, empty populations, and duplicate keys raise errors.
-  Resolve them before exporting figures.
+`load_settings()` reads `backend/.env` and `backend/app/configs/config.yaml` to locate the DuckDB database (`DB_PATH`) and LanceDB directory (`LANCE_DB`). Depending on which notebook you run, make sure the following tables and files exist:
 
-## Figures
+1. **Base view, taxonomy, and provenance (`image_meta`, `image_meta_taxonomy`, `image_meta_provenance`, `institution_directory`)**
+   - Built automatically when the backend starts.
+   - All analyses query the `image_meta` view, which excludes families listed in `image_metadata.exclude_families` (such as Castniidae moths). If you change `exclude_families`, `col.family_synonyms`, or `col.taxon_overrides` in `backend/app/configs/config.yaml`, start the backend once so it rebuilds the view and taxonomy tables, then stop it.
+2. **Geographic validation (`image_meta_geography`)**
+   - Required by `data_summary.ipynb`, `harmonization.ipynb`, and `occurrence_export.ipynb`.
+   - Build with the backend stopped:
+     ```bash
+     uv run geoharmonize integrate
+     ```
+3. **Dorso-ventral morphospace (`morphospace_*` tables)**
+   - Required by `morphospace.ipynb` and `data_summary.ipynb`.
+   - Build with the backend stopped:
+     ```bash
+     uv run morphospace run --db <duckdb> --lance-dir <lance>
+     uv run morphospace integrate --db <duckdb> --replace
+     ```
+4. **Processed specimen images (`images.processed_dir` in `backend/app/configs/config.yaml`)**
+   - Required by `morphospace.ipynb` and `data_summary.ipynb` (for axis-end specimen thumbnails) and by `mimicry.ipynb` and `search_performance.ipynb` (for matched mimicry-pair thumbnails).
+5. **Catalogue of Life release metadata (`COL_DIR` in `backend/.env`)**
+   - Required by `occurrence_export.ipynb` to record the Catalogue of Life version and DOI from `<COL_DIR>/metadata.yaml` in the export manifest.
+6. **Planner benchmark (`reports/latest.json`)**
+   - Required by `model_performance.ipynb` and `search_performance.ipynb`.
+   - Generated by running `plannerbench` from the repository root (see [`packages/plannerbench/README.md`](../packages/plannerbench/README.md)). Set `PLANNERBENCH_RUN` to a specific run directory or `manifest.json` path to override `reports/latest.json`.
+7. **Vector-index benchmark (`analyses/results/indexing/<run_id>/`)**
+   - Required by `index_performance.ipynb` and `search_performance.ipynb`.
+   - Generated by running [`benchmarks/image_indexing.ipynb`](benchmarks/image_indexing.ipynb) (see [Vector Index Benchmark](#indexing-and-backend-performance) below).
 
-| Notebook                   | Figure                                                                                                                                                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data_summary.ipynb`       | `dataset_overview`: dorso-ventral (a), image providers (b), source aggregators (c), validated-coordinate grid (d), family (e), species richness by country (f), top ten accepted species (g), morphospace (h), rarefied disparity (i) |
-| `harmonization.ipynb`      | `harmonization_metrics`: coordinate-validation outcomes and taxonomic match methods for images and unique input taxa                                                                                                                  |
-| `index_performance.ipynb`  | `indexing_benchmark`: latest completed index run, latency against recall@10                                                                                                                                                           |
-| `model_performance.ipynb`  | Planner accuracy against latency and tokens, and per-case accuracy                                                                                                                                                                    |
-| `morphospace.ipynb`        | `morphospace`: species centroids on shared PCs (a) and rarefied disparity (b); also `morphospace_pca` and `morphospace_disparity` alone                                                                                               |
-| `mimicry.ipynb`            | `mimicry_recovery`: partner ranks of the tested mimicry pairs with their matched images                                                                                                                                               |
-| `search_performance.ipynb` | `search_performance`: planner (a–c), mimicry pairs (d), and index (e) panels, drawn by the same helpers as their own notebooks                                                                                                        |
-| `occurrence_export.ipynb`  | Supplementary table `image_occurrences` (Parquet and `.csv.gz`), one row per image, with its column dictionary and a manifest of counts and SHA-256 checksums                                                                       |
-| `screenshot_bento.ipynb`   | A 2 × 2 composite of four app screenshots from `data/screenshots/`                                                                                                                                                                    |
+## Notebooks and Outputs
 
-## Methods and definitions
+Every figure notebook saves each figure as `.pdf`, `.svg`, and `.png` (300 DPI) in `analyses/results/`, alongside one `<figure_stem>_<table_name>.csv` file for each supporting data table.
 
-### Figure style
+| Notebook | What it produces | Output files in `analyses/results/` |
+| :--- | :--- | :--- |
+| `notebooks/data_summary.ipynb` | 9-panel dataset overview: wing views, providers, datasets, 2° × 2° image density map, country species-richness map, top 10 families/genera/species, and dorso-ventral morphospace + disparity | `dataset_overview.{pdf,svg,png}` and `dataset_overview_<key>.csv` (`overview`, `families`, `genera`, `species`, `views`, `institutions`, `datasets`, `provider_shares`, `cells`, `country_species`, `country_mapping`, `morphospace_scope`, `morphospace_points`, `morphospace_extremes`, `morphospace_disparity`) |
+| `notebooks/harmonization.ipynb` | 3-panel geographic coordinate validation and taxonomic matching summary (by image and by unique taxon) | `harmonization_metrics.{pdf,svg,png}` and `harmonization_metrics_<key>.csv` (`geography_coordinate_validation`, `taxonomy_images_method`, `taxonomy_taxa_method`) |
+| `notebooks/morphospace.ipynb` | Combined and standalone dorso-ventral PCA morphospace and rarefied family disparity figures | `morphospace.{pdf,svg,png}`, `morphospace_pca.{pdf,svg,png}`, `morphospace_disparity.{pdf,svg,png}`, and their supporting CSVs (`_scope`, `_points`, `_extremes`, `_disparity`) |
+| `notebooks/mimicry.ipynb` | Visual similarity ranking of 12 published butterfly mimicry pairs using dorsal embeddings (`UNICOM` vs. `CLIP`) | `mimicry_recovery.{pdf,svg,png}` and `mimicry_recovery_<key>.csv` (`pairs`, `species`, `pair_coverage`, `summary`) |
+| `notebooks/model_performance.ipynb` | LLM planner accuracy vs. latency, accuracy vs. token cost, and per-case accuracy heatmap | `planner_quality_cost_per_case.{pdf,svg,png}` and `planner_quality_cost_per_case_<key>.csv` (`quality_cost`, `per_case`) |
+| `notebooks/index_performance.ipynb` | Vector-index recall@10 vs. query latency across `UNICOM` and `CLIP` embeddings | `indexing_benchmark.{pdf,svg,png}` and `indexing_benchmark_measurements.csv` |
+| `notebooks/search_performance.ipynb` | Combined 5-part search figure uniting the planner benchmark (`a`–`c`), mimicry recovery (`d`), and vector-index benchmark (`e`) | `search_performance.{pdf,svg,png}` and `search_performance_<key>.csv` (`planner_quality_cost`, `planner_per_case`, `mimicry_pairs`, `mimicry_species`, `mimicry_pair_coverage`, `mimicry_summary`, `index_measurements`) |
+| `notebooks/occurrence_export.ipynb` | Supplementary dataset export joining raw image metadata with harmonized taxonomy, geography, provenance, and traits | `image_occurrences.parquet`, `image_occurrences.csv.gz`, `image_occurrences_columns.csv`, `image_occurrences_manifest.json` |
+| `notebooks/screenshot_bento.ipynb` | 2 × 2 bento grid of four app screenshots with rounded glass frames and drop shadows | `screenshot_bento.png` (labeled `a`–`d`) and `../docs/images/screenshot_bento.png` (unlabeled copy for the repository README) |
 
-Colors use seaborn palettes, with ColorBrewer `Dark2` as the default in
-`publication_style()`. Bars use one color because their categories are labeled.
-Pies use a shared palette ordered from largest to smallest share; colors
-indicate rank within a panel, not fixed categories across panels. Counts and
-percentages appear in a legend beside each pie.
+## How Metrics and Figures Work
 
-`category_plot()` uses a pie for exactly two classes covering the full
-population and bars otherwise. Use `kind=` and `palette=` to override these
-defaults. Pies reject `top` and `exclude` because their proportions must cover
-the full population.
+### Dataset overview and maps (`data_summary.ipynb`)
 
-### Counting unit
+- **Totals**: Counts all rows in `image_meta` (images), distinct `subid` values (specimens), and distinct `image_meta_taxonomy.accepted_species` values (accepted species).
+- **Shares and rankings**:
+  - Pie charts show shares across all images for **wing views** (`image_meta_traits.view`), **providers** (top 5 institutions from `image_meta_provenance`, with remaining attributed records grouped as `"Other providers"` and missing/conflicting records as `"Unattributed or conflicting"`), and **datasets** (`image_meta_provenance.source_dataset`).
+  - Bar charts rank the top 10 **families**, **genera**, and **species** (`G. species`) by image count. Percentages are calculated against the entire dataset (`image_meta`), so unresolved records remain in the denominator.
+- **Equal Earth maps** (EPSG:8857, cropped to 60° S–90° N):
+  - **2° × 2° image density (`d`)**: Includes records with `validation_status` in `PASSED`, `WARNING`, or `IMPUTED_COUNTRY` and valid coordinates. Each record is binned into a 2° × 2° cell (`FLOOR((lon + 180) / 2)`, `FLOOR((lat + 90) / 2)`) and colored on a logarithmic scale.
+  - **Country species richness (`f`)**: Counts distinct `accepted_species` per country. A record is eligible if `validation_status` is not `FAILED` or `INVALID_COORDINATES` and it has a resolved country (`normalized_country`, or `gadm_ADM_0` when `validation_status = 'IMPUTED_COUNTRY'`). Country names are mapped to Natural Earth 1:110m polygons (`ADM0_A3`) via `harmonize-core`; small islands and territories absent from the 1:110m polygons are plotted as fixed-size circular markers (see [`data/README.md`](data/README.md)).
 
-Each unique, nonblank `img_id` counts once. Dorsal and ventral images of the
-same specimen count separately, and per-image joins must be one-to-one.
-Proportions include unknowns in the stated population. Top-ten percentages keep
-the full denominator; they are not renormalized to the subset. Ties are sorted
-alphabetically.
+### Harmonization metrics (`harmonization.ipynb`)
 
-### Taxonomy
+- **Coordinate validation (`a`)**: Summarizes all images by `image_meta_geography.validation_status`:
+  - `PASSED`: Coordinate falls inside the recorded country (or within the coastal tolerance buffer).
+  - `WARNING`: Coordinate is valid on land/coast and usable on maps, but the recorded country text was missing or could not be normalized for comparison.
+  - `IMPUTED_COUNTRY`: No country was recorded, so the country was inferred from the coordinate via GADM.
+  - `MISSING_COORDINATES` / `INVALID_COORDINATES`: Coordinate is blank or out of bounds.
+  - `FAILED`: Coordinate falls in the ocean or outside the recorded country.
+  - `Not evaluated`: Fallback when a record has no evaluation row.
+- **Taxonomic validation (`b`, `c`)**: Summarizes Catalogue of Life matching (`EXACT`, `FUZZY`, `SUBSPECIES_FALLBACK`, `GENUS_FALLBACK`, `HIGHER_TAXON_FALLBACK`, `MANUAL_OVERRIDE`, `ORDER_MISMATCH`, `UNMATCHED`) first across all **images**, and second across distinct recorded **taxa** (grouping by `scientific_name` when present, or the lowest recorded higher rank `genus`, `subfamily`, or `family`).
 
-Accepted families and species come only from `MATCHED` records. Species use
-`accepted_species_name`, falling back to `accepted_name` for species-rank
-matches. Subspecies are grouped under their species, and genus-only matches are
-excluded from species rankings. Ambiguous candidates do not contribute to
-accepted-taxon counts. Matching panels include unresolved outcomes and count
-either all images or all distinct referenced input-taxon keys.
+### Dorso-ventral morphospace (`morphospace.ipynb`)
 
-All collection queries use the filtered `image_meta` view. If excluded families
-change, restart the backend, rebuild similarity and morphospace, and rerun the
-notebooks.
+- Reads the newest run in `morphospace_runs` for `SCOPE_RANK, SCOPE_KEY` (defaults to `("all", "all")` for the whole collection, or e.g. `("family", "nymphalidae")` for a single family).
+- **PCA morphospace**: Projects each species' mean dorsal (filled circle) and mean ventral (hollow circle) UNICOM embedding onto shared PC1 × PC2 axes. Colors show the 7 butterfly families (or the 7 most species-rich genera when scoped to one family). Large outlined circles connected by a line show each group's mean dorsal and ventral position. Full-resolution specimen images from `morphospace_axis_examples` illustrate the low and high ends of PC1 and PC2.
+- **Rarefied disparity**: Measures morphological spread as the sum of variances (`sum_var`) across all embedding dimensions. To compare families of different sizes fairly, each family and wing side is subsampled (`rarefied_mean` and 95% interval `rarefied_ci_low`–`rarefied_ci_high`) to `rarefied_k` species. Any group with fewer than `rarefied_k` species on a side is labeled `N/A`.
 
-### Geography
+### Mimicry recovery (`mimicry.ipynb`)
 
-- **Availability.** Recorded coordinates require two finite numbers.
-  Out-of-range pairs and `(0, 0)` still count as available. Detailed locality
-  requires a nonblank `locality` or `verbatim_locality`.
-- **Validation.** Categories come from the coordinate-validation table. Images
-  without a matching validation row are "Not evaluated."
-- **Grid (panel d).** `VALID` coordinates fall into a 100 × 100 km EPSG:8857
-  equal-area grid anchored at (0, 0), with lower bounds included. Cells count
-  images on a log scale with no correction for sampling effort; gray land has no
-  validated images. `dataset_overview_cells.csv` adds distinct accepted species
-  and cell bounds.
-- **Countries (panel f).** An image with an accepted species maps to a country
-  when its coordinate falls in exactly one GADM region and nothing contradicts
-  it: `COUNTRY_MATCH` (including `ADM1_MISMATCH`) or `COUNTRY_NOT_PROVIDED`,
-  where the country is imputed from the coordinate. The `country_source` column
-  and the printed count keep imputed countries distinguishable. Mismatched,
-  ambiguous, and unmatched coordinates are excluded. GADM `GID_0` codes
-  normalize to ISO alpha-2 by exact code or unambiguous name, never fuzzily.
-  Read country CSVs with `keep_default_na=False` to preserve Namibia's `NA`
-  code.
-- **Map.** The Equal Earth basemap shades a polygon without its own ISO code
-  with the country assigned by GADM (for example, Somaliland with Somalia).
-  Territories without a 110m polygon get fixed-size markers on the same scale;
-  marker positions are labels, not specimen locations. See
-  [country marker reference](data/README.md).
+- Tests whether visual embeddings recover 12 published butterfly mimicry pairs from `data/mimicry_pairs.csv`.
+- Recorded names in the CSV are mapped to accepted Catalogue of Life species via `image_meta_taxonomy`. Only **dorsal** images (`view = 'dorsal'`) in `image_meta` are used.
+- For each directed pair `A → B` and embedding model (`UNICOM` and `CLIP`), every dorsal image of species `A` queries LanceDB (`metric="cosine"`) to find the closest dorsal image of every other species. The rank of species `B` (1 = nearest neighbor among all other dorsal species) determines whether `B` lands in the top 1, top 5, or top 10.
+- The figure displays each pair's `A → B` and `B → A` ranks on a log axis alongside thumbnails of the closest-matching dorsal specimen pair under UNICOM. Pairs that land in each other's top 10 in both directions under UNICOM are shaded and bolded.
 
-### Providers and aggregators
+### Planner model benchmark (`model_performance.ipynb`)
 
-- **Providers (panel b).** GBIF `institutionID` takes precedence over
-  `institutionCode`. A code-only record joins an ID only when the code maps to
-  one ID; otherwise it is "Conflicting attribution." Duplicate GBIF rows do not
-  multiply counts. Providers outside the top five are grouped as "Other
-  providers." URLs and names are not used to infer attribution.
-- **Aggregators (panel c).** Counts recorded `source_db` keys using display
-  names (`gbif` → GBIF, `scanbugs` → SCAN, `ecdysis` → Ecdysis). Combined keys
-  such as `gbif/scanbugs` remain a single category; blank keys are "Unknown."
+- Evaluates candidate LLMs on natural-language search planning using artifacts from `plannerbench` (`manifest.json` and `trials.jsonl`).
+- **Trade-off panels (`a`, `b`)**: Plot overall repeat accuracy against median latency (`latency_p50_seconds`) and mean tokens per successful call (`tokens_per_success`). Models on the **Pareto frontier**—meaning no other model is both at least as accurate and at least as fast/inexpensive, with a strict advantage in at least one—are drawn with larger markers and black outlines. Models with zero successful API calls are flagged as provider failures and excluded from the scatter plots.
+- **Per-case heatmap (`c`)**: Shows the fraction of passing repeats for every model across every benchmark test case.
 
-### Morphospace
+<a id="indexing-and-backend-performance"></a>
 
-Panels read one integrated morphospace run for `SCOPE_RANK` and `SCOPE_KEY`,
-using the whole collection by default. The notebook prints the `run_id`. The PCA
-panel shows species centroids with filled dorsal points and hollow ventral
-points, family mean positions, and the site's representative images at the axis
-ends. Missing images raise an error. The disparity panel shows the rarefied sum
-of species-centroid variances with 95% intervals; sides with too few species are
-marked N/A. See the [morphospace package](../packages/morphospace/README.md).
+## Vector Index Benchmark
 
-### Mimicry recovery
+[`benchmarks/image_indexing.ipynb`](benchmarks/image_indexing.ipynb) (powered by `analyses/benchmarks/lance_indexing.py`) benchmarks approximate nearest-neighbor (ANN) indexes in LanceDB against exact brute-force search (`FLAT_EXACT_BASELINE`), and [`notebooks/index_performance.ipynb`](notebooks/index_performance.ipynb) plots the resulting speed–accuracy trade-off.
 
-This analysis tests whether visual similarity ranks the published pairs in
-`data/mimicry_pairs.csv` near each other. It reads LanceDB; run it with the
-backend stopped.
+### Setup and tests
 
-- **Test.** Dorsal against dorsal: each species' dorsal UNICOM centroid queries
-  the dorsal images of every species, and each candidate is scored by its
-  nearest image, as in `similarity run`. Ventral images are not used. Ranks
-  differ from the site's list, which scores both sides.
-- **Species.** Species follow the accepted-name rules in [Taxonomy](#taxonomy).
-  A published name that is not accepted resolves through its images when they
-  agree on one species (_Adelpha bredowii_ → _Limenitis bredowii_). Only pairs
-  with dorsal images of both species are tested; the notebook lists excluded
-  pairs, which should agree with the CSV's `Availability` column.
-- **Mutual top 10.** Highlighted pairs where each species is in the other's top
-  ten. Each pair shows the image used to score each species and its dorsal image
-  count, N.
-
-### Planner models
-
-`model_performance.ipynb` compares models within one `plannerbench` run, from
-`reports/latest.json` or `BIOCOSMOS_PLANNER_MANIFEST`. Cost panels highlight
-Pareto leaders. Models with no successful calls are flagged as access or
-provider failures. They remain in the heatmap and are excluded from rankings.
-
-```bash
-uv sync --all-packages --locked
-cd backend
-uv run python scripts/export_planner_spec.py
-cd ..
-uv run --env-file backend/.env plannerbench run \
-    -m mistral-small-3.1 \
-    -m gemma-4-31b-it \
-    -m gpt-oss-20b \
-    -m meta-muse-glimmer-30b \
-    -m nemotron-3-nano-30b-a3b \
-    --repeats 5
-```
-
-## Index benchmark
-
-`benchmarks/image_indexing.ipynb` compares exact search, IVF-PQ, IVF-HNSW-SQ,
-and IVF-HNSW-PQ for the UNICOM and CLIP columns, using the backend's cosine
-metric.
+Install the optional `indexing` extra, which pins `lancedb==0.39.0` for reproducible index builds:
 
 ```bash
 env -u VIRTUAL_ENV uv sync --project analyses --extra indexing --locked
-env -u VIRTUAL_ENV uv run --project analyses --extra indexing jupyter lab analyses/benchmarks/image_indexing.ipynb
 ```
 
-- **Dependencies.** The `indexing` extra pins LanceDB `0.39.0` to match the
-  backend; keep it aligned.
-- **Parameters.** Configuration cells set sample size, repetitions, warmup,
-  partitions, PQ subvectors, and the search grids. Partitions and subvectors
-  default to `"auto"`, the backend's rule (`min(4096, √rows)` partitions,
-  `dims / 8` subvectors), so the benchmark builds the index the site builds.
-  Subvectors must divide the embedding dimension; training needs at least 256
-  rows and as many rows as partitions.
-- **Search sweep.** Recall and latency depend on how an index is searched, not
-  only on the index. Each index is built once and searched with every
-  combination of `nprobes_grid`, `ef_grid` (HNSW indexes only), and
-  `refine_grid`. A full run takes one to two hours.
-- **Queries.** A seeded sample of `query_count` images (default 300) is held out
-  of the searched copy, so no query finds itself.
-- **Recall@k.** The share of the k returned images among the exact k nearest by
-  cosine distance, counting an image tied with the k-th nearest as a hit.
-  `recall_low` and `recall_high` are a 95% bootstrap interval over queries.
-- **Isolation.** Each run copies a fixed source version to
-  `results/indexing/<timestamp_uuid>/scratch.lance` and indexes only that copy.
-  Allow enough disk space for the copy and indexes. Runs are retained and
-  gitignored.
-- **Outputs.** `indexing_benchmark.csv` (one row per index and search setting),
-  `query_timings.csv`, `recommendations.csv`, and `run.json` (with the resolved
-  build parameters and the held-out query IDs). Searches return only `img_id`
-  and the distance, as the backend's do. Latency and queries per second (QPS)
-  measure sequential, unfiltered search and exclude HTTP overhead, filters, and
-  model inference, so they are lower than the site's response time. Cold caches
-  and training randomness are not controlled. Recommendations compare indexes
-  at matched recall: the fastest setting of each index reaching
-  `recall_threshold`. They are saved for review, not applied.
-
-`index_performance.ipynb` plots the newest completed run at top-k 10: one curve
-per index and embedding through its Pareto-optimal settings, the site's setting
-ringed, and the recall threshold dotted. It excludes `Flat (brute-force)`, keeps
-`No Index (baseline)`, and draws runs from before the sweep as single points.
-
-## Exports
-
-Each figure exports a PDF, an SVG with editable text, a 300-dpi PNG, and summary
-CSVs to `analyses/results/`. Outputs replace existing files with the same names.
-CSVs retain counts, unrounded percentages, and denominators; figure labels round
-percentages to one decimal place. Set `BIOCOSMOS_ANALYSES_OUTPUT` to use another
-directory within `analyses/`.
-
-Inspect the exports before publication, especially institution labels and large
-unresolved categories.
-
-## Development
+Run the unit test suite from the repository root:
 
 ```bash
-uv run --project analyses ruff check analyses
-uv run --project analyses ruff format --check analyses
 env -u VIRTUAL_ENV uv run --project analyses --extra indexing pytest -q analyses/tests
 ```
+
+### How the benchmark works (`benchmarks/image_indexing.ipynb`)
+
+1. **Isolated copy**: Reads `LANCE_DB` from `backend/.env` and copies only `img_id`, `unicom_embeddings` (768-D), and `clip_embeddings` (512-D) into a run folder under `analyses/results/indexing/<timestamp>_<hash>/`. The live LanceDB table is never modified.
+2. **Held-out queries**: Randomly selects `query_count` (default 200) query rows and leaves them out of the searched table copy so a query image never matches itself.
+3. **Index and parameter sweep**:
+   - Evaluates `FLAT_EXACT_BASELINE` (exact exhaustive search) and five ANN index types: `IVF_FLAT`, `IVF_SQ`, `IVF_PQ`, `IVF_HNSW_SQ`, and `IVF_HNSW_PQ`.
+   - Uses the same partition and sub-vector sizing rule as the backend (`num_partitions = round(sqrt(rows))` clamped to `[70, 1024]`; `pq_sub_vectors = dim // 8`).
+   - Sweeps search parameters across `nprobes_grid` (`5, 10, 20, 40, 80, 160`), `ef_grid` (`None, 40, 100, 200, 400` for HNSW indexes), and `refine_grid` (`None, 2, 5, 10`).
+4. **Metrics and outputs**:
+   - Computes tie-aware `recall@10` against the exact baseline (with 95% bootstrap confidence intervals) and latency (`avg_ms`, `p50_ms`, `p95_ms`).
+   - Writes `run.json` (`status = "complete"` when finished), `indexing_benchmark.csv`, `query_timings.csv`, and `index_recommendations.csv` (the fastest setting per index that meets `recall_threshold = 0.95`).
+
+### How the plot works (`notebooks/index_performance.ipynb`)
+
+- Automatically loads the newest completed run under `analyses/results/indexing/` (or set `INDEX_BENCHMARK_RUN` to a specific run directory or CSV path).
+- For each embedding model (`UNICOM` and `CLIP`) and each index type, filters the parameter sweep to its **Pareto frontier** (dropping settings that are both slower and less accurate than another setting of the same index).
+- Plots mean query latency (`avg_ms`, log x-axis) against `Recall@10` (logit y-axis, which expands the scale near `1.0` so high-recall differences are clearly visible).
+- Outlines the overall Pareto-optimal indexes for each embedding, marks the `0.95` recall target with a dashed line, and annotates exact-search latency in the corner of each panel.

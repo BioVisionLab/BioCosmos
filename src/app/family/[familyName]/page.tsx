@@ -6,14 +6,12 @@ import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import MorphospaceSection from "@/components/morphospace/MorphospaceSection";
 import TaxonBreadcrumb, { lineageCrumbs } from "@/components/TaxonBreadcrumb";
-import TaxonImageStrip from "@/components/TaxonImageStrip";
+import TaxonSpeciesList, {
+  parseSpeciesPage,
+} from "@/components/TaxonSpeciesList";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
-import {
-  REPRESENTATIVE_IMAGE_LIMIT,
-  fetchHigherTaxon,
-  pickRepresentatives,
-} from "@/lib/higherTaxa";
+import { fetchHigherTaxon } from "@/lib/higherTaxa";
 import { familyHref, isCanonicalTaxonSlug } from "@/lib/taxonSlug";
 
 // Never pre-rendered at build time: API_HOST is unavailable during the Docker
@@ -27,6 +25,7 @@ const TREE_ID = "family-classification-tree";
 
 interface FamilyPageProps {
   params: Promise<{ familyName: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }
 
 export async function generateMetadata({
@@ -51,8 +50,12 @@ export async function generateMetadata({
   };
 }
 
-export default async function FamilyPage({ params }: FamilyPageProps) {
+export default async function FamilyPage({
+  params,
+  searchParams,
+}: FamilyPageProps) {
   const { familyName } = await params;
+  const { page } = await searchParams;
   const raw = decodeURIComponent(familyName);
 
   // The species page linked here with Catalogue of Life's own capitalisation
@@ -79,11 +82,13 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
       <HigherTaxonHeader taxon={taxon} />
 
       <section className="mb-10" aria-labelledby="family-images">
-        <h2 id="family-images" className="text-2xl font-semibold mb-3">
-          Species in this family
-        </h2>
-        <TaxonImageStrip
-          images={pickRepresentatives(taxon.images, REPRESENTATIVE_IMAGE_LIMIT)}
+        <TaxonSpeciesList
+          rank="family"
+          taxonKey={taxon.key}
+          page={parseSpeciesPage(page)}
+          href={familyHref(taxon.name)}
+          title="Species in this family"
+          headingId="family-images"
         />
       </section>
 

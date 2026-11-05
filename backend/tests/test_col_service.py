@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.col import ColBackboneService
+from app.services.col import ColBackboneService, read_release
 
 
 def build_service(duckdb_client, col_dir, **overrides):
@@ -25,6 +25,8 @@ def build_service(duckdb_client, col_dir, **overrides):
     service.type_material_table = "col_type_material"
     service.reference_path = os.path.join(col_dir, "Reference.tsv")
     service.reference_table = "col_reference"
+    service.metadata_path = os.path.join(col_dir, "metadata.yaml")
+    service.release_table = "col_release"
     service.clade_rank = "order"
     service.clade_value = "Lepidoptera"
     service.skip_ingestion = False
@@ -253,6 +255,61 @@ class TestReferences:
             "WHERE usage_id = 'SYN1'"
         ).fetchone()
         assert row == ("REF1", "472")
+
+
+class TestRelease:
+    def test_records_the_release_metadata(self, memory_duckdb, col_fixture_dir):
+        service = build_service(memory_duckdb, col_fixture_dir)
+        service.ingest()
+        release = read_release(memory_duckdb, "col_release")
+
+        assert release is not None
+        assert release.version == "2026-10-16 XR"
+        # YAML reads these as a date and an integer; both are kept as text.
+        assert release.issued == "2026-10-16"
+        assert release.key == "316691"
+        assert release.doi == "10.48580/dgzlf"
+
+    def test_missing_metadata_leaves_no_release(self, memory_duckdb, col_fixture_dir):
+        service = build_service(
+            memory_duckdb, col_fixture_dir, metadata_path="/nonexistent/metadata.yaml"
+        )
+        service.ingest()
+
+        assert memory_duckdb.table_exists("col_taxonomy")
+        assert read_release(memory_duckdb, "col_release") is None
+
+    def test_metadata_without_a_version_leaves_no_release(
+        self, memory_duckdb, col_fixture_dir, tmp_path
+    ):
+        metadata = tmp_path / "metadata.yaml"
+        metadata.write_text("title: Catalogue of Life\n")
+        service = build_service(
+            memory_duckdb, col_fixture_dir, metadata_path=str(metadata)
+        )
+        service.ingest()
+
+        assert read_release(memory_duckdb, "col_release") is None
+
+    def test_a_current_backbone_gains_its_release(self, memory_duckdb, col_fixture_dir):
+        service = build_service(memory_duckdb, col_fixture_dir)
+        service.ingest()
+        # As a database built before the release was recorded would be.
+        memory_duckdb.execute("DROP TABLE col_release")
+
+        with patch.object(
+            ColBackboneService,
+            "_ingest_name_usage",
+            side_effect=AssertionError("reloaded"),
+        ):
+            service.ingest()
+
+        release = read_release(memory_duckdb, "col_release")
+
+        assert release is not None and release.version == "2026-10-16 XR"
+
+    def test_no_table_reads_as_no_release(self, memory_duckdb):
+        assert read_release(memory_duckdb, "col_release") is None
 
 
 class TestIngestGuards:

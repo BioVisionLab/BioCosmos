@@ -1,64 +1,68 @@
 # colharmonize
 
-Match occurrence species names against a Catalogue of Life release. The CLI
-reads the source DuckDB table read-only unless you pass `--write-back-table`.
+Match occurrence scientific names against a Catalogue of Life (ColDP) release. The source DuckDB database is opened read-only unless `--write-back-table` is passed.
 
-The BioCosmos backend runs the same matcher at startup. Use the CLI to inspect
-inputs, tune matching, or export summaries.
+The BioCosmos backend runs the same matcher automatically at startup, so running the CLI is not required to start the site. Use the CLI to inspect source tables, tune matching thresholds, or export standalone CSV summaries and plots.
 
 ## Usage
 
-Run from the repository root. Stop the backend before accessing its live DuckDB
-file.
+Run from the repository root with the backend stopped:
 
 ```bash
+# Write a starter harmonize.toml configuration file (use "-o -" to print to stdout)
 uv run colharmonize init
+
+# Inspect tables and detected taxonomic columns
 uv run colharmonize inspect --db occurrences.duckdb --list-tables
-uv run colharmonize inspect --db occurrences.duckdb --table main.occurrence \
-  --map scientific_name=species
-uv run colharmonize run --db occurrences.duckdb --table main.occurrence \
-  --map scientific_name=species --col NameUsage.tsv --reports-dir reports \
-  --csv --plot
+uv run colharmonize inspect --db occurrences.duckdb --table main.image_meta \
+  --map scientific_name=species --map family=family --map order=order
+
+# Build or rebuild the cached Catalogue of Life reference index
+uv run colharmonize index --col "$COL_DIR/NameUsage.tsv"
+
+# Run taxonomic matching and export CSV and plot summaries
+uv run colharmonize run --db "$DUCK_DIR/biocosmos.duckdb" \
+  --table main.image_meta --map scientific_name=species \
+  --map family=family --map order=order --map class=class --map kingdom=kingdom \
+  --col "$COL_DIR/NameUsage.tsv" --reports-dir reports --csv --plot
+
+# Regenerate CSV or plot summaries from an existing taxonomy_update.duckdb
+uv run colharmonize summarize --input reports/taxonomy/<run_id>/taxonomy_update.duckdb --csv --plot
 ```
 
-## Output
+## Outputs
 
-Each run writes `taxonomy_update.duckdb` and `run.json`. Add `--csv` for
-`taxonomy_summary.csv` and `--plot` for `taxonomy_match_summary.png`.
+Each `run` produces `taxonomy_update.duckdb` and `run.json` (plus `taxonomy_summary.csv` with `--csv` and `taxonomy_match_summary.png` with `--plot`). When `--reports-dir` is used, artifacts are written to `<reports-dir>/taxonomy/<run_id>/` and `<reports-dir>/latest.json` is updated (see [`reports/README.md`](../../reports/README.md)).
 
-With `--reports-dir`, outputs go to `<reports-dir>/taxonomy/<run_id>/` and
-`latest.json` points to the run. Use `--output` to choose an explicit directory.
-See the [report format](../../reports/README.md).
+`taxonomy_update.duckdb` contains:
 
-The output database contains `input_taxa`, `input_taxon_variants`,
-`taxonomy_matches`, `taxonomy_candidates`, `summary_metrics`, and
-`run_metadata`. Join a run back to the source by the original fields:
+- `input_taxa` and `input_taxon_variants`: deduplicated input names and their original column values
+- `taxonomy_matches`: one row per `input_taxon_key` with `update_status` (`MATCHED`, `AMBIGUOUS`, `UNMATCHED`), `match_method` (`EXACT_ACCEPTED`, `EXACT_SYNONYM`, `EXACT_CANONICAL`, `UNIQUE_FAMILY_EPITHET`, `SPELLING_GENUS`, `SPELLING_EPITHET`, `FUZZY_TYPO`, `AMBIGUOUS`, `UNMATCHED`), and the accepted Catalogue of Life classification
+- `taxonomy_candidates`: ranked candidate matches considered during scoring
+- `summary_metrics` and `run_metadata`
+
+To join results back to the source table in SQL:
 
 ```sql
 ATTACH 'reports/taxonomy/<run_id>/taxonomy_update.duckdb' AS harmonized;
-SELECT occurrence.*, matches.accepted_name, matches.update_status
-FROM occurrence
-LEFT JOIN harmonized.input_taxon_variants variants
-  ON occurrence.species = variants.original_scientific_name
- AND occurrence.family IS NOT DISTINCT FROM variants.original_family
-LEFT JOIN harmonized.taxonomy_matches matches USING (input_taxon_key);
+
+SELECT src.*, m.accepted_name, m.update_status, m.match_method
+FROM main.image_meta src
+LEFT JOIN harmonized.input_taxon_variants v
+  ON src.species = v.original_scientific_name
+ AND src.family IS NOT DISTINCT FROM v.original_family
+LEFT JOIN harmonized.taxonomy_matches m USING (input_taxon_key);
 ```
 
-`--write-back-table main.taxonomy_lookup` also copies a compact lookup into the
-source database. It creates a new table and fails if the destination exists.
+Pass `--write-back-table main.taxonomy_lookup` to copy a compact lookup table directly into the source DuckDB database (fails if the destination table already exists).
 
 ## Configuration
 
-Use `--config harmonize.toml` to read settings from a file. CLI values take
-precedence. The file may also contain `geoharmonize` sections; this tool ignores
-them. Run `colharmonize init --output -` to print the template.
-
-The [upstream project](https://github.com/hhandika/col-taxonomy) documents
-normalization, candidate methods, scoring, the species → subspecies → genus rank
-cascade, and ambiguity rules.
+Pass `--config harmonize.toml` to load `[run]`, `[columns]`, and `[matching]` settings from a TOML file (CLI flags override file values). In `[matching]`, `default_order` can be set when all records belong to a single order so records with a blank `order` column are still protected against cross-order homonyms.
 
 ## Development
 
 ```bash
 uv run --package colharmonize pytest packages/colharmonize/tests -q
+uv run ruff check packages/colharmonize && uv run ruff format --check packages/colharmonize
 ```

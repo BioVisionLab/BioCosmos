@@ -475,6 +475,22 @@ class TestRepresentativeImages:
         assert len(rows) == 5
         assert len({row["display_name"] for row in rows}) == 5
 
+    def test_an_offset_pages_through_every_species_once(self, repository):
+        everything = repository.representative_images("family", "nymphalidae", 20)
+        pages = [
+            repository.representative_images("family", "nymphalidae", 2, offset)
+            for offset in (0, 2, 4)
+        ]
+        paged = [row["img_id"] for page in pages for row in page]
+        assert paged == [row["img_id"] for row in everything]
+
+    def test_every_row_carries_the_species_total(self, repository):
+        rows = repository.representative_images("family", "nymphalidae", 2, 2)
+        assert {row["species_total"] for row in rows} == {5}
+
+    def test_a_page_past_the_last_is_empty(self, repository):
+        assert repository.representative_images("family", "nymphalidae", 20, 20) == []
+
 
 # occurrenceID -> (institutionCode, gbifID). Two rows for occ-i3, the
 # emptier one first by gbifID, as gbif_meta's duplicates arrive.
@@ -1461,6 +1477,27 @@ class TestIntermediateOverview:
     async def test_a_subfamily_with_no_images_is_not_found(self, repository):
         overview = SubfamilyOverview(_request_for(repository), "Nosuchinae")
         assert await overview.overview() is None
+
+    def test_a_species_page_lists_one_page_of_species(self, repository):
+        payload = SuperfamilyOverview(
+            _request_for(repository), "papilionoidea"
+        ).species_page(page=2, limit=2)
+        assert payload is not None
+        assert (payload["total"], payload["page"], payload["limit"]) == (5, 2, 2)
+        assert len(payload["species"]) == 2
+        assert set(payload["species"][0]) == {"imgId", "species", "displayName"}
+
+    def test_a_species_page_past_the_last_still_reports_the_total(self, repository):
+        payload = SuperfamilyOverview(
+            _request_for(repository), "papilionoidea"
+        ).species_page(page=9, limit=2)
+        assert payload is not None
+        assert payload["total"] == 5
+        assert payload["species"] == []
+
+    def test_a_subfamily_with_no_images_has_no_species_page(self, repository):
+        overview = SubfamilyOverview(_request_for(repository), "Nosuchinae")
+        assert overview.species_page() is None
 
 
 class TestSubgenusClassification:

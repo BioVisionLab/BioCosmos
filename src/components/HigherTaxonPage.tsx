@@ -5,16 +5,16 @@ import { ColAttribution } from "@/components/Attribution";
 import HigherTaxonHeader from "@/components/HigherTaxonHeader";
 import HigherTaxonTabs from "@/components/HigherTaxonTabs";
 import TaxonBreadcrumb, { lineageCrumbs } from "@/components/TaxonBreadcrumb";
-import TaxonImageStrip from "@/components/TaxonImageStrip";
+import TaxonSpeciesList, {
+  parseSpeciesPage,
+} from "@/components/TaxonSpeciesList";
 import TaxonomyTree, { UnrecordedTaxaNote } from "@/components/TaxonomyTree";
 import TaxonomyTreeControls from "@/components/TaxonomyTreeControls";
 import { ITALIC_COL_RANKS } from "@/lib/colTaxonomy";
 import {
   type HigherRank,
   type HigherTaxon,
-  REPRESENTATIVE_IMAGE_LIMIT,
   fetchHigherTaxon,
-  pickRepresentatives,
 } from "@/lib/higherTaxa";
 import {
   type IntermediateRank,
@@ -47,16 +47,23 @@ function memberCount(taxon: HigherTaxon, members: MemberRank): number | null {
 /**
  * A page for a rank between order and species that has no morphospace: a
  * suborder, superfamily, subfamily, tribe, subtribe or subgenus. The family
- * page's layout, with the lineage above it.
+ * page's layout, with the lineage above it, and every species it holds
+ * listed a page at a time rather than a strip of twenty.
  */
 export function HigherTaxonPage({
   taxon,
   rank,
+  href,
+  speciesPage,
   literatureName,
   literatureContext,
 }: {
   taxon: HigherTaxon;
   rank: IntermediateRank | "subgenus";
+  /** The page's own URL, which the species list pages from. */
+  href: string | null;
+  /** The page of the species list to show, from `?page=`. */
+  speciesPage: number;
   /** The name the literature search looks for, when not the page's name. */
   literatureName?: string;
   /** The taxon that search runs beside; see HigherTaxonTabs. */
@@ -78,11 +85,13 @@ export function HigherTaxonPage({
       <HigherTaxonHeader taxon={taxon} />
 
       <section className="mb-10" aria-labelledby={imagesId}>
-        <h2 id={imagesId} className="text-2xl font-semibold mb-3">
-          Species in this {rank}
-        </h2>
-        <TaxonImageStrip
-          images={pickRepresentatives(taxon.images, REPRESENTATIVE_IMAGE_LIMIT)}
+        <TaxonSpeciesList
+          rank={rank}
+          taxonKey={taxon.key}
+          page={speciesPage}
+          href={href}
+          title={`Species in this ${rank}`}
+          headingId={imagesId}
         />
       </section>
 
@@ -144,6 +153,10 @@ interface NameParams {
   params: Promise<{ name: string }>;
 }
 
+interface NamePageProps extends NameParams {
+  searchParams: Promise<{ page?: string | string[] }>;
+}
+
 /**
  * `generateMetadata` and the page for `/{rank}/[name]`, the route shape the
  * family-group ranks share. Each route file only names its rank.
@@ -160,8 +173,9 @@ export function intermediateRankRoute(rank: IntermediateRank) {
     );
   }
 
-  async function Page({ params }: NameParams) {
+  async function Page({ params, searchParams }: NamePageProps) {
     const { name } = await params;
+    const { page } = await searchParams;
     const raw = decodeURIComponent(name);
 
     // One taxon, one URL; see the family page. No loading.tsx beside these
@@ -176,7 +190,14 @@ export function intermediateRankRoute(rank: IntermediateRank) {
 
     if (!taxon) notFound();
 
-    return <HigherTaxonPage taxon={taxon} rank={rank} />;
+    return (
+      <HigherTaxonPage
+        taxon={taxon}
+        rank={rank}
+        href={rankHref(rank, taxon.name)}
+        speciesPage={parseSpeciesPage(page)}
+      />
+    );
   }
 
   return { generateMetadata, Page };

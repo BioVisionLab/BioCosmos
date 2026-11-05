@@ -5,6 +5,7 @@ import {
   HigherTaxonPage,
   higherTaxonMetadata,
 } from "@/components/HigherTaxonPage";
+import { parseSpeciesPage } from "@/components/TaxonSpeciesList";
 import { fetchHigherTaxon } from "@/lib/higherTaxa";
 import { isCanonicalTaxonSlug, subgenusHref } from "@/lib/taxonSlug";
 
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 interface SubgenusPageProps {
   params: Promise<{ genusName: string; subgenusName: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }
 
 async function resolve(params: SubgenusPageProps["params"]) {
@@ -41,8 +43,12 @@ export async function generateMetadata({
 /**
  * A subgenus, under its genus: a subgenus name is unique only within one.
  */
-export default async function SubgenusPage({ params }: SubgenusPageProps) {
+export default async function SubgenusPage({
+  params,
+  searchParams,
+}: SubgenusPageProps) {
   const { genus, subgenus } = await resolve(params);
+  const { page } = await searchParams;
 
   // One taxon, one URL; see the family page. No loading.tsx beside this file
   // either, for the reason given there.
@@ -62,6 +68,8 @@ export default async function SubgenusPage({ params }: SubgenusPageProps) {
     <HigherTaxonPage
       taxon={taxon}
       rank="subgenus"
+      href={subgenusHref(genus, subgenus)}
+      speciesPage={parseSpeciesPage(page)}
       literatureName={name}
       literatureContext={genusName}
     />

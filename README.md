@@ -1,75 +1,66 @@
-# BioCosmos - Biodiversity Image Platform
+# BioCosmos — Biodiversity Image Platform
 
 [![Backend-Tests](https://github.com/agporto/BioCosmos/workflows/Backend-Tests/badge.svg)](https://github.com/agporto/BioCosmos/actions)
 
-A comprehensive image-based biodiversity platform for butterfly research and education, combining curated natural history records, machine learning–based color pattern analysis, and integrated data on genetics, morphology, distribution, and taxonomy.
+An image-based biodiversity platform for butterfly research and education, combining curated museum and occurrence records, machine learning embeddings for wing color-pattern analysis, and integrated data on taxonomy, morphology, geographic distribution, genetics, and literature.
 
 ![BioCosmos screenshots: agent search results, a species page with its distribution map and visually similar species, the morphospace, and a species' genome summary](docs/images/screenshot_bento.png)
 
 ## Features
 
-- **Multi-modal search**: Find species by name, natural language, or image.
-- **Interactive visualization**: Explore visual similarity through zoomable UMAP maps.
-- **Taxonomic navigation**: Browse the taxonomy tree with representative images.
-- **Species profiles**: View descriptions, conservation status, image galleries, and geographic distributions.
-- **AI integration**: CLIP, UNICOM, and agentic search connect images and species data.
-- **Responsive interface**: Desktop and mobile layouts with dark and light themes.
+- **Multi-modal search**: Search by taxonomic name, natural-language descriptions (CLIP and LLM-guided agentic search), or uploaded specimen images.
+- **Dorso-ventral morphospaces**: Explore species, genus, and family wing-pattern variation and morphological disparity in interactive PCA morphospaces built from UNICOM embeddings.
+- **Taxonomic navigation**: Browse from order to species across a Catalogue of Life classification tree with representative specimen images and coverage statistics.
+- **Species and higher-taxon profiles**: Inspect specimen galleries (dorsal/ventral views and sex), validated occurrence maps, visually similar species, LepTraits life-history traits, NCBI genome/sequence summaries, and CrossRef literature.
+- **Responsive interface**: Desktop and mobile layouts with light and dark themes.
 
 ## Architecture
 
-### Frontend Stack
+### Frontend Stack (`src/`)
 
-- **Next.js**: React-based framework with App Router.
-- **React**: Component-based user interface library.
-- **TypeScript**: Type-safe development.
-- **Tailwind CSS**: Utility-first styling with custom themes.
-- **MapLibre GL JS**: Interactive vector maps for geographic distribution, with basemaps from OpenFreeMap.
-- **Lucide React**: Clean, customizable iconography.
+- **Next.js 16 (App Router) & React 19**: Server and client components with route handlers that proxy backend API requests.
+- **TypeScript**: Strict type-safe frontend development.
+- **Tailwind CSS 4**: Utility-first styling with light and dark themes.
+- **MapLibre GL JS**: Interactive vector maps for geographic distributions, using basemaps from OpenFreeMap.
 
-### Backend Stack
+### Backend Stack (`backend/`)
 
-- **FastAPI**: Modern, high-performance web framework for APIs.
-- **Python 3.12+**: Core backend language.
-- **LanceDB**: Vector database for embedding storage and similarity search.
-- **DuckDB**: In-process SQL OLAP database for structured metadata and taxonomy.
-- **CLIP**: OpenAI's vision-language model for semantic search.
-- **UNICOM**: Computer vision model optimized for fine-grained biological image similarity.
-- **Polars**: High-performance DataFrame library for data processing.
-- **Transformers**: Hugging Face library for ML model integration.
-- **PyTorch**: Deep learning framework for model inference.
+- **FastAPI (Python 3.12+)**: Asynchronous REST API for search, taxonomy, morphology, and external integrations.
+- **DuckDB**: Analytical SQL database storing metadata, harmonized Catalogue of Life taxonomy, validated GADM geography, institutions, traits, precomputed morphospaces, and species similarity.
+- **LanceDB**: Vector database storing 768-D UNICOM and 512-D CLIP image embeddings for fast nearest-neighbor search.
+- **PyTorch, Transformers & UNICOM**: Vision and vision-language models for fine-grained biological similarity and semantic text-to-image retrieval.
 
-### Data Harmonization
+### Workspace Packages (`packages/`) and Analyses (`analyses/`)
 
-Offline tools under `packages/`, members of the same uv workspace as the backend:
+Seven Python packages in `packages/` share the root `uv` workspace with the backend:
 
-- **colharmonize**: Matches occurrence species names against a Catalogue of Life release.
-- **geoharmonize**: Validates occurrence coordinates against GADM administrative geography.
-- **harmonize-core**: Shared DuckDB, configuration, and reporting primitives for both.
+- **[`harmonize-core`](packages/harmonize-core/README.md)**: Shared DuckDB catalog access, TOML configuration, country/place normalization, and artifact reporting.
+- **[`colharmonize`](packages/colharmonize/README.md)**: Matches recorded scientific names against a Catalogue of Life release (also run by the backend at startup).
+- **[`geoharmonize`](packages/geoharmonize/README.md)**: Validates occurrence coordinates against GADM administrative boundaries.
+- **[`instharmonize`](packages/instharmonize/README.md)**: Resolves museum and collection codes to institution names and websites via GBIF GRSciColl.
+- **[`morphospace`](packages/morphospace/README.md)**: Precomputes dorso-ventral PCA morphospaces, morphological disparity, and Mantel correlations from UNICOM embeddings.
+- **[`similarity`](packages/similarity/README.md)**: Precomputes the visually similar species displayed on species pages.
+- **[`plannerbench`](packages/plannerbench/README.md)**: Benchmarks language models on the production agent-search planner prompt.
 
-Each run writes a DuckDB database and a JSON manifest to `reports/`, recording a
-SHA-256 digest of every artifact it produced. See [packages/](packages/README.md)
-and [reports/](reports/README.md).
+Offline runs write reproducible artifacts and SHA-256 manifests under [`reports/`](reports/README.md). Publication figures, dataset exports, and vector-index benchmarks live in [`analyses/`](analyses/README.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, development, testing, deployment, API details, and the pull request workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, data ingestion, testing, caching rules, deployment, API routes, and the pull request workflow.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details .
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- **OpenAI CLIP**: Vision-language model for semantic understanding
-- **UNICOM**: Advanced computer vision model for biological images
-- **LanceDB**: Fast vector database for similarity search
-- **FastAPI**: Modern Python web framework
-- **Next.js**: React framework with excellent developer experience
-- **MapLibre GL JS**: Open-source mapping library (basemaps served by OpenFreeMap)
-- **GBIF**: Global biodiversity data integration
-- **Butterfly Dataset Contributors**: High-quality species images and data
-- **Mammal Diversity Database**: Feature inspiration for species profiles and taxonomy navigation
+- **OpenAI CLIP** & **UNICOM**: Vision models for semantic and fine-grained biological image similarity
+- **LanceDB** & **DuckDB**: Embedded vector and analytical databases
+- **FastAPI**, **Next.js** & **MapLibre GL JS** (with basemaps from **OpenFreeMap**)
+- **Catalogue of Life**, **GBIF**, **GADM**, **LepTraits**, **NCBI** & **CrossRef**: Taxonomic, geographic, trait, genetic, and bibliographic data sources
+- **Butterfly Dataset Contributors**: Museum collections and researchers providing specimen images and occurrence data
+- **Mammal Diversity Database**: Design inspiration for species profiles and taxonomic navigation
 
 ---
 
-**BioCosmos** - Exploring biodiversity through the lens of AI.
+**BioCosmos** — Exploring biodiversity through the lens of AI.

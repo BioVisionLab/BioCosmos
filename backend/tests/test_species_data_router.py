@@ -493,6 +493,20 @@ OVERVIEW = {
 }
 
 
+SPECIES_PAGE = {
+    "total": 3,
+    "page": 2,
+    "limit": 10,
+    "species": [
+        {
+            "imgId": "i1",
+            "species": "coenonympha_pamphilus",
+            "displayName": "Coenonympha pamphilus",
+        }
+    ],
+}
+
+
 class TestHigherTaxonEndpoints:
 
     @patch("app.routers.species_data.FamilyOverview")
@@ -589,6 +603,61 @@ class TestHigherTaxonEndpoints:
             "genus": "danaus",
             "subgenus": "anosia",
         }
+
+    @pytest.mark.parametrize(
+        ("path", "overview_class"),
+        [
+            ("/order/lepidoptera/species", "OrderOverview"),
+            ("/family/nymphalidae/species", "FamilyOverview"),
+            ("/genus/coenonympha/species", "GenusOverview"),
+            ("/suborder/glossata/species", "SuborderOverview"),
+            ("/superfamily/papilionoidea/species", "SuperfamilyOverview"),
+            ("/subfamily/satyrinae/species", "SubfamilyOverview"),
+            ("/tribe/coenonymphini/species", "TribeOverview"),
+            ("/subtribe/coenonymphina/species", "SubtribeOverview"),
+            ("/genus/danaus/subgenus/anosia/species", "SubgenusOverview"),
+        ],
+    )
+    def test_species_pages_are_cached_like_an_overview(self, path, overview_class):
+        with patch(f"app.routers.species_data.{overview_class}") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "subfamily"
+            instance.key = "satyrinae"
+            instance.species_page = MagicMock(return_value=SPECIES_PAGE)
+            response = client.get(f"{path}?page=2&limit=10")
+        assert response.status_code == 200
+        assert response.json() == SPECIES_PAGE
+        assert instance.species_page.call_args.args == (2, 10)
+        assert "max-age=2592000" in response.headers["cache-control"]
+
+    def test_a_species_page_defaults_to_the_first_twenty(self):
+        with patch("app.routers.species_data.TribeOverview") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "tribe"
+            instance.key = "coenonymphini"
+            instance.species_page = MagicMock(return_value=SPECIES_PAGE)
+            client.get("/tribe/coenonymphini/species")
+        assert instance.species_page.call_args.args == (1, 20)
+
+    @pytest.mark.parametrize("query", ["page=0", "limit=0", "limit=101"])
+    def test_an_out_of_range_species_page_is_rejected(self, query):
+        response = client.get(f"/tribe/coenonymphini/species?{query}")
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize("failure", [None, Exception("boom")])
+    def test_a_species_page_failure_is_not_cached(self, failure):
+        with patch("app.routers.species_data.SubfamilyOverview") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "subfamily"
+            instance.key = "nosuchinae"
+            instance.species_page = (
+                MagicMock(side_effect=failure)
+                if failure
+                else MagicMock(return_value=None)
+            )
+            response = client.get("/subfamily/nosuchinae/species")
+        assert response.status_code == (500 if failure else 404)
+        assert response.headers.get("cache-control") == "no-store"
 
     @patch("app.routers.species_data.OrderOverview")
     def test_order_overview_success(self, MockOrder):
