@@ -772,6 +772,8 @@ async def fetch_subtribe_overview(request: Request, name: str):
 
 SpeciesPageNumber = Annotated[int, Query(ge=1)]
 SpeciesPageLimit = Annotated[int, Query(ge=1, le=MAX_SPECIES_PAGE_LIMIT)]
+# Alphabetical by default; `images` puts the best-photographed species first.
+SpeciesPageSort = Literal["name", "images"]
 
 
 async def _species_page_response(
@@ -780,14 +782,15 @@ async def _species_page_response(
     label: str,
     page: int,
     limit: int,
+    sort: SpeciesPageSort,
 ):
     """One page of a taxon's species, cached like its overview; 404 when none.
 
-    The ETag is the overview's with the page folded in: both are read off the
-    same ingestion, so they go stale together.
+    The ETag is the overview's with the page and its order folded in: both are
+    read off the same ingestion, so they go stale together.
     """
     try:
-        payload = await asyncio.to_thread(overview.species_page, page, limit)
+        payload = await asyncio.to_thread(overview.species_page, page, limit, sort)
 
         if not payload:
             raise HTTPException(
@@ -798,7 +801,7 @@ async def _species_page_response(
         etag = _overview_etag(request, overview.rank, overview.key)
 
         return cached_json(
-            payload, etag=f"{etag}:species:{page}:{limit}" if etag else None
+            payload, etag=f"{etag}:species:{sort}:{page}:{limit}" if etag else None
         )
     except HTTPException as error:
         error.headers = {**(error.headers or {}), "Cache-Control": NO_STORE}
@@ -818,11 +821,14 @@ async def fetch_order_species(
     order_name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of an order with images, a page at a time."""
     overview = OrderOverview(request=request, name=order_name)
 
-    return await _species_page_response(request, overview, order_name, page, limit)
+    return await _species_page_response(
+        request, overview, order_name, page, limit, sort
+    )
 
 
 @router.get("/family/{family_name}/species", tags=["Species Data"])
@@ -831,11 +837,14 @@ async def fetch_family_species(
     family_name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a family with images, a page at a time."""
     overview = FamilyOverview(request=request, name=family_name)
 
-    return await _species_page_response(request, overview, family_name, page, limit)
+    return await _species_page_response(
+        request, overview, family_name, page, limit, sort
+    )
 
 
 @router.get("/genus/{genus_name}/species", tags=["Species Data"])
@@ -844,11 +853,14 @@ async def fetch_genus_species(
     genus_name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a genus with images, a page at a time."""
     overview = GenusOverview(request=request, name=genus_name)
 
-    return await _species_page_response(request, overview, genus_name, page, limit)
+    return await _species_page_response(
+        request, overview, genus_name, page, limit, sort
+    )
 
 
 @router.get(
@@ -860,13 +872,14 @@ async def fetch_subgenus_species(
     subgenus_name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a subgenus with images, a page at a time."""
     overview = SubgenusOverview(
         request=request, genus=genus_name, subgenus=subgenus_name
     )
     return await _species_page_response(
-        request, overview, f"{genus_name} ({subgenus_name})", page, limit
+        request, overview, f"{genus_name} ({subgenus_name})", page, limit, sort
     )
 
 
@@ -876,10 +889,11 @@ async def fetch_suborder_species(
     name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a suborder with images, a page at a time."""
     overview = SuborderOverview(request, name)
-    return await _species_page_response(request, overview, name, page, limit)
+    return await _species_page_response(request, overview, name, page, limit, sort)
 
 
 @router.get("/superfamily/{name}/species", tags=["Species Data"])
@@ -888,10 +902,11 @@ async def fetch_superfamily_species(
     name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a superfamily with images, a page at a time."""
     overview = SuperfamilyOverview(request, name)
-    return await _species_page_response(request, overview, name, page, limit)
+    return await _species_page_response(request, overview, name, page, limit, sort)
 
 
 @router.get("/subfamily/{name}/species", tags=["Species Data"])
@@ -900,10 +915,11 @@ async def fetch_subfamily_species(
     name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a subfamily with images, a page at a time."""
     overview = SubfamilyOverview(request, name)
-    return await _species_page_response(request, overview, name, page, limit)
+    return await _species_page_response(request, overview, name, page, limit, sort)
 
 
 @router.get("/tribe/{name}/species", tags=["Species Data"])
@@ -912,10 +928,11 @@ async def fetch_tribe_species(
     name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a tribe with images, a page at a time."""
     overview = TribeOverview(request, name)
-    return await _species_page_response(request, overview, name, page, limit)
+    return await _species_page_response(request, overview, name, page, limit, sort)
 
 
 @router.get("/subtribe/{name}/species", tags=["Species Data"])
@@ -924,10 +941,11 @@ async def fetch_subtribe_species(
     name: str,
     page: SpeciesPageNumber = 1,
     limit: SpeciesPageLimit = DEFAULT_IMAGE_LIMIT,
+    sort: SpeciesPageSort = "name",
 ):
     """Every species of a subtribe with images, a page at a time."""
     overview = SubtribeOverview(request, name)
-    return await _species_page_response(request, overview, name, page, limit)
+    return await _species_page_response(request, overview, name, page, limit, sort)
 
 
 @router.get("/family/{family_name}/classification", tags=["Species Data"])

@@ -491,6 +491,27 @@ class TestRepresentativeImages:
     def test_a_page_past_the_last_is_empty(self, repository):
         assert repository.representative_images("family", "nymphalidae", 20, 20) == []
 
+    def test_alphabetical_orders_species_by_name(self, repository):
+        rows = repository.representative_images(
+            "family", "nymphalidae", 20, alphabetical=True
+        )
+        names = [row["display_name"] for row in rows]
+        assert len(names) == 5
+        assert names == sorted(names, key=str.lower)
+
+    def test_alphabetical_pages_through_every_species_once(self, repository):
+        everything = repository.representative_images(
+            "family", "nymphalidae", 20, alphabetical=True
+        )
+        pages = [
+            repository.representative_images(
+                "family", "nymphalidae", 2, offset, alphabetical=True
+            )
+            for offset in (0, 2, 4)
+        ]
+        paged = [row["img_id"] for page in pages for row in page]
+        assert paged == [row["img_id"] for row in everything]
+
 
 # occurrenceID -> (institutionCode, gbifID). Two rows for occ-i3, the
 # emptier one first by gbifID, as gbif_meta's duplicates arrive.
@@ -1486,6 +1507,14 @@ class TestIntermediateOverview:
         assert (payload["total"], payload["page"], payload["limit"]) == (5, 2, 2)
         assert len(payload["species"]) == 2
         assert set(payload["species"][0]) == {"imgId", "species", "displayName"}
+
+    def test_a_species_page_lists_species_alphabetically(self, repository):
+        payload = SuperfamilyOverview(
+            _request_for(repository), "papilionoidea"
+        ).species_page(limit=20)
+        assert payload is not None
+        names = [row["displayName"] for row in payload["species"]]
+        assert names == sorted(names, key=str.lower)
 
     def test_a_species_page_past_the_last_still_reports_the_total(self, repository):
         payload = SuperfamilyOverview(

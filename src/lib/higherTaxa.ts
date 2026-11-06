@@ -382,6 +382,9 @@ export async function fetchHigherTaxonSpecies(
   const query = new URLSearchParams({
     page: String(page),
     limit: String(SPECIES_PER_PAGE),
+    // Named so a response cached under the earlier, most-images-first order
+    // is never served for this one.
+    sort: "name",
   });
   const response = await fetch(`${API_HOST}/${path}/species?${query}`, {
     headers: { Accept: "application/json" },
