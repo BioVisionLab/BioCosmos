@@ -1,8 +1,18 @@
 db:
   duck:
     file: "biocosmos.duckdb"
+    # DuckDB otherwise takes up to 80% of the host's RAM for its buffer pool
+    # and rarely gives it back. Any DuckDB size string ("8GB", "512MB"); null
+    # keeps DuckDB's default.
+    memory_limit: "4GB"
+    # Every thread adds working memory to each query. null uses every core.
+    threads: 4
   lance:
     file: "biocosmos.lance"
+    # Caches shared by every table opened on the connection; null keeps
+    # LanceDB's defaults, which run to several GiB for the index cache.
+    index_cache_mb: 1024
+    metadata_cache_mb: 256
 images:
   table: "nymphalidae"
   # Limit number of images to ingest into the database, set to null for no
