@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/stats/taxon", tags=["Data Statistics"])
-async def get_taxon_counts(request: Request):
+def get_taxon_counts(request: Request):
     """
     Get the counts of species in each taxon.
     """
@@ -45,7 +45,7 @@ def get_embedding_distribution(request: Request) -> EmbeddingDistribution:
     tags=["Data Statistics"],
     response_model=EmbeddingStatsPayload,
 )
-async def get_embedding_stats(
+def get_embedding_stats(
     service: EmbeddingDistribution = Depends(get_embedding_distribution),
 ):
     """
@@ -96,7 +96,7 @@ def _not_found(message: str) -> JSONResponse:
 
 
 @router.get("/stats/country", tags=["Data Statistics"])
-async def get_country_diversity_stats(
+def get_country_diversity_stats(
     service: CountryDiversity = Depends(get_country_diversity),
 ):
     """
@@ -120,7 +120,7 @@ async def get_country_diversity_stats(
 
 
 @router.get("/stats/country/{country_code}", tags=["Data Statistics"])
-async def get_country_species(
+def get_country_species(
     country_code: str,
     service: CountryDiversity = Depends(get_country_diversity),
 ):

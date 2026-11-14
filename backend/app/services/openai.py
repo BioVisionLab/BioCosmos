@@ -1,9 +1,14 @@
-from openai import OpenAI
 import logging
+
+from openai import OpenAI
 
 from ..configs.config import OpenAIConfig
 
 logger = logging.getLogger(__name__)
+
+# Bounds the species summary call, which otherwise waits on the provider's
+# default of ten minutes.
+SUMMARY_TIMEOUT_SECONDS = 60.0
 
 
 class AiSummary:
@@ -48,5 +53,6 @@ class AiSummary:
         chat_completion = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
+            timeout=SUMMARY_TIMEOUT_SECONDS,
         )
         return chat_completion.choices[0].message.content

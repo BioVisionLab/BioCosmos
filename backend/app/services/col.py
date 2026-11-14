@@ -11,6 +11,7 @@ Two facts drive the ingest:
   the group this collection actually holds.
 """
 
+import asyncio
 import logging
 import re
 from collections.abc import Mapping
@@ -725,8 +726,13 @@ class ColTaxonSearch:
         with a subgenus — 'Danaus (Danaus) plexippus' for a collection that
         only ever writes 'danaus_plexippus'.
 
-        Async to match the call sites this replaces; the work is a local query.
+        The lookups are blocking DuckDB queries, so they run in a worker
+        thread rather than on the event loop.
         """
+        return await asyncio.to_thread(self.search_sync, query)
+
+    def search_sync(self, query: str) -> dict | None:
+        """`search` for a caller already off the event loop."""
         normalized = _normalize_name(query or "")
         if not normalized:
             return None
@@ -788,6 +794,9 @@ class ColTaxonSearch:
 
     async def search_at_rank(self, query: str, rank: str) -> dict | None:
         """Resolve a name that must sit at a given rank, e.g. family or genus."""
+        return await asyncio.to_thread(self._search_at_rank, query, rank)
+
+    def _search_at_rank(self, query: str, rank: str) -> dict | None:
         normalized = _normalize_name(query or "")
         if not normalized:
             return None
@@ -815,7 +824,10 @@ class ColTaxonSearch:
 
         Returns None when the name does not resolve to a species.
         """
-        taxon = await self.search(query)
+        return await asyncio.to_thread(self._name_usages, query)
+
+    def _name_usages(self, query: str) -> dict | None:
+        taxon = self.search_sync(query)
         if not taxon or not taxon.get("species") or not taxon.get("colId"):
             return None
         accepted_id = taxon["colId"]
@@ -928,7 +940,10 @@ class ColTaxonSearch:
 
         Returns None when the name does not resolve to a species.
         """
-        taxon = await self.search(query)
+        return await asyncio.to_thread(self._taxonomy_detail, query)
+
+    def _taxonomy_detail(self, query: str) -> dict | None:
+        taxon = self.search_sync(query)
         if not taxon or not taxon.get("species") or not taxon.get("colId"):
             return None
         accepted_id = taxon["colId"]
