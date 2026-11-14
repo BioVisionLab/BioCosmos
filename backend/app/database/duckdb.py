@@ -4,7 +4,7 @@ import duckdb
 import polars as pl
 import threading
 
-from ..configs.config import get_duck_db_path
+from ..configs.config import get_duck_db_path, get_duck_db_settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,13 +50,14 @@ class DuckDBClient:
 
     def __init__(self):
         db_path = get_duck_db_path()
-        self.conn = duckdb.connect(database=str(db_path))
+        settings = get_duck_db_settings()
+        self.conn = duckdb.connect(database=str(db_path), config=settings)
         # No fts extension: nothing in this codebase runs a BM25 query. An
         # existing biocosmos.duckdb still carries fts_main_image_meta and
         # fts_main_gbif_meta schemas from when it did, but they are inert --
         # the file opens and queries fine without the extension loaded.
         self.lock = threading.RLock()
-        logger.info(f"DuckDB connected at {db_path}")
+        logger.info(f"DuckDB connected at {db_path} with {settings or 'defaults'}")
 
     def register(self, name: str, df: pl.DataFrame):
         """Register a Polars DataFrame as a DuckDB table.

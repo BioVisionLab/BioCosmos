@@ -5,7 +5,6 @@ description = "Backend service for image classification"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "chromadb>=0.6.3",
     # Drives the taxonomy matching in-process, so the backend can harmonize
     # occurrence names against Catalogue of Life without a separate CLI run.
     "colharmonize",

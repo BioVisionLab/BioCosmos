@@ -69,6 +69,51 @@ def get_duck_db_path() -> str:
     return os.path.join(parent_dir, duck_config["file"])
 
 
+# The value type `duckdb.connect(config=...)` declares.
+DuckSettings = dict[str, str | bool | int | float | list[str]]
+
+
+def get_duck_db_settings() -> DuckSettings:
+    """DuckDB connection settings from `db.duck`, leaving out unset ones.
+
+    Passed to `duckdb.connect(config=...)`, so the limits are in force before
+    the first query rather than set afterward.
+    """
+    duck_config = load_config()["db"]["duck"]
+    settings: DuckSettings = {}
+    memory_limit = duck_config.get("memory_limit")
+
+    if memory_limit:
+        settings["memory_limit"] = str(memory_limit)
+
+    threads = duck_config.get("threads")
+
+    if threads:
+        settings["threads"] = int(threads)
+
+    return settings
+
+
+def get_lance_cache_sizes() -> tuple[int | None, int | None]:
+    """Index and metadata cache sizes in bytes from `db.lance`.
+
+    None leaves that cache at LanceDB's default.
+    """
+    lance_config = load_config()["db"]["lance"]
+
+    return (
+        _megabytes(lance_config.get("index_cache_mb")),
+        _megabytes(lance_config.get("metadata_cache_mb")),
+    )
+
+
+def _megabytes(value) -> int | None:
+    if value is None:
+        return None
+
+    return int(value) * 1024 * 1024
+
+
 def get_lance_db_path() -> str:
     config = load_config()
     lance_config = config["db"]["lance"]

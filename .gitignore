@@ -47,11 +47,9 @@ next-env.d.ts
 public/dataset-tiles
 public/images
 *__pycache__
-clip_service/chroma_db/*
 
 db/
 target/
-chroma_db/
 duck_db/
 lance_db/
 lance_db_lite/

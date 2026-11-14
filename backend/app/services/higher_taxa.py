@@ -793,7 +793,13 @@ class HigherTaxonRepository:
     # ------------------------------------------------------------------
 
     def representative_images(
-        self, scope: Scope, key: str, limit: int = 20, offset: int = 0
+        self,
+        scope: Scope,
+        key: str,
+        limit: int = 20,
+        offset: int = 0,
+        *,
+        alphabetical: bool = False,
     ) -> list[dict]:
         """One image of each of up to `limit` species, after skipping `offset`.
 
@@ -808,12 +814,20 @@ class HigherTaxonRepository:
         that cache. The same ordering is what lets `offset` page through every
         species of the taxon, and each row carries `species_total`, how many
         species there are to page through.
+
+        Species come most images first, for the strip; `alphabetical` orders
+        them by name instead, for the full list a reader scans for a name.
         """
         if not self.harmonized_available():
             return []
         if scope not in ("family", "genus") and not self.col_available():
             return []
         predicate, params = self.scope_filter(scope, key)
+        order = (
+            "lower(accepted_species), accepted_species"
+            if alphabetical
+            else "image_count DESC, accepted_species"
+        )
 
         query = f"""
     WITH matched AS ({self._matched_images()}
@@ -825,7 +839,7 @@ class HigherTaxonRepository:
         -- The window runs before the LIMIT, so it counts every species.
         SELECT accepted_species, image_count, count(*) OVER () AS species_total
         FROM counted
-        ORDER BY image_count DESC, accepted_species
+        ORDER BY {order}
         LIMIT ? OFFSET ?
     ), ranked AS (
         SELECT m.img_id,
@@ -851,7 +865,7 @@ class HigherTaxonRepository:
            species_total
     FROM ranked
     WHERE within_species = 1
-    ORDER BY image_count DESC, accepted_species
+    ORDER BY {order}
         """
         return self._rows(
             query,

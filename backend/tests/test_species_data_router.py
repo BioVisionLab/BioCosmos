@@ -32,8 +32,8 @@ client = TestClient(app)
 # GET /species/{scientific_name}/biology
 # =========================================================================
 
-class TestFetchSpeciesBiology:
 
+class TestFetchSpeciesBiology:
     def test_empty_species_name_returns_400(self):
         response = client.get("/species/ /biology")
         assert response.status_code == 400
@@ -51,7 +51,9 @@ class TestFetchSpeciesBiology:
     @patch("app.routers.species_data.TaxonSearch")
     def test_success_returns_200(self, MockTaxon):
         instance = MockTaxon.return_value
-        instance.search = AsyncMock(return_value={"taxonomy": {"family": "Nymphalidae"}})
+        instance.search = AsyncMock(
+            return_value={"taxonomy": {"family": "Nymphalidae"}}
+        )
         response = client.get("/species/danaus_plexippus/biology")
         assert response.status_code == 200
         assert response.json()["taxonomy"]["family"] == "Nymphalidae"
@@ -105,8 +107,8 @@ class TestFetchSpeciesTaxonomy:
 # GET /species/{scientific_name}/similar
 # =========================================================================
 
-class TestFetchVisuallySimilarSpecies:
 
+class TestFetchVisuallySimilarSpecies:
     def test_precomputed_result_returned(self):
         precomputed = MagicMock()
         precomputed.find_similar_species.return_value = {
@@ -325,9 +327,7 @@ class TestFetchVisuallySimilarSpecies:
         try:
             for side in ("dorsal", "ventral"):
                 precomputed.find_similar_species.reset_mock()
-                response = client.get(
-                    f"/species/danaus_plexippus/similar?side={side}"
-                )
+                response = client.get(f"/species/danaus_plexippus/similar?side={side}")
                 assert response.status_code == 200
                 assert precomputed.find_similar_species.call_args.args == (
                     "danaus_plexippus",
@@ -404,12 +404,13 @@ class TestFetchVisuallySimilarSpecies:
 # GET /species/{scientific_name}/specimens
 # =========================================================================
 
-class TestFetchSpeciesSpecimens:
 
+class TestFetchSpeciesSpecimens:
     @patch("app.routers.species_data.SpecimenData")
     def test_success(self, MockSpecimen):
         MockSpecimen.return_value.summarize.return_value = {
-            "total": 5, "institutions": ["MCZ"]
+            "total": 5,
+            "institutions": ["MCZ"],
         }
         response = client.get("/species/danaus_plexippus/specimens")
         assert response.status_code == 200
@@ -426,8 +427,8 @@ class TestFetchSpeciesSpecimens:
 # Classification endpoints
 # =========================================================================
 
-class TestClassificationEndpoints:
 
+class TestClassificationEndpoints:
     @patch("app.routers.species_data.FamilySearch")
     def test_family_classification_success(self, MockFamily):
         instance = MockFamily.return_value
@@ -508,7 +509,6 @@ SPECIES_PAGE = {
 
 
 class TestHigherTaxonEndpoints:
-
     @patch("app.routers.species_data.FamilyOverview")
     def test_family_overview_success(self, MockFamily):
         instance = MockFamily.return_value
@@ -627,7 +627,7 @@ class TestHigherTaxonEndpoints:
             response = client.get(f"{path}?page=2&limit=10")
         assert response.status_code == 200
         assert response.json() == SPECIES_PAGE
-        assert instance.species_page.call_args.args == (2, 10)
+        assert instance.species_page.call_args.args == (2, 10, "name")
         assert "max-age=2592000" in response.headers["cache-control"]
 
     def test_a_species_page_defaults_to_the_first_twenty(self):
@@ -637,9 +637,40 @@ class TestHigherTaxonEndpoints:
             instance.key = "coenonymphini"
             instance.species_page = MagicMock(return_value=SPECIES_PAGE)
             client.get("/tribe/coenonymphini/species")
-        assert instance.species_page.call_args.args == (1, 20)
+        assert instance.species_page.call_args.args == (1, 20, "name")
 
-    @pytest.mark.parametrize("query", ["page=0", "limit=0", "limit=101"])
+    def test_a_species_page_can_be_ordered_by_images(self):
+        with patch("app.routers.species_data.FamilyOverview") as MockOverview:
+            instance = MockOverview.return_value
+            instance.rank = "family"
+            instance.key = "nymphalidae"
+            instance.species_page = MagicMock(return_value=SPECIES_PAGE)
+            response = client.get("/family/nymphalidae/species?sort=images")
+        assert response.status_code == 200
+        assert instance.species_page.call_args.args == (1, 20, "images")
+
+    def test_the_order_is_part_of_a_species_page_etag(self):
+        """A cache holding the other order must not be told it is current."""
+        etags = set()
+
+        for sort in ("name", "images"):
+            with (
+                patch("app.routers.species_data.FamilyOverview") as MockOverview,
+                patch("app.routers.species_data._overview_etag", return_value='"v1"'),
+            ):
+                instance = MockOverview.return_value
+                instance.rank = "family"
+                instance.key = "nymphalidae"
+                instance.species_page = MagicMock(return_value=SPECIES_PAGE)
+                etags.add(
+                    client.get(f"/family/nymphalidae/species?sort={sort}").headers.get(
+                        "etag"
+                    )
+                )
+
+        assert len(etags) == 2
+
+    @pytest.mark.parametrize("query", ["page=0", "limit=0", "limit=101", "sort=size"])
     def test_an_out_of_range_species_page_is_rejected(self, query):
         response = client.get(f"/tribe/coenonymphini/species?{query}")
         assert response.status_code == 422
@@ -772,7 +803,12 @@ class TestFetchSpeciesCoordinates:
             app.dependency_overrides.clear()
 
     def test_success_is_cacheable(self):
-        payload = {"species": "danaus_plexippus", "total": 0, "truncated": False, "points": []}
+        payload = {
+            "species": "danaus_plexippus",
+            "total": 0,
+            "truncated": False,
+            "points": [],
+        }
         response, service = self._get(
             "/species/danaus_plexippus/coordinates", return_value=payload
         )
@@ -782,7 +818,9 @@ class TestFetchSpeciesCoordinates:
         service.get.assert_called_once_with("danaus_plexippus")
 
     def test_not_found_is_not_cached(self):
-        response, _ = self._get("/species/unknown_species/coordinates", return_value=None)
+        response, _ = self._get(
+            "/species/unknown_species/coordinates", return_value=None
+        )
         assert response.status_code == 404
         assert response.headers["cache-control"] == "no-store"
 

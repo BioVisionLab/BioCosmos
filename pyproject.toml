@@ -35,7 +35,6 @@ exclude = [
     "**/__pycache__",
     "**/.*",
     "show",
-    "tools",
     "public",
     "reports",
     "backend/static",
