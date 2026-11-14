@@ -1,8 +1,8 @@
 import logging
+import threading
 
 import duckdb
 import polars as pl
-import threading
 
 from ..configs.config import get_duck_db_path, get_duck_db_settings
 
@@ -46,18 +46,50 @@ def _sql_literal(value: str) -> str:
 class DuckDBClient:
     """
     A simple DuckDB client wrapper.
+
+    Queries run on a cursor owned by the calling thread. A DuckDB cursor is a
+    second connection to the same database, so threads query in parallel and
+    each reads back only its own results; one shared connection would have to
+    serialize every request and hand a fetch whichever query ran last. Data and
+    the catalog are shared by every cursor, while registered DataFrames, temp
+    tables and the pending result are per cursor, so a caller that registers,
+    queries and fetches on one thread sees only its own.
+
+    `conn` stays the root connection, for the startup builds that write
+    through it directly under `lock`. Closing it closes every cursor.
     """
 
-    def __init__(self):
-        db_path = get_duck_db_path()
-        settings = get_duck_db_settings()
-        self.conn = duckdb.connect(database=str(db_path), config=settings)
+    def __init__(self, conn: duckdb.DuckDBPyConnection | None = None):
+        """Open the configured database, or wrap `conn` when one is given."""
+        if conn is None:
+            db_path = get_duck_db_path()
+            settings = get_duck_db_settings()
+            conn = duckdb.connect(database=str(db_path), config=settings)
+            logger.info(f"DuckDB connected at {db_path} with {settings or 'defaults'}")
+
+        self.conn = conn
         # No fts extension: nothing in this codebase runs a BM25 query. An
         # existing biocosmos.duckdb still carries fts_main_image_meta and
         # fts_main_gbif_meta schemas from when it did, but they are inert --
         # the file opens and queries fine without the extension loaded.
         self.lock = threading.RLock()
-        logger.info(f"DuckDB connected at {db_path} with {settings or 'defaults'}")
+        # Opening a cursor takes its own lock, not `lock`, so a thread's first
+        # read never waits on a startup build that holds `lock`.
+        self._cursor_lock = threading.Lock()
+        self._local = threading.local()
+
+    @property
+    def cursor(self) -> duckdb.DuckDBPyConnection:
+        """The calling thread's cursor, opened on its first query."""
+        cursor = getattr(self._local, "cursor", None)
+
+        if cursor is None:
+            with self._cursor_lock:
+                cursor = self.conn.cursor()
+
+            self._local.cursor = cursor
+
+        return cursor
 
     def register(self, name: str, df: pl.DataFrame):
         """Register a Polars DataFrame as a DuckDB table.
@@ -65,8 +97,7 @@ class DuckDBClient:
             name (str): The name of the table.
             df (pl.DataFrame): The Polars DataFrame to register.
         """
-        with self.lock:
-            self.conn.register(name, df)
+        self.cursor.register(name, df)
         logger.info(f"DataFrame registered as table '{name}'.")
 
     def unregister(self, name: str):
@@ -74,8 +105,7 @@ class DuckDBClient:
         Args:
             name (str): The name of the table to unregister.
         """
-        with self.lock:
-            self.conn.unregister(name)
+        self.cursor.unregister(name)
         logger.info(f"Table '{name}' unregistered.")
 
     def execute(self, query: str):
@@ -85,22 +115,19 @@ class DuckDBClient:
         Returns:
             duckdb.DuckDBPyRelation: The result of the query.
         """
-        with self.lock:
-            return self.conn.execute(query)
+        return self.cursor.execute(query)
 
     def execute_to_pl(self, query: str) -> pl.DataFrame:
         """Execute a SQL query and return the result as a Polars DataFrame.
 
-        The result is fetched while the lock is held. `execute` returns the
-        shared connection itself, so a `.pl()` called on it after the lock is
-        released reads whichever query ran last on any thread.
+        Same as `execute(query).pl()`: the cursor belongs to the calling
+        thread, so the fetch reads this query's result.
         Args:
             query (str): The SQL query to execute.
         Returns:
             pl.DataFrame: The result of the query as a Polars DataFrame.
         """
-        with self.lock:
-            return self.conn.execute(query).pl()
+        return self.cursor.execute(query).pl()
 
     def execute_query(self, query: str, params: str):
         """Execute a SQL query with parameters.
@@ -110,8 +137,7 @@ class DuckDBClient:
         Returns:
             duckdb.DuckDBPyRelation: The result of the query.
         """
-        with self.lock:
-            return self.conn.execute(query, [params])
+        return self.cursor.execute(query, [params])
 
     def execute_prepared(self, query: str, params: list):
         """Execute a prepared SQL query with parameters.
@@ -121,8 +147,7 @@ class DuckDBClient:
         Returns:
             duckdb.DuckDBPyRelation: The result of the query.
         """
-        with self.lock:
-            return self.conn.execute(query, params)
+        return self.cursor.execute(query, params)
 
     def execute_prepared_to_pl(self, query: str, params: list) -> pl.DataFrame:
         """Execute a prepared SQL query with parameters and return the result as a Polars DataFrame.
@@ -132,8 +157,7 @@ class DuckDBClient:
         Returns:
             pl.DataFrame: The result of the query as a Polars DataFrame.
         """
-        with self.lock:
-            return self.conn.execute(query, params).pl()
+        return self.cursor.execute(query, params).pl()
 
     def create_or_replace_table_csv(self, table_name: str, csv_path: str):
         """Create or replace a table from a CSV file.
@@ -221,14 +245,13 @@ class DuckDBClient:
             return []
         placeholders = ", ".join("?" for _ in table_names)
         try:
-            with self.lock:
-                rows = self.conn.execute(
-                    f"""
-                    SELECT table_name FROM information_schema.tables
-                    WHERE table_name IN ({placeholders})
-                    """,
-                    list(table_names),
-                ).fetchall()
+            rows = self.cursor.execute(
+                f"""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_name IN ({placeholders})
+                """,
+                list(table_names),
+            ).fetchall()
         except duckdb.Error as error:
             logger.warning(f"Could not check for tables {table_names}: {error}")
             return list(table_names)
@@ -237,15 +260,15 @@ class DuckDBClient:
 
     def table_type(self, table_name: str) -> str | None:
         """'BASE TABLE', 'VIEW', or None when no such object exists."""
-        with self.lock:
-            row = self.conn.execute(
-                """
-                SELECT table_type FROM information_schema.tables
-                WHERE table_name = ?
-                LIMIT 1
-                """,
-                [table_name],
-            ).fetchone()
+        row = self.cursor.execute(
+            """
+            SELECT table_type FROM information_schema.tables
+            WHERE table_name = ?
+            LIMIT 1
+            """,
+            [table_name],
+        ).fetchone()
+
         return row[0] if row else None
 
     def table_exists(self, table_name: str) -> bool:
@@ -263,15 +286,14 @@ class DuckDBClient:
         present would raise.
         """
         try:
-            with self.lock:
-                rows = self.conn.execute(
-                    """
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = ? AND column_name = ?
-                    LIMIT 1
-                    """,
-                    [table_name, column_name],
-                ).fetchall()
+            rows = self.cursor.execute(
+                """
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = ? AND column_name = ?
+                LIMIT 1
+                """,
+                [table_name, column_name],
+            ).fetchall()
         except duckdb.Error as error:
             logger.warning(
                 f"Could not check for column '{table_name}.{column_name}': {error}"
@@ -280,13 +302,13 @@ class DuckDBClient:
         return bool(rows)
 
     def fetchdf(self):
-        """Fetch the result of the last query as a Polars DataFrame.
+        """Fetch the result of this thread's last query as a pandas DataFrame.
         Returns:
-            pl.DataFrame: The result of the query as a Polars DataFrame.
+            pandas.DataFrame: The result of the query.
         """
-        return self.conn.fetchdf()
+        return self.cursor.fetchdf()
 
     def close(self):
-        """Close the DuckDB connection."""
+        """Close the DuckDB connection and, with it, every thread's cursor."""
         self.conn.close()
         logger.info("DuckDB connection closed.")

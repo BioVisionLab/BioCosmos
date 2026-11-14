@@ -123,3 +123,61 @@ class TestInstitutionCounts:
         counts = ImageMetaStats(duckdb=memory_duckdb).get_institution_counts()
 
         assert counts == {"Naturalis Biodiversity Center": 2, "Unknown": 1, "MCZ": 1}
+
+
+PROVENANCE_DDL = """
+    CREATE TABLE image_meta_provenance AS
+    SELECT im.img_id, g."institutionCode" AS institution_code
+    FROM image_meta im
+    LEFT JOIN gbif_meta g ON g."occurrenceID" = im.uuid
+"""
+
+
+class TestInstitutionCountsFromProvenance:
+    """With the provenance table built, counts come from it instead."""
+
+    def test_matches_the_gbif_deduplication(self, stats):
+        from_gbif = stats.get_institution_counts()
+        stats.db_client.execute(PROVENANCE_DDL)
+
+        assert stats.get_institution_counts() == from_gbif
+
+    def test_reads_the_provenance_table(self, stats):
+        stats.db_client.execute(PROVENANCE_DDL)
+        stats.db_client.execute(
+            "UPDATE image_meta_provenance SET institution_code = 'FLMNH' "
+            "WHERE img_id = 'img1'"
+        )
+
+        counts = stats.get_institution_counts()
+
+        assert counts["FLMNH"] == 1
+        assert counts["NHMUK"] == 1
+
+    def test_images_outside_image_meta_are_not_counted(self, stats):
+        """A provenance table built before a family was excluded still
+        counts only what the image_meta view publishes."""
+        stats.db_client.execute(PROVENANCE_DDL)
+        stats.db_client.execute(
+            "INSERT INTO image_meta_provenance VALUES ('img-excluded', 'NHMUK')"
+        )
+
+        counts = stats.get_institution_counts()
+
+        assert counts["NHMUK"] == 2
+        assert sum(counts.values()) == 5
+
+    def test_needs_no_gbif_table(self, memory_duckdb):
+        memory_duckdb.execute(IMAGE_META_DDL)
+        memory_duckdb.execute_prepared(
+            "INSERT INTO image_meta VALUES (?, ?, ?, ?, ?)",
+            ["img1", "occ-1", "nymphalidae", "danaus_plexippus", "gbif"],
+        )
+        memory_duckdb.execute(
+            "CREATE TABLE image_meta_provenance AS "
+            "SELECT 'img1' AS img_id, 'MCZ' AS institution_code"
+        )
+
+        stats = ImageMetaStats(duckdb=memory_duckdb)
+
+        assert stats.get_institution_counts() == {"MCZ": 1}

@@ -1,19 +1,25 @@
-from app.services.metadata import ImageMetaStats
+import asyncio
 import logging
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-from ..services.leptraits import LepTraits
+from app.services.metadata import ImageMetaStats
+
 from ..services.col import ColTaxonSearch
 from ..services.gbif import GbifPersistData
 from ..services.institution import InstitutionDirectory
+from ..services.leptraits import LepTraits
 from ..services.openai import AiSummary
 from ..services.taxonomy_update import TaxonomyValidationStats
-
+from ..services.ttl_cache import TtlCache
 
 logger = logging.getLogger(__name__)
+
+# A species' summary only changes with its classification or traits, both
+# rebuilt at startup, so a day is short enough; each miss is one LLM call.
+SUMMARY_CACHE: TtlCache[str] = TtlCache(ttl=24 * 60 * 60, maxsize=512)
 
 
 class InstitutionInfo(BaseModel):
@@ -342,7 +348,8 @@ class TaxonSearch:
 
         try:
             taxon_data = await self._get_taxonomy()
-            trait_data = self._get_traits()
+            trait_data = await asyncio.to_thread(self._get_traits)
+
             if not taxon_data:
                 logger.info(
                     f"No CoL data found for species: {self.scientific_name}; "
@@ -410,17 +417,26 @@ class TaxonSearch:
         """
         if not self.scientific_name:
             return None
+
+        cache_key = self.scientific_name.lower()
+        cached = SUMMARY_CACHE.get(cache_key)
+
+        if cached is not None:
+            return cached
+
         try:
             taxon_data = await self._get_taxonomy()
-            traits = self._get_traits()
+            traits = await asyncio.to_thread(self._get_traits)
             prompt = self._generate_prompt(taxon_data, traits)
+
             if prompt is None or prompt.strip() == "":
                 logger.info(
                     f"No valid prompt could be generated for species: {self.scientific_name}"
                 )
                 return None
-            summarizer = AiSummary()
-            summary = summarizer.summarize_text(prompt)
+            # The OpenAI client blocks for the whole completion.
+            summarizer = AiSummary(getattr(self.request.app.state, "llm_client", None))
+            summary = await asyncio.to_thread(summarizer.summarize_text, prompt)
 
             if summary is None:
                 message = (
@@ -430,6 +446,8 @@ class TaxonSearch:
                 return None
 
             logger.info(f"Summary generated for species: {self.scientific_name}")
+            SUMMARY_CACHE.set(cache_key, summary)
+
             return summary
 
         except Exception as e:

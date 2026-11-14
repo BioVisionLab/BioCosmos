@@ -32,7 +32,7 @@ def _failed() -> JSONResponse:
 
 # Declared before the scope route so `species` is never read as a rank.
 @router.get("/morphospace/species/{species}", tags=["Morphospace"])
-async def get_species_morphospace(species: str, request: Request):
+def get_species_morphospace(species: str, request: Request):
     """Where one species sits among the species of its genus and family.
 
     Intraspecific dispersion on each side, dorso-ventral divergence, their
@@ -50,7 +50,7 @@ async def get_species_morphospace(species: str, request: Request):
 
 
 @router.get("/morphospace/{rank}/{name}", tags=["Morphospace"])
-async def get_scope_morphospace(
+def get_scope_morphospace(
     rank: Literal["all", "family", "genus"], name: str, request: Request
 ):
     """The shared dorso-ventral morphospace of a genus, a family or everything.

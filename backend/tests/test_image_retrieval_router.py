@@ -5,6 +5,10 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.routers.http_cache import (
+    IMAGE_BY_ID_CACHE_CONTROL,
+    SPECIES_IMAGE_CACHE_CONTROL,
+)
 from app.routers.image_retrieval import (
     DEFAULT_IMAGE_ID_LIMIT,
     MAX_IMAGE_ID_LIMIT,
@@ -133,3 +137,42 @@ class TestFetchSpeciesImageIds:
         response = client.get("/image/danaus_plexippus/metadata")
 
         assert response.status_code == 500
+
+
+# =========================================================================
+# Cache-Control on image files
+# =========================================================================
+
+
+class TestImageCacheHeaders:
+    """An image addressed by its id never changes; a species' image can."""
+
+    @patch("app.routers.image_retrieval.ImageFileRetrieval")
+    def test_image_by_id_is_immutable(self, MockRetrieval, tmp_path):
+        image = tmp_path / "img.webp"
+        image.write_bytes(b"RIFF0000WEBP")
+        MockRetrieval.return_value.get_full_res.return_value = str(image)
+        MockRetrieval.return_value.get_thumbnail.return_value = str(image)
+
+        for path in ("/image/id/img1", "/image/id/img1/thumbnail"):
+            response = client.get(path)
+
+            assert response.status_code == 200, path
+            assert response.headers["cache-control"] == IMAGE_BY_ID_CACHE_CONTROL
+
+    @patch("app.routers.image_retrieval.ImageFileRetrieval")
+    def test_species_image_expires(self, MockRetrieval, tmp_path):
+        image = tmp_path / "img.webp"
+        image.write_bytes(b"RIFF0000WEBP")
+        MockRetrieval.return_value.get_species_thumbnail.return_value = str(image)
+        MockRetrieval.return_value.get_species_image.return_value = str(image)
+
+        for path in (
+            "/image/danaus_plexippus/thumbnail",
+            "/image/danaus_plexippus/high-resolution",
+        ):
+            response = client.get(path)
+
+            assert response.status_code == 200, path
+            assert response.headers["cache-control"] == SPECIES_IMAGE_CACHE_CONTROL
+            assert "immutable" not in response.headers["cache-control"]

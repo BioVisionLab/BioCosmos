@@ -529,7 +529,7 @@ async def fetch_visually_similar_species(
 
 
 @router.get("/species/{scientific_name}/specimens", tags=["Species Data"])
-async def fetch_species_specimen_info(request: Request, scientific_name: str):
+def fetch_species_specimen_info(request: Request, scientific_name: str):
     """
     Fetches species specimens.
     Returns a 404 error if no specimens are found.

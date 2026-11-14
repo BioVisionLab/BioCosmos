@@ -4,8 +4,6 @@ Mirrors test_locality_service.py: mostly one large SQL statement, so it is
 exercised against a real DuckDB rather than a fake.
 """
 
-import threading
-
 import duckdb
 import pytest
 
@@ -29,8 +27,7 @@ GBIF_DDL = """
 
 class MemoryDuckDBClient(DuckDBClient):
     def __init__(self):
-        self.conn = duckdb.connect(database=":memory:")
-        self.lock = threading.RLock()
+        super().__init__(duckdb.connect(database=":memory:"))
 
 
 def build_service(client) -> ProvenanceService:

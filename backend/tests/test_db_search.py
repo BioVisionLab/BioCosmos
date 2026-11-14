@@ -1,22 +1,22 @@
-import pytest
+from unittest.mock import MagicMock
+
 import duckdb
 import polars as pl
-import threading
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock
 
 from app.database.duckdb import DuckDBClient
 from app.query.db_search import TextToDbSearch
 from app.routers.db_search import router
 
+
 # A custom DuckDBClient for testing that uses an in-memory connection
 class MockDuckDBClient(DuckDBClient):
     def __init__(self):
-        self.conn = duckdb.connect(database=":memory:")
+        super().__init__(duckdb.connect(database=":memory:"))
         self.conn.execute("INSTALL fts;")
         self.conn.execute("LOAD fts;")
-        self.lock = threading.RLock()
 
 
 @pytest.fixture(scope="module")

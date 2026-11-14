@@ -6,8 +6,6 @@ country-name join are the behaviour under test, and none of them survive being
 mocked out.
 """
 
-import threading
-
 import duckdb
 import pytest
 
@@ -39,8 +37,7 @@ GBIF_DDL = """
 
 class MemoryDuckDBClient(DuckDBClient):
     def __init__(self):
-        self.conn = duckdb.connect(database=":memory:")
-        self.lock = threading.RLock()
+        super().__init__(duckdb.connect(database=":memory:"))
 
 
 def build_service(client) -> LocalityService:

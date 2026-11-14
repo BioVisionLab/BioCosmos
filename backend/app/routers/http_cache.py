@@ -61,6 +61,15 @@ GENETICS_CACHE_CONTROL = (
 )
 GENETICS_PARTIAL_CACHE_CONTROL = "public, max-age=300, s-maxage=300"
 
+# A year, and immutable, for an image addressed by its img_id: the file behind
+# an id is generated once and never rewritten, so a browser need not even
+# revalidate it.
+IMAGE_BY_ID_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+# One day for a species' representative image: which image represents a
+# species can change when the metadata is re-ingested, as for similarity.
+SPECIES_IMAGE_CACHE_CONTROL = SIMILARITY_CACHE_CONTROL
+
 # Errors are not cached at all. A month-long cache entry for a typo'd family
 # name would outlive several ingestions and there would be no way to clear it
 # from the browser that holds it.

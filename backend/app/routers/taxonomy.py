@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/taxonomy/codes", tags=["Species Data"])
-async def get_taxonomy_codes():
+def get_taxonomy_codes():
     """Return the human-readable description of every taxonomic-update code.
 
     Serving these once lets per-record payloads carry bare codes while the UI
@@ -30,7 +30,7 @@ async def get_taxonomy_codes():
 
 
 @router.get("/taxonomy/release", tags=["Species Data"], response_model=ColRelease)
-async def get_taxonomy_release(request: Request) -> ColRelease:
+def get_taxonomy_release(request: Request) -> ColRelease:
     """Return the Catalogue of Life release the backbone was built from.
 
     Recorded from the release's ``metadata.yaml`` when the backbone was
