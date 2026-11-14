@@ -9,8 +9,6 @@
 backend/
 packages/
 analyses/
-# Outdated and unused.
-tools/
 # Generated run artifacts.
 reports/
 # Lockfiles and generated or vendored assets.

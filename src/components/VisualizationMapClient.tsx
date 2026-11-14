@@ -6,9 +6,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { configureMapLibreWorker } from "@/lib/maplibreWorker";
 
 const TILE_URL = "/dataset-tiles/{z}/{x}/{y}.png";
-// create_tiles.py also writes @2x variants alongside the standard tiles.
+// Each tile has an @2x variant alongside the standard one.
 const TILE_URL_HQ = "/dataset-tiles/{z}/{x}/{y}@2x.png";
-// Deepest level create_tiles.py output that is worth requesting.
+// Deepest tile level worth requesting.
 const MAX_SOURCE_ZOOM = 7;
 // MapLibre sizes zoom levels against 512px tiles, so a 256px raster source
 // resolves one level deeper than the map zoom: map zoom 6 pulls tile z7.
@@ -19,9 +19,8 @@ const CANVAS_BOUNDS: [[number, number], [number, number]] = [
   [180, 85.051129],
 ];
 
-// The tile pyramid is a plain XYZ grid over the unit square (see
-// tools/create_tiles.py), so it lines up with the Web Mercator world tile
-// scheme without any coordinate translation.
+// The tile pyramid is a plain XYZ grid over the unit square, so it lines up
+// with the Web Mercator world tile scheme without any coordinate translation.
 function buildStyle(): StyleSpecification {
   const isRetina = typeof window !== "undefined" && window.devicePixelRatio > 1;
 
@@ -79,7 +78,7 @@ export default function VisualizationMapClient() {
     // Open on the whole canvas, then stop the reader zooming back out past it.
     // MapLibre keeps the tile square covering the viewport, so the canvas
     // fills the container and the shorter axis is cropped rather than
-    // letterboxed; create_tiles.py pads the embedding by 5% a side, and the
+    // letterboxed; the tiles pad the embedding by 5% a side, and the
     // rest is reachable by panning.
     map.once("load", () => {
       map.fitBounds(CANVAS_BOUNDS, { animate: false, padding: 8 });

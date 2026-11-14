@@ -58,14 +58,11 @@ BioCosmos/
 ├── analyses/                 # Publication notebooks and vector-index benchmarks (separate uv project)
 ├── reports/                  # Generated package run artifacts (gitignored; see reports/README.md)
 ├── scripts/                  # Local launch helpers (run_backend.sh, run_frontend.sh, ...)
-├── tools/                    # Outdated and unused; do not use
 ├── pyproject.toml, uv.lock   # Root uv workspace and shared lockfile
 ├── package.json, bun.lock    # Frontend dependencies
 ├── docker-compose.yml        # Multi-container setup (GPU-enabled backend)
 └── Dockerfile.frontend
 ```
-
-> Everything under the root `tools/` directory is legacy and unused. Do not use it for data preparation or setup.
 
 ## Local Development Setup
 
