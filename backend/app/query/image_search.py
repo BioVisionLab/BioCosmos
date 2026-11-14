@@ -9,6 +9,29 @@ from ..services.images import ImagePersistData
 
 logger = logging.getLogger(__name__)
 
+# An uploaded query image is read into memory and decoded at full size before
+# UNICOM resizes it, so both the file and its pixel count are capped. 40
+# megapixels decodes to about 120 MB of RGB; phone and camera photos fit.
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+MAX_UPLOAD_PIXELS = 40_000_000
+
+
+def image_too_large(image_bytes: bytes) -> bool:
+    """Whether an image's dimensions exceed `MAX_UPLOAD_PIXELS`.
+
+    `Image.open` reads only the header, so this costs nothing to decode.
+    Unreadable images are left to `_verify_image` to reject.
+    """
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            width, height = image.size
+    except Image.DecompressionBombError:
+        return True
+    except (OSError, SyntaxError):
+        return False
+
+    return width * height > MAX_UPLOAD_PIXELS
+
 
 class SearchPayload(BaseModel):
     """ """

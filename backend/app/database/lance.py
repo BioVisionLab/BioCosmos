@@ -6,7 +6,7 @@ from typing import Literal
 
 import lancedb
 import lancedb.index
-from lancedb import DBConnection
+from lancedb import DBConnection, Session
 from lancedb.index import (
     BTree,
     IvfFlat,
@@ -18,7 +18,7 @@ from lancedb.index import (
     IvfSq,
 )
 
-from ..configs.config import get_lance_db_path
+from ..configs.config import get_lance_cache_sizes, get_lance_db_path
 from .model import LanceSchema
 
 logger = logging.getLogger(__name__)
@@ -90,8 +90,17 @@ class LanceDB:
 
     def __init__(self):
         self.db_path = get_lance_db_path()
-        self.db = lancedb.connect(self.db_path)
-        logger.info(f"LanceDB connected at {self.db_path}")
+        index_cache, metadata_cache = get_lance_cache_sizes()
+        session = Session(
+            index_cache_size_bytes=index_cache,
+            metadata_cache_size_bytes=metadata_cache,
+        )
+        self.db = lancedb.connect(self.db_path, session=session)
+        logger.info(
+            f"LanceDB connected at {self.db_path} "
+            f"(index cache {index_cache or 'default'} B, "
+            f"metadata cache {metadata_cache or 'default'} B)"
+        )
 
     def get_db(self) -> DBConnection:
         """Get the LanceDB connection."""

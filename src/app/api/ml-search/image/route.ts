@@ -55,6 +55,10 @@ export async function POST(request: Request) {
         throw new Error(
           "Invalid file type. Please upload a valid image. Supported formats: JPEG, JPG, PNG, WEBP.",
         );
+      } else if (response.status === 413) {
+        throw new Error(
+          "Image is too large. Please upload one under 20 MB and 40 megapixels.",
+        );
       } else {
         throw new Error(
           `BIOCOSMOS BACKEND service failed with status ${response.status}`,

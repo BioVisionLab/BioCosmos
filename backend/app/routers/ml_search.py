@@ -3,7 +3,13 @@ import logging
 from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 
-from ..query.image_search import ImageToImageSearch, TextToImageSearch
+from ..query.image_search import (
+    MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_PIXELS,
+    ImageToImageSearch,
+    TextToImageSearch,
+    image_too_large,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -80,13 +86,25 @@ async def image_search(request: Request, file: UploadFile = File(...)):
                 status_code=400,
             )
 
-        # Read the uploaded file as bytes
-        image_bytes = await file.read()
+        # Read one byte past the cap, so an oversized upload is caught
+        # without reading all of it into memory.
+        image_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
         if not image_bytes:
             logger.warning("Image search request contains empty file.")
             return JSONResponse(
                 content={"error": "Uploaded file is empty"},
                 status_code=400,
+            )
+
+        if len(image_bytes) > MAX_UPLOAD_BYTES or image_too_large(image_bytes):
+            logger.warning("Image search upload exceeds the size limit.")
+            return JSONResponse(
+                content={
+                    "error": f"Image is too large. The limit is "
+                    f"{MAX_UPLOAD_BYTES // (1024 * 1024)} MB and "
+                    f"{MAX_UPLOAD_PIXELS // 1_000_000} megapixels."
+                },
+                status_code=413,
             )
 
         logger.info("Generating UNICOM image embedding from uploaded file...")
