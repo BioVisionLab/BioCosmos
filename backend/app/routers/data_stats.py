@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -16,6 +17,37 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# Held for the life of the process: every table behind the counts is built or
+# published at startup, so they cannot change until the next restart.
+_TAXON_COUNTS_LOCK = threading.Lock()
+
+# One day, as for the country summary: the counts change only when the backend
+# restarts after a re-ingestion.
+TAXON_COUNTS_CACHE_CONTROL = SIMILARITY_CACHE_CONTROL
+
+
+def taxon_counts(request: Request) -> dict | None:
+    """The collection summary, computed by the first request after startup.
+
+    The lock keeps concurrent first requests from each running the dozen
+    full-table aggregates. A failed computation is not kept, so the next
+    request tries again.
+    """
+    counts = getattr(request.app.state, "taxon_counts", None)
+
+    if counts is not None:
+        return counts
+
+    with _TAXON_COUNTS_LOCK:
+        counts = getattr(request.app.state, "taxon_counts", None)
+
+        if counts is None:
+            counts = TaxonSearch(request=request).get_counts()
+            request.app.state.taxon_counts = counts
+
+    return counts
+
+
 @router.get("/stats/taxon", tags=["Data Statistics"])
 def get_taxon_counts(request: Request):
     """
@@ -23,9 +55,16 @@ def get_taxon_counts(request: Request):
     """
     logger.info("Received taxon counts request")
     try:
-        counts = TaxonSearch(request=request).get_counts()
-        logger.info(f"Taxon counts found: {counts}")
-        return JSONResponse(content=counts, status_code=200)
+        counts = taxon_counts(request)
+
+        if counts is None:
+            return JSONResponse(
+                content={"message": "Taxon counts are unavailable."},
+                status_code=500,
+                headers={"Cache-Control": NO_STORE},
+            )
+
+        return cached_json(counts, cache_control=TAXON_COUNTS_CACHE_CONTROL)
     except Exception as e:
         logger.error(f"Error fetching taxon counts: {e}", exc_info=True)
         return JSONResponse(

@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .database.duckdb import DuckDBClient
 from .services.unicom import UnicomModel
@@ -376,6 +377,7 @@ async def lifespan(app: FastAPI):
         initialize_models(app)
         initialize_lance(app)
         initialize_duckdb(app)
+        app.state.llm_client = build_llm_client()
         run_data_ingestion(app)
 
         logger.info("Application startup completed successfully.")
@@ -391,6 +393,9 @@ async def lifespan(app: FastAPI):
     try:
         if hasattr(app.state, "duck_db") and app.state.duck_db is not None:
             app.state.duck_db.close()
+        if getattr(app.state, "llm_client", None) is not None:
+            app.state.llm_client.close()
+            app.state.llm_client = None
         app.state.lance_db = None
         app.state.clip_embedder = None
         app.state.unicom_embedder = None
@@ -430,6 +435,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# The overviews, morphospaces and search results run to hundreds of kilobytes
+# of JSON. Starlette leaves images and event streams uncompressed, and level 6
+# keeps nearly all of level 9's saving for far less CPU.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
 
 app.include_router(ml_search.router)
 app.include_router(data_stats.router)

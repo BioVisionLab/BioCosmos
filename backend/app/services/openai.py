@@ -11,18 +11,37 @@ logger = logging.getLogger(__name__)
 SUMMARY_TIMEOUT_SECONDS = 60.0
 
 
+def build_llm_client() -> OpenAI | None:
+    """The OpenAI-compatible client the app shares, or None if unconfigured.
+
+    Built once at startup and held on `app.state.llm_client`. A client per
+    request opened a new connection pool, and a new TLS handshake, for every
+    agent search and summary; the client is safe to share across the worker
+    threads both run their calls in.
+    """
+    config = OpenAIConfig()
+
+    if not config.api_key or not config.api_url:
+        logger.info("No LLM provider configured; agent search and summaries are off.")
+
+        return None
+
+    return OpenAI(base_url=config.api_url, api_key=config.api_key)
+
+
 class AiSummary:
-    def __init__(self):
+    def __init__(self, client: OpenAI | None):
         """
-        Initializes the OpenAI service with the provided API key and base URL.
+        Wrap the shared client from `app.state.llm_client`.
         """
-        config = OpenAIConfig()
-        if config.api_key is None or config.api_url is None:
-            # Exit if API key or base URL is not provided
+        if client is None:
             raise ValueError("OpenAI API key and base URL must be provided.")
+
+        config = OpenAIConfig()
+
         if config.model is None:
             raise ValueError("OpenAI model must be provided.")
-        client = OpenAI(base_url=config.api_url, api_key=config.api_key)
+
         self.client = client
         self.model = config.model
 

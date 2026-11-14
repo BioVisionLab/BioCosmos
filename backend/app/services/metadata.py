@@ -185,6 +185,7 @@ class ImageMetaStats:
         config = ImageMetaConfig()
         self.table = config.table
         self.gbif_table = GbifConfig().table
+        self.provenance_table = ProvenanceConfig().table
         self.db_client = duckdb
 
     def get_entries_count(self) -> int | None:
@@ -256,7 +257,14 @@ class ImageMetaStats:
         Records with no GBIF match, or a match with no institution at all,
         are grouped under 'Unknown' rather than dropped, so the proportions
         account for every image.
+
+        ProvenanceService stores that deduplicated holder per img_id at
+        startup, so it is read from there when built; deduplicating all of
+        gbif_meta again is the fallback for a database without it.
         """
+        if self.db_client.table_exists(self.provenance_table):
+            return self._institution_counts_from_provenance()
+
         if not self.db_client.table_exists(self.gbif_table):
             logger.warning(
                 f"No '{self.gbif_table}' table; institution counts are unavailable."
@@ -291,6 +299,27 @@ class ImageMetaStats:
         if result.is_empty():
             logger.warning("No institution data found in the image collection.")
             return None
+        return dict(zip(result["institution"].to_list(), result["count"].to_list()))
+
+    def _institution_counts_from_provenance(self) -> dict | None:
+        # Joined from the image_meta view, so excluded families stay out even
+        # if the provenance table predates the exclusion.
+        result = self.db_client.execute_to_pl(
+            f"""
+            SELECT coalesce(p.institution_code, 'Unknown') AS institution,
+                   COUNT(*) AS count
+            FROM {self.table} im
+            LEFT JOIN {self.provenance_table} p ON p.img_id = im.img_id
+            GROUP BY institution
+            ORDER BY count DESC
+            """
+        )
+
+        if result.is_empty():
+            logger.warning("No institution data found in the image collection.")
+
+            return None
+
         return dict(zip(result["institution"].to_list(), result["count"].to_list()))
 
     def count_images_per_family(self) -> dict | None:

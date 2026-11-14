@@ -34,6 +34,8 @@ interface SpeciesOverviewProps {
    * exactly those species.
    */
   speciesSlug?: string;
+  /** The gallery's first page of image ids, when the server fetched them. */
+  galleryImageIds?: string[];
   /**
    * Switch the page to the Specimens tab. The overview gallery shows only a
    * first page of images, so the note under it needs a way to send a reader
@@ -46,6 +48,7 @@ export function SpeciesOverview({
   taxonomy,
   traits,
   speciesSlug,
+  galleryImageIds,
   onViewSpecimens,
 }: SpeciesOverviewProps) {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
@@ -99,6 +102,7 @@ export function SpeciesOverview({
         <div className="lg:col-span-2">
           <SpeciesImageGallery
             speciesName={lookupName}
+            initialImageIds={galleryImageIds}
             onSelectionChange={handleSelectionChange}
           />
 

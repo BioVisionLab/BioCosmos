@@ -1,10 +1,18 @@
 """Tests for the data statistics router."""
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from app.routers.data_stats import get_embedding_distribution, router
+from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.testclient import TestClient
+
+from app.main import app as main_app
+from app.routers.data_stats import (
+    TAXON_COUNTS_CACHE_CONTROL,
+    get_embedding_distribution,
+    router,
+)
+from app.routers.http_cache import NO_STORE
 
 
 def _create_test_app() -> FastAPI:
@@ -93,3 +101,42 @@ class TestEmbeddingStatsEndpoint:
             assert "boom" in response.json()["message"]
         finally:
             app.dependency_overrides.clear()
+
+
+COUNTS = {"imageEntries": 5, "familyCount": 2}
+
+
+class TestTaxonCountsEndpoint:
+    """The collection summary is computed once per process and served cached.
+
+    Each test builds its own app, since the counts are held on app.state.
+    """
+
+    @patch("app.routers.data_stats.TaxonSearch")
+    def test_counts_are_computed_once(self, MockSearch):
+        MockSearch.return_value.get_counts.return_value = COUNTS
+        fresh = TestClient(_create_test_app())
+
+        first = fresh.get("/stats/taxon")
+        second = fresh.get("/stats/taxon")
+
+        assert first.json() == second.json() == COUNTS
+        assert first.headers["cache-control"] == TAXON_COUNTS_CACHE_CONTROL
+        MockSearch.return_value.get_counts.assert_called_once()
+
+    @patch("app.routers.data_stats.TaxonSearch")
+    def test_a_failed_computation_is_retried(self, MockSearch):
+        MockSearch.return_value.get_counts.side_effect = [None, COUNTS]
+        fresh = TestClient(_create_test_app())
+
+        failed = fresh.get("/stats/taxon")
+        retried = fresh.get("/stats/taxon")
+
+        assert failed.status_code == 500
+        assert failed.headers["cache-control"] == NO_STORE
+        assert retried.status_code == 200
+        assert retried.json() == COUNTS
+
+
+def test_responses_are_gzipped():
+    assert any(m.cls is GZipMiddleware for m in main_app.user_middleware)
