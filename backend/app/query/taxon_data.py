@@ -435,9 +435,7 @@ class TaxonSearch:
                 )
                 return None
             # The OpenAI client blocks for the whole completion.
-            summarizer = AiSummary(
-                getattr(self.request.app.state, "llm_client", None)
-            )
+            summarizer = AiSummary(getattr(self.request.app.state, "llm_client", None))
             summary = await asyncio.to_thread(summarizer.summarize_text, prompt)
 
             if summary is None:

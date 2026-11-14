@@ -117,6 +117,9 @@ SUMMARY_CALLS: list[int] = []
 class FakeSummarizer:
     """Stands in for AiSummary; records the thread of each call."""
 
+    def __init__(self, client):
+        self.client = client
+
     def summarize_text(self, prompt: str) -> str:
         SUMMARY_CALLS.append(threading.get_ident())
 

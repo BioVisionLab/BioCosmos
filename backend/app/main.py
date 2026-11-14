@@ -15,6 +15,7 @@ from .database.lance import LanceDB
 from .services.clip import ClipModel
 from .services.embedder import ImageEmbedder
 from .services.metadata import ImageMetaService
+from .services.openai import build_llm_client
 from .services.gbif import GbifPersistData
 from .configs.config import (
     ColConfig,
@@ -393,8 +394,10 @@ async def lifespan(app: FastAPI):
     try:
         if hasattr(app.state, "duck_db") and app.state.duck_db is not None:
             app.state.duck_db.close()
-        if getattr(app.state, "llm_client", None) is not None:
-            app.state.llm_client.close()
+        llm_client = getattr(app.state, "llm_client", None)
+
+        if llm_client is not None:
+            llm_client.close()
             app.state.llm_client = None
         app.state.lance_db = None
         app.state.clip_embedder = None
