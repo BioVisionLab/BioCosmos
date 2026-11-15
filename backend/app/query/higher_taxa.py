@@ -11,6 +11,7 @@ too, when they hold images, but sit on nodes with children; the frontend
 renders those links beside the `<details>` summary rather than inside it.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -585,31 +586,59 @@ class HigherTaxonOverview:
 
         duck_db = self.request.app.state.duck_db
         memoized = PAYLOAD_CACHE.get(duck_db, self.rank, self.key, limit)
+
         if memoized is not None:
             return memoized
 
+        # The repository queries block, so they run in worker threads; only
+        # the classification lookup, itself offloaded, runs between them.
         repository = HigherTaxonRepository(duck_db)
+        rows = await asyncio.to_thread(self._held_members, repository)
+
+        if rows is None:
+            return None
+
+        classification = await self._classification()
+        payload = await asyncio.to_thread(
+            self._payload, repository, rows, classification, limit
+        )
+        PAYLOAD_CACHE.put(duck_db, self.rank, self.key, limit, payload)
+
+        return payload
+
+    def _held_members(self, repository: HigherTaxonRepository) -> list[dict] | None:
+        """The member rows, or None when the collection holds none of them."""
         if not repository.harmonized_available():
             return None
 
         rows = self._members(repository)
+
         # Every rank's rows include CoL taxa with nothing in them, so rows
         # alone do not mean the collection holds any of it.
         if not any(_int(row.get("image_count")) for row in rows):
             return None
 
+        return rows
+
+    def _payload(
+        self,
+        repository: HigherTaxonRepository,
+        rows: list[dict],
+        classification: dict | None,
+        limit: int,
+    ) -> dict:
         images = repository.representative_images(self.rank, self.key, limit)
-        classification = await self._classification()
         tree = build_rooted_tree(
             rows,
             scope=self.rank,
             key=self.key,
             name=self._display_name(classification),
         )
+
         if self.rank == "order":
             attach_family_images(tree, repository.family_images(self.key))
 
-        payload = HigherTaxonPayload(
+        return HigherTaxonPayload(
             key=self.key,
             name=self._display_name(classification),
             rank=self.rank,
@@ -634,8 +663,6 @@ class HigherTaxonOverview:
                 "harmonizedTaxonomy": True,
             },
         ).model_dump(by_alias=True)
-        PAYLOAD_CACHE.put(duck_db, self.rank, self.key, limit, payload)
-        return payload
 
     def species_page(
         self,

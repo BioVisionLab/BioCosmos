@@ -9,7 +9,7 @@ from typing import Any, Literal, cast
 
 import polars as pl
 from fastapi import Request
-from openai import APITimeoutError, AuthenticationError, OpenAI, PermissionDeniedError
+from openai import APITimeoutError, AuthenticationError, PermissionDeniedError
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -216,12 +216,13 @@ class AgentSearchService:
         species_pages: SpeciesPageResolver | None = None,
     ) -> None:
         config = OpenAIConfig()
+        # The app's shared client, built at startup; see build_llm_client.
+        client = client or getattr(request.app.state, "llm_client", None)
+
         if client is None:
-            if not config.api_key or not config.api_url:
-                raise AgentConfigurationError(
-                    "OpenAI-compatible API key and URL must be configured."
-                )
-            client = OpenAI(base_url=config.api_url, api_key=config.api_key)
+            raise AgentConfigurationError(
+                "OpenAI-compatible API key and URL must be configured."
+            )
 
         self.client = client
         self.model = model or config.model or "gpt-4o"

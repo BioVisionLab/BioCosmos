@@ -1,137 +1,96 @@
-"use client";
-import {
-  getSpeciesData,
-  parseSpeciesSlug,
-  SpeciesData,
-} from "@/lib/speciesData"; // Import the function and the type
-import TabsComponent from "./components/PageTabs";
-import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
-import { familyHref, genusHref } from "@/lib/taxonSlug";
-import SpeciesHeader from "./components/SpeciesTitle";
-import { use, useEffect, useMemo, useState } from "react";
+import type { Metadata } from "next";
+
 import { NoData } from "@/components/NoData";
+import TaxonBreadcrumb, { type Crumb } from "@/components/TaxonBreadcrumb";
 import { cleanSpeciesName, isSpeciesName } from "@/lib/names";
+import { parseSpeciesSlug } from "@/lib/speciesData";
+import { fetchGalleryImageIds, fetchSpeciesData } from "@/lib/speciesPage";
+import { familyHref, genusHref } from "@/lib/taxonSlug";
 
-export default function SpeciesPage({
-  params,
-}: {
+import TabsComponent from "./components/PageTabs";
+import SpeciesHeader from "./components/SpeciesTitle";
+
+// Never pre-rendered at build time: API_HOST is unavailable during the Docker
+// build. The day-long cache lives on the fetches in @/lib/speciesPage, which
+// survive the no-store default this flag sets.
+export const dynamic = "force-dynamic";
+
+interface SpeciesPageProps {
   params: Promise<{ speciesName: string }>;
-}) {
-  const { speciesName } = use(params);
-
-  return (
-    <div className="m-2 ">
-      <SpeciesContent speciesName={speciesName} />
-    </div>
-  );
 }
 
-function SpeciesContent({ speciesName }: { speciesName: string }) {
-  const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export async function generateMetadata({
+  params,
+}: SpeciesPageProps): Promise<Metadata> {
+  const { speciesName } = await params;
 
-  // The genus and species are already encoded in the route slug, so the
-  // header and breadcrumb can paint immediately instead of waiting on
-  // /api/taxon-search (which makes live GBIF and Red List calls).
-  const { genus, formattedName } = useMemo(
-    () => parseSpeciesSlug(speciesName),
-    [speciesName],
-  );
+  if (!isSpeciesName(speciesName)) return { title: "Not a species name" };
 
-  useEffect(() => {
-    // Nothing to look up for a slug that does not name a species. No state is
-    // touched on the way out: the guard below returns before `loading` is
-    // ever consulted, and setting it here would only add a render.
-    if (!isSpeciesName(speciesName)) return;
+  const { formattedName } = parseSpeciesSlug(speciesName);
+  const { taxonomy } = await fetchSpeciesData(speciesName);
+  const name = taxonomy?.species ?? formattedName;
+  const family = taxonomy?.family ? ` in the family ${taxonomy.family}` : "";
+  const common = taxonomy?.vernacularName
+    ? ` (${taxonomy.vernacularName})`
+    : "";
 
-    let mounted = true;
+  return {
+    title: name,
+    description:
+      `${name}${common}, a butterfly${family}: specimen images, ` +
+      `classification, traits, distribution and literature.`,
+  };
+}
 
-    const fetchSpeciesData = async () => {
-      try {
-        const data = await getSpeciesData(speciesName);
+export default async function SpeciesPage({ params }: SpeciesPageProps) {
+  const { speciesName } = await params;
 
-        if (!mounted) return;
-
-        if (data) {
-          setSpeciesData(data);
-
-          try {
-            // cache species data in localStorage so gallery pages (even new tabs)
-            // can reuse it without refetching
-            localStorage.setItem(
-              `speciesData:${speciesName}`,
-              JSON.stringify(data),
-            );
-          } catch {
-            // ignore storage errors
-          }
-        } else {
-          setError("Species data not found.");
-        }
-      } catch {
-        if (mounted) setError("An error occurred while fetching species data.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    fetchSpeciesData();
-
-    return () => {
-      mounted = false;
-    };
-  }, [speciesName]);
-
-  // A species page is a page about a species. A slug that names only a genus,
-  // or is otherwise not a binomial, has no images to show and no
-  // classification to resolve — it used to render a header reading
-  // "Unknown sp." over an empty shell. Say so instead; the effect above
-  // skips the backend entirely for these.
+  // A species page is a page about a species. A slug that names only a
+  // genus, or is otherwise not a binomial, has no images to show and no
+  // classification to resolve, so say so without asking the backend.
   if (!isSpeciesName(speciesName)) {
     return (
-      <NoData
-        text={`"${cleanSpeciesName(speciesName)}" is not a species name. Species pages need a genus and a specific epithet.`}
-      />
+      <div className="m-2 ">
+        <NoData
+          text={`"${cleanSpeciesName(speciesName)}" is not a species name. Species pages need a genus and a specific epithet.`}
+        />
+      </div>
     );
   }
 
-  if (error) {
-    return <p>{error}</p>;
-  }
-
-  if (!speciesData && !loading) {
-    return <NoData text="No species data available." />;
-  }
-
-  const family = speciesData?.taxonomy?.family;
-
-  // The family crumb only appears once taxonomy has resolved; genus and
-  // species come straight from the slug, so the trail paints immediately.
+  // Both at once: the gallery's first image is the page's Largest
+  // Contentful Paint, and its ids should not wait behind the classification.
+  const [speciesData, galleryImageIds] = await Promise.all([
+    fetchSpeciesData(speciesName),
+    fetchGalleryImageIds(speciesName),
+  ]);
+  const { genus, formattedName } = parseSpeciesSlug(speciesName);
+  const family = speciesData.taxonomy?.family;
+  const name = speciesData.taxonomy?.species ?? formattedName;
   const crumbs: Crumb[] = [{ label: "Home", href: "/" }];
 
   if (family) crumbs.push({ label: family, href: familyHref(family) });
 
   crumbs.push({ label: genus, href: genusHref(genus), italic: true });
-  crumbs.push({
-    label: speciesData?.taxonomy?.species ?? formattedName,
-    italic: true,
-  });
+  crumbs.push({ label: name, italic: true });
 
   return (
-    <section>
-      <TaxonBreadcrumb items={crumbs} />
+    <div className="m-2 ">
+      <section>
+        <TaxonBreadcrumb items={crumbs} />
 
-      <div>
-        <SpeciesHeader
-          taxonomy={speciesData?.taxonomy ?? null}
-          name={speciesData?.taxonomy?.species ?? formattedName}
-        />
+        <div>
+          <SpeciesHeader taxonomy={speciesData.taxonomy} name={name} />
 
-        <div className="mt-8">
-          <TabsComponent speciesData={speciesData} speciesSlug={speciesName} />
+          <div className="mt-8">
+            <TabsComponent
+              speciesData={speciesData}
+              speciesSlug={speciesName}
+              galleryImageIds={galleryImageIds}
+            />
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

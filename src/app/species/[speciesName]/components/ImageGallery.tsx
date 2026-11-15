@@ -3,30 +3,37 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageLoading } from "@/components/Loadings";
 import NoImage from "@/components/NoImage";
-import {
-  fetchImgById,
-  fetchThumbnailById,
-  fetchSpeciesImageIds,
-} from "@/lib/images";
+import { fetchSpeciesImageIds, imageUrlById } from "@/lib/images";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
 export function SpeciesImageGallery({
   speciesName,
+  initialImageIds,
   onSelectionChange,
 }: {
   speciesName: string;
+  /**
+   * The first page of ids, when the server fetched them with the page. The
+   * gallery then renders its main image in the initial HTML instead of
+   * fetching the ids after hydration.
+   */
+  initialImageIds?: string[];
   onSelectionChange?: (payload: {
     imageId: string | null;
     items: string[];
     selectedIndex: number;
   }) => void;
 }) {
-  const [items, setItems] = useState<string[]>([]);
+  const [items, setItems] = useState<string[]>(initialImageIds ?? []);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
+    // Already in state from the server; the effect below reports the
+    // initial selection.
+    if (initialImageIds) return;
+
     if (!speciesName) {
       setItems([]);
       setSelectedIndex(0);
@@ -67,7 +74,7 @@ export function SpeciesImageGallery({
     return () => {
       ignore = true;
     };
-  }, [speciesName]);
+  }, [speciesName, initialImageIds]);
 
   const handleThumbnailClick = (index: number) => {
     setSelectedIndex(index);
@@ -122,6 +129,8 @@ export function SpeciesImageGallery({
             <GalleryFullImage
               imageId={items[selectedIndex]}
               speciesName={speciesName}
+              // The image the page opens on is its Largest Contentful Paint.
+              isLcp={selectedIndex === 0}
             />
 
             <button
@@ -177,39 +186,18 @@ export function SpeciesImageGallery({
 function GalleryFullImage({
   imageId,
   speciesName,
+  isLcp,
 }: {
   imageId: string;
   speciesName: string;
+  isLcp: boolean;
 }) {
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Building the URL needs no I/O, so it is computed during render: awaiting
+  // it in an effect left the first render, the server's included, without
+  // an image.
+  const imgUrl = imageUrlById(imageId, "full");
   // Keyed by URL so moving to the next image clears a previous failure.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    const loadFullImage = async () => {
-      try {
-        const url = await fetchImgById(imageId);
-        setImgUrl(url);
-      } catch (err) {
-        console.error(
-          `Failed to load full image for image ID ${imageId}:`,
-          err,
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadFullImage();
-  }, [imageId]);
-
-  if (!imgUrl) {
-    return null;
-  }
-
-  if (loading) return <ImageLoading size={128} msg="" />;
 
   if (failedUrl === imgUrl) return <NoImage />;
 
@@ -219,8 +207,9 @@ function GalleryFullImage({
       alt={`Image of ${speciesName}`}
       fill
       sizes="(max-width:768px) 100vw, 800px"
-      // The main image is at the top of the species page and is its Largest
-      // Contentful Paint, so it must not wait for lazy loading.
+      // In the server HTML, so the browser's preload scanner finds it at
+      // once; high priority puts it ahead of the thumbnails.
+      fetchPriority={isLcp ? "high" : "auto"}
       loading="eager"
       className="object-contain m-1"
       onError={() => setFailedUrl(imgUrl)}
@@ -238,33 +227,10 @@ function GalleryThumbnail({
   idx: number;
   speciesName: string;
 }) {
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const thumbUrl = imageUrlById(imageId, "thumbnail");
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    const loadThumbnail = async () => {
-      try {
-        const url = await fetchThumbnailById(imageId);
-        setThumbUrl(url);
-      } catch (err) {
-        console.error(`Failed to load thumbnail for image ID ${imageId}:`, err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadThumbnail();
-  }, [imageId]);
-
-  if (!thumbUrl) {
-    return null;
-  }
-
-  return loading ? (
-    <ImageLoading size={48} msg="" />
-  ) : (
+  return (
     <div className="relative w-full h-full">
       {failedUrl === thumbUrl ? (
         <NoImage className="text-[10px] [&>svg]:h-4 [&>svg]:w-4" />

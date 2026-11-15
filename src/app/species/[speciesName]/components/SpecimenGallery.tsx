@@ -1,36 +1,24 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import SpecimensTab from "./SpecimensTab";
 import SpeciesHeader from "./SpeciesTitle";
+import { TaxonomyData } from "@/lib/speciesData";
 
 interface SpecimenGalleryProps {
   speciesName?: string;
+  /** Fetched by the gallery route on the server; null when unavailable. */
+  taxonomy: TaxonomyData | null;
 }
 
-export default function SpecimenGallery({ speciesName }: SpecimenGalleryProps) {
-  // Try to reuse species data cached by the main species page to avoid refetching.
-  const [speciesData, setSpeciesData] = useState<any | null>(null);
-
-  useEffect(() => {
-    if (!speciesName) return;
-
-    try {
-      const raw = localStorage.getItem(`speciesData:${speciesName}`);
-
-      if (raw) setSpeciesData(JSON.parse(raw));
-    } catch (e) {
-      // ignore
-    }
-  }, [speciesName]);
-
+export default function SpecimenGallery({
+  speciesName,
+  taxonomy,
+}: SpecimenGalleryProps) {
   return (
     <div>
-      {speciesData ? (
-        <SpeciesHeader
-          taxonomy={speciesData.taxonomy}
-          name={speciesData.taxonomy?.species ?? ""}
-        />
+      {taxonomy ? (
+        <SpeciesHeader taxonomy={taxonomy} name={taxonomy.species ?? ""} />
       ) : null}
       <SpecimensTab
         speciesName={speciesName}

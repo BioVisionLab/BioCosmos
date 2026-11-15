@@ -185,6 +185,7 @@ class ImageMetaStats:
         config = ImageMetaConfig()
         self.table = config.table
         self.gbif_table = GbifConfig().table
+        self.provenance_table = ProvenanceConfig().table
         self.db_client = duckdb
 
     def get_entries_count(self) -> int | None:
@@ -256,7 +257,14 @@ class ImageMetaStats:
         Records with no GBIF match, or a match with no institution at all,
         are grouped under 'Unknown' rather than dropped, so the proportions
         account for every image.
+
+        ProvenanceService stores that deduplicated holder per img_id at
+        startup, so it is read from there when built; deduplicating all of
+        gbif_meta again is the fallback for a database without it.
         """
+        if self.db_client.table_exists(self.provenance_table):
+            return self._institution_counts_from_provenance()
+
         if not self.db_client.table_exists(self.gbif_table):
             logger.warning(
                 f"No '{self.gbif_table}' table; institution counts are unavailable."
@@ -291,6 +299,27 @@ class ImageMetaStats:
         if result.is_empty():
             logger.warning("No institution data found in the image collection.")
             return None
+        return dict(zip(result["institution"].to_list(), result["count"].to_list()))
+
+    def _institution_counts_from_provenance(self) -> dict | None:
+        # Joined from the image_meta view, so excluded families stay out even
+        # if the provenance table predates the exclusion.
+        result = self.db_client.execute_to_pl(
+            f"""
+            SELECT coalesce(p.institution_code, 'Unknown') AS institution,
+                   COUNT(*) AS count
+            FROM {self.table} im
+            LEFT JOIN {self.provenance_table} p ON p.img_id = im.img_id
+            GROUP BY institution
+            ORDER BY count DESC
+            """
+        )
+
+        if result.is_empty():
+            logger.warning("No institution data found in the image collection.")
+
+            return None
+
         return dict(zip(result["institution"].to_list(), result["count"].to_list()))
 
     def count_images_per_family(self) -> dict | None:
@@ -511,18 +540,18 @@ class ImageMetaService:
             temp_name = f"temp_species_ids_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": species_list})
 
-            with self.db_client.lock:
-                self.db_client.register(temp_name, names_df)
-                query = f"""
-                    SELECT img_id
-                    FROM {self.table} m
-                    INNER JOIN {temp_name} t
-                    ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
-                """
-                try:
-                    result = self.db_client.execute(query).pl()
-                finally:
-                    self.db_client.unregister(temp_name)
+            self.db_client.register(temp_name, names_df)
+            query = f"""
+                SELECT img_id
+                FROM {self.table} m
+                INNER JOIN {temp_name} t
+                ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+            """
+
+            try:
+                result = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             if result is None or result.is_empty():
                 logger.warning(
@@ -557,21 +586,21 @@ class ImageMetaService:
             temp_name = f"temp_species_{uuid.uuid4().hex}"
             names_df = pl.DataFrame({"species": scientific_names})
 
-            with self.db_client.lock:
-                self.db_client.register(temp_name, names_df)
-                query = f"""
-                    SELECT
-                        MIN(m.img_id) AS imgId,
-                        m.species
-                    FROM {self.table} m
-                    INNER JOIN {temp_name} t
-                    ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
-                    GROUP BY m.species
-                """
-                try:
-                    results = self.db_client.execute(query).pl()
-                finally:
-                    self.db_client.unregister(temp_name)
+            self.db_client.register(temp_name, names_df)
+            query = f"""
+                SELECT
+                    MIN(m.img_id) AS imgId,
+                    m.species
+                FROM {self.table} m
+                INNER JOIN {temp_name} t
+                ON LOWER(REPLACE(m.species, ' ', '_')) = LOWER(REPLACE(t.species, ' ', '_'))
+                GROUP BY m.species
+            """
+
+            try:
+                results = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             return results
         except Exception as e:
@@ -732,17 +761,17 @@ class ImageMetaService:
             temp_name = f"temp_ids_{uuid.uuid4().hex}"
             ids_df = pl.DataFrame({"img_id": img_ids})
 
-            with self.db_client.lock:
-                self.db_client.register(temp_name, ids_df)
-                query = f"""
-                    SELECT img_id, m.species, m.source_db, m.class_dv 
-                    FROM {self.table} m
-                    INNER JOIN {temp_name} t ON m.mask_name = t.img_id
-                """
-                try:
-                    duckdb_results = self.db_client.execute(query).pl()
-                finally:
-                    self.db_client.unregister(temp_name)
+            self.db_client.register(temp_name, ids_df)
+            query = f"""
+                SELECT img_id, m.species, m.source_db, m.class_dv 
+                FROM {self.table} m
+                INNER JOIN {temp_name} t ON m.mask_name = t.img_id
+            """
+
+            try:
+                duckdb_results = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             return duckdb_results
 
@@ -788,21 +817,21 @@ class ImageMetaService:
             # Register the full image_data DataFrame as a temporary table using unique identifier
             temp_name = f"temp_image_data_{uuid.uuid4().hex}"
 
-            with self.db_client.lock:
-                self.db_client.register(temp_name, image_data)
-                query = f"""
-                    SELECT 
-                        t.*,
-                        m.species,
-                        m.source_db,
-                        m.class_dv
-                    FROM {temp_name} t
-                    INNER JOIN {self.table} m ON t.imgId = m.img_id
-                """
-                try:
-                    merged_results = self.db_client.execute(query).pl()
-                finally:
-                    self.db_client.unregister(temp_name)
+            self.db_client.register(temp_name, image_data)
+            query = f"""
+                SELECT 
+                    t.*,
+                    m.species,
+                    m.source_db,
+                    m.class_dv
+                FROM {temp_name} t
+                INNER JOIN {self.table} m ON t.imgId = m.img_id
+            """
+
+            try:
+                merged_results = self.db_client.execute(query).pl()
+            finally:
+                self.db_client.unregister(temp_name)
 
             if merged_results is None or merged_results.is_empty():
                 logger.warning("No metadata found for the given image IDs.")

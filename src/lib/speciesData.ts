@@ -1,5 +1,4 @@
-// import fs from "fs";
-import { ColTaxonomy, normalizeColTaxonomy } from "./colTaxonomy";
+import { ColTaxonomy } from "./colTaxonomy";
 import { LepTraits } from "./leptraits";
 
 /**
@@ -43,44 +42,4 @@ function parseSpeciesSlug(folderName: string): {
   return { genus, species, formattedName: `${genus} ${species}` };
 }
 
-async function getSpeciesData(folderName: string): Promise<SpeciesData | null> {
-  const { formattedName } = parseSpeciesSlug(folderName);
-
-  // Fetch taxonomy data from the external service
-  try {
-    const response = await fetch(
-      `/api/taxon-search?species=${encodeURIComponent(formattedName)}`,
-    );
-
-    if (!response.ok) {
-      console.error(
-        `Failed to fetch taxonomy data for ${formattedName}: ${response.statusText}`,
-      );
-
-      return null; // Return null if the request fails
-    }
-
-    const dataRaw = await response.json();
-    const traits: LepTraits = dataRaw["traits"] || {};
-    // Use taxonomy data directly if available, otherwise fallback to the root
-    const taxonomy = normalizeColTaxonomy(dataRaw["taxonomy"] ?? dataRaw);
-
-    if (!taxonomy) {
-      // Not an error: the classification panel shows its own empty state
-      // while the rest of the page carries on.
-      console.warn(`No taxonomy data found for ${formattedName}`);
-    }
-
-    // Map the response to our SpeciesData format
-    return {
-      taxonomy,
-      traits,
-    };
-  } catch (error) {
-    console.error(`Error fetching taxonomy data for ${formattedName}:`, error);
-
-    return null; // Return null if there was an error
-  }
-}
-
-export { getSpeciesData, parseSpeciesSlug };
+export { parseSpeciesSlug };

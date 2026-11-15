@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from ..query.image_files import ImageFileRetrieval, ImageMetaRetrieval
+from .http_cache import IMAGE_BY_ID_CACHE_CONTROL, SPECIES_IMAGE_CACHE_CONTROL
 
 router = APIRouter()
 
@@ -41,7 +42,9 @@ async def image_search_by_id(request: Request, image_id: str) -> FileResponse:
                 status_code=404,
                 detail="Image not found for the given ID.",
             )
-        return FileResponse(img_path)
+        return FileResponse(
+            img_path, headers={"Cache-Control": IMAGE_BY_ID_CACHE_CONTROL}
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -102,7 +105,9 @@ async def image_search_thumbnail_by_id(request: Request, image_id: str):
                 status_code=404,
                 detail="Thumbnail image not found for the given ID.",
             )
-        return FileResponse(img_path)
+        return FileResponse(
+            img_path, headers={"Cache-Control": IMAGE_BY_ID_CACHE_CONTROL}
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -204,7 +209,9 @@ async def fetch_taxon_thumbnail(request: Request, scientific_name: str):
             status_code=404,
             detail=f"Thumbnail not found for species: {scientific_name}",
         )
-    return FileResponse(img_path)
+    return FileResponse(
+        img_path, headers={"Cache-Control": SPECIES_IMAGE_CACHE_CONTROL}
+    )
 
 
 @router.get(
@@ -232,7 +239,9 @@ async def fetch_species_high_res_image(request: Request, scientific_name: str):
                 detail=f"Image not found for species: {scientific_name}",
             )
 
-        return FileResponse(img_path)
+        return FileResponse(
+            img_path, headers={"Cache-Control": SPECIES_IMAGE_CACHE_CONTROL}
+        )
     except HTTPException:
         # Without this the 404 above is caught below and reported as a 500.
         raise

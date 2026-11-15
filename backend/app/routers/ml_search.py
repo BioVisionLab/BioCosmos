@@ -1,6 +1,7 @@
+import asyncio
 import logging
 
-from fastapi import APIRouter, Request, UploadFile, File
+from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from ..query.image_search import (
@@ -16,8 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/search/text", tags=["ML Search"])
-async def search_text(request: Request, q: str, limit: int = 50):
+def search_text(request: Request, q: str, limit: int = 50):
     """Endpoint for text to image search.
+
+    A plain `def`, so FastAPI runs the embedding and vector search in its
+    threadpool instead of on the event loop.
 
     Expects a query parameter 'q' for the search term.
     Returns a list of search results based on the text embedding.
@@ -109,8 +113,11 @@ async def image_search(request: Request, file: UploadFile = File(...)):
 
         logger.info("Generating UNICOM image embedding from uploaded file...")
         # Pass the image bytes directly to ImageToImageSearch
+        # Embedding and the vector search block, so they run in a worker
+        # thread rather than stalling every other request on the event loop.
         img_service = ImageToImageSearch(request)
-        search_results = img_service.search(image_bytes=image_bytes)
+        search_results = await asyncio.to_thread(img_service.search, image_bytes)
+
         if search_results is None:
             logger.warning("No results found for the given image.")
             return JSONResponse(

@@ -4,8 +4,6 @@ Exercised against a real in-memory DuckDB, like test_provenance_service.py,
 with the resolver stubbed so no test touches the GBIF registry.
 """
 
-import threading
-
 import duckdb
 import pytest
 from instharmonize import Institution, MatchSource
@@ -23,8 +21,7 @@ TABLE = "institution_directory"
 
 class MemoryDuckDBClient(DuckDBClient):
     def __init__(self):
-        self.conn = duckdb.connect(database=":memory:")
-        self.lock = threading.RLock()
+        super().__init__(duckdb.connect(database=":memory:"))
 
 
 class StubResolver:

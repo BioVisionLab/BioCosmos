@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
     "/search/db",
     tags=["Conventional Search"],
 )
-async def search_db(
+def search_db(
     request: Request, q: str, field: str = "all", page: int = 1, limit: int = 50
 ):
     """Endpoint for conventional database search.

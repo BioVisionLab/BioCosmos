@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/geography/codes", tags=["Species Data"])
-async def get_geography_codes():
+def get_geography_codes():
     """Return the human-readable description of every coordinate-validation code.
 
     Serving these once lets per-record payloads carry bare codes while the UI

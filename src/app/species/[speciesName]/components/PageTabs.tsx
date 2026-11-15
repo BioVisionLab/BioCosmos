@@ -61,6 +61,9 @@ interface TabsComponentProps {
   speciesData: SpeciesData | null;
   // route slug (folder name) like 'zeuxidia_amethystus'
   speciesSlug?: string;
+  // The gallery's first page of image ids, fetched with the page on the
+  // server so the main image is in the initial HTML.
+  galleryImageIds?: string[];
 }
 
 const TAB_IDS = [
@@ -94,6 +97,7 @@ const TAB_LABELS: Record<TabId, string> = {
 const TabsComponent: React.FC<TabsComponentProps> = ({
   speciesData,
   speciesSlug,
+  galleryImageIds,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   // Tabs the user has opened at least once. Visited panels stay mounted (but
@@ -124,6 +128,7 @@ const TabsComponent: React.FC<TabsComponentProps> = ({
             taxonomy={speciesData?.taxonomy ?? null}
             traits={speciesData?.traits ?? null}
             speciesSlug={speciesSlug ?? speciesName}
+            galleryImageIds={galleryImageIds}
             onViewSpecimens={() => selectTab("specimens")}
           />
         );
